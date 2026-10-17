@@ -76,10 +76,11 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Finishes an additive member while retaining its installation-stage counter in progress messages.</summary>
 		internal Task<CollectionNativeChildVerificationResult> VerifySubmittedChildAsync(
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
-			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, int currentMember, int totalMembers)
+			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, int currentMember, int totalMembers,
+			CollectionNativeStateIndex sessionState = null)
 		{
 			return VerifySubmittedChildCoreAsync(executionResult, plan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.Additive,
-				currentMember, totalMembers);
+				currentMember, totalMembers, sessionState);
 		}
 
 		/// <summary>Verifies one C8.6 incoming replacement child against authoritative native state.</summary>
@@ -101,7 +102,7 @@ namespace Nexus.Client.CollectionManagement
 		private async Task<CollectionNativeChildVerificationResult> VerifySubmittedChildCoreAsync(
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
 			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, CollectionNativeChildWorkflowMode workflowMode,
-			int currentMember = 0, int totalMembers = 0)
+			int currentMember = 0, int totalMembers = 0, CollectionNativeStateIndex sessionState = null)
 		{
 			if (executionResult == null) throw new ArgumentNullException(nameof(executionResult));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -170,7 +171,19 @@ namespace Nexus.Client.CollectionManagement
 				recovery = RequireRecoveryManifest(operation, child, plan);
 				if (exactReportedIdentity && reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded)
 					ModManagerCollectionManagedArchiveSource.RestoreMissingNativeRepositoryIdentity(_services.ModManager, recovery, CancellationToken.None);
-				CollectionNativeStateIndex state = CaptureReloadedState(plan.Target);
+				CollectionNativeStateIndex state = null;
+				CollectionTargetMutationLease lease = executionResult.MutationLease;
+				// Planned destinations remain authoritative when Skip content checks deliberately omits byte evidence.
+				if (trustNativeCommit && executionResult.BorrowsInstallSession && lease.IsRoot &&
+					lease.HasCrossProcessReservation && lease.HasValidatedNativeAuthority && !lease.RequiresRecovery)
+				{
+					state = new CollectionNativeStateReader(_services.ModManager.InstallationLog,
+						_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode,
+						_associationStore).TryCaptureCommittedVirtualChild(plan.Target, sessionState,
+							recovery.PreparationStateFingerprint, reviewedPreview, recovery.PreviousNativeMod);
+				}
+				if (state == null)
+					state = CaptureReloadedState(plan.Target);
 
 				CollectionNativeModState verifiedNativeMod = null;
 				string committedFailure = null;

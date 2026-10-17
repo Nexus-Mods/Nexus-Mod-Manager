@@ -163,14 +163,26 @@ namespace Nexus.Client.ModManagement
 					m_ctlParentMutationLease, identity.Fingerprint.TargetFingerprint);
 			}
 
-			CollectionTargetMutationLease coordinatedLease;
-			if (CollectionManualNativeMutationBoundary.TryAcquire(this, out coordinatedLease))
+			NativeModStatePreparationTask preparationTask = new NativeModStatePreparationTask();
+			OnTaskStarted(preparationTask);
+			bool succeeded = false;
+			try
+			{
+				CollectionTargetMutationLease coordinatedLease;
+				if (!CollectionManualNativeMutationBoundary.TryAcquire(this, out coordinatedLease))
+				{
+					string targetFingerprint = identity == null
+						? LegacyUnidentifiedMutationTarget
+						: identity.Fingerprint.TargetFingerprint;
+					coordinatedLease = CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(targetFingerprint);
+				}
+				succeeded = true;
 				return coordinatedLease;
-
-			string targetFingerprint = identity == null
-				? LegacyUnidentifiedMutationTarget
-				: identity.Fingerprint.TargetFingerprint;
-			return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(targetFingerprint);
+			}
+			finally
+			{
+				preparationTask.Complete(succeeded);
+			}
 		}
 
 		/// <summary>

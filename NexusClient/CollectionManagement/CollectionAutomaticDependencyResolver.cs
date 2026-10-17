@@ -134,6 +134,11 @@ namespace Nexus.Client.CollectionManagement
 			var active = manifest.HasPluginStateSection
 				? new HashSet<string>(manifest.PluginStates.Where(x => x.Enabled && providedNames.Contains(x.PluginName)).Select(x => x.PluginName), StringComparer.OrdinalIgnoreCase)
 				: new HashSet<string>(activeIncomingPlugins.Concat(state.Plugins.Values.Where(x => x.Active && providedNames.Contains(Path.GetFileName(x.FileName))).Select(x => Path.GetFileName(x.FileName))), StringComparer.OrdinalIgnoreCase);
+			if (plan.Policy.EnableUnspecifiedPlugins)
+			{
+				var explicitlyDisabled = new HashSet<string>(manifest.PluginStates.Where(x => !x.Enabled).Select(x => x.PluginName), StringComparer.OrdinalIgnoreCase);
+				active.UnionWith(providedNames.Where(x => !explicitlyDisabled.Contains(x)));
+			}
 			var pending = new Queue<string>(active);
 			var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

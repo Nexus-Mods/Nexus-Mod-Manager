@@ -402,7 +402,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 		}
 
-		/// <summary>Creates a native observation with transient journal-proven partial-install continuation scope.</summary>
+		/// <summary>Creates a native observation with transient continuation scope and optional immutable file-index reuse.</summary>
+		/// <remarks>When a file baseline is supplied, files contains only refreshed targets; an empty refresh shares the complete file indexes.</remarks>
 		internal CollectionNativeStateIndex(CollectionTargetIdentity target, IEnumerable<CollectionNativeRootState> roots,
 			IEnumerable<CollectionNativeModState> mods, IEnumerable<CollectionNativeFileState> files,
 			IEnumerable<CollectionNativeIniState> iniEdits, IEnumerable<CollectionNativeGameValueState> gameValues,
@@ -410,7 +411,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionTargetAssociation> associations, IEnumerable<CollectionMemberBinding> bindings,
 			IEnumerable<UserOverride> overrides, CollectionNativeStateCoverage associationCoverage,
 			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence, IEnumerable<Guid> reconciledPartialAssociations,
-			bool pluginOrderRequiresMasterSection = false)
+			bool pluginOrderRequiresMasterSection = false, CollectionNativeStateIndex fileBaseline = null,
+			ISet<ModDeploymentTarget> refreshedFileTargets = null)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			Roots = new ReadOnlyCollection<CollectionNativeRootState>((roots ?? throw new ArgumentNullException(nameof(roots))).ToList());
@@ -432,10 +434,30 @@ namespace Nexus.Client.CollectionManagement
 				modList.ToDictionary(x => x.Identity.NativeModKey, StringComparer.OrdinalIgnoreCase));
 
 			List<CollectionNativeFileState> fileList = (files ?? throw new ArgumentNullException(nameof(files))).ToList();
-			_files = new ReadOnlyDictionary<ModDeploymentTarget, CollectionNativeFileState>(fileList.ToDictionary(x => x.Target));
-			_filesByOwnerKey = BuildOwnerIndex(fileList, file => file.InstallLogOwners.Select(x => x.OwnerKey)
-				.Concat(file.DeploymentOwners.Select(x => x.OwnerKey))
-				.Concat(file.VirtualOwners.Select(x => x.OwnerKey)));
+			if (fileBaseline == null)
+			{
+				if (refreshedFileTargets != null) throw new ArgumentException("Partial file state requires a baseline.", nameof(fileBaseline));
+				_files = new ReadOnlyDictionary<ModDeploymentTarget, CollectionNativeFileState>(fileList.ToDictionary(x => x.Target));
+				_filesByOwnerKey = BuildOwnerIndex(fileList, GetFileOwnerKeys);
+			}
+			else
+			{
+				if (!Target.Equals(fileBaseline.Target) || refreshedFileTargets == null || fileList.Any(x => !refreshedFileTargets.Contains(x.Target)))
+					throw new ArgumentException("Partial file state must belong to the baseline target and declared refresh scope.", nameof(refreshedFileTargets));
+				if (refreshedFileTargets.Count == 0)
+				{
+					_files = fileBaseline._files;
+					_filesByOwnerKey = fileBaseline._filesByOwnerKey;
+				}
+				else
+				{
+					var fileIndex = new Dictionary<ModDeploymentTarget, CollectionNativeFileState>(fileBaseline._files);
+					foreach (ModDeploymentTarget refreshedTarget in refreshedFileTargets) fileIndex.Remove(refreshedTarget);
+					foreach (CollectionNativeFileState file in fileList) fileIndex.Add(file.Target, file);
+					_files = new ReadOnlyDictionary<ModDeploymentTarget, CollectionNativeFileState>(fileIndex);
+					_filesByOwnerKey = RefreshFileOwnerIndex(fileBaseline, refreshedFileTargets, fileList);
+				}
+			}
 
 			List<CollectionNativeIniState> iniList = (iniEdits ?? throw new ArgumentNullException(nameof(iniEdits))).ToList();
 			_iniEdits = new ReadOnlyDictionary<CollectionNativeIniKey, CollectionNativeIniState>(iniList.ToDictionary(x => x.Key));
@@ -501,6 +523,41 @@ namespace Nexus.Client.CollectionManagement
 		{
 			return association != null && association.State == CollectionAssociationState.Incomplete &&
 				association.Revision.Equals(revision) && ReconciledPartialAssociations.Contains(association.AssociationId);
+		}
+
+		/// <summary>Enumerates every recorded owner, including inactive overwrite sources.</summary>
+		private static IEnumerable<string> GetFileOwnerKeys(CollectionNativeFileState file)
+		{
+			return file.InstallLogOwners.Select(x => x.OwnerKey).Concat(file.DeploymentOwners.Select(x => x.OwnerKey))
+				.Concat(file.VirtualOwners.Select(x => x.OwnerKey));
+		}
+
+		/// <summary>Replaces only changed owners' file lists while sharing all other immutable ownership lists.</summary>
+		private static ReadOnlyDictionary<string, ReadOnlyCollection<CollectionNativeFileState>> RefreshFileOwnerIndex(
+			CollectionNativeStateIndex baseline, ISet<ModDeploymentTarget> targets, List<CollectionNativeFileState> refreshedFiles)
+		{
+			ReadOnlyDictionary<string, ReadOnlyCollection<CollectionNativeFileState>> refreshed = BuildOwnerIndex(refreshedFiles, GetFileOwnerKeys);
+			var owners = new HashSet<string>(refreshed.Keys, StringComparer.OrdinalIgnoreCase);
+			foreach (ModDeploymentTarget target in targets)
+			{
+				CollectionNativeFileState previous;
+				if (baseline.Files.TryGetValue(target, out previous))
+					owners.UnionWith(GetFileOwnerKeys(previous).Where(x => !String.IsNullOrWhiteSpace(x)));
+			}
+			var index = new Dictionary<string, ReadOnlyCollection<CollectionNativeFileState>>(baseline._filesByOwnerKey, StringComparer.OrdinalIgnoreCase);
+			foreach (string owner in owners)
+			{
+				ReadOnlyCollection<CollectionNativeFileState> previous;
+				ReadOnlyCollection<CollectionNativeFileState> current;
+				baseline._filesByOwnerKey.TryGetValue(owner, out previous);
+				refreshed.TryGetValue(owner, out current);
+				List<CollectionNativeFileState> files = ((IEnumerable<CollectionNativeFileState>)previous ?? Enumerable.Empty<CollectionNativeFileState>())
+					.Where(x => !targets.Contains(x.Target)).Concat((IEnumerable<CollectionNativeFileState>)current ?? Enumerable.Empty<CollectionNativeFileState>())
+					.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
+				if (files.Count == 0) index.Remove(owner);
+				else index[owner] = new ReadOnlyCollection<CollectionNativeFileState>(files);
+			}
+			return new ReadOnlyDictionary<string, ReadOnlyCollection<CollectionNativeFileState>>(index);
 		}
 
 		private static ReadOnlyDictionary<string, ReadOnlyCollection<T>> BuildOwnerIndex<T>(IEnumerable<T> records,

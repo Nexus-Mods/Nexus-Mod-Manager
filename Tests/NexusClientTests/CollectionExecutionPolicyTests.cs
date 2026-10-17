@@ -24,6 +24,18 @@ namespace NexusClientTests
 			Assert.That(policy.HasResolvedReplacementBackupDecision, Is.True);
 		}
 
+		/// <summary>The plugin opt-in is immutable, defaults off, and participates in reviewed policy identity.</summary>
+		[Test]
+		public void UnlistedPluginPreference_DefaultsOffAndParticipatesInPolicyEquality()
+		{
+			CollectionExecutionPolicy normal = CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false);
+			CollectionExecutionPolicy optedIn = CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, true);
+			Assert.That(normal.EnableUnspecifiedPlugins, Is.False);
+			Assert.That(optedIn.EnableUnspecifiedPlugins, Is.True);
+			Assert.That(optedIn, Is.Not.EqualTo(normal));
+			Assert.That(optedIn, Is.EqualTo(CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, true)));
+		}
+
 		[Test]
 		public void Replacement_IsExplicitReviewedTransitionThatPreservesArchivesAndUnknownFiles()
 		{

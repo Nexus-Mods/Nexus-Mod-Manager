@@ -42,7 +42,7 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionReviewedConfigurationImpactSnapshot> configurationImpacts,
 			IEnumerable<CollectionReviewedAssociationImpactSnapshot> associationImpacts,
 			IEnumerable<CollectionReviewedPreparedRecipeSnapshot> preparedRecipes,
-			bool automaticallyInstall = false, bool preferIncomingCollection = false)
+			bool automaticallyInstall = false, bool preferIncomingCollection = false, bool enableUnspecifiedPlugins = false)
 		{
 			Identity = identity ?? throw new ArgumentNullException(nameof(identity));
 			Revision = revision ?? throw new ArgumentNullException(nameof(revision));
@@ -56,12 +56,13 @@ namespace Nexus.Client.CollectionManagement
 			if (policyKind == CollectionExecutionPolicyKind.InstallIntoCurrentSetup &&
 				replacementBackupChoice != CollectionReplacementBackupChoice.NotApplicable)
 				throw new ArgumentException("Additive reviewed workflow cannot carry a replacement backup choice.", nameof(replacementBackupChoice));
-			if (policyKind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup && (automaticallyInstall || preferIncomingCollection))
+			if (policyKind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup && (automaticallyInstall || preferIncomingCollection || enableUnspecifiedPlugins))
 				throw new ArgumentException("Install preferences belong only to an additive reviewed workflow.", nameof(policyKind));
 			PolicyKind = policyKind;
 			ReplacementBackupChoice = replacementBackupChoice;
 			AutomaticallyInstall = automaticallyInstall;
 			PreferIncomingCollection = preferIncomingCollection;
+			EnableUnspecifiedPlugins = enableUnspecifiedPlugins;
 			_members = Copy(members, nameof(members));
 			_dependencies = Copy(dependencies, nameof(dependencies));
 			_priorityRules = Copy(priorityRules, nameof(priorityRules));
@@ -84,6 +85,8 @@ namespace Nexus.Client.CollectionManagement
 		public bool AutomaticallyInstall { get; }
 		/// <summary>Gets the recorded authorization to overwrite existing effects.</summary>
 		public bool PreferIncomingCollection { get; }
+		/// <summary>Gets the reviewed opt-in for activating otherwise unlisted Collection plugins.</summary>
+		public bool EnableUnspecifiedPlugins { get; }
 		public CollectionCurrentStateFingerprint ApprovedStateFingerprint { get; }
 		public CollectionManifestSourceSnapshot ManifestSource { get; }
 		public ReadOnlyCollection<CollectionReviewedMemberSnapshot> Members { get { return _members; } }
@@ -171,7 +174,7 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionReviewedWorkflowSnapshot(plan.Identity, plan.Revision, plan.Target, plan.Policy.Kind,
 				plan.Policy.ReplacementBackupChoice, plan.CurrentStateFingerprint, plan.ManifestSource, members, dependencies,
 				priorities, phases, barriers, fileImpacts, pluginImpacts, configurationImpacts, associationImpacts, recipes,
-				plan.Policy.AutomaticallyInstall, plan.Policy.PreferIncomingCollection);
+				plan.Policy.AutomaticallyInstall, plan.Policy.PreferIncomingCollection, plan.Policy.EnableUnspecifiedPlugins);
 		}
 
 		private void ValidateClosure()
@@ -647,7 +650,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 9;
+		private const int BinaryVersion = 10;
 		private const int LegacyBinaryVersion = 2;
 		// Large Collections retain each file in mappings, validation paths, previews and winner records.
 		// Use the same bounds for writing and reading to avoid publishing reviews the codec cannot reopen.
@@ -682,6 +685,7 @@ namespace Nexus.Client.CollectionManagement
 				WritePreparedRecipes(writer, snapshot.PreparedRecipes);
 				writer.Write(snapshot.AutomaticallyInstall);
 				writer.Write(snapshot.PreferIncomingCollection);
+				writer.Write(snapshot.EnableUnspecifiedPlugins);
 				writer.Flush();
 				if (stream.Length > MaxPayloadLength)
 					throw new InvalidOperationException("Collection installation instructions exceed NMM's supported size (256 MB).");
@@ -703,7 +707,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != BinaryVersion && binaryVersion != 9 && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -723,9 +727,10 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionReviewedPreparedRecipeSnapshot> recipes = ReadPreparedRecipes(reader, binaryVersion);
 					bool automaticallyInstall = binaryVersion >= 9 && reader.ReadBoolean();
 					bool preferIncomingCollection = binaryVersion >= 9 && reader.ReadBoolean();
+					bool enableUnspecifiedPlugins = binaryVersion >= 10 && reader.ReadBoolean();
 					if (stream.Position != stream.Length) throw new InvalidDataException("Reviewed workflow payload contains trailing bytes.");
 					var result = new CollectionReviewedWorkflowSnapshot(identity, revision, target, policy, backup, state, manifestSource,
-						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes, automaticallyInstall, preferIncomingCollection);
+						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes, automaticallyInstall, preferIncomingCollection, enableUnspecifiedPlugins);
 					CollectionPerformanceMetrics.RecordReviewedSnapshotDeserialize(performanceStarted, payload.LongLength);
 					return result;
 				}

@@ -12,6 +12,20 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <inheritdoc />
 		public InstallLogReadSnapshot GetCommittedStateSnapshot()
 		{
+			return CaptureCommittedStateSnapshot(null);
+		}
+
+		/// <summary>Captures registrations and configuration plus promoted targets for an exclusively reserved Virtual child.</summary>
+		/// <remarks>The caller must rule out legacy InstallLog ownership for these targets before using this partial file observation.</remarks>
+		internal InstallLogReadSnapshot GetCommittedStateSnapshotForVirtualTargets(ISet<ModDeploymentTarget> targets)
+		{
+			if (targets == null) throw new ArgumentNullException(nameof(targets));
+			return CaptureCommittedStateSnapshot(targets);
+		}
+
+		/// <summary>Captures complete committed state, or omits legacy files and limits promoted ownership to the requested Virtual targets.</summary>
+		private InstallLogReadSnapshot CaptureCommittedStateSnapshot(ISet<ModDeploymentTarget> virtualTargets)
+		{
 			if (Transaction.Current != null)
 				throw new InvalidOperationException("Committed InstallLog state cannot be captured from inside an ambient transaction.");
 
@@ -29,23 +43,26 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			}
 
 			var files = new List<InstallLogReadFile>();
-			foreach (InstalledItemDictionary<string, object>.ItemInstallers item in _installedFiles)
+			if (virtualTargets == null)
 			{
-				List<string> ownerKeys = item.Installers.Select(x => x.InstallerKey).ToList();
-				IMod currentMod = null;
-				string currentModKey = null;
-				for (int index = ownerKeys.Count - 1; index >= 0 && currentMod == null; index--)
+				foreach (InstalledItemDictionary<string, object>.ItemInstallers item in _installedFiles)
 				{
-					if (visibleModsByKey.TryGetValue(ownerKeys[index], out currentMod))
-						currentModKey = ownerKeys[index];
+					List<string> ownerKeys = item.Installers.Select(x => x.InstallerKey).ToList();
+					IMod currentMod = null;
+					string currentModKey = null;
+					for (int index = ownerKeys.Count - 1; index >= 0 && currentMod == null; index--)
+					{
+						if (visibleModsByKey.TryGetValue(ownerKeys[index], out currentMod))
+							currentModKey = ownerKeys[index];
+					}
+
+					if (currentModKey != null && IsVirtualStorageOnlyFileRecord(item.Item, GetModInstallMethodByKey(currentModKey)))
+						continue;
+
+					ModInstallRoot installRoot = currentModKey == null ? ModInstallRoot.Data : GetModInstallRootByKey(currentModKey);
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, currentMod, item.Item, installRoot);
+					files.Add(new InstallLogReadFile(item.Item, target, ownerKeys));
 				}
-
-				if (currentModKey != null && IsVirtualStorageOnlyFileRecord(item.Item, GetModInstallMethodByKey(currentModKey)))
-					continue;
-
-				ModInstallRoot installRoot = currentModKey == null ? ModInstallRoot.Data : GetModInstallRootByKey(currentModKey);
-				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, currentMod, item.Item, installRoot);
-				files.Add(new InstallLogReadFile(item.Item, target, ownerKeys));
 			}
 
 			var iniEdits = new List<InstallLogReadIniEdit>();
@@ -63,8 +80,20 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			}
 
 			var deploymentTargets = new List<InstallLogReadDeploymentTarget>();
-			foreach (KeyValuePair<ModDeploymentTarget, DeploymentEntry> item in _deploymentByTarget)
-				deploymentTargets.Add(new InstallLogReadDeploymentTarget(item.Key, item.Value.OwnerKeys));
+			if (virtualTargets == null)
+			{
+				foreach (KeyValuePair<ModDeploymentTarget, DeploymentEntry> item in _deploymentByTarget)
+					deploymentTargets.Add(new InstallLogReadDeploymentTarget(item.Key, item.Value.OwnerKeys));
+			}
+			else
+			{
+				foreach (ModDeploymentTarget target in virtualTargets)
+				{
+					DeploymentEntry entry;
+					if (_deploymentByTarget.TryGetValue(target, out entry))
+						deploymentTargets.Add(new InstallLogReadDeploymentTarget(target, entry.OwnerKeys));
+				}
+			}
 
 			return new InstallLogReadSnapshot(OriginalValuesKey, _deploymentCommitSequence,
 				mods, files, iniEdits, gameValues, deploymentTargets);

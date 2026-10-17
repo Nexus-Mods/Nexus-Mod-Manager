@@ -36,7 +36,7 @@ namespace Nexus.Client.CollectionManagement
 			var failures = new List<string>();
 			Dictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember = ResolveSelectedNativeMembers(plan, matches, recipes, state, failures);
 			VerifyManagedFiles(impactPlan, recipes, nativeByMember, state, failures);
-			VerifyNonFileEffects(impactPlan, recipes, nativeByMember, state, failures);
+			VerifyNonFileEffects(plan, impactPlan, recipes, nativeByMember, state, failures);
 			if (failures.Count > 0) throw new InvalidOperationException(String.Join(Environment.NewLine, failures));
 		}
 
@@ -183,7 +183,7 @@ namespace Nexus.Client.CollectionManagement
 				.Select(x => x.OwnerKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 		}
 
-		private static void VerifyNonFileEffects(CollectionConflictImpactPlan impactPlan,
+		private static void VerifyNonFileEffects(ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan,
 			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
 			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state, List<string> failures)
 		{
@@ -216,9 +216,10 @@ namespace Nexus.Client.CollectionManagement
 
 			if (impactPlan.PluginImpacts.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
 				failures.Add("Final Collection verification cannot prove reviewed plugin effects because plugin state is unavailable.");
-			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts)
-				if (!CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, impact.Effect))
-					failures.Add(String.Join(", ", impact.Effect.PluginPaths) + ": a reviewed Collection plugin effect no longer matches final native state.");
+			foreach (CollectionPlannedPluginEffect effect in CollectionPluginActivationResolver.Resolve(plan.Policy,
+				plan.CapabilityReport.Manifest, state, impactPlan.PluginImpacts.Select(x => x.Effect)))
+				if (!CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, effect))
+					failures.Add(String.Join(", ", effect.PluginPaths) + ": a reviewed Collection plugin effect no longer matches final native state.");
 		}
 
 		private static bool ByteArraysEqual(byte[] left, byte[] right)

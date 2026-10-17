@@ -969,6 +969,82 @@ namespace NexusClientTests
 			Assert.That(plugin.Active, Is.EqualTo(!desiredActive), "Preparation must remain read-only.");
 		}
 
+		/// <summary>A sparse Collection list determines activation after FOMOD file preparation without requiring every plugin to be listed.</summary>
+		[TestCase(false, false)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void Plan_SparsePluginListUsesOptInWithoutOverridingExplicitDisables(bool enableUnspecified, bool explicitlyDisabled)
+		{
+			NormalizedCollectionMember member = CreateMember(0, "fomod-plugin", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			ModDeploymentTarget pluginTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "choice.esp");
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
+				desiredPlugins: new[] { new CollectionDesiredPluginState("SkyInteract.esp", true) }
+					.Concat(explicitlyDisabled ? new[] { new CollectionDesiredPluginState("choice.esp", false) } : new CollectionDesiredPluginState[0]).ToArray(),
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, enableUnspecified));
+			var preview = new CollectionMemberEffectPreview(member.IdentityResolution.Key, member.RecipeIdentity,
+				ModInstallMethod.Virtual, ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(pluginTarget) },
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new[] { CollectionPlannedPluginEffect.Activation("choice.esp", true) }, new CollectionEffectPreviewIssue[0]);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.That(result.Status, Is.EqualTo(CollectionConflictImpactStatus.Ready));
+			Assert.That(result.PluginImpacts.Single().Effect.Active, Is.EqualTo(enableUnspecified && !explicitlyDisabled),
+				"Only the opted-in default may enable an omitted plugin; an explicit disable remains authoritative.");
+			Assert.That(Path.GetFileName(result.PluginImpacts.Single().Effect.PluginPaths.Single()), Is.EqualTo("choice.esp"));
+		}
+
+		/// <summary>Default activations use the complete intended master graph and leave named choices and unrelated plugins intact.</summary>
+		[TestCase("available", true, true)]
+		[TestCase("missing", false, false)]
+		[TestCase("inactive-external", false, false)]
+		[TestCase("explicit-disable", false, false)]
+		[TestCase("corrupt-master", false, false)]
+		[TestCase("cycle", false, false)]
+		[TestCase("explicit-enable", true, false)]
+		[TestCase("preference-off", true, true)]
+		public void UnlistedPluginActivation_ResolvesMasterChainsAndPreservesExplicitChoices(string scenario, bool expectedChild, bool expectedMaster)
+		{
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativePluginState child = CreateActivationPlugin("Child.esp", false, new[] { "Master.esm" });
+			CollectionNativePluginState master = CreateActivationPlugin("Master.esm", false,
+				new[] { scenario == "cycle" ? "Child.esp" : scenario == "missing" || scenario == "explicit-enable" || scenario == "preference-off" ? "Absent.esm" : "External.esm" },
+				scenario == "corrupt-master" ? PluginParseStatus.Corrupt : PluginParseStatus.Parsed);
+			CollectionNativePluginState external = CreateActivationPlugin("External.esm", scenario != "inactive-external", new string[0]);
+			CollectionDesiredPluginState[] desired = scenario == "explicit-disable"
+				? new[] { new CollectionDesiredPluginState("Master.esm", false) }
+				: scenario == "explicit-enable" ? new[] { new CollectionDesiredPluginState("Child.esp", true) } : new CollectionDesiredPluginState[0];
+			Fixture fixture = CreateFixture(target, new[] { CreateMember(0, "plugin-chain", 100, 200, 0) }, null,
+				new CollectionNativeModState[0], new CollectionNativeFileState[0], null, null, null,
+				CollectionNativeStateCoverage.Complete, plugins: new[] { child, master, external }, desiredPlugins: desired,
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, scenario != "preference-off"));
+			CollectionPlannedPluginEffect order = CollectionPlannedPluginEffect.RelativeOrder(new[] { "Master.esm", "Child.esp" });
+
+			List<CollectionPlannedPluginEffect> result = CollectionPluginActivationResolver.Resolve(fixture.Plan.Policy,
+				fixture.Plan.CapabilityReport.Manifest, fixture.State, new[]
+				{
+					CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\Child.esp", true),
+					CollectionPlannedPluginEffect.Activation("Master.esm", scenario != "explicit-disable"), order
+				});
+
+			Assert.That(result[0].Active, Is.EqualTo(expectedChild));
+			Assert.That(result[1].Active, Is.EqualTo(expectedMaster));
+			Assert.That(result[2], Is.SameAs(order));
+			Assert.That(result.Any(x => x.Kind == CollectionPlannedPluginEffectKind.Activation && x.PluginPaths[0] == "External.esm"), Is.False);
+			Assert.That(child.Active, Is.False, "Resolving reviewed defaults must not mutate the native snapshot.");
+		}
+
+		/// <summary>Creates real detached plugin metadata for conditional activation tests.</summary>
+		private static CollectionNativePluginState CreateActivationPlugin(string name, bool active, string[] masters,
+			PluginParseStatus parseStatus = PluginParseStatus.Parsed)
+		{
+			return new CollectionNativePluginState(name, active, 0, null, String.Empty, parseStatus, PluginAddressClass.Full,
+				PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, masters, new CollectionNativePluginDiagnostic[0]);
+		}
+
 		[TestCase(true)]
 		[TestCase(false)]
 		public void Plan_ExistingUnrelatedPluginAlreadyAtRequestedStateDoesNotNeedDecision(bool active)

@@ -100,8 +100,10 @@ namespace Nexus.Client.CollectionManagement
 			byte[] rawManifest = _revisionSourceStore.LoadManifest(selection.Manifest.Revision, selection.Manifest.Source);
 			JArray mods = ParseMods(rawManifest);
 			var resolvedOrdinals = new HashSet<int>();
+			int availabilityIndex = 0;
 			foreach (int ordinal in pendingOrdinals.OrderBy(x => x))
 			{
+				availabilityIndex++;
 				NormalizedCollectionMember member = selection.Manifest.Members.Single(x => x.SourceOrdinal == ordinal);
 				if (!member.IdentityResolution.IsResolved)
 					continue;
@@ -119,16 +121,19 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 
 				CollectionNexusSourcePolicyFileResolution resolution;
-				long started = CollectionPerformanceMetrics.StartTiming();
-				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-					"Collections.Workflow.CheckingMemberAvailability", "Checking mod availability: {0}", member.DisplayName), true);
-				try
+				using (CollectionPreparationProgress.BeginMember(availabilityIndex, pendingOrdinals.Count))
 				{
-					resolution = _fileResolver(domain, modId, fileId, policy, requestedVersion);
-				}
-				finally
-				{
-					CollectionPerformanceMetrics.RecordNexusSourcePolicyProviderCall(started);
+					long started = CollectionPerformanceMetrics.StartTiming();
+					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+						"Collections.Workflow.CheckingMemberAvailability", "Checking mod availability: {0}", member.DisplayName), true);
+					try
+					{
+						resolution = _fileResolver(domain, modId, fileId, policy, requestedVersion);
+					}
+					finally
+					{
+						CollectionPerformanceMetrics.RecordNexusSourcePolicyProviderCall(started);
+					}
 				}
 				Trace.WriteLine(String.Format("Collection Nexus source-policy resolution: member={0}, policy={1}, nexus={2}/{3}/{4}, selected={5}.",
 					ordinal, policy, domain, modId, fileId, resolution == null ? 0 : resolution.SelectedFileId));

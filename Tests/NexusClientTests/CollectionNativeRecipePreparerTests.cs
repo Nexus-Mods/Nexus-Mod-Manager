@@ -1291,6 +1291,33 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Whitespace group labels survive import and native planning, without accepting a trimmed or different label.</summary>
+		[TestCase(" ")]
+		[TestCase("  ")]
+		public void PrepareExact_VortexFomodWhitespaceGroupMatchesOnlyItsExactNativeLabel(string groupName)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodFixture(root, "fomod-whitespace-group", false, groupName);
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Curator choices must not prompt."); };
+				Assert.That(fixture.Member.VortexFomodSelection.Steps.Single().Groups.Single().Name, Is.EqualTo(groupName));
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+				Assert.That(prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath,
+					Is.EqualTo(@"textures\map-4k.dds"));
+
+				((XmlScript)fixture.Mod.InstallScript).InstallSteps[0].OptionGroups[0].Name = String.Empty;
+				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager()),
+					"A whitespace group label must not become interchangeable with an empty label.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void FreezeOrderedFomodFileMappings_ReplicatesSourceAtDistinctDestinations()
 		{
@@ -1413,17 +1440,29 @@ namespace NexusClientTests
 			}
 		}
 
-		[Test]
-		public void PrepareExact_VortexFomodPluginFileWithoutCollectionPluginStateRemainsBlocked()
+		/// <summary>Installs FOMOD plugins even when their final activation is implicit or determined by a sparse Collection list.</summary>
+		[TestCase(null)]
+		[TestCase("[]")]
+		[TestCase("[{\"name\":\"other.esp\",\"enabled\":true}]")]
+		[TestCase("[{\"name\":\"choice.esp\",\"enabled\":false}]")]
+		public void PrepareExact_VortexFomodPluginWithoutEnabledManifestEntryFreezesFilePlan(string pluginsJson)
 		{
 			string root = CreateTemporaryDirectory();
 			try
 			{
-				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin-blocked", false);
+				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin-unlisted", false, pluginsJson);
 
-				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
-					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager()));
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				Assert.That(prepared.AdapterId, Is.EqualTo(ModInstallationSimpleFileRecipeAdapter.AdapterId));
+				Assert.That(prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single().DestinationPath, Is.EqualTo("choice.esp"));
+				Assert.That(prepared.RecipeInput.NativeOperations.OfType<SetPluginActivationOperation>(), Is.Empty,
+					"Final activation remains the responsibility of the Collection impact plan.");
+				Assert.That(prepared.EffectPreview.PluginEffects.Single().Active, Is.True,
+					"File installation retains its native implicit activation until the Collection overlay is applied.");
+				Assert.That(fixture.Plan.CapabilityReport.Manifest.HasPluginStateSection, Is.EqualTo(pluginsJson != null));
 			}
 			finally
 			{
@@ -1548,12 +1587,12 @@ namespace NexusClientTests
 					CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
 		}
 
-		private static Fixture CreateFomodFixture(string root, string suffix, bool staleActualOptionName)
+		private static Fixture CreateFomodFixture(string root, string suffix, bool staleActualOptionName, string groupName = "Map with All Locations")
 		{
 			var scriptType = new XmlScriptType();
 			var script = new XmlScript(scriptType, new Version(5, 0));
 			var step = new InstallStep("Install Map with Locations", null, SortOrder.Explicit);
-			var group = new OptionGroup("Map with All Locations", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			var group = new OptionGroup(groupName, OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
 			group.Options.Add(CreateFomodOption(staleActualOptionName ? "Renamed 4k Option" : "4k With All Locations",
 				@"textures\map-4k.dds", @"textures\map.dds"));
 			group.Options.Add(CreateFomodOption("2k With All Locations", @"textures\map-2k.dds", @"textures\map.dds"));
@@ -1561,7 +1600,7 @@ namespace NexusClientTests
 			script.InstallSteps.Add(step);
 
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Install Map with Locations\",\"groups\":[" +
-				"{\"name\":\"Map with All Locations\",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
+				"{\"name\":" + Newtonsoft.Json.JsonConvert.ToString(groupName) + ",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
 				choicesJson, script, null, "exact", (string)null, (IDictionary<string, byte[]>)null, @"textures\map-4k.dds", @"textures\map-2k.dds");
 		}
@@ -1608,7 +1647,7 @@ namespace NexusClientTests
 				choicesJson, script, null, "exact", (string)null, (IDictionary<string, byte[]>)null, @"payload\dinput8.dll", @"payload\preset.ini");
 		}
 
-		private static Fixture CreateFomodPluginFixture(string root, string suffix, bool declarePluginState)
+		private static Fixture CreateFomodPluginFixture(string root, string suffix, bool declarePluginState, string pluginsJson = null)
 		{
 			var scriptType = new XmlScriptType();
 			var script = new XmlScript(scriptType, new Version(5, 0));
@@ -1620,7 +1659,7 @@ namespace NexusClientTests
 
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Plugin Step\",\"groups\":[" +
 				"{\"name\":\"Plugin Group\",\"choices\":[{\"name\":\"Plugin\",\"idx\":0}]}]}]}";
-			string pluginsJson = declarePluginState ? "[{\"name\":\"choice.esp\",\"enabled\":true}]" : null;
+			pluginsJson = pluginsJson ?? (declarePluginState ? "[{\"name\":\"choice.esp\",\"enabled\":true}]" : null);
 			Fixture fixture = CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
 				choicesJson, script, pluginsJson, "exact", (string)null, (IDictionary<string, byte[]>)null, @"plugin\choice.esp");
 			fixture.GameMode = CreateGameMode(false, null, false, new[] { ".esp", ".esm", ".esl" });

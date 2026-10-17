@@ -8,6 +8,8 @@
 	using System.Runtime.Serialization;
 	using ChinhDo.Transactions;
 	using Nexus.Client;
+	using Nexus.Client.CollectionManagement;
+	using Nexus.Client.CollectionManagement.Persistence;
 	using Nexus.Client.Games;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.InstallationLog;
@@ -26,6 +28,150 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>Checks incremental Collection verification against a full native capture after a real overwrite.</summary>
+		[TestCase(ModInstallRoot.Data)]
+		[TestCase(ModInstallRoot.GameRoot)]
+		public void CollectionStateRefresh_OverwriteMatchesFullCaptureAndReusesUnrelatedFiles(ModInstallRoot root)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod first = fixture.CreateMod("First");
+				fixture.Install(first, "shared.txt", "old");
+				IMod unrelated = fixture.CreateMod("Unrelated");
+				fixture.Install(unrelated, "untouched.txt", "unchanged");
+				CollectionNativeStateReader reader = CreateCollectionReader(fixture);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("incremental-overwrite");
+				CollectionNativeStateIndex baseline = reader.Capture(target);
+				Assert.That(baseline.Issues, Is.Empty);
+				IMod incoming = fixture.CreateMod("Incoming");
+				fixture.Install(incoming, "shared.txt", "new");
+				fixture.Install(incoming, "added.txt", "added");
+				fixture.InstallLog.AddIniEdit(incoming, "game.ini", "Display", "Mode", "new");
+				fixture.InstallLog.AddGameSpecificValueEdit(incoming, "setting", new byte[] { 1, 2 });
+				CollectionMemberEffectPreview preview = CreateCollectionPreview(fixture, incoming, root, "shared.txt", "added.txt");
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+
+				CollectionNativeStateIndex refreshed = reader.TryCaptureCommittedVirtualChild(target, baseline, baseline.Fingerprint, preview, null);
+
+				Assert.That(refreshed, Is.Not.Null);
+				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
+				Assert.That(after.NativeStateIndexBuildCount, Is.EqualTo(before.NativeStateIndexBuildCount));
+				Assert.That(after.NativeStateIncrementalRefreshCount, Is.EqualTo(before.NativeStateIncrementalRefreshCount + 1));
+				CollectionNativeStateIndex full = reader.Capture(target);
+				Assert.That(refreshed.Fingerprint, Is.EqualTo(full.Fingerprint));
+				ModDeploymentTarget untouched = ModDeploymentTargetResolver.Resolve(fixture.GameMode, unrelated, "untouched.txt", root);
+				Assert.That(refreshed.Files[untouched], Is.SameAs(baseline.Files[untouched]));
+				string unrelatedKey = fixture.InstallLog.GetModKey(unrelated);
+				Assert.That(refreshed.FilesByOwnerKey[unrelatedKey], Is.SameAs(baseline.FilesByOwnerKey[unrelatedKey]));
+				ModDeploymentTarget shared = preview.Files.First().Target;
+				Assert.That(refreshed.Files[shared].EffectiveOwnerKey, Is.EqualTo(fixture.InstallLog.GetModKey(incoming)));
+				Assert.That(refreshed.Files[shared].VirtualOwners.Count, Is.EqualTo(2));
+				Assert.That(refreshed.IniEdits.Count, Is.EqualTo(1));
+				Assert.That(refreshed.GameValues.Count, Is.EqualTo(1));
+			}
+		}
+
+		/// <summary>Includes old-only and inactive ownership targets when a native upgrade removes a mod's previous files.</summary>
+		[TestCase(ModInstallRoot.Data)]
+		[TestCase(ModInstallRoot.GameRoot)]
+		public void CollectionStateRefresh_ReinstallRemovesOldTargetsAndMatchesFullCapture(ModInstallRoot root)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod previous = fixture.CreateMod("Previous");
+				fixture.Install(previous, "removed.txt", "removed");
+				fixture.Install(previous, "shared.txt", "old");
+				IMod other = fixture.CreateMod("Other");
+				fixture.Install(other, "shared.txt", "other");
+				fixture.Install(other, "untouched.txt", "untouched");
+				CollectionNativeStateReader reader = CreateCollectionReader(fixture);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("incremental-reinstall");
+				CollectionNativeStateIndex baseline = reader.Capture(target);
+				Assert.That(baseline.Issues, Is.Empty);
+				CollectionNativeModState previousState = baseline.ModsByNativeKey[fixture.InstallLog.GetModKey(previous)];
+				IMod incoming = fixture.CreateMod("Incoming");
+				fixture.Upgrade(previous, incoming, "added.txt", "new");
+				CollectionMemberEffectPreview preview = CreateCollectionPreview(fixture, incoming, root, "added.txt");
+
+				CollectionNativeStateIndex refreshed = reader.TryCaptureCommittedVirtualChild(target, baseline, baseline.Fingerprint, preview, previousState);
+
+				Assert.That(refreshed, Is.Not.Null);
+				Assert.That(refreshed.Fingerprint, Is.EqualTo(reader.Capture(target).Fingerprint));
+				Assert.That(refreshed.Files.ContainsKey(ModDeploymentTargetResolver.Resolve(fixture.GameMode, previous, "removed.txt", root)), Is.False);
+				ModDeploymentTarget shared = ModDeploymentTargetResolver.Resolve(fixture.GameMode, other, "shared.txt", root);
+				Assert.That(refreshed.Files[shared].VirtualOwners.Count, Is.EqualTo(1));
+				Assert.That(refreshed.Files[shared].EffectiveOwnerKey, Is.EqualTo(fixture.InstallLog.GetModKey(other)));
+			}
+		}
+
+		/// <summary>Retains full capture for newly promoted targets instead of treating mixed ownership as purely Virtual.</summary>
+		[Test]
+		public void CollectionStateRefresh_NewPromotionRequiresFullCapture()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				CollectionNativeStateReader reader = CreateCollectionReader(fixture);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("incremental-promotion");
+				CollectionNativeStateIndex baseline = reader.Capture(target);
+				IMod direct = fixture.CreateMod("Direct");
+				ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "shared.txt");
+				using (var scope = new TransactionScope())
+				{
+					fixture.InstallLog.AddActiveMod(direct, ModInstallRoot.Data, ModInstallMethod.Direct);
+					fixture.Deployment.InstallDirectFile(direct, fileTarget, new byte[] { 1 }, new TxFileManager());
+					scope.Complete();
+				}
+				CollectionMemberEffectPreview preview = CreateCollectionPreview(fixture, direct, ModInstallRoot.Data, "shared.txt");
+				Assert.That(reader.TryCaptureCommittedVirtualChild(target, baseline, baseline.Fingerprint, preview, null), Is.Null);
+			}
+		}
+
+		/// <summary>Uses complete capture when an indexed path also represents ownership under another deployment root.</summary>
+		[Test]
+		public void CollectionStateRefresh_PhysicalAliasRequiresFullCapture()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod original = fixture.CreateMod("Original");
+				fixture.Install(original, "shared.txt", "original");
+				CollectionNativeStateReader reader = CreateCollectionReader(fixture);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("incremental-alias");
+				CollectionNativeStateIndex baseline = reader.Capture(target);
+				IMod incoming = fixture.CreateMod("Incoming");
+				fixture.InstallLog.AddActiveMod(incoming, ModInstallRoot.GameRoot, ModInstallMethod.Virtual);
+				string source = fixture.Staged(incoming, @"Data\shared.txt");
+				Directory.CreateDirectory(Path.GetDirectoryName(source));
+				File.WriteAllText(source, "new");
+				fixture.InstallLog.AddDataFile(incoming, source);
+				fixture.Activator.GetModLinkInstaller().AddFileLink(incoming, @"Data\shared.txt", source, true, false, ModInstallRoot.GameRoot);
+				fixture.Activator.SaveList(false);
+				CollectionMemberEffectPreview preview = CreateCollectionPreview(fixture, incoming, ModInstallRoot.GameRoot, @"Data\shared.txt");
+
+				Assert.That(reader.TryCaptureCommittedVirtualChild(target, baseline, baseline.Fingerprint, preview, null), Is.Null);
+			}
+		}
+
+		/// <summary>Uses the real committed ownership services with complete, empty Collection and plugin stores.</summary>
+		private static CollectionNativeStateReader CreateCollectionReader(RemovalFixture fixture)
+		{
+			var store = new CollectionsStore(Path.GetDirectoryName(fixture.ModPath));
+			store.CreateNew();
+			IPluginManager plugins = InterfaceStub<IPluginManager>.Create((method, args) => method.Name == "get_CurrentSnapshot"
+				? new PluginSnapshot(new PluginSnapshotEntry[0], new PluginValidationDiagnostic[0]) : null);
+			return new CollectionNativeStateReader(fixture.InstallLog, fixture.Activator, plugins, fixture.GameMode,
+				new CollectionsAssociationStore(store));
+		}
+
+		/// <summary>Describes the exact deployment targets written by the native fixture.</summary>
+		private static CollectionMemberEffectPreview CreateCollectionPreview(RemovalFixture fixture, IMod mod, ModInstallRoot root, params string[] files)
+		{
+			return new CollectionMemberEffectPreview(CollectionMemberKey.FromValidatedMatch("refresh-member"),
+				CollectionRecipeIdentity.FromFingerprint("refresh-recipe"), ModInstallMethod.Virtual, root,
+				files.Select(file => new CollectionPlannedFileEffect(ModDeploymentTargetResolver.Resolve(fixture.GameMode, mod, file, root))),
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0],
+				new CollectionEffectPreviewIssue[0]);
+		}
+
 		/// <summary>Exercises the real Virtual switch using Collection-native keys and the persisted staged source.</summary>
 		[TestCase(ModInstallRoot.Data)]
 		[TestCase(ModInstallRoot.GameRoot)]

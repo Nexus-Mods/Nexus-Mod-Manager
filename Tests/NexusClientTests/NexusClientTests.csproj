@@ -110,6 +110,9 @@
     <Reference Include="DevExpress.Utils.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Utils.v25.2.dll</HintPath>
     </Reference>
+    <Reference Include="DevExpress.XtraBars.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraBars.v25.2.dll</HintPath>
+    </Reference>
     <Reference Include="DevExpress.XtraEditors.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraEditors.v25.2.dll</HintPath>
     </Reference>
@@ -143,6 +146,7 @@
     <Compile Include="FileDownloadTaskCharacterizationTests.cs" />
     <Compile Include="DownloadConcurrencyBudgetTests.cs" />
     <Compile Include="AddModTaskConcurrencyTests.cs" />
+    <Compile Include="PurgeDownloadsTaskTests.cs" />
     <Compile Include="CollectionIdentityValueTests.cs" />
     <Compile Include="CollectionDefinitionRevisionTests.cs" />
     <Compile Include="CollectionProvenanceAssociationTests.cs" />
@@ -231,6 +235,7 @@
     <Compile Include="CollectionTechnicalReportTests.cs" />
     <Compile Include="CollectionUserMessagePresentationTests.cs" />
     <Compile Include="CollectionUiContextTests.cs" />
+    <Compile Include="CollectionsPreviewLayoutTests.cs" />
     <Compile Include="CollectionWorkflowActivityTests.cs" />
     <Compile Include="CollectionPluginOrderPolicyTests.cs" />
     <Compile Include="CollectionPreparationProgressTests.cs" />

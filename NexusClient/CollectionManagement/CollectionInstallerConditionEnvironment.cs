@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Projects only proven file outputs; manifest plugin names alone never invent installed dependencies.</summary>
 		internal CollectionInstallerConditionEnvironment(CollectionNativeStateIndex state, IGameMode gameMode,
-			NormalizedCollectionManifest manifest, IEnumerable<PreparedCollectionNativeRecipe> previousRecipes)
+			NormalizedCollectionManifest manifest, IEnumerable<PreparedCollectionNativeRecipe> previousRecipes, bool enableUnspecifiedPlugins = false)
 		{
 			_gameMode = gameMode;
 			_coverage = state.PluginCoverage;
@@ -36,7 +36,7 @@ namespace Nexus.Client.CollectionManagement
 					string plugin = Path.GetFileName(relative);
 					CollectionDesiredPluginState desired = manifest.PluginStates.FirstOrDefault(x =>
 						StringComparer.OrdinalIgnoreCase.Equals(x.PluginName, plugin));
-					_plugins[plugin] = desired != null ? desired.Enabled : !manifest.HasPluginStateSection;
+					_plugins[plugin] = desired != null ? desired.Enabled : enableUnspecifiedPlugins || !manifest.HasPluginStateSection;
 				}
 		}
 

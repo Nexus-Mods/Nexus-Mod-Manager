@@ -1222,6 +1222,8 @@ namespace Nexus.Client.CollectionManagement
 		public IBackgroundTaskSet NativeTask { get; }
 		internal ModInstallationRecipeInput RecipeInput { get; }
 		internal IMod IncomingMod { get; }
+		/// <summary>Indicates that the caller retains the same root reservation across multiple native children.</summary>
+		internal bool BorrowsInstallSession { get { return !_ownsMutationLease; } }
 		public bool IsDisposed { get { return _mutationLease == null || _mutationLease.IsDisposed; } }
 
 		/// <summary>Gets the live root target reservation retained exclusively for C6.8 authoritative verification.</summary>

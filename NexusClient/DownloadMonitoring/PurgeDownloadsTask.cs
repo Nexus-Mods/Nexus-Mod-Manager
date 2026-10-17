@@ -78,6 +78,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public override void Resume()
 		{
+			Status = TaskStatus.Running;
 			Start(ConfirmActionMethod);
 		}
 				
@@ -97,7 +98,6 @@ namespace Nexus.Client.ModManagement
 				ShowItemProgress = false;
 				OverallProgressMaximum = DownloadTasksList.Count();
 
-				Status = TaskStatus.Running;
 								
 				int i = 1;
 				
@@ -105,8 +105,13 @@ namespace Nexus.Client.ModManagement
 				{
 					foreach (AddModTask task in DownloadTasksList)
 					{
-						DownloadMonitor.PurgeDownload((AddModTask)task);
+						if (Status == TaskStatus.Cancelling)
+							break;
 						OverallMessage = String.Format(PurgingFormat, i, DownloadTasksList.Count());
+						// A progress observer may request cancellation before this download starts cleanup.
+						if (Status == TaskStatus.Cancelling)
+							break;
+						DownloadMonitor.PurgeDownload((AddModTask)task);
 						StepOverallProgress();
 						i++;
 					}

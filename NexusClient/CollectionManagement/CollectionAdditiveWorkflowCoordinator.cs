@@ -718,7 +718,8 @@ namespace Nexus.Client.CollectionManagement
 						try
 						{
 							verification = await _childVerificationCoordinator.VerifySubmittedChildAsync(execution, runtime.Plan,
-								recipe.EffectPreview, targetPaths, currentMember, installCount).ConfigureAwait(false);
+								recipe.EffectPreview, targetPaths, currentMember, installCount,
+								installSession == null ? null : currentState).ConfigureAwait(false);
 						}
 						catch
 						{
@@ -1207,7 +1208,7 @@ namespace Nexus.Client.CollectionManagement
 							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
 							_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory,
 							!input.Match.Member.HasVortexFileList && !input.Match.Member.HasVortexFomodSelection && input.ManagedMod.HasInstallScript
-								? new CollectionInstallerConditionEnvironment(state, _services.ModManager.GameMode, plan.CapabilityReport.Manifest, recipes)
+								? new CollectionInstallerConditionEnvironment(state, _services.ModManager.GameMode, plan.CapabilityReport.Manifest, recipes, plan.Policy.EnableUnspecifiedPlugins)
 								: null);
 					// The manifest is retained by every normal recipe. Generated inputs have a separate retention lifecycle.
 					if (cacheKey != null && CanCachePreparedArtifacts(prepared.RetainedArtifactIds,
@@ -1523,16 +1524,21 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
 				CollectionNativeStateIndex currentState = _nativeStateReader.Capture(plan.Target);
-				if (reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x.Effect))) return;
+				List<CollectionPlannedPluginEffect> effectiveEffects = CollectionPluginActivationResolver.Resolve(plan.Policy,
+					plan.CapabilityReport.Manifest, currentState, reviewedEffects.Select(x => x.Effect));
+				requested = effectiveEffects.Where(x => x.Kind == CollectionPlannedPluginEffectKind.Activation)
+					.GroupBy(x => x.PluginPaths[0], StringComparer.OrdinalIgnoreCase)
+					.ToDictionary(x => x.Key, x => x.First().Active.Value, StringComparer.OrdinalIgnoreCase);
+				if (effectiveEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x))) return;
 
 				Nexus.Client.PluginManagement.ICollectionPluginStateManager collectionPluginManager =
 					_services.PluginManager as Nexus.Client.PluginManagement.ICollectionPluginStateManager;
 				if (collectionPluginManager != null)
 				{
 					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> advisoryDiagnostics;
-					List<IList<string>> relativeOrder = reviewedEffects
-						.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
-						.Select(x => (IList<string>)x.Effect.PluginPaths.ToList()).ToList();
+					List<IList<string>> relativeOrder = effectiveEffects
+						.Where(x => x.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
+						.Select(x => (IList<string>)x.PluginPaths.ToList()).ToList();
 					if (!collectionPluginManager.TryReconcileCollectionPluginState(requested.Keys.ToList(), requested, relativeOrder, out advisoryDiagnostics))
 						throw new InvalidOperationException("The native plugin service could not apply the Collection's requested plugin state/order." +
 							(advisoryDiagnostics == null ? String.Empty : " " + String.Join("; ", advisoryDiagnostics.Where(x => x != null).Select(x => x.Message).Distinct())));
@@ -1551,11 +1557,12 @@ namespace Nexus.Client.CollectionManagement
 						}
 					}
 
-					CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+					CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, effectiveEffects);
 				}
 				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
 				CollectionNativeStateIndex verified = _nativeStateReader.Capture(plan.Target);
-				if (!reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))
+				if (!CollectionPluginActivationResolver.Resolve(plan.Policy, plan.CapabilityReport.Manifest, verified, reviewedEffects.Select(x => x.Effect))
+					.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x)))
 					throw new InvalidOperationException("The native plugin service returned success, but authoritative state does not match the exact reviewed Collection plugin state/order.");
 			}
 		}

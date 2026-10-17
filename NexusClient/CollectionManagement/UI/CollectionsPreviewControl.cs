@@ -84,12 +84,17 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly CheckEdit _overwriteInstalledFilesCheckBox;
 		private readonly CheckEdit _skipExistingArchiveMd5CheckBox;
 		private readonly CheckEdit _skipContentChecksCheckBox;
+		private readonly CheckEdit _enableUnspecifiedPluginsCheckBox;
+		private readonly TableLayoutPanel _documentLayout;
+		private bool _documentLayoutPending;
+		private bool _updatingDocumentLayout;
 		private readonly TablePanel _collectionHeaderLayout;
 		private readonly CollectionSectionGroup _installPreferencesSection;
 		private readonly LabelControl _automaticInstallHint;
 		private readonly LabelControl _overwriteInstalledFilesHint;
 		private readonly LabelControl _skipExistingArchiveMd5Hint;
 		private readonly LabelControl _skipContentChecksHint;
+		private readonly LabelControl _enableUnspecifiedPluginsHint;
 		private readonly CollectionSectionGroup _emptyCollectionSection;
 		private bool _showEmptyLocalCollections;
 		private bool _isEmptyCollectionView;
@@ -392,16 +397,17 @@ namespace Nexus.Client.CollectionManagement.UI
 			_workflowEta = CollectionWorkflowEtaSnapshot.Unavailable("idle");
 
 			// Keep the document sections in explicit rows even when an empty view or inactive MDI tab hides them.
-			TableLayoutPanel root = new TableLayoutPanel
+			TableLayoutPanel root = _documentLayout = new TableLayoutPanel
 			{
 				Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
 				Padding = new Padding(8), Margin = Padding.Empty
 			};
 			root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			root.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+			root.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
 			root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			Controls.Add(root);
+			root.SizeChanged += (sender, args) => QueueDocumentLayout();
 
 			_saveCurrentSetupButton = new SimpleButton
 			{
@@ -456,10 +462,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			_saveLocalWorkingCopyRevisionButton.Click += SaveLocalWorkingCopyRevisionButton_Click;
 			_managedAssociationCombo = new ComboBoxEdit
 			{
-				Width = 280,
+				Width = 560,
 				Enabled = false
 			};
 			_managedAssociationCombo.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+			_managedAssociationCombo.Properties.PopupFormWidth = 700;
 			_managedAssociationCombo.Properties.NullText = L("Collections.Library.Empty", "No saved Collections");
 			_managedAssociationCombo.SelectedIndexChanged += ManagedAssociationCombo_SelectedIndexChanged;
 			_manageAssociationRemovalButton = new SimpleButton
@@ -715,7 +722,17 @@ namespace Nexus.Client.CollectionManagement.UI
 			_skipContentChecksHint = CreateApprovalLabel(L("Collections.Preferences.SkipContentChecksHelp",
 				"Use NMM's normal installer without extra archive-entry or installed-file audits. Collection selections, file order and resume progress are kept. Verify / Repair remains available when requested."));
 			_skipContentChecksHint.Padding = new Padding(0, 0, 0, 6);
-			TablePanel preferencesLayout = CreateCollectionTable(8);
+			_enableUnspecifiedPluginsCheckBox = new CheckEdit
+			{
+				AutoSize = true,
+				Text = L("Collections.Preferences.EnableUnlistedPlugins", "Enable unlisted plugins when masters are available"),
+				Checked = Properties.Settings.Default.CollectionEnableUnspecifiedPlugins,
+				Margin = Padding.Empty
+			};
+			_enableUnspecifiedPluginsHint = CreateApprovalLabel(L("Collections.Preferences.EnableUnlistedPluginsHelp",
+				"Enable plugins supplied by this Collection when no explicit enabled/disabled choice is recorded. Plugins with missing, disabled or unreadable masters stay disabled. Applies to new installation reviews."));
+			_enableUnspecifiedPluginsHint.Padding = new Padding(0, 0, 0, 6);
+			TablePanel preferencesLayout = CreateCollectionTable(10);
 			preferencesLayout.AutoSize = true;
 			AddCollectionCell(preferencesLayout, _automaticInstallCheckBox, 0);
 			AddCollectionCell(preferencesLayout, _automaticInstallHint, 1);
@@ -725,6 +742,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			AddCollectionCell(preferencesLayout, _skipExistingArchiveMd5Hint, 5);
 			AddCollectionCell(preferencesLayout, _skipContentChecksCheckBox, 6);
 			AddCollectionCell(preferencesLayout, _skipContentChecksHint, 7);
+			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsCheckBox, 8);
+			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsHint, 9);
 			_installPreferencesSection = new CollectionSectionGroup(
 				L("Collections.Preferences.Title", "Collection Install Preferences"), preferencesLayout);
 			TablePanel emptyLayout = CreateCollectionTable(3);
@@ -761,10 +780,12 @@ namespace Nexus.Client.CollectionManagement.UI
 			_overwriteInstalledFilesHint.FontChanged += CollectionHeaderLayout_Changed;
 			_skipExistingArchiveMd5Hint.FontChanged += CollectionHeaderLayout_Changed;
 			_skipContentChecksHint.FontChanged += CollectionHeaderLayout_Changed;
+			_enableUnspecifiedPluginsHint.FontChanged += CollectionHeaderLayout_Changed;
 			_automaticInstallCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			_overwriteInstalledFilesCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			_skipExistingArchiveMd5CheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			_skipContentChecksCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
+			_enableUnspecifiedPluginsCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			root.Controls.Add(_collectionHeaderLayout, 0, 0);
 			root.Controls.Add(_installedGroup, 0, 1);
 
@@ -788,6 +809,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Padding = new Padding(0, 4, 0, 4), ImageAlignToText = ImageAlignToText.LeftCenter,
 				IndentBetweenImageAndText = 7, Text = L("Collections.Workflow.Idle", "Workflow: idle")
 			};
+			_workflowStatusLabel.TextChanged += (sender, args) => QueueDocumentLayout();
 			_workflowStatusLabel.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 			_workflowStatusLabel.Appearance.Options.UseTextOptions = true;
 			_workflowEtaLabel = new LabelControl
@@ -1080,9 +1102,40 @@ namespace Nexus.Client.CollectionManagement.UI
 			base.OnVisibleChanged(e);
 			if (!Visible || _detailsSection == null) return;
 			UpdateEmptyCollectionView();
-			_collectionHeaderLayout.PerformLayout();
-			_installedGroup.PerformLayout();
-			_detailsSection.Parent?.PerformLayout();
+			QueueDocumentLayout();
+		}
+
+		/// <summary>Measures visible sections after WinForms has propagated ancestor visibility to every child.</summary>
+		private void QueueDocumentLayout()
+		{
+			if (_documentLayoutPending || _updatingDocumentLayout || _detailsSection == null ||
+				!Visible || !IsHandleCreated || IsDisposed || Disposing) return;
+			_documentLayoutPending = true;
+			BeginInvoke((Action)(() =>
+			{
+				_documentLayoutPending = false;
+				if (!Visible || IsDisposed || Disposing) return;
+				_updatingDocumentLayout = true;
+				try
+				{
+					UpdateInstallPreferencesLayout();
+					_collectionHeaderLayout.PerformLayout();
+					// DevExpress tables can cache an empty preferred size while their document tab is hidden.
+					_installedGroup.Controls[0].PerformLayout();
+					int width = Math.Max(1, _documentLayout.ClientSize.Width - _documentLayout.Padding.Horizontal);
+					int headerHeight = _collectionHeaderLayout.GetPreferredSize(new Size(width, 0)).Height + _collectionHeaderLayout.Margin.Vertical;
+					int installedHeight = _installedGroup.Visible
+						? _installedGroup.GetPreferredSize(new Size(Math.Max(1, width - _installedGroup.Margin.Horizontal), 0)).Height + _installedGroup.Margin.Vertical : 0;
+					_documentLayout.SuspendLayout();
+					try
+					{
+						_documentLayout.RowStyles[0].Height = headerHeight;
+						_documentLayout.RowStyles[1].Height = installedHeight;
+					}
+					finally { _documentLayout.ResumeLayout(true); }
+				}
+				finally { _updatingDocumentLayout = false; }
+			}));
 		}
 
 		/// <summary>Connects the surface to the incoming Collection dispatcher in preview-only compatibility mode.</summary>
@@ -1169,6 +1222,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		protected override void OnHandleCreated(EventArgs e)
 		{
 			base.OnHandleCreated(e);
+			QueueDocumentLayout();
 			if (_initialized)
 			{
 				BeginInvoke((Action)DrainIncomingQueue);
@@ -4253,7 +4307,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 
 			CollectionExecutionPolicy installPolicy = CollectionExecutionPolicy.InstallIntoCurrentSetup(
-				_automaticInstallCheckBox.Checked, _overwriteInstalledFilesCheckBox.Checked);
+				_automaticInstallCheckBox.Checked, _overwriteInstalledFilesCheckBox.Checked, _enableUnspecifiedPluginsCheckBox.Checked);
 			_startedInstallPolicy = installPolicy;
 			_automaticIdleLaneRetries = 0;
 			CollectionArchiveOverwritePolicy archiveOverwritePolicy = installPolicy.PreferIncomingCollection || _autoOverwriteArchivesCheckBox.Checked
@@ -6379,10 +6433,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				if (includeCapabilityIssues && snapshot.HasManifestPreview)
 				{
-					// The raw imported manifest calls each Nexus 'prefer' choice ActionRequired.
-					// After successful provider resolution, the plan's revised capability report
-					// is authoritative for this exact revision. Do not show 28 stale errors
-					// when a different native FOMOD option is what actually blocked preparation.
+					// The plan's capability report supersedes raw latest/prefer findings after provider resolution,
+					// even if a different member subsequently blocks native preparation.
 					ResolvedCollectionPlan activePlan = _acquisitionBatch == null || _acquisitionBatch.PlanBuild == null
 						? null : _acquisitionBatch.PlanBuild.Plan;
 					bool sameManifest = activePlan != null && snapshot.Revision != null &&
@@ -6391,7 +6443,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					foreach (CollectionCapabilityIssue issue in snapshot.CapabilityReport.AllIssues)
 					{
 						if (sameManifest && issue.SourceOrdinal.HasValue &&
-							StringComparer.Ordinal.Equals(issue.Code, CollectionNexusSourcePolicyResolver.PreferIssueCode) &&
+							CollectionNexusSourcePolicyResolver.IsResolvableIssue(issue) &&
 							activePlan.CapabilityReport.MemberReports.Any(report =>
 								report.Member.SourceOrdinal == issue.SourceOrdinal.Value &&
 								report.Status == CollectionCompatibilityStatus.Supported))
@@ -7087,6 +7139,10 @@ namespace Nexus.Client.CollectionManagement.UI
 						explanation = LanguageManager.Format(impact.Effect.Active.GetValueOrDefault()
 							? "Collections.Review.PluginEnable" : "Collections.Review.PluginDisable",
 							impact.Effect.Active.GetValueOrDefault() ? "{0} will enable {1}." : "{0} will disable {1}.", name, plugins);
+						if (_snapshot?.CapabilityReport != null && CollectionPluginActivationResolver.IsUnspecifiedActivation(
+							_startedInstallPolicy, _snapshot.CapabilityReport.Manifest, impact.Effect))
+							explanation = LanguageManager.Format("Collections.Review.PluginEnableIfMastersAvailable",
+								"{0} will enable {1} if its complete master chain is available and enabled; otherwise it will stay disabled.", name, plugins);
 						break;
 					case CollectionPlannedPluginEffectKind.AbsoluteOrderIndex:
 							explanation = LanguageManager.Format("Collections.Review.PluginOrder", "{0} will set the reviewed load-order position for {1}.", name, plugins);
@@ -8489,6 +8545,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_overwriteInstalledFilesCheckBox.Enabled = !_workflowBusy;
 			_skipExistingArchiveMd5CheckBox.Enabled = !_workflowBusy;
 			_skipContentChecksCheckBox.Enabled = !_workflowBusy;
+			_enableUnspecifiedPluginsCheckBox.Enabled = !_workflowBusy;
 			bool resumeRequired = CanResumePreparation(_acquisitionBatch);
 			_resumeButton.Visible = false;
 			_resumeButton.Enabled = !_workflowBusy && !_selectionDirty && resumeRequired;
@@ -9006,6 +9063,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			else if (wasEmpty && _reviewTabs.SelectedTabPage == _localCollectionsPage && _displayContext != null &&
 				(_displayContext.Kind == CollectionUiContextKind.IncomingCollection || _displayContext.Kind == CollectionUiContextKind.InstalledCollection))
 				_reviewTabs.SelectedTabPage = _membersPage;
+			QueueDocumentLayout();
 		}
 
 		private void SetDefaultInstruction()
@@ -9533,6 +9591,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			Properties.Settings.Default.CollectionOverwriteExistingFiles = _overwriteInstalledFilesCheckBox.Checked;
 			Properties.Settings.Default.CollectionSkipExistingArchiveMd5 = _skipExistingArchiveMd5CheckBox.Checked;
 			Properties.Settings.Default.CollectionSkipContentChecks = _skipContentChecksCheckBox.Checked;
+			Properties.Settings.Default.CollectionEnableUnspecifiedPlugins = _enableUnspecifiedPluginsCheckBox.Checked;
 			try
 			{
 				Properties.Settings.Default.Save();
@@ -9554,7 +9613,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			EnsureCheckCaptionFits(_overwriteInstalledFilesCheckBox);
 			EnsureCheckCaptionFits(_skipExistingArchiveMd5CheckBox);
 			EnsureCheckCaptionFits(_skipContentChecksCheckBox);
+			EnsureCheckCaptionFits(_enableUnspecifiedPluginsCheckBox);
 			UpdateInstallPreferencesLayout();
+			QueueDocumentLayout();
 		}
 
 		/// <summary>Keeps preferences beside the incoming Collection, or below it when space is limited.</summary>
@@ -9565,8 +9626,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_installPreferencesSection.Width - _installPreferencesSection.DisplayRectangle.Width);
 			int preferencesWidth = Math.Max(TextRenderer.MeasureText(_installPreferencesSection.Text, _installPreferencesSection.Font).Width,
 				Math.Max(_installPreferencesSection.Font.Height * 28,
-					Math.Max(Math.Max(_skipExistingArchiveMd5CheckBox.MinimumSize.Width, _skipContentChecksCheckBox.MinimumSize.Width),
-						Math.Max(_automaticInstallCheckBox.MinimumSize.Width, _overwriteInstalledFilesCheckBox.MinimumSize.Width)))) + frameWidth + _installPreferencesSection.Padding.Horizontal;
+					Math.Max(_enableUnspecifiedPluginsCheckBox.MinimumSize.Width, Math.Max(Math.Max(_skipExistingArchiveMd5CheckBox.MinimumSize.Width, _skipContentChecksCheckBox.MinimumSize.Width),
+						Math.Max(_automaticInstallCheckBox.MinimumSize.Width, _overwriteInstalledFilesCheckBox.MinimumSize.Width))))) + frameWidth + _installPreferencesSection.Padding.Horizontal;
 			bool sideBySide = _collectionHeaderLayout.ClientSize.Width >= preferencesWidth * 3;
 			int row = sideBySide ? 0 : 1;
 			int column = sideBySide ? 1 : 0;
@@ -9575,7 +9636,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			int contentWidth = Math.Max(1, (sideBySide ? preferencesWidth : _collectionHeaderLayout.ClientSize.Width) - frameWidth -
 				_installPreferencesSection.Padding.Horizontal);
 			int contentHeight = 0;
-			foreach (Control control in new Control[] { _automaticInstallCheckBox, _automaticInstallHint, _overwriteInstalledFilesCheckBox, _overwriteInstalledFilesHint, _skipExistingArchiveMd5CheckBox, _skipExistingArchiveMd5Hint, _skipContentChecksCheckBox, _skipContentChecksHint })
+			foreach (Control control in new Control[] { _automaticInstallCheckBox, _automaticInstallHint, _overwriteInstalledFilesCheckBox, _overwriteInstalledFilesHint, _skipExistingArchiveMd5CheckBox, _skipExistingArchiveMd5Hint, _skipContentChecksCheckBox, _skipContentChecksHint, _enableUnspecifiedPluginsCheckBox, _enableUnspecifiedPluginsHint })
 				contentHeight += control.GetPreferredSize(new Size(Math.Max(1, contentWidth - control.Margin.Horizontal), 0)).Height + control.Margin.Vertical;
 			int frameHeight = Math.Max(_installPreferencesSection.Font.Height,
 				_installPreferencesSection.Height - _installPreferencesSection.DisplayRectangle.Height);

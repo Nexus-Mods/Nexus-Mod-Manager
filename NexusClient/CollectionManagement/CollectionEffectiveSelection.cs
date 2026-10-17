@@ -203,7 +203,8 @@ namespace Nexus.Client.CollectionManagement
 					member.InstallRootBehavior,
 					member.VortexFomodSelection,
 					member.VortexFileList,
-					member.VortexFileOverrides));
+					member.VortexFileOverrides,
+					member.VortexBinaryPatches));
 			}
 
 			NormalizedCollectionManifest effectiveManifest = new NormalizedCollectionManifest(

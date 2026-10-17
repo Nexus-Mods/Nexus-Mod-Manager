@@ -566,7 +566,7 @@ namespace Nexus.Client.CollectionManagement
 			IModInstallationConditionEnvironment effectiveEnvironment = installerEnvironment ?? conditionEnvironment;
 			if (interactive && effectiveEnvironment == null)
 				effectiveEnvironment = new CollectionInstallerConditionEnvironment(currentState, gameMode, normalized.Manifest,
-					Enumerable.Empty<PreparedCollectionNativeRecipe>());
+					Enumerable.Empty<PreparedCollectionNativeRecipe>(), plan.Policy.EnableUnspecifiedPlugins);
 			ModInstallationFomodSelectionRecipe fomodRecipe;
 			ModInstallationRecipeInput fomodTranslated;
 			try
@@ -621,7 +621,7 @@ namespace Nexus.Client.CollectionManagement
 			// Re-check after the actual native FOMOD definition has been enumerated and evaluated.
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
-			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest, interactive);
+			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode);
 			ValidateCharacterizedFomodInstallRootBehavior(member, frozenRecipe);
 			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
@@ -737,6 +737,7 @@ namespace Nexus.Client.CollectionManagement
 				!Equals(selected.VortexFomodSelection, member.VortexFomodSelection) ||
 				!Equals(selected.VortexFileList, member.VortexFileList) ||
 				!Equals(selected.VortexFileOverrides, member.VortexFileOverrides) ||
+				!Equals(selected.VortexBinaryPatches, member.VortexBinaryPatches) ||
 				!selected.RecipeIdentity.Equals(member.RecipeIdentity) || !selected.ArtifactChoice.Equals(member.ArtifactChoice))
 				throw new ArgumentException("The member being prepared must belong to the exact selected resolved plan.", nameof(member));
 			if (member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact &&
@@ -1025,12 +1026,10 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static ModInstallationSimpleFileRecipe FreezePureFileFomodPlan(ModInstallationRecipeInput translated,
-			IGameMode gameMode, NormalizedCollectionManifest manifest, bool interactive = false)
+			IGameMode gameMode)
 		{
 			if (translated == null || !translated.HasNativePlan)
 				throw new InvalidDataException("The native FOMOD adapter did not produce an executable operation plan.");
-			if (manifest == null)
-				throw new ArgumentNullException(nameof(manifest));
 
 			var pluginFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (InstallModFileOperation file in translated.NativeOperations.OfType<InstallModFileOperation>())
@@ -1039,12 +1038,6 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 
 				string pluginName = GetPortableFileName(NormalizePortableArchivePath(file.DestinationPath));
-				if (!interactive && !ManifestDeclaresPluginState(manifest, pluginName))
-				{
-					throw new NotSupportedException(String.Format(
-						"FOMOD selection installs plugin '{0}', but collection.json does not explicitly declare its final state in the top-level plugins section.",
-						pluginName));
-				}
 				pluginFiles.Add(pluginName);
 			}
 
@@ -1063,16 +1056,16 @@ namespace Nexus.Client.CollectionManagement
 				SetPluginActivationOperation activation = operation as SetPluginActivationOperation;
 				if (activation != null)
 				{
-					// Vortex applies the Collection's top-level plugin state after its member installs. For this
-					// characterized slice, the selected FOMOD may therefore install a plugin file, while the
-					// durable Collection review remains authoritative for that plugin's final active state.
+					// CollectionConflictImpactPlanner applies the top-level plugin list after member installs.
+					// With a list present, unlisted plugins are disabled; without one, native activation applies.
+					// Neither case requires every installed plugin to have an explicit manifest entry.
 					if (activation.RequireActivatablePlugin && IsGamePluginPath(activation.PluginPath, gameMode))
 					{
 						string pluginName = GetPortableFileName(NormalizePortableArchivePath(activation.PluginPath));
-						if (!pluginFiles.Contains(pluginName) || (!interactive && !ManifestDeclaresPluginState(manifest, pluginName)))
+						if (!pluginFiles.Contains(pluginName))
 						{
 							throw new NotSupportedException(
-								"The FOMOD emits plugin-state intent that cannot be bound to an explicitly declared Collection plugin file.");
+								"The FOMOD emits plugin-state intent that cannot be bound to an installed Collection plugin file.");
 						}
 						continue;
 					}
@@ -1126,12 +1119,6 @@ namespace Nexus.Client.CollectionManagement
 			// The existing C5 simple-file contract already supports byte-preserving source
 			// replication to distinct destinations; it still forbids destination collisions.
 			return new ModInstallationSimpleFileRecipe(effectiveMappings, true);
-		}
-
-		private static bool ManifestDeclaresPluginState(NormalizedCollectionManifest manifest, string pluginName)
-		{
-			return manifest != null && manifest.HasPluginStateSection && !String.IsNullOrWhiteSpace(pluginName) &&
-				manifest.PluginStates.Any(state => StringComparer.OrdinalIgnoreCase.Equals(state.PluginName, pluginName));
 		}
 
 		private static bool IsGamePluginPath(string path, IGameMode gameMode)

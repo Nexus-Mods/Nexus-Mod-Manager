@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -80,6 +81,43 @@ namespace NexusClientTests
 				Assert.AreEqual(CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact, result.ArtifactChoices.Values.Single().Kind);
 				Assert.AreEqual(1, result.Selection.Manifest.LaunchToolIssues.Count);
 				Assert.AreEqual(0, result.Selection.Manifest.LaunchTools.Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Keeps one phase counter through nested provider work and advances past unresolved files.</summary>
+		[TestCase("prefer")]
+		[TestCase("latest")]
+		public void Resolve_ReportsAvailabilityCounterForEveryPolicyMember(string policy)
+		{
+			string root = NewRoot();
+			try
+			{
+				Fixture fixture = CreateFixture(root, policy, memberCount: 3);
+				var progress = new RecordedProgress();
+				var resolver = new CollectionNexusSourcePolicyResolver(fixture.SourceStore,
+					(domain, modId, fileId, updatePolicy, requestedVersion) =>
+					{
+						CollectionPreparationProgress.Report("Resolving availability metadata", true);
+						return fileId == 259832 ? CollectionNexusSourcePolicyFileResolution.Unresolved()
+							: CollectionNexusSourcePolicyFileResolution.Resolved(fileId);
+					});
+
+				using (CollectionPreparationProgress.Begin(progress))
+				{
+					CollectionNexusSourcePolicyResolution result = resolver.Resolve(fixture.Selection);
+					Assert.That(result.ArtifactChoices.Count, Is.EqualTo(2));
+					CollectionPreparationProgress.Report("Availability check finished", true);
+				}
+
+				Assert.That(progress.Messages.Count, Is.EqualTo(7));
+				for (int index = 0; index < 3; index++)
+				{
+					string prefix = "[" + (index + 1) + "/3] - ";
+					StringAssert.StartsWith(prefix + "Checking mod availability:", progress.Messages[index * 2]);
+					Assert.That(progress.Messages[index * 2 + 1], Is.EqualTo(prefix + "Resolving availability metadata"));
+				}
+				Assert.That(progress.Messages[6], Is.EqualTo("Availability check finished"));
 			}
 			finally { Directory.Delete(root, true); }
 		}
@@ -424,19 +462,20 @@ namespace NexusClientTests
 			};
 		}
 
-		private static Fixture CreateFixture(string root, string updatePolicy, string tools = null)
+		private static Fixture CreateFixture(string root, string updatePolicy, string tools = null, int memberCount = 1)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
 			CollectionIdentity collection = CollectionIdentity.FromNexus("55233");
 			var revision = new CollectionRevision(CollectionRevisionIdentity.FromNexus(collection, "791455", 11),
-				"Module 02 - HUD", null, 1);
+				"Module 02 - HUD", null, memberCount);
 			new CollectionsCatalogStore(store).SaveDefinitionAndRevision(
 				new CollectionDefinition(collection, "Module 02 - HUD", "Sephrajin", null), revision);
 
 			string json = "{" +
 				"\"info\":{\"author\":\"Sephrajin\",\"authorUrl\":\"https://example.invalid\",\"name\":\"Module 02 - HUD\",\"description\":\"HUD\",\"domainName\":\"fallout4\"}," +
-				"\"mods\":[{\"name\":\"JHUD - FallUI HUD Preset\",\"version\":\"1.2\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":66566,\"fileId\":259831,\"updatePolicy\":\"" + updatePolicy + "\"}}]," +
+				"\"mods\":[" + String.Join(",", Enumerable.Range(0, memberCount).Select(index =>
+					"{\"name\":\"JHUD - FallUI HUD Preset\",\"version\":\"1.2\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":66566,\"fileId\":" + (259831 + index) + ",\"updatePolicy\":\"" + updatePolicy + "\"}}")) + "]," +
 				"\"modRules\":[]" + (tools == null ? String.Empty : ",\"tools\":" + tools) + "}";
 			byte[] bytes = Encoding.UTF8.GetBytes(json);
 			NexusCollectionManifestNormalizationResult normalized = new NexusCollectionManifestNormalizer().Normalize(bytes, revision);
@@ -451,6 +490,15 @@ namespace NexusClientTests
 		private static string NewRoot()
 		{
 			return Path.Combine(Path.GetTempPath(), "nmm-c11-source-policy-" + Guid.NewGuid().ToString("N"));
+		}
+
+		/// <summary>Records synchronous progress independently of the UI synchronization context.</summary>
+		private sealed class RecordedProgress : IProgress<string>
+		{
+			internal readonly List<string> Messages = new List<string>();
+
+			/// <summary>Captures the formatted status emitted by the availability resolver.</summary>
+			public void Report(string value) { Messages.Add(value); }
 		}
 
 		private sealed class Fixture

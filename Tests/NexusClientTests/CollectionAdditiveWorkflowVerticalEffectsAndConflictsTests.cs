@@ -192,6 +192,29 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>The saved opt-in is applied at the actual final barrier and aggregate verification accepts missing-master exclusions.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void PrepareAndApply_UnlistedPluginOptInHonorsFinalMasterAvailability(bool missingMaster)
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginArchiveDesiredDisabled))
+			{
+				fixture.NativeBoundary.DeferPluginActivation = true;
+				fixture.PluginState.Metadata = new PluginMetadata(".esp", PluginHeaderFlags.None, 44,
+					missingMaster ? new[] { "Missing.esm" } : new string[0], false, PluginAddressClass.Full,
+					PluginSpecialFlags.None, PluginParseStatus.Parsed);
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare(CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, true));
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.ImpactPlan.PluginImpacts.Single().Effect.Active, Is.True);
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.EqualTo(!missingMaster));
+				Assert.That(fixture.NativeBoundary.LastTerminalState.Plugins.Values.Single().Active, Is.False);
+			}
+		}
+
 		[Test]
 		public void PrepareAndApply_TwoWritersWithPriority_ReconcilesReviewedWinnerAfterAllWritersExist()
 		{
@@ -931,12 +954,12 @@ namespace NexusClientTests
 					memberA, memberB, memberC, pluginDirectory, pluginState, installState);
 			}
 
-			public CollectionAdditiveWorkflowPreparationResult Prepare()
+			public CollectionAdditiveWorkflowPreparationResult Prepare(CollectionExecutionPolicy policy = null)
 			{
 				CollectionCapabilityReport report = CollectionCapabilityReport.Create(Manifest);
 				CollectionEffectiveSelection selection = new CollectionEffectiveSelectionBuilder().Build(report,
 					new CollectionOptionalMemberSelection[0]);
-				return Workflow.PrepareAsync(selection, Paths, null, CancellationToken.None).GetAwaiter().GetResult();
+				return Workflow.PrepareAsync(selection, Paths, CollectionArchiveOverwritePolicy.Prompt, null, null, CancellationToken.None, policy).GetAwaiter().GetResult();
 			}
 
 			public CollectionAdditiveWorkflowApplyResult Apply(CollectionAdditiveWorkflowPreparationResult prepared)
@@ -1402,13 +1425,18 @@ namespace NexusClientTests
 				_pluginDirectory = pluginDirectory;
 			}
 
+			public PluginMetadata Metadata { get; set; }
+
 			public PluginSnapshot Snapshot
 			{
 				get
 				{
 					var entries = _active.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Select((x, index) =>
-						new PluginSnapshotEntry(new Plugin(x.Key, null, null), x.Value, index, null, String.Empty,
-							new PluginValidationDiagnostic[0])).ToList();
+					{
+						var plugin = new Plugin(x.Key, null, null);
+						if (Metadata != null) plugin.SetMetadata(Metadata);
+						return new PluginSnapshotEntry(plugin, x.Value, index, null, String.Empty, new PluginValidationDiagnostic[0]);
+					}).ToList();
 					return new PluginSnapshot(entries, new PluginValidationDiagnostic[0]);
 				}
 			}

@@ -525,11 +525,17 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				return;
 			}
 
+			// Started notifications are asynchronous; a short preflight may have ended before its UI callback runs.
+			if (Task.IsCompleted || (e.Argument is NativeModStatePreparationTask && !e.Argument.IsActive))
+				return;
+			if (_startedTask != null)
+				_startedTask.PropertyChanged -= Task_PropertyChanged;
 			_startedTask = e.Argument;
 			_startedTask.PropertyChanged += Task_PropertyChanged;
 
 			IsRemovable = false;
 			Status = RunningText;
+			Progress = e.Argument.OverallMessage ?? String.Empty;
 			if (sender is ModInstaller)
 				Operation = InstallText;
 			else if (sender is ModUninstaller)
@@ -584,6 +590,9 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				Progress = String.Empty;
 			}
 
+			if (_startedTask != null)
+				_startedTask.PropertyChanged -= Task_PropertyChanged;
+			_startedTask = null;
 			_control.CallUpdateBottomBarFeedback(this);
 			_control.RefreshRow(this);
 			IsRemovable = true;
@@ -606,9 +615,16 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 
 		private void HandleChangedTaskProperty(IBackgroundTask task, string propertyName)
 		{
+			if (Task.IsCompleted || !ReferenceEquals(task, _startedTask))
+				return;
 			try
 			{
-				if (task is BasicUninstallTask)
+				if (task is NativeModStatePreparationTask)
+				{
+					if (propertyName == nameof(IBackgroundTask.OverallMessage))
+						Progress = task.OverallMessage;
+				}
+				else if (task is BasicUninstallTask)
 				{
 					if ((propertyName == nameof(IBackgroundTask.ItemProgress)) && (task.ItemProgress > 0))
 						Progress = String.Format(UninstallingProgressFormat, (task.ItemProgress * 100) / task.ItemProgressMaximum);

@@ -39,10 +39,10 @@ namespace Nexus.Client.CollectionManagement
 
 		public CollectionVortexFomodGroupSelection(string name, IEnumerable<CollectionVortexFomodChoice> choices)
 		{
-			// Empty names are valid in native FOMODs; group position and name are
-			// still checked against the actual installer before applying choices.
-			if (name == null || (name.Length > 0 && String.IsNullOrWhiteSpace(name)))
-				throw new ArgumentException("A Vortex FOMOD group name must be a string, optionally empty.", nameof(name));
+			// Empty and whitespace-only labels are valid in native FOMODs. Preserve them verbatim:
+			// group position and exact name are checked against the actual installer before applying choices.
+			if (name == null)
+				throw new ArgumentNullException(nameof(name));
 			if (choices == null)
 				throw new ArgumentNullException(nameof(choices));
 			List<CollectionVortexFomodChoice> copied = choices.ToList();

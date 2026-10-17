@@ -66,6 +66,67 @@ namespace Nexus.Client.CollectionManagement
 			return Capture(target, nativeCapture, out ignored, performanceStarted);
 		}
 
+		/// <summary>Refreshes only a committed Virtual child's ownership targets while retaining untouched file observations.</summary>
+		/// <remarks>Only the verifier holding the same validated install-session reservation may supply the preparation baseline.</remarks>
+		internal CollectionNativeStateIndex TryCaptureCommittedVirtualChild(CollectionTargetIdentity target,
+			CollectionNativeStateIndex baseline, CollectionCurrentStateFingerprint preparationFingerprint,
+			CollectionMemberEffectPreview preview, CollectionNativeModState previousMod)
+		{
+			HashSet<ModDeploymentTarget> targets = GetVirtualChildRefreshTargets(target, baseline, preparationFingerprint, preview, previousMod);
+			InstallLog installLog = _installLogProvider() as InstallLog;
+			VirtualModActivator activator = _virtualModActivator as VirtualModActivator;
+			if (targets == null || installLog == null || activator == null)
+				return null;
+			long started = CollectionPerformanceMetrics.StartTiming();
+			var physicalTargets = new HashSet<string>(targets.Select(x => ModDeploymentTargetResolver.GetPhysicalPath(_gameMode, x)), StringComparer.OrdinalIgnoreCase);
+			if (baseline.Files.Values.Any(x => x.RecordedByInstallLog && physicalTargets.Contains(x.PhysicalPath)))
+				return null;
+			InstallLogReadSnapshot install = installLog.GetCommittedStateSnapshotForVirtualTargets(targets);
+			// Promotion can occur during an overwrite. Its mixed Direct/Virtual authority needs the complete reader.
+			if (install.DeploymentTargets.Count != 0)
+				return null;
+			VirtualModReadSnapshot virtualState = activator.GetReadSnapshotForCollections(targets);
+			// Physical-path indexes can return an equivalent destination expressed through a different deployment root.
+			if (virtualState.Links.Any(x => !targets.Contains(x.Target)))
+				return null;
+			var committedKeys = new HashSet<string>(install.Mods.Where(x => !x.Hidden).Select(x => x.ModKey), StringComparer.OrdinalIgnoreCase);
+			if (baseline.ModsByNativeKey.Keys.Any(key => !committedKeys.Contains(key) &&
+				(previousMod == null || !String.Equals(key, previousMod.Identity.NativeModKey, StringComparison.OrdinalIgnoreCase))))
+				return null;
+			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(installLog, activator,
+				null, _pluginManager, _gameMode).CaptureForCollectionIndex(install, virtualState);
+			if (baseline.Roots.Count != nativeCapture.Roots.Count || baseline.Roots.Any(root => !nativeCapture.Roots.Any(
+				x => x.Root == root.Root && String.Equals(x.PhysicalPath, root.PhysicalPath, StringComparison.Ordinal))))
+				return null;
+			CollectionsAssociationTargetSnapshot ignored;
+			CollectionNativeStateIndex result = Capture(target, nativeCapture, out ignored, started, baseline, targets);
+			CollectionPerformanceMetrics.RecordNativeStateIncrementalRefresh(started);
+			return result;
+		}
+
+		/// <summary>Includes both new destinations and every old ownership entry so reinstalls remove stale links and restore prior winners.</summary>
+		internal static HashSet<ModDeploymentTarget> GetVirtualChildRefreshTargets(CollectionTargetIdentity target,
+			CollectionNativeStateIndex baseline, CollectionCurrentStateFingerprint preparationFingerprint,
+			CollectionMemberEffectPreview preview, CollectionNativeModState previousMod)
+		{
+			if (target == null || baseline == null || !target.Equals(baseline.Target) ||
+				!baseline.Fingerprint.Equals(preparationFingerprint) || baseline.Issues.Count != 0 ||
+				preview == null || !preview.IsComplete || preview.InstallMethod != ModInstallMethod.Virtual || preview.InstallRootCorrection != null ||
+				(previousMod != null && (previousMod.InstallMethod != ModInstallMethod.Virtual || !baseline.Mods.ContainsKey(previousMod.Identity))))
+				return null;
+			var targets = new HashSet<ModDeploymentTarget>(preview.Files.Select(x => x.Target));
+			System.Collections.ObjectModel.ReadOnlyCollection<CollectionNativeFileState> previousFiles;
+			if (previousMod != null && baseline.FilesByOwnerKey.TryGetValue(previousMod.Identity.NativeModKey, out previousFiles))
+				targets.UnionWith(previousFiles.Select(x => x.Target));
+			foreach (ModDeploymentTarget fileTarget in targets)
+			{
+				CollectionNativeFileState file;
+				if (baseline.Files.TryGetValue(fileTarget, out file) && file.RecordedByInstallLog)
+					return null;
+			}
+			return targets;
+		}
+
 		/// <summary>
 		/// Captures the C8.1 replacement snapshot, including drift and standalone provenance from the same Collection-store read
 		/// used to populate the native-state association/binding/override view.
@@ -107,7 +168,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture,
-			out CollectionsAssociationTargetSnapshot associationSnapshot, long performanceStarted = 0)
+			out CollectionsAssociationTargetSnapshot associationSnapshot, long performanceStarted = 0,
+			CollectionNativeStateIndex baseline = null, ISet<ModDeploymentTarget> refreshedTargets = null)
 		{
 			if (performanceStarted == 0) performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (target == null)
@@ -157,8 +219,10 @@ namespace Nexus.Client.CollectionManagement
 				plugins, pluginCoverage, associations, bindings, overrides, associationCoverage, issues,
 				install.DeploymentCommitSequence, associationSnapshot == null ? null :
 					_associationStore.GetReconciledPartialAssociationIds(associationSnapshot),
-				(_gameMode.PluginManagementPolicy ?? new PluginManagementPolicy()).MasterPluginsMustLoadBeforeNonMasters);
-			CollectionPerformanceMetrics.RecordNativeStateIndexBuild(performanceStarted);
+				(_gameMode.PluginManagementPolicy ?? new PluginManagementPolicy()).MasterPluginsMustLoadBeforeNonMasters,
+				baseline, refreshedTargets);
+			if (baseline == null)
+				CollectionPerformanceMetrics.RecordNativeStateIndexBuild(performanceStarted);
 			return result;
 		}
 

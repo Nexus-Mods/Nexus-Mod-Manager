@@ -208,7 +208,7 @@ namespace Nexus.Client.CollectionManagement
 				members.Add(new ResolvedCollectionMemberPlan(normalized, choice));
 			}
 
-			return new ResolvedCollectionPlan(snapshot.Identity, snapshot.Target, CollectionExecutionPolicy.InstallIntoCurrentSetup(snapshot.AutomaticallyInstall, snapshot.PreferIncomingCollection),
+			return new ResolvedCollectionPlan(snapshot.Identity, snapshot.Target, CollectionExecutionPolicy.InstallIntoCurrentSetup(snapshot.AutomaticallyInstall, snapshot.PreferIncomingCollection, snapshot.EnableUnspecifiedPlugins),
 				snapshot.ApprovedStateFingerprint, effective.CapabilityReport, members);
 		}
 

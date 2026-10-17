@@ -975,10 +975,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					AddUnknownMemberFields(groupObject, FomodGroupFields, groupPath, draft.Issues);
 					JToken groupNameToken = groupObject["name"];
 					string groupName = groupNameToken != null && groupNameToken.Type == JTokenType.String ? groupNameToken.Value<string>() : null;
-					if (groupName == null || (groupName.Length > 0 && String.IsNullOrWhiteSpace(groupName)))
+					if (groupName == null)
 					{
 						draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a string name, which may be empty but cannot contain only whitespace.", groupPath + ".name"));
+							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a string name; empty and whitespace-only labels are preserved for exact native matching.", groupPath + ".name"));
 						valid = false; continue;
 					}
 					JArray choicesToken = groupObject["choices"] as JArray;

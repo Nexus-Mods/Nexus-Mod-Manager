@@ -26,6 +26,9 @@
 		<Setting Name="CollectionSkipExistingArchiveMd5" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
 		</Setting>
+		<Setting Name="CollectionEnableUnspecifiedPlugins" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
 		<Setting Name="CollectionSkipContentChecks" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">True</Value>
 		</Setting>

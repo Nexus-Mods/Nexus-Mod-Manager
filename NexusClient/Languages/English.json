@@ -1596,6 +1596,7 @@
     "Tasks.Categories.UpdatingAssignments": "Updating mod categories...",
     "Tasks.Mod.Installing": "Installing Mod...",
     "Tasks.Mod.Preparing": "Preparing Mod...",
+    "Tasks.Mod.CheckingInstalledState": "Checking installed mod state...",
     "Tasks.Mod.ScanReadmes": "Scanning mod archives for readme files...",
     "Tasks.Mod.UndoingGameSpecificEdits": "Undoing Game Specific Value Edits...",
     "Tasks.Mod.UndoingIniEdits": "Undoing Ini Edits...",

@@ -222,6 +222,7 @@
     <Compile Include="CollectionManagement\CollectionConflictResolutionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionPluginRelativeOrderApplicator.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
+    <Compile Include="CollectionManagement\CollectionPluginActivationResolver.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowRuntime.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveWorkflowCoordinator.cs" />
@@ -1351,6 +1352,7 @@
     <Compile Include="ModManagement\ModUpgrader.cs" />
     <Compile Include="ModManagement\NexusUrl.cs" />
     <Compile Include="ModManagement\PrepareModTask.cs" />
+    <Compile Include="ModManagement\NativeModStatePreparationTask.cs" />
     <Compile Include="ModManagement\UI\ModTaggerForm.cs">
       <SubType>Form</SubType>
     </Compile>

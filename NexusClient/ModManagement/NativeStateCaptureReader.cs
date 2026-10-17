@@ -74,6 +74,16 @@ namespace Nexus.Client.ModManagement
 			VirtualModActivator activator = _virtualModActivator as VirtualModActivator;
 			VirtualModReadSnapshot virtualState = RequireVirtualSnapshot(activator == null
 				? _virtualModActivator.GetReadSnapshot() : activator.GetReadSnapshotForCollections());
+			return CaptureForCollectionIndex(install, virtualState);
+		}
+
+		/// <summary>Captures current roots and plugins alongside a caller's committed, possibly target-scoped ownership observation.</summary>
+		internal NativeStateCaptureSnapshot CaptureForCollectionIndex(InstallLogReadSnapshot install, VirtualModReadSnapshot virtualState)
+		{
+			if (Transaction.Current != null)
+				throw new InvalidOperationException("Native state cannot be captured from inside an ambient transaction.");
+			RequireInstallLogSnapshot(install);
+			RequireVirtualSnapshot(virtualState);
 			var issues = new List<NativeStateCaptureIssue>();
 			List<NativeStateCaptureRoot> roots = CaptureRoots(issues);
 			NativeStateCaptureCoverage pluginCoverage;

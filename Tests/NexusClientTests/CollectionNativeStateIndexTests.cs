@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -201,6 +202,85 @@ namespace NexusClientTests
 			Assert.AreEqual(1, plugin.Diagnostics.Count);
 		}
 
+		/// <summary>Partial refresh cannot reuse another target, stale preparation, Direct effects, or legacy/promoted ownership.</summary>
+		[TestCase("target")]
+		[TestCase("fingerprint")]
+		[TestCase("direct")]
+		[TestCase("legacy")]
+		[TestCase("promoted")]
+		[TestCase("previous-direct")]
+		public void VirtualChildRefresh_RequiresCompatiblePreparationBaseline(string mismatch)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("refresh-guard");
+			CollectionNativeModState mod = CreateMod(target, "owner", "owner.7z");
+			CollectionNativeFileState file = CreateFile("shared.txt", "owner");
+			if (mismatch == "legacy" || mismatch == "promoted")
+				file = new CollectionNativeFileState(file.Target, file.PhysicalPath, mismatch == "promoted", true, true,
+					"owner", file.VirtualOwners, new CollectionNativeOwnerState[0], file.VirtualOwners);
+			if (mismatch == "previous-direct")
+				mod = new CollectionNativeModState(mod.Identity, mod.ArchivePath, mod.FileName, "100", "200", "1", "1",
+					ModInstallRoot.Data, ModInstallMethod.Direct);
+			CollectionNativeStateIndex baseline = CreateIndex(target, new[] { mod }, new[] { file }, null);
+			CollectionCurrentStateFingerprint fingerprint = mismatch == "fingerprint"
+				? new CollectionCurrentStateFingerprint("native-state-index-v3", "changed") : baseline.Fingerprint;
+			if (mismatch == "target") target = CollectionTargetIdentity.FromFingerprint("another-target");
+			CollectionMemberEffectPreview preview = CreateRefreshPreview(new[] { file.Target },
+				mismatch == "direct" ? ModInstallMethod.Direct : ModInstallMethod.Virtual);
+
+			Assert.That(CollectionNativeStateReader.GetVirtualChildRefreshTargets(target, baseline, fingerprint, preview,
+				mismatch == "previous-direct" ? mod : null), Is.Null);
+		}
+
+		/// <summary>Replaces entire stacks, drops old-only targets and retains distinct roots and immutable unaffected records.</summary>
+		[Test]
+		public void VirtualChildRefresh_MergesOldInactiveOwnershipAndPreservesRootIdentity()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("refresh-merge");
+			CollectionNativeModState previous = CreateMod(target, "previous", "previous.7z");
+			CollectionNativeModState other = CreateMod(target, "other", "other.7z");
+			CollectionNativeFileState removed = CreateFile("removed.txt", "previous");
+			CollectionNativeFileState shared = CreateFile("shared.txt", "other");
+			shared = new CollectionNativeFileState(shared.Target, shared.PhysicalPath, false, false, true, "other",
+				shared.InstallLogOwners, shared.DeploymentOwners, new[]
+				{
+					new CollectionNativeOwnerState("previous", null, CollectionNativeOwnerKind.NativeMod, false, 1, "old"),
+					shared.VirtualOwners.Single()
+				});
+			CollectionNativeFileState rootFile = new CollectionNativeFileState(
+				ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "shared.txt"), "C:\\Game\\shared.txt",
+				false, false, true, "other", shared.InstallLogOwners, shared.DeploymentOwners, new[] { shared.VirtualOwners.Last() });
+			CollectionNativeStateIndex baseline = CreateIndex(target, new[] { previous, other }, new[] { removed, shared, rootFile }, null);
+			CollectionNativeFileState added = CreateFile("added.txt", "previous");
+			HashSet<ModDeploymentTarget> targets = CollectionNativeStateReader.GetVirtualChildRefreshTargets(target, baseline,
+				baseline.Fingerprint, CreateRefreshPreview(new[] { added.Target }), previous);
+			CollectionAssert.AreEquivalent(new[] { removed.Target, shared.Target, added.Target }, targets);
+			CollectionNativeFileState remaining = CreateFile("shared.txt", "other");
+
+			CollectionNativeStateIndex result = CreateIndex(target, new[] { previous, other }, new[] { added, remaining }, null, baseline, targets);
+
+			Assert.That(result.Files[rootFile.Target], Is.SameAs(rootFile));
+			Assert.That(result.Files.ContainsKey(removed.Target), Is.False);
+			CollectionNativeStateIndex full = CreateIndex(target, new[] { previous, other }, new[] { rootFile, added, remaining }, null);
+			Assert.That(result.Fingerprint, Is.EqualTo(full.Fingerprint));
+			CollectionAssert.AreEquivalent(new[] { added.Target }, result.FilesByOwnerKey["previous"].Select(x => x.Target));
+			Assert.Throws<ArgumentException>(() => CreateIndex(target, new[] { previous, other }, new[] { rootFile }, null, baseline, targets));
+			CollectionNativeStateIndex unchanged = CreateIndex(target, new[] { previous, other }, new CollectionNativeFileState[0], null,
+				result, new HashSet<ModDeploymentTarget>());
+			Assert.That(unchanged.Files, Is.SameAs(result.Files));
+			Assert.That(unchanged.FilesByOwnerKey, Is.SameAs(result.FilesByOwnerKey));
+			Assert.That(unchanged.Fingerprint, Is.EqualTo(result.Fingerprint));
+		}
+
+		/// <summary>Creates the file-only preview used to exercise native refresh eligibility.</summary>
+		private static CollectionMemberEffectPreview CreateRefreshPreview(IEnumerable<ModDeploymentTarget> files,
+			ModInstallMethod method = ModInstallMethod.Virtual)
+		{
+			return new CollectionMemberEffectPreview(CollectionMemberKey.FromValidatedMatch("refresh-member"),
+				CollectionRecipeIdentity.FromFingerprint("refresh-recipe"), method, ModInstallRoot.Data,
+				files.Select(file => new CollectionPlannedFileEffect(file)), new CollectionPlannedIniEffect[0],
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+		}
+
 		private static CollectionNativeModState CreateMod(CollectionTargetIdentity target, string key, string fileName)
 		{
 			return new CollectionNativeModState(new NativeModInstanceIdentity(target, key), "C:\\Mods\\" + fileName,
@@ -217,14 +297,15 @@ namespace NexusClientTests
 
 		private static CollectionNativeStateIndex CreateIndex(CollectionTargetIdentity target,
 			IEnumerable<CollectionNativeModState> mods, IEnumerable<CollectionNativeFileState> files,
-			IEnumerable<CollectionNativeIniState> iniEdits)
+			IEnumerable<CollectionNativeIniState> iniEdits, CollectionNativeStateIndex fileBaseline = null,
+			ISet<ModDeploymentTarget> refreshedTargets = null)
 		{
 			return new CollectionNativeStateIndex(target,
 				new[] { new CollectionNativeRootState(ModDeploymentRoot.Data, "C:\\Game\\Data") },
 				mods, files, iniEdits ?? new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
 				new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
 				new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0],
-				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 7);
+				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 7, null, false, fileBaseline, refreshedTargets);
 		}
 	}
 }

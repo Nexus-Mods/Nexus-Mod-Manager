@@ -964,8 +964,11 @@ namespace NexusClientTests
 			Assert.DoesNotThrow(() => step.GetHashCode());
 		}
 
+		/// <summary>Preserves literal installer group labels, including the spaces used by Meridia's recorded choices.</summary>
 		[TestCase("\"\"", true)]
-		[TestCase("\"  \"", false)]
+		[TestCase("\" \"", true)]
+		[TestCase("\"  \"", true)]
+		[TestCase("\"\\t\"", true)]
 		[TestCase("null", false)]
 		[TestCase("1", false)]
 		public void Normalize_UnnamedVortexFomodGroupRetainsExactNativeIdentity(string nameValue, bool supported)
@@ -978,7 +981,7 @@ namespace NexusClientTests
 			if (supported)
 			{
 				CollectionVortexFomodGroupSelection group = result.Manifest.Members.Single().VortexFomodSelection.Steps.Single().Groups.Single();
-				Assert.AreEqual(String.Empty, group.Name);
+				Assert.AreEqual(JToken.Parse(nameValue).Value<string>(), group.Name);
 				Assert.AreEqual(1, group.Choices.Single().Index);
 				Assert.DoesNotThrow(() => group.GetHashCode());
 			}

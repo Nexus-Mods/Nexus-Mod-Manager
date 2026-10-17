@@ -36,6 +36,21 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Manifest.Members[0].HasVortexBinaryPatches);
 			Assert.AreEqual("textures\\foo.bin", result.Manifest.Members[0].VortexBinaryPatches.Items[0].DestinationPath);
 			Assert.AreEqual("352441C2", result.Manifest.Members[0].VortexBinaryPatches.Items[0].SourceCrc32);
+
+			CollectionEffectiveSelection effective = new CollectionEffectiveSelectionBuilder().Build(
+				result.CapabilityReport, new CollectionOptionalMemberSelection[0]);
+			NormalizedCollectionMember selected = effective.Manifest.Members[0];
+			Assert.That(selected.VortexBinaryPatches, Is.EqualTo(result.Manifest.Members[0].VortexBinaryPatches),
+				"Selection projection must retain the exact binary patches used by source revalidation and native preparation.");
+			var resolved = new ResolvedCollectionMemberPlan(selected, CollectionResolvedArtifactChoice.Exact(selected.Artifact));
+			Assert.That(resolved.VortexBinaryPatches, Is.EqualTo(selected.VortexBinaryPatches));
+
+			var stripped = new NormalizedCollectionMember(selected.SourceOrdinal, selected.IdentityResolution, selected.Requirement,
+				selected.Selection, selected.Artifact, selected.RecipeIdentity, selected.DisplayName);
+			var changedManifest = new NormalizedCollectionManifest(result.Manifest.Revision, result.Manifest.Source,
+				result.Manifest.MemberSetCompleteness, result.Manifest.IncompletenessReason, new[] { stripped }, null);
+			Assert.Throws<ArgumentException>(() => result.CapabilityReport.RecalculateForSelection(changedManifest),
+				"A changed or dropped binary-patch set is a recipe change, not a selection-only change.");
 		}
 
 		[TestCase("../escape.bin")]

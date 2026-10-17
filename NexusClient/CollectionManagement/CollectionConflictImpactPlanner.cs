@@ -794,13 +794,13 @@ namespace Nexus.Client.CollectionManagement
 				.SelectMany(x => x.PluginEffects.Select(effect => Tuple.Create(x.MemberKey, effect))).ToList();
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all = original;
 			if (original.Count == 0 && !manifest.HasPluginStateSection && manifest.PluginRelativeOrderRules.Count == 0 &&
-				(requiredPlugins == null || requiredPlugins.Count == 0)) return new List<CollectionPluginImpact>();
+				(requiredPlugins == null || requiredPlugins.Count == 0) && !plan.Policy.EnableUnspecifiedPlugins) return new List<CollectionPluginImpact>();
 			var nativeFiles = new PluginFileLookup(nativeState);
 			var previewFileNames = previews.ToDictionary(x => x.Key, x => new HashSet<string>(
 				x.Value.Files.Where(f => f.Target.Root == ModDeploymentRoot.Data).Select(f => Path.GetFileName(f.Target.RelativePath)), StringComparer.OrdinalIgnoreCase));
 			Dictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates = null;
 
-			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0 || (requiredPlugins != null && requiredPlugins.Count > 0))
+			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0 || (requiredPlugins != null && requiredPlugins.Count > 0) || plan.Policy.EnableUnspecifiedPlugins)
 			{
 				candidates = new Dictionary<string, List<Tuple<CollectionMemberKey, string>>>(StringComparer.OrdinalIgnoreCase);
 				foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in original.Where(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.Activation))
@@ -817,7 +817,7 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 
-				if (manifest.HasPluginStateSection)
+				if (manifest.HasPluginStateSection || plan.Policy.EnableUnspecifiedPlugins)
 				{
 					var enabledNames = new HashSet<string>(manifest.PluginStates.Where(x => x.Enabled).Select(x => x.PluginName),
 						StringComparer.OrdinalIgnoreCase);
@@ -826,7 +826,11 @@ namespace Nexus.Client.CollectionManagement
 					{
 						CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
 						string path = ResolvePluginCandidatePath(nativeFiles, candidate.Key, candidate.Value);
-						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key) || (requiredPlugins != null && requiredPlugins.Contains(candidate.Key)))));
+						CollectionDesiredPluginState explicitState = manifest.PluginStates.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(x.PluginName, candidate.Key));
+						bool active = plan.Policy.EnableUnspecifiedPlugins
+							? explicitState == null || explicitState.Enabled
+							: enabledNames.Contains(candidate.Key) || (requiredPlugins != null && requiredPlugins.Contains(candidate.Key));
+						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, active)));
 					}
 				}
 

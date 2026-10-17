@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 
 namespace Nexus.Client.CollectionManagement
@@ -333,9 +334,10 @@ namespace Nexus.Client.CollectionManagement
 			List<UserOverride> overrides = terminalState.OverridesByAssociation.Values.SelectMany(x => x).ToList();
 
 			return new CollectionNativeStateIndex(terminalState.Target, terminalState.Roots, terminalState.Mods.Values,
-				terminalState.Files.Values, terminalState.IniEdits.Values, terminalState.GameValues.Values, terminalState.Plugins.Values,
+				new CollectionNativeFileState[0], terminalState.IniEdits.Values, terminalState.GameValues.Values, terminalState.Plugins.Values,
 				terminalState.PluginCoverage, associations, bindings, overrides, terminalState.AssociationCoverage, terminalState.Issues,
-				terminalState.DeploymentCommitSequence, terminalState.ReconciledPartialAssociations, terminalState.PluginOrderRequiresMasterSection);
+				terminalState.DeploymentCommitSequence, terminalState.ReconciledPartialAssociations, terminalState.PluginOrderRequiresMasterSection,
+				terminalState, new HashSet<ModDeploymentTarget>());
 		}
 
 		private CollectionAssociationReconciliationResult LoadReconciledResult(CollectionOperation operation,

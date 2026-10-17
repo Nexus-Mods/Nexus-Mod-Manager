@@ -209,6 +209,7 @@ namespace Nexus.Client.CollectionManagement
 					!Equals(left.VortexFomodSelection, right.VortexFomodSelection) ||
 					!Equals(left.VortexFileList, right.VortexFileList) ||
 					!Equals(left.VortexFileOverrides, right.VortexFileOverrides) ||
+					!Equals(left.VortexBinaryPatches, right.VortexBinaryPatches) ||
 					!StringComparer.Ordinal.Equals(left.DisplayName, right.DisplayName) || left.InstallationPhase != right.InstallationPhase)
 					throw new ArgumentException("Capability can be recalculated only when member selection is the sole normalized-member change.", nameof(candidate));
 			}

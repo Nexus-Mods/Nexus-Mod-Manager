@@ -162,6 +162,10 @@ namespace Nexus.Client.CollectionManagement
 		public long NativeArchivePreparationCount { get; internal set; }
 		/// <summary>Archive initialization time included within NativeInstallationMilliseconds.</summary>
 		public double NativeArchivePreparationMilliseconds { get; internal set; }
+		/// <summary>Number of committed children refreshed without recapturing unrelated native files.</summary>
+		public long NativeStateIncrementalRefreshCount { get; internal set; }
+		/// <summary>Time in incremental committed-child state refreshes, including the canonical state fingerprint.</summary>
+		public double NativeStateIncrementalRefreshMilliseconds { get; internal set; }
 	}
 
 	/// <summary>Low-overhead aggregate timing/counter recorder for C12 release measurements.</summary>
@@ -175,6 +179,8 @@ namespace Nexus.Client.CollectionManagement
 		private static readonly HashSet<string> PreparedNativeIdentities = new HashSet<string>(StringComparer.Ordinal);
 		private static long _nativeStateIndexBuildCount;
 		private static long _nativeStateIndexBuildTicks;
+		private static long _nativeStateIncrementalRefreshCount;
+		private static long _nativeStateIncrementalRefreshTicks;
 		private static long _nativeRecipePreparationCount;
 		private static long _nativeRecipePreparationTicks;
 		private static long _effectPreviewCount;
@@ -241,6 +247,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		internal static void RecordNativeStateIndexBuild(long started) { Record(started, ref _nativeStateIndexBuildCount, ref _nativeStateIndexBuildTicks); }
+		/// <summary>Records an incremental refresh separately from complete native-state captures.</summary>
+		internal static void RecordNativeStateIncrementalRefresh(long started) { Record(started, ref _nativeStateIncrementalRefreshCount, ref _nativeStateIncrementalRefreshTicks); }
 		internal static void RecordNativeRecipePreparation(long started) { Record(started, ref _nativeRecipePreparationCount, ref _nativeRecipePreparationTicks); }
 		/// <summary>Records Collection native execution independently of the subsequent verification step.</summary>
 		internal static void RecordNativeInstallation(long started) { Record(started, ref _nativeInstallationCount, ref _nativeInstallationTicks); }
@@ -427,7 +435,9 @@ namespace Nexus.Client.CollectionManagement
 				NativeInstallationCount = Interlocked.Read(ref _nativeInstallationCount),
 				NativeInstallationMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeInstallationTicks)),
 				NativeArchivePreparationCount = Interlocked.Read(ref _nativeArchivePreparationCount),
-				NativeArchivePreparationMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeArchivePreparationTicks))
+				NativeArchivePreparationMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeArchivePreparationTicks)),
+				NativeStateIncrementalRefreshCount = Interlocked.Read(ref _nativeStateIncrementalRefreshCount),
+				NativeStateIncrementalRefreshMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeStateIncrementalRefreshTicks))
 			};
 		}
 

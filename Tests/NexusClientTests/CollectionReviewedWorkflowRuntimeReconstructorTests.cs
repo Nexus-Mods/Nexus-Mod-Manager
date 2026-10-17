@@ -18,6 +18,48 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionReviewedWorkflowRuntimeReconstructorTests
 	{
+		/// <summary>The opt-in survives saved review reconstruction and cannot change because a global preference changed after review.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void UnlistedPluginPreference_RoundTripsReviewedRuntime(bool enabled)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, enabled);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { fixture.PreparedRecipe });
+				byte[] bytes = CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot);
+				CollectionReviewedWorkflowSnapshot restored = CollectionReviewedWorkflowSnapshotCodec.Deserialize(bytes);
+				Assert.That(restored.EnableUnspecifiedPlugins, Is.EqualTo(enabled));
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					restored, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				CollectionReviewedWorkflowRuntime runtime = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store).Reconstruct(rehydration);
+				Assert.That(runtime.Plan.Policy.EnableUnspecifiedPlugins, Is.EqualTo(enabled));
+				Assert.Throws<InvalidDataException>(() => CollectionReviewedWorkflowSnapshotCodec.Deserialize(bytes.Take(bytes.Length - 1).ToArray()));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Older reviewed workflows remain readable and never acquire the new activation opt-in.</summary>
+		[TestCase(8, 3)]
+		[TestCase(9, 1)]
+		public void UnlistedPluginPreference_LegacyReviewsDefaultOff(int version, int omittedBytes)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { fixture.PreparedRecipe });
+				byte[] bytes = CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot);
+				bytes = bytes.Take(bytes.Length - omittedBytes).ToArray();
+				Buffer.BlockCopy(BitConverter.GetBytes(version), 0, bytes, 0, sizeof(int));
+				Assert.That(CollectionReviewedWorkflowSnapshotCodec.Deserialize(bytes).EnableUnspecifiedPlugins, Is.False);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Large reviewed Collections survive both the former 64 MB payload cap and 100,000-file reader cap.</summary>
 		[Test]
 		public void ReviewedSnapshot_RoundTripsLargeFilePlanBeyondFormerLimits()
@@ -504,7 +546,7 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
-		private static Fixture CreateFixture(string root)
+		private static Fixture CreateFixture(string root, bool enableUnspecifiedPlugins = false)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -533,7 +575,7 @@ namespace NexusClientTests
 				new CollectionMemberBinding[0], new UserOverride[0], CollectionNativeStateCoverage.Complete,
 				new CollectionNativeStateIssue[0], 0);
 			var plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
-				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, normalization.CapabilityReport, new[] { member });
+				CollectionExecutionPolicy.InstallIntoCurrentSetup(false, false, enableUnspecifiedPlugins), state.Fingerprint, normalization.CapabilityReport, new[] { member });
 
 			byte[] archiveBytes = Encoding.UTF8.GetBytes("c6.15.12 runtime archive");
 			CollectionsRetainedArtifact artifact;
