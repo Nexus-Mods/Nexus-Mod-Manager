@@ -21,7 +21,8 @@
 		private readonly bool _overrideLocalModNames;
 		private readonly Dictionary<string, string> _newDownloadID = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private int _retries = 0;
-		private bool _cancel;
+		private volatile bool _cancel;
+		private readonly bool _fullUpdateCheck;
 		private string _period = string.Empty;
 
 		#region Properties
@@ -57,11 +58,20 @@
 		/// <param name="overrideCategorySetup">Whether to force a global update.</param>
 		/// <inheritdoc />
 		public ModUpdateCheckTask(AutoUpdater autoUpdater, IProfileManager profileManager, IModRepository modRepository, IEnumerable<IMod> modList, string period, bool overrideCategorySetup, bool? missingDownloadId, bool overrideLocalModNames)
+			: this(autoUpdater, profileManager, modRepository, modList, period, overrideCategorySetup, missingDownloadId, overrideLocalModNames, false)
+		{
+		}
+
+		/// <summary>
+		/// Creates an update task with an explicit full-library scope independent of the provider period.
+		/// </summary>
+		public ModUpdateCheckTask(AutoUpdater autoUpdater, IProfileManager profileManager, IModRepository modRepository, IEnumerable<IMod> modList, string period, bool overrideCategorySetup, bool? missingDownloadId, bool overrideLocalModNames, bool fullUpdateCheck)
 		{
 			AutoUpdater = autoUpdater;
 			ModRepository = modRepository;
 			ProfileManager = profileManager;
 			_period = period;
+			_fullUpdateCheck = fullUpdateCheck;
 			_modList.AddRange(modList);
 			_overrideCategorySetup = overrideCategorySetup;
 			_missingDownloadId = missingDownloadId;
@@ -117,7 +127,7 @@
 			if (_overrideCategorySetup && _missingDownloadId == false)
 				return RefreshRepositoryCategories();
 
-			if (!string.IsNullOrEmpty(_period))
+			if (!_fullUpdateCheck && !string.IsNullOrEmpty(_period))
 			{
 				// Get updated mods in the chosen period
 				var updatedListStopwatch = Stopwatch.StartNew();
@@ -172,8 +182,18 @@
                     isEndorsed = modCurrent.IsEndorsed == true ? 1 : modCurrent.IsEndorsed == false ? -1 : 0;
                 }
 
+				if (_fullUpdateCheck)
+				{
+					int nexusModId;
+					if (modCurrent.UpdateChecksEnabled && Int32.TryParse(modId, out nexusModId) && nexusModId > 0)
+					{
+						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, modId,
+							modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
+						modCheck.Add(modCurrent);
+					}
+				}
 				// If we're looking for missing download Ids
-				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
+				else if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
 				{
 					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Any(update => string.Equals(update.ModId, modId, StringComparison.OrdinalIgnoreCase)))
 					{
@@ -401,7 +421,9 @@
 			var fetchStopwatch = Stopwatch.StartNew();
 			for (int i = 0; i <= _retries; i++)
 			{
-				RepositoryFileListInfoResult fetchResult = ModRepository.GetFileListInfoWithFreshness(modList, providerUpdates);
+				RepositoryFileListInfoResult fetchResult = _fullUpdateCheck
+					? ModRepository.GetFullFileListInfo(modList, () => _cancel)
+					: ModRepository.GetFileListInfoWithFreshness(modList, providerUpdates);
 				fileListInfo = fetchResult?.ModInfo;
 				checkpointCandidates = fetchResult?.Checkpoints ?? new List<RepositoryFileUpdateCheckpoint>();
 
@@ -420,6 +442,7 @@
 			{
 				var applyStopwatch = Stopwatch.StartNew();
 				int appliedCount = 0;
+				var appliedCheckpoints = new List<RepositoryFileUpdateCheckpoint>();
 				IModInfo[] modUpdates = fileListInfo.ToArray();
 				ItemProgress = 0;
 				ItemProgressMaximum = fileListInfo.Count;
@@ -510,6 +533,9 @@
 					if (!string.IsNullOrEmpty(mod.ModName))
 						modUpdate.ModName = string.Empty;
 					mod.UpdateInfo(modUpdate, null);
+					if (_fullUpdateCheck && i < checkpointCandidates.Count
+						&& checkpointCandidates[i]?.FileMetadataResolved == true)
+						appliedCheckpoints.Add(checkpointCandidates[i]);
 					appliedCount++;
 					ItemProgress = 0;
 				}
@@ -523,7 +549,10 @@
 					&& checkpointCandidates.Count == modUpdates.Length
 					&& checkpointCandidates.Count > 0
 					&& checkpointCandidates.All(candidate => candidate != null);
-				bool checkpointsPersisted = completeFreshnessRun && ModRepository.CommitFileUpdateCheckpoints(checkpointCandidates);
+				// A failed mod must not discard independently applied Full-check results for the rest of a large library.
+				bool checkpointsPersisted = _fullUpdateCheck
+					? !_cancel && appliedCheckpoints.Count > 0 && ModRepository.CommitFileUpdateCheckpoints(appliedCheckpoints)
+					: completeFreshnessRun && ModRepository.CommitFileUpdateCheckpoints(checkpointCandidates);
 
 				applyStopwatch.Stop();
 				Trace.TraceInformation("NMM mod-update apply completed: elapsedMs={0}, requested={1}, returned={2}, applied={3}, cancelled={4}, checkpointCandidates={5}, checkpointsPersisted={6}.",

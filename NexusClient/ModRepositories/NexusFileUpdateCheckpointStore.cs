@@ -63,6 +63,38 @@
 		}
 
 		/// <summary>
+		/// Finds a completely resolved archive checked within a successful recent-update response's coverage.
+		/// Both the file ID and archive filename must still match when they are available.
+		/// </summary>
+		public bool TryGetVerified(string gameDomain, int modId, string downloadId, string currentFilename,
+			DateTimeOffset coveredSinceUtc, DateTimeOffset checkedAtUtc, out RepositoryFileUpdateCheckpoint checkpoint)
+		{
+			checkpoint = null;
+			if (!IsEnabled || modId <= 0 || string.IsNullOrWhiteSpace(currentFilename))
+				return false;
+
+			lock (_sync)
+			{
+				EnsureLoaded();
+				CheckpointEntry entry = _entries.FirstOrDefault(candidate =>
+					SameMod(candidate, gameDomain, modId)
+					&& candidate.FileMetadataResolved
+					&& ModFileIdentity.IsUsableRepositoryId(candidate.ResolvedDownloadId)
+					&& candidate.VerifiedUtc != default(DateTimeOffset)
+					&& candidate.VerifiedUtc >= coveredSinceUtc
+					&& candidate.VerifiedUtc <= checkedAtUtc
+					&& MatchesRequestIdentity(candidate, downloadId, currentFilename)
+					&& (string.Equals(candidate.SourceFilename, currentFilename, StringComparison.OrdinalIgnoreCase)
+						|| string.Equals(candidate.ResolvedFilename, currentFilename, StringComparison.OrdinalIgnoreCase)));
+				if (entry == null)
+					return false;
+
+				checkpoint = FromEntry(entry);
+				return true;
+			}
+		}
+
+		/// <summary>
 		/// Publishes a complete set of successfully applied checkpoint candidates atomically.
 		/// </summary>
 		public bool Commit(IEnumerable<RepositoryFileUpdateCheckpoint> checkpoints)
@@ -80,8 +112,10 @@
 				foreach (RepositoryFileUpdateCheckpoint candidate in candidates)
 				{
 					DateTimeOffset freshnessUtc = candidate.LatestFileUpdateUtc.ToUniversalTime();
+					// An absent provider timestamp verifies this archive only, not the freshness of sibling archives.
 					_entries.RemoveAll(entry =>
-						SameMod(entry, candidate.GameDomain, candidate.ModId)
+						freshnessUtc != default(DateTimeOffset)
+						&& SameMod(entry, candidate.GameDomain, candidate.ModId)
 						&& entry.LatestFileUpdateUtc.ToUniversalTime() != freshnessUtc);
 
 					_entries.RemoveAll(entry =>
@@ -174,7 +208,8 @@
 			return entry != null
 				&& !string.IsNullOrWhiteSpace(entry.GameDomain)
 				&& entry.ModId > 0
-				&& entry.LatestFileUpdateUtc != default(DateTimeOffset);
+				&& (entry.LatestFileUpdateUtc != default(DateTimeOffset)
+					|| (entry.VerifiedUtc != default(DateTimeOffset) && entry.FileMetadataResolved));
 		}
 
 		private static bool SameMod(CheckpointEntry entry, string gameDomain, int modId)
@@ -220,7 +255,8 @@
 				ResolvedFilename = checkpoint.ResolvedFilename,
 				ResolvedName = checkpoint.ResolvedName,
 				HumanReadableVersion = checkpoint.HumanReadableVersion,
-				FileMetadataResolved = checkpoint.FileMetadataResolved
+				FileMetadataResolved = checkpoint.FileMetadataResolved,
+				VerifiedUtc = checkpoint.VerifiedUtc
 			};
 		}
 
@@ -236,7 +272,7 @@
 				entry.ResolvedFilename,
 				entry.ResolvedName,
 				entry.HumanReadableVersion,
-				entry.FileMetadataResolved);
+				entry.FileMetadataResolved, entry.VerifiedUtc);
 		}
 
 		private sealed class CheckpointDocument
@@ -275,6 +311,8 @@
 			public string HumanReadableVersion { get; set; }
 
 			public bool FileMetadataResolved { get; set; }
+
+			public DateTimeOffset VerifiedUtc { get; set; }
 		}
 	}
 }

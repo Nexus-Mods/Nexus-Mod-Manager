@@ -1494,6 +1494,7 @@
 			withinTheLastDayToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastDay.Name", "...within the last day");
 			withinTheLastWeekToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastWeek.Name", "...within the last week");
 			withinTheLastMonthToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastMonth.Name", "...within the last month");
+			fullModUpdates.Caption = LanguageManager.Get("Mods.UpdateChecks.Full.Name", "Full (warning: uses more API requests!)");
 			checkFileDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.FixDownloadIds.Name", "Fix download IDs and Check for mod updates");
 			checkMissingDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.MissingDownloadIds.Name", "Just check for missing download IDs");
 			tsbToggleEndorse.Caption = LanguageManager.Get("Mods.Actions.Endorse.Name", "Endorse");
@@ -5604,14 +5605,24 @@
 			RunUpdatedModsCheck("1m");
 		}
 
-		private void RunUpdatedModsCheck(string period)
+		/// <summary>
+		/// Starts an unrestricted update check through the existing background-task UI.
+		/// </summary>
+		private void fullModUpdates_Click(object sender, ItemClickEventArgs e)
+		{
+			RunUpdatedModsCheck(string.Empty, true);
+		}
+
+		private void RunUpdatedModsCheck(string period, bool fullUpdateCheck = false)
 		{
 			if (_viewModel == null) return;
 			try
 			{
 				_disableSummary = true;
-				_viewModel.CheckUpdatedMods(period);
-				_disableSummary = false;
+				if (fullUpdateCheck)
+					_viewModel.CheckFullModUpdates();
+				else
+					_viewModel.CheckUpdatedMods(period);
 			}
 			catch (Exception ex)
 			{
@@ -5619,6 +5630,10 @@
 					XtraMessageBox.Show(this,
 						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
 						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			finally
+			{
+				_disableSummary = false;
 			}
 		}
 

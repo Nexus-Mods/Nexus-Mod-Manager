@@ -45,7 +45,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.GraphQl
         /// Resolves the requested legacy mod IDs in bounded GraphQL batches for one game domain.
         /// Missing or unusable identities are intentionally omitted so the repository can fall back to REST v1 per identity.
         /// </summary>
-        public async Task<NexusLegacyModLookupResult> GetModsByDomainAsync(string gameDomain, IEnumerable<int> modIds, CancellationToken cancellationToken = default(CancellationToken))
+        public async Task<NexusLegacyModLookupResult> GetModsByDomainAsync(string gameDomain, IEnumerable<int> modIds, CancellationToken cancellationToken = default(CancellationToken), Func<bool> isCancelled = null)
         {
             if (string.IsNullOrWhiteSpace(gameDomain))
                 throw new ArgumentException("A Nexus game domain is required.", nameof(gameDomain));
@@ -72,6 +72,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.GraphQl
 
                         while (offset < batchIds.Length)
                         {
+                            if (isCancelled?.Invoke() == true)
+                            {
+                                result.IsIncomplete = true;
+                                return result;
+                            }
                             int count = batchIds.Length - offset;
                             var variables = new
                             {

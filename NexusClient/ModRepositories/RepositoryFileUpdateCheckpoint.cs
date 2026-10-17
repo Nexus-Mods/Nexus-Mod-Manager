@@ -10,6 +10,17 @@
 		/// <summary>
 		/// Creates one immutable file-resolution checkpoint.
 		/// </summary>
+		public RepositoryFileUpdateCheckpoint(string gameDomain, int modId, DateTimeOffset latestFileUpdateUtc,
+			string sourceDownloadId, string sourceFilename, string resolvedDownloadId, string resolvedFilename,
+			string resolvedName, string humanReadableVersion, bool fileMetadataResolved)
+			: this(gameDomain, modId, latestFileUpdateUtc, sourceDownloadId, sourceFilename, resolvedDownloadId,
+				resolvedFilename, resolvedName, humanReadableVersion, fileMetadataResolved, default(DateTimeOffset))
+		{
+		}
+
+		/// <summary>
+		/// Creates a file-resolution checkpoint with the time of its last direct verification.
+		/// </summary>
 		public RepositoryFileUpdateCheckpoint(
 			string gameDomain,
 			int modId,
@@ -20,7 +31,7 @@
 			string resolvedFilename,
 			string resolvedName,
 			string humanReadableVersion,
-			bool fileMetadataResolved)
+			bool fileMetadataResolved, DateTimeOffset verifiedUtc)
 		{
 			GameDomain = gameDomain ?? string.Empty;
 			ModId = modId;
@@ -32,6 +43,7 @@
 			ResolvedName = resolvedName;
 			HumanReadableVersion = humanReadableVersion;
 			FileMetadataResolved = fileMetadataResolved;
+			VerifiedUtc = verifiedUtc.ToUniversalTime();
 		}
 
 		public string GameDomain { get; }
@@ -53,5 +65,10 @@
 		public string HumanReadableVersion { get; }
 
 		public bool FileMetadataResolved { get; }
+
+		/// <summary>
+		/// Gets the conservative time of the last direct file resolution; cache reuse never advances it.
+		/// </summary>
+		public DateTimeOffset VerifiedUtc { get; }
 	}
 }

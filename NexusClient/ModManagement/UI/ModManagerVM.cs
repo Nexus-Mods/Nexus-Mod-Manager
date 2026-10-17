@@ -1295,6 +1295,22 @@ namespace Nexus.Client.ModManagement.UI
 		/// <returns>Message</returns>
 		public void CheckUpdatedMods(string period)
 		{
+			CheckUpdatedMods(period, false);
+		}
+
+		/// <summary>
+		/// Checks every eligible Nexus archive, including updates outside the provider's recent-update windows.
+		/// </summary>
+		public void CheckFullModUpdates()
+		{
+			CheckUpdatedMods(string.Empty, true);
+		}
+
+		/// <summary>
+		/// Starts the selected update check and preserves its scope through login.
+		/// </summary>
+		private void CheckUpdatedMods(string period, bool fullUpdateCheck)
+		{
 			var lstModList = new List<IMod>();
 
 			lstModList.AddRange(from mod in ManagedMods
@@ -1303,15 +1319,15 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (!ModRepository.IsOffline)
 			{
-				if (ManagedMods.Count > 0)
+				if (lstModList.Count > 0)
 				{
-					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, period, false, false)));
+					UpdatingMods(this, new EventArgs<IBackgroundTask>(ModManager.UpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, period, false, false, fullUpdateCheck)));
 				}
 			}
 			else
 			{
 				ModManager.Login();
-				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, false);
+				ModManager.AsyncUpdateMods(lstModList, ProfileManager, ConfirmUpdaterAction, false, false, period, fullUpdateCheck);
 			}
 		}
 

@@ -83,7 +83,9 @@ namespace Nexus.Client.CollectionManagement
 			_referenceStore = referenceStore ?? throw new ArgumentNullException(nameof(referenceStore));
 			_mutationLeaseManager = mutationLeaseManager ?? throw new ArgumentNullException(nameof(mutationLeaseManager));
 			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
-			if (_services.ModManager == null || _services.PluginManager == null)
+			// Games without plugin support still construct the workflow and use its NotApplicable phase.
+			if (_services.ModManager == null ||
+				(_services.PluginManager == null && _services.ModManager.GameMode?.UsesPlugins != false))
 				throw new InvalidOperationException("Plugin restoration requires the live native ModManager and plugin manager.");
 		}
 
@@ -253,6 +255,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (!applicable)
 				return new CollectionLocalRestorePluginState(new CollectionLocalRestorePluginEntry[0]);
+			if (pluginManager == null)
+				throw new InvalidOperationException("Restoring captured plugin state requires the live native plugin manager.");
 			List<NativeStateCapturePlugin> captured = sealedCapture.NativeEffects.Plugins.OrderBy(x => x.Priority).ToList();
 			var entries = new List<CollectionLocalRestorePluginEntry>(captured.Count);
 			for (int index = 0; index < captured.Count; index++)

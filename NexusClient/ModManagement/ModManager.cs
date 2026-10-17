@@ -1838,10 +1838,18 @@ namespace Nexus.Client.ModManagement
 		/// <param name="missingDownloadId">Whether to just look for missing download IDs.</param>
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, string period, bool overrideCategorySetup, bool? missingDownloadId)
+		{
+			return UpdateMods(modList, profileManager, confirm, period, overrideCategorySetup, missingDownloadId, false);
+		}
+
+		/// <summary>
+		/// Starts a period or full-library update check while preserving the existing entry point.
+		/// </summary>
+		public IBackgroundTask UpdateMods(List<IMod> modList, IProfileManager profileManager, ConfirmActionMethod confirm, string period, bool overrideCategorySetup, bool? missingDownloadId, bool fullUpdateCheck)
         {
             if (ModRepository.UserStatus != null)
 			{
-				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, period, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+				var modUpdateCheck = new ModUpdateCheckTask(AutoUpdater, profileManager, ModRepository, modList, period, overrideCategorySetup, missingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames, fullUpdateCheck);
 				modUpdateCheck.Update(confirm);
 
                 return modUpdateCheck;
@@ -2013,7 +2021,15 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId)
 		{
-			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, string.Empty, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames);
+			AsyncUpdateMods(p_lstModList, p_pmProfileManager, p_camConfirm, p_booOverrideCategorySetup, p_booMissingDownloadId, string.Empty, false);
+		}
+
+		/// <summary>
+		/// Preserves the chosen period or full-library scope while waiting for login.
+		/// </summary>
+		public void AsyncUpdateMods(List<IMod> p_lstModList, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booOverrideCategorySetup, bool? p_booMissingDownloadId, string period, bool fullUpdateCheck)
+		{
+			ModUpdateCheckTask mutModUpdateCheck = new ModUpdateCheckTask(AutoUpdater, p_pmProfileManager, ModRepository, p_lstModList, period, p_booOverrideCategorySetup, p_booMissingDownloadId, EnvironmentInfo.Settings.OverrideLocalModNames, fullUpdateCheck);
 			AsyncUpdateModsTask(mutModUpdateCheck, p_camConfirm);
 		}
 

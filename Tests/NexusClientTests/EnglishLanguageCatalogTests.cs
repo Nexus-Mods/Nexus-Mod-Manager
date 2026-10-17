@@ -22,8 +22,16 @@
 			@"LanguageManager\.(?:Get|GetFormat|Format)\s*\(\s*""(?<key>[^""]+)""",
 			RegexOptions.CultureInvariant);
 
-		private static readonly Regex MainFormKeyRegex = new Regex(
+		private static readonly Regex LocalHelperKeyRegex = new Regex(
 			@"\bL\s*\(\s*""(?<key>[^""]+)""",
+			RegexOptions.CultureInvariant);
+
+		private static readonly Regex FormatItemRegex = new Regex(
+			@"(?<!\{)\{(?<index>\d+)(?:,[^}:]+)?(?::[^{}]*)?\}(?!\})",
+			RegexOptions.CultureInvariant);
+
+		private static readonly Regex CollectionKeyRegex = new Regex(
+			@"""(?<key>Collections\.[A-Za-z0-9.]+)""",
 			RegexOptions.CultureInvariant);
 
 		private static readonly string[] LocalizedSourceDirectories =
@@ -93,6 +101,31 @@
 			}
 		}
 
+		/// <summary>
+		/// Ensures translations preserve every composite-format argument, including repeated arguments in longer prompts.
+		/// </summary>
+		[Test]
+		public void ShippedTranslationsPreserveEnglishFormatPlaceholders()
+		{
+			string repositoryRoot = FindRepositoryRoot();
+			LanguagePack english = LoadEnglishTemplate(repositoryRoot);
+			foreach (string path in Directory.EnumerateFiles(Path.Combine(repositoryRoot, "NexusClient", "Languages"), "*.json"))
+			{
+				LanguagePack translated = LoadLanguagePack(path);
+				foreach (KeyValuePair<string, string> entry in english.Strings)
+				{
+					string value;
+					if (!translated.Strings.TryGetValue(entry.Key, out value))
+						continue; // Key coverage has a separate assertion with a complete missing-key report.
+					string[] expected = FormatItemRegex.Matches(entry.Value).Cast<Match>()
+						.Select(match => match.Value).OrderBy(item => item, StringComparer.Ordinal).ToArray();
+					string[] actual = FormatItemRegex.Matches(value).Cast<Match>()
+						.Select(match => match.Value).OrderBy(item => item, StringComparer.Ordinal).ToArray();
+					Assert.That(actual, Is.EqualTo(expected), Path.GetFileName(path) + " changes placeholders for " + entry.Key);
+				}
+			}
+		}
+
 		private static LanguagePack LoadEnglishTemplate(string repositoryRoot)
 		{
 			string path = Path.Combine(repositoryRoot, "NexusClient", "Languages", "English.json");
@@ -127,8 +160,9 @@
 					string source = File.ReadAllText(file);
 					AddMatches(keys, LanguageManagerKeyRegex, source);
 
-					if (Path.GetFileName(file).StartsWith("MainForm", StringComparison.Ordinal))
-						AddMatches(keys, MainFormKeyRegex, source);
+					AddMatches(keys, LocalHelperKeyRegex, source);
+					// Collection messages also pass keys through presentation helpers and conditional expressions.
+					AddMatches(keys, CollectionKeyRegex, source);
 				}
 			}
 

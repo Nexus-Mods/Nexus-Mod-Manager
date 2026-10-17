@@ -158,6 +158,11 @@
 		RepositoryFileListInfoResult GetFileListInfoWithFreshness(List<string> modFileList, IEnumerable<RepositoryModUpdate> providerUpdates);
 
 		/// <summary>
+		/// Checks all supplied archives, using recent-update coverage only to reuse successfully verified file results.
+		/// </summary>
+		RepositoryFileListInfoResult GetFullFileListInfo(List<string> modFileList, Func<bool> isCancelled);
+
+		/// <summary>
 		/// Publishes file-resolution checkpoints after the corresponding local metadata application completed successfully.
 		/// </summary>
 		/// <param name="checkpoints">The successfully applied checkpoint candidates.</param>

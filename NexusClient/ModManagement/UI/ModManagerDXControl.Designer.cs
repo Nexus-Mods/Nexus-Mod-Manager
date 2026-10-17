@@ -47,6 +47,7 @@
             this.withinTheLastDayToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
             this.withinTheLastWeekToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
             this.withinTheLastMonthToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.fullModUpdates = new DevExpress.XtraBars.BarButtonItem();
             this.checkFileDownloadId = new DevExpress.XtraBars.BarButtonItem();
             this.checkMissingDownloadId = new DevExpress.XtraBars.BarButtonItem();
             this.tsbToggleEndorse = new DevExpress.XtraBars.BarButtonItem();
@@ -99,6 +100,7 @@
                 this.withinTheLastDayToolStripMenuItem,
                 this.withinTheLastWeekToolStripMenuItem,
                 this.withinTheLastMonthToolStripMenuItem,
+                this.fullModUpdates,
                 this.checkFileDownloadId,
                 this.checkMissingDownloadId,
                 this.tsbToggleEndorse,
@@ -120,7 +122,7 @@
                 this.tsbSkyrimDownloads,
                 this.toolStripLabelModCount
             });
-            this.barManagerMods.MaxItemId = 34;
+            this.barManagerMods.MaxItemId = 35;
             //
             // barModActions
             //
@@ -264,7 +266,8 @@
             this.checkForModUpdateWithinTheLastDayToolStripMenuItem.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
                 new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastDayToolStripMenuItem),
                 new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastWeekToolStripMenuItem),
-                new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastMonthToolStripMenuItem)
+                new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastMonthToolStripMenuItem),
+                new DevExpress.XtraBars.LinkPersistInfo(this.fullModUpdates)
             });
             this.withinTheLastDayToolStripMenuItem.Caption = "...within the last day";
             this.withinTheLastDayToolStripMenuItem.Id = 11;
@@ -278,6 +281,10 @@
             this.withinTheLastMonthToolStripMenuItem.Id = 13;
             this.withinTheLastMonthToolStripMenuItem.Name = "withinTheLastMonthToolStripMenuItem";
             this.withinTheLastMonthToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastMonthToolStripMenuItem_Click);
+            this.fullModUpdates.Caption = "Full (warning: uses more API requests!)";
+            this.fullModUpdates.Id = 34;
+            this.fullModUpdates.Name = "fullModUpdates";
+            this.fullModUpdates.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.fullModUpdates_Click);
             this.checkFileDownloadId.Caption = "Fix download IDs and Check for mod updates";
             this.checkFileDownloadId.Id = 14;
             this.checkFileDownloadId.Name = "checkFileDownloadId";
@@ -466,6 +473,7 @@
         private DevExpress.XtraBars.BarButtonItem withinTheLastDayToolStripMenuItem;
         private DevExpress.XtraBars.BarButtonItem withinTheLastWeekToolStripMenuItem;
         private DevExpress.XtraBars.BarButtonItem withinTheLastMonthToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem fullModUpdates;
         private DevExpress.XtraBars.BarButtonItem checkFileDownloadId;
         private DevExpress.XtraBars.BarButtonItem checkMissingDownloadId;
         private DevExpress.XtraBars.BarButtonItem tsbToggleEndorse;

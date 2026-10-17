@@ -7,6 +7,9 @@
 	using System.Linq;
 	using System.Net.Http;
 	using System.Reflection;
+	using System.Runtime.Serialization;
+	using Nexus.Client.ModManagement;
+	using Nexus.Client.Util.Collections;
 	using System.Threading;
 	using System.Threading.Tasks;
 	using Nexus.Client;
@@ -978,6 +981,405 @@
 			{
 				DeleteDirectoryQuietly(installInfoDirectory);
 			}
+		}
+
+		/// <summary>
+		/// Checks old files even when the provider's monthly update list contains no matching mod.
+		/// Reopening the repository reuses only committed, recently verified results without advancing their age.
+		/// </summary>
+		[Test]
+		public void FullCheck_OldUpdateIsFoundAndCommittedResultSurvivesRestart()
+		{
+			string directory = CreateTemporaryDirectory();
+			try
+			{
+				var firstRouter = new RequestRouter();
+				firstRouter.AddOk("/v1/games/skyrim/mods/updated.json?period=1m", "[]");
+				firstRouter.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				firstRouter.AddOk("/v1/games/skyrim/mods/42/files.json", CompleteFileListFixture);
+				DateTimeOffset verified;
+				using (RepositoryContext context = CreateContext(firstRouter, directory))
+				{
+					RepositoryFileListInfoResult first = context.Repository.GetFullFileListInfo(
+						new List<string> { "First|42|100|old.zip" }, null);
+					Assert.AreEqual("200", first.ModInfo[0].DownloadId);
+					Assert.AreEqual("2.0", first.ModInfo[0].HumanReadableVersion);
+					verified = first.Checkpoints[0].VerifiedUtc;
+					Assert.Greater(verified, DateTimeOffset.UtcNow.AddMinutes(-10));
+					Assert.IsFalse(File.Exists(Path.Combine(directory, "NexusFileUpdateCheckpoints.json")));
+					// Fetching the candidate alone must not make a later Full check reuse it.
+					context.Repository.GetFullFileListInfo(new List<string> { "First|42|100|old.zip" }, null);
+					firstRouter.AssertCount("/v1/games/skyrim/mods/42/files.json", 2);
+					Assert.IsTrue(context.Repository.CommitFileUpdateCheckpoints(first.Checkpoints));
+					firstRouter.AssertNoUnexpectedRequests();
+				}
+
+				var secondRouter = new RequestRouter();
+				secondRouter.AddOk("/v1/games/skyrim/mods/updated.json?period=1d", "[]");
+				secondRouter.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				using (RepositoryContext context = CreateContext(secondRouter, directory))
+				{
+					RepositoryFileListInfoResult second = context.Repository.GetFullFileListInfo(
+						new List<string> { "First|42|200|old.zip" }, null);
+					Assert.AreEqual("200", second.ModInfo[0].DownloadId);
+					Assert.AreEqual("2.0", second.ModInfo[0].HumanReadableVersion);
+					Assert.AreEqual("GraphQL Author", second.ModInfo[0].Author);
+					Assert.AreEqual(verified, second.Checkpoints[0].VerifiedUtc);
+					secondRouter.AssertCount("/v1/games/skyrim/mods/42/files.json", 0);
+					secondRouter.AssertNoUnexpectedRequests();
+				}
+			}
+			finally { DeleteDirectoryQuietly(directory); }
+		}
+
+		/// <summary>
+		/// Uses the smallest safe window, rechecking stale, future-dated and legacy entries rather than guessing freshness.
+		/// </summary>
+		[TestCase(-0.5, "1d", 0)]
+		[TestCase(-2, "1w", 0)]
+		[TestCase(-10, "1m", 0)]
+		[TestCase(-28.1, "1m", 1)]
+		[TestCase(-365, "1m", 1)]
+		[TestCase(1, "1m", 1)]
+		[TestCase(-100000, "1m", 1)]
+		public void FullCheck_SelectsSafeCoverageAndRefetchesStaleEntries(double ageDays, string period, int fileRequests)
+		{
+			string directory = CreateTemporaryDirectory();
+			try
+			{
+				var router = new RequestRouter();
+				router.AddOk("/v1/games/skyrim/mods/updated.json?period=" + period, "[]");
+				router.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				router.AddOk("/v1/games/skyrim/mods/42/files.json", CompleteFileListFixture);
+				using (RepositoryContext context = CreateContext(router, directory))
+				{
+					DateTimeOffset verified = ageDays == -100000 ? default(DateTimeOffset) : DateTimeOffset.UtcNow.AddDays(ageDays);
+					context.Repository.CommitFileUpdateCheckpoints(new[] { CreateVerifiedCheckpoint(verified) });
+					RepositoryFileListInfoResult result = context.Repository.GetFullFileListInfo(
+						new List<string> { "First|42|100|old.zip" }, null);
+					Assert.AreEqual("200", result.ModInfo[0].DownloadId);
+					router.AssertCount("/v1/games/skyrim/mods/42/files.json", fileRequests);
+					router.AssertNoUnexpectedRequests();
+				}
+			}
+			finally { DeleteDirectoryQuietly(directory); }
+		}
+
+		/// <summary>
+		/// File freshness controls reuse independently of parent activity; changed archive identities always refetch.
+		/// </summary>
+		[TestCase(1700000000L, "100", "old.zip", 0)]
+		[TestCase(1700000001L, "100", "old.zip", 1)]
+		[TestCase(1700000000L, "100", "renamed.zip", 1)]
+		[TestCase(1700000000L, "999", "old.zip", 1)]
+		public void FullCheck_RequiresMatchingFileTimestampAndArchiveIdentity(long timestamp, string fileId, string filename, int fileRequests)
+		{
+			string directory = CreateTemporaryDirectory();
+			try
+			{
+				var router = new RequestRouter();
+				router.AddOk("/v1/games/skyrim/mods/updated.json?period=1d",
+					"[{\"mod_id\":42,\"latest_file_update\":" + timestamp + ",\"latest_mod_activity\":1800000000}]");
+				router.AddOk("/v1/games/skyrim/mods/updated.json?period=1m",
+					"[{\"mod_id\":42,\"latest_file_update\":" + timestamp + ",\"latest_mod_activity\":1800000000}]");
+				router.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				router.AddOk("/v1/games/skyrim/mods/42/files.json", CompleteFileListFixture);
+				// No successor exists for 999; an unresolved result must not become a verified entry.
+				if (fileId == "999")
+					router.AddOk("/v1/games/skyrim/mods/42/files/999.json", "null");
+				using (RepositoryContext context = CreateContext(router, directory))
+				{
+					context.Repository.CommitFileUpdateCheckpoints(new[] { CreateVerifiedCheckpoint(DateTimeOffset.UtcNow.AddHours(-1)) });
+					RepositoryFileListInfoResult result = context.Repository.GetFullFileListInfo(
+						new List<string> { "First|42|" + fileId + "|" + filename }, null);
+					Assert.AreEqual(1, result.ModInfo.Count);
+					if (fileId == "999")
+						Assert.IsFalse(result.Checkpoints[0]?.FileMetadataResolved == true);
+					router.AssertCount("/v1/games/skyrim/mods/42/files.json", fileRequests);
+					router.AssertNoUnexpectedRequests();
+				}
+			}
+			finally { DeleteDirectoryQuietly(directory); }
+		}
+
+		/// <summary>
+		/// Prevents failed, null and malformed recent-update responses from authorizing cache reuse or a request storm.
+		/// </summary>
+		[TestCase(401, "{}")]
+		[TestCase(429, "{}")]
+		[TestCase(503, "{}")]
+		[TestCase(200, "null")]
+		[TestCase(200, "[{}]")]
+		public void FullCheck_InvalidCoverageStopsBeforeMetadataAndFiles(int status, string body)
+		{
+			var router = new RequestRouter();
+			router.Add("/v1/games/skyrim/mods/updated.json?period=1m", (HttpStatusCode)status, body);
+			using (RepositoryContext context = CreateContext(router))
+			{
+				Assert.Catch(() => context.Repository.GetFullFileListInfo(new List<string> { "First|42|100|old.zip" }, null));
+				router.AssertCount("/v2/graphql", 0);
+				router.AssertCount("/v1/games/skyrim/mods/42/files.json", 0);
+				router.AssertNoUnexpectedRequests();
+			}
+		}
+
+		/// <summary>
+		/// Shares file responses for different archives and preserves the bounded GraphQL batch size during Full checks.
+		/// </summary>
+		[Test]
+		public void FullCheck_BatchesParentsAndSharesFileLists()
+		{
+			var router = new RequestRouter();
+			router.AddOk("/v1/games/skyrim/mods/updated.json?period=1m", "[]");
+			router.AddGraphQlEcho();
+			var rows = new List<string>();
+			for (int id = 1; id <= 55; id++)
+			{
+				rows.Add("First|" + id + "|100|old.zip");
+				rows.Add("Second|" + id + "|200|new.zip");
+				router.AddOk("/v1/games/skyrim/mods/" + id + "/files.json", CompleteFileListFixture);
+			}
+			using (RepositoryContext context = CreateContext(router))
+			{
+				RepositoryFileListInfoResult result = context.Repository.GetFullFileListInfo(rows, null);
+				Assert.AreEqual(110, result.ModInfo.Count);
+				Assert.IsTrue(result.ModInfo.All(info => info.DownloadId == "200"));
+				router.AssertCount("/v2/graphql", 2);
+				for (int id = 1; id <= 55; id++)
+					router.AssertCount("/v1/games/skyrim/mods/" + id + "/files.json", 1);
+				router.AssertNoUnexpectedRequests();
+			}
+		}
+
+		/// <summary>
+		/// Retains sibling archive results when one has a provider timestamp and another is verified outside the recent list.
+		/// </summary>
+		[Test]
+		public void FullCheck_ArchiveWithoutProviderTimestampDoesNotEvictVerifiedSibling()
+		{
+			string directory = CreateTemporaryDirectory();
+			try
+			{
+				var rows = new List<string> { "First|42|100|old.zip", "Second|42|200|copy.zip" };
+				var firstRouter = new RequestRouter();
+				firstRouter.AddOk("/v1/games/skyrim/mods/updated.json?period=1m", "[]");
+				firstRouter.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				firstRouter.AddOk("/v1/games/skyrim/mods/42/files.json", CompleteFileListFixture);
+				using (RepositoryContext context = CreateContext(firstRouter, directory))
+				{
+					context.Repository.CommitFileUpdateCheckpoints(new[] { CreateVerifiedCheckpoint(DateTimeOffset.UtcNow.AddHours(-1)) });
+					RepositoryFileListInfoResult first = context.Repository.GetFullFileListInfo(rows, null);
+					Assert.AreNotEqual(default(DateTimeOffset), first.Checkpoints[0].LatestFileUpdateUtc);
+					Assert.AreEqual(default(DateTimeOffset), first.Checkpoints[1].LatestFileUpdateUtc);
+					Assert.IsTrue(context.Repository.CommitFileUpdateCheckpoints(first.Checkpoints));
+					firstRouter.AssertCount("/v1/games/skyrim/mods/42/files.json", 1);
+					firstRouter.AssertNoUnexpectedRequests();
+				}
+				var secondRouter = new RequestRouter();
+				secondRouter.AddOk("/v1/games/skyrim/mods/updated.json?period=1d", "[]");
+				secondRouter.AddOk("/v2/graphql", GraphQlParent42Fixture);
+				using (RepositoryContext context = CreateContext(secondRouter, directory))
+				{
+					RepositoryFileListInfoResult second = context.Repository.GetFullFileListInfo(rows, null);
+					Assert.IsTrue(second.ModInfo.All(info => info.DownloadId == "200"));
+					secondRouter.AssertCount("/v1/games/skyrim/mods/42/files.json", 0);
+					secondRouter.AssertNoUnexpectedRequests();
+				}
+			}
+			finally { DeleteDirectoryQuietly(directory); }
+		}
+
+		/// <summary>
+		/// Stops dispatching queued file work once cancellation is observed, without publishing any new verification.
+		/// </summary>
+		[Test]
+		public void FullCheck_CancellationStopsSchedulingAndDoesNotCommit()
+		{
+			string directory = CreateTemporaryDirectory();
+			try
+			{
+				bool cancelled = false;
+				var router = new RequestRouter();
+				router.AddOk("/v1/games/skyrim/mods/updated.json?period=1m", "[]");
+				router.AddGraphQlEcho();
+				router.AddHandler("/v1/games/skyrim/mods/1/files.json", request =>
+				{
+					cancelled = true;
+					return new ResponseFixture(HttpStatusCode.OK, CompleteFileListFixture);
+				});
+				using (RepositoryContext context = CreateContext(router, directory))
+				{
+					context.Repository.GetFullFileListInfo(Enumerable.Range(1, 10).Select(id => "First|" + id + "|100|old.zip").ToList(), () => cancelled);
+					router.AssertCount("/v1/games/skyrim/mods/1/files.json", 1);
+					router.AssertCount("/v1/games/skyrim/mods/2/files.json", 0);
+					Assert.IsFalse(File.Exists(Path.Combine(directory, "NexusFileUpdateCheckpoints.json")));
+					router.AssertNoUnexpectedRequests();
+				}
+			}
+			finally { DeleteDirectoryQuietly(directory); }
+		}
+
+		/// <summary>
+		/// Full selects every eligible ID without hashing archives; period checks retain their existing filter.
+		/// </summary>
+		[TestCase(true, 2)]
+		[TestCase(false, 1)]
+		public void UpdateTask_FullScopeRespectsDisabledAndInvalidIds(bool full, int expected)
+		{
+			List<string> rows = null;
+			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
+			{
+				if (method.Name == "GetUpdatedWithMetadata" && !full)
+					return new List<RepositoryModUpdate> { CreateProviderUpdate("42", 1700000000) };
+				if (method.Name == (full ? "GetFullFileListInfo" : "GetFileListInfoWithFreshness"))
+				{
+					rows = (List<string>)args[0];
+					return new RepositoryFileListInfoResult(rows.Select(row => (IModInfo)new ModInfo()).ToList(),
+						rows.Select(row => (RepositoryFileUpdateCheckpoint)null).ToList());
+				}
+				throw new InvalidOperationException("Unexpected task repository call: " + method.Name);
+			});
+			new SynchronousUpdateTask(null, repository, new[]
+			{
+				CreateTaskMod("42"), CreateTaskMod("43"), CreateTaskMod("44", false), CreateTaskMod("0"), CreateTaskMod("local")
+			}, full).Run();
+			Assert.IsNotNull(rows);
+			Assert.AreEqual(expected, rows.Count);
+			Assert.IsTrue(rows.Any(row => row.Contains("|42|")));
+			Assert.AreEqual(full, rows.Any(row => row.Contains("|43|")));
+		}
+
+		/// <summary>
+		/// Publishes only successfully applied rows, preserves custom categories, and never commits a cancelled run.
+		/// </summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void UpdateTask_FullCommitsOnlyAppliedResultsUnlessCancelled(bool cancel)
+		{
+			List<RepositoryFileUpdateCheckpoint> committed = null;
+			IModInfo applied = null;
+			var updater = (AutoUpdater)FormatterServices.GetUninitializedObject(typeof(AutoUpdater));
+			typeof(AutoUpdater).GetField("_newInfo", BindingFlags.Instance | BindingFlags.NonPublic)
+				.SetValue(updater, new ThreadSafeObservableList<AutoUpdater.UpdateInfo>());
+			SynchronousUpdateTask task = null;
+			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
+			{
+				if (method.Name == "GetFullFileListInfo")
+				{
+					if (cancel) task.Cancel();
+					return new RepositoryFileListInfoResult(new List<IModInfo>
+					{
+						new ModInfo { Id = "42", DownloadId = "200", HumanReadableVersion = "2.0" }, new ModInfo()
+					}, new List<RepositoryFileUpdateCheckpoint> { CreateVerifiedCheckpoint(DateTimeOffset.UtcNow.AddMinutes(-5)), null });
+				}
+				if (method.Name == "CommitFileUpdateCheckpoints")
+				{
+					committed = ((IEnumerable<RepositoryFileUpdateCheckpoint>)args[0]).ToList();
+					return true;
+				}
+				throw new InvalidOperationException("Unexpected task repository call: " + method.Name);
+			});
+			task = new SynchronousUpdateTask(updater, repository,
+				new[] { CreateTaskMod("42", true, info => applied = info), CreateTaskMod("43") }, true);
+			task.Run();
+			if (cancel)
+			{
+				Assert.IsNull(committed);
+				Assert.IsNull(applied);
+			}
+			else
+			{
+				Assert.AreEqual(1, committed.Count);
+				Assert.AreEqual(42, committed[0].ModId);
+				Assert.AreEqual(77, applied.CustomCategoryId);
+				Assert.IsTrue(applied.UpdateChecksEnabled);
+			}
+		}
+
+		/// <summary>
+		/// Exercises the actual login continuation, ensuring both Full and period scopes survive its asynchronous wait.
+		/// </summary>
+		[TestCase(true, "1m")]
+		[TestCase(false, "1w")]
+		public async Task UpdateTask_LoginContinuationPreservesScope(bool full, string period)
+		{
+			var called = new TaskCompletionSource<bool>();
+			string requestedPeriod = null;
+			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
+			{
+				if (method.Name == "GetUpdatedWithMetadata")
+				{
+					requestedPeriod = (string)args[0];
+					return new List<RepositoryModUpdate> { CreateProviderUpdate("42", 1700000000) };
+				}
+				if (method.Name == "GetFullFileListInfo" || method.Name == "GetFileListInfoWithFreshness")
+				{
+					called.TrySetResult(method.Name == "GetFullFileListInfo");
+					return new RepositoryFileListInfoResult(new List<IModInfo> { new ModInfo() },
+						new List<RepositoryFileUpdateCheckpoint> { null });
+				}
+				return null;
+			});
+			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			ISettings settings = InterfaceStub<ISettings>.Create((method, args) => null);
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_Settings" ? settings : null);
+			typeof(ModManager).GetProperty("EnvironmentInfo").SetValue(manager, environment, null);
+			typeof(ModManager).GetProperty("ModRepository").SetValue(manager, repository, null);
+			manager.LoginTask = new Nexus.Client.SSO.AuthenticationFormTask(manager);
+			typeof(BackgroundTask).GetProperty("Status").SetValue(manager.LoginTask, Nexus.Client.BackgroundTasks.TaskStatus.Complete, null);
+			manager.UpdateCheckStarted += (sender, args) => { };
+			manager.AsyncUpdateMods(new List<IMod> { CreateTaskMod("42") }, null, null, false, false, period, full);
+			Assert.AreSame(called.Task, await Task.WhenAny(called.Task, Task.Delay(10000)));
+			Assert.AreEqual(full, await called.Task);
+			Assert.AreEqual(full ? null : period, requestedPeriod);
+		}
+
+		/// <summary>
+		/// Supplies a library archive without an installation or archive-hashing dependency.
+		/// </summary>
+		private static IMod CreateTaskMod(string id, bool enabled = true, Action<IModInfo> apply = null)
+		{
+			return InterfaceStub<IMod>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_Id": return id;
+					case "get_DownloadId": return "100";
+					case "get_ModName": return "Local name";
+					case "get_Filename": return "old.zip";
+					case "get_UpdateChecksEnabled": return enabled;
+					case "get_CustomCategoryId": return 77;
+					case "UpdateInfo": apply?.Invoke((IModInfo)args[0]); return null;
+					default: return null;
+				}
+			});
+		}
+
+		/// <summary>
+		/// Executes the real update task synchronously so selection and commit boundaries are observable.
+		/// </summary>
+		private sealed class SynchronousUpdateTask : ModUpdateCheckTask
+		{
+			/// <summary>
+			/// Creates an update task using the same Full/period arguments as the view model.
+			/// </summary>
+			public SynchronousUpdateTask(AutoUpdater updater, IModRepository repository, IEnumerable<IMod> mods, bool full)
+				: base(updater, null, repository, mods, "1m", false, false, false, full) { }
+
+			/// <summary>
+			/// Runs selection, retrieval, local application and checkpoint publication on the test thread.
+			/// </summary>
+			public void Run() { DoWork(new object[0]); }
+		}
+
+		/// <summary>
+		/// Creates a resolved public-file checkpoint with an independently controlled direct-verification time.
+		/// </summary>
+		private static RepositoryFileUpdateCheckpoint CreateVerifiedCheckpoint(DateTimeOffset verified)
+		{
+			return new RepositoryFileUpdateCheckpoint("skyrim", 42, DateTimeOffset.FromUnixTimeSeconds(1700000000),
+				"100", "old.zip", "200", "new.zip", "New File", "2.0", true, verified);
 		}
 
 		/// <summary>
