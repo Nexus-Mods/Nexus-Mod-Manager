@@ -10,7 +10,9 @@
     using System.Threading.Tasks;
 
     using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.CollectionManagement;
     using Nexus.Client.Games;
+    using Nexus.Client.ModManagement.Witcher3;
     using Nexus.Client.Util.Localization;
 
     public sealed class FileManagerVM : INotifyPropertyChanged, IDisposable
@@ -359,6 +361,16 @@
             string[] affectedOwnerKeys = row.OwnerCandidates == null
                 ? new string[0]
                 : row.OwnerCandidates.Select(x => x.OwnerKey).Where(x => !String.IsNullOrWhiteSpace(x)).ToArray();
+            // File Manager switches are not native installer tasks. Their legacy path is
+            // retained for other games; Witcher mutations must pass the shared root
+            // authority boundary and must never reuse a pre-reload owner service.
+            if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+            {
+                string reviewedRelativePath = row.RelativePath;
+                ModDeploymentTarget reviewedTarget = row.DeploymentTarget;
+                return Task.Run(() => SwitchWitcherOwnerUnderLease(reviewedRelativePath,
+                    reviewedTarget, previousOwnerKey, selectedOwnerKey, affectedOwnerKeys));
+            }
             IModDeploymentManager deploymentManager = _modManagerViewModel.ModManager.DeploymentManager;
             if (row.DeploymentTarget != null && deploymentManager != null && deploymentManager.IsPromoted(row.DeploymentTarget))
             {
@@ -386,6 +398,81 @@
                     _modManagerViewModel.ModManager.RecordManualFileOwnerChange(previousOwnerKey, result.SelectedOwnerKey, affectedOwnerKeys);
                 return result;
             });
+        }
+
+        /// <summary>
+        /// Owner-selection safety boundary for a Witcher File Manager row. The UI's prior
+        /// owner/candidate list is never treated as authority after a native state reload.
+        /// </summary>
+        internal static void RequireFreshWitcherOwnerChoice(ModDeploymentTarget reviewedTarget,
+            string reviewedOwnerKey, string selectedOwnerKey, IReadOnlyList<string> reviewedOwnerKeys,
+            FileManagerRow currentRow)
+        {
+            if (currentRow == null || currentRow.OwnerCount < 2 ||
+                !Object.Equals(reviewedTarget, currentRow.DeploymentTarget) ||
+                String.IsNullOrWhiteSpace(selectedOwnerKey) ||
+                !String.Equals(reviewedOwnerKey, currentRow.OwnerKey, StringComparison.OrdinalIgnoreCase) ||
+                reviewedOwnerKeys == null || currentRow.OwnerCandidates == null ||
+                reviewedOwnerKeys.Count != currentRow.OwnerCandidates.Count ||
+                !reviewedOwnerKeys.SequenceEqual(currentRow.OwnerCandidates.Select(candidate =>
+                    candidate == null ? null : candidate.OwnerKey), StringComparer.OrdinalIgnoreCase) ||
+                !currentRow.OwnerCandidates.Any(candidate =>
+                    candidate != null && String.Equals(candidate.OwnerKey, selectedOwnerKey, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException(
+                    "The File Manager owner stack changed since the selection was reviewed. Refresh before switching owners.");
+        }
+
+        /// <summary>
+        /// All native services are obtained AFTER the target's cross-process reservation
+        /// has reloaded InstallLog/VMA/deployment. No cached deployment service is reused.
+        /// </summary>
+        private VirtualFileOwnerSwitchResult SwitchWitcherOwnerUnderLease(string relativePath,
+            ModDeploymentTarget reviewedTarget, string previousOwnerKey, string selectedOwnerKey,
+            string[] affectedOwnerKeys)
+        {
+            try
+            {
+                ModManager manager = _modManagerViewModel.ModManager;
+                using (CollectionTargetMutationLease lease = CollectionManualNativeMutationBoundary.AcquireFileManagerMutation(manager))
+                {
+                    if (!ReferenceEquals(manager, _modManagerViewModel.ModManager) ||
+                        !Witcher3RootOwnershipGuard.IsWitcherMode(manager.GameMode.ModeId))
+                        throw new InvalidOperationException("The active Witcher 3 manager changed during owner selection.");
+
+                    var currentRow = new FileManagerRow
+                    {
+                        RelativePath = relativePath,
+                        DeploymentTarget = reviewedTarget
+                    };
+                    IModDeploymentManager deploymentManager = manager.DeploymentManager;
+                    _queryService.RefreshRowOwnership(currentRow, manager.GameMode,
+                        manager.VirtualModActivator, deploymentManager);
+                    RequireFreshWitcherOwnerChoice(reviewedTarget, previousOwnerKey, selectedOwnerKey,
+                        affectedOwnerKeys, currentRow);
+
+                    if (reviewedTarget != null && deploymentManager != null && deploymentManager.IsPromoted(reviewedTarget))
+                    {
+                        deploymentManager.SwitchPromotedOwner(reviewedTarget, selectedOwnerKey);
+                        manager.ProfileManager?.UpdateCurrentDeploymentManifest();
+                        manager.RecordManualFileOwnerChange(previousOwnerKey, selectedOwnerKey, affectedOwnerKeys);
+                        return VirtualFileOwnerSwitchResult.Succeeded(relativePath, selectedOwnerKey);
+                    }
+                    if (reviewedTarget != null)
+                        throw new InvalidOperationException("The promoted owner topology changed during review.");
+
+                    // The old _deploymentService was constructed before ValidateAndReload.
+                    // Its VMA may already have been replaced with a different live instance.
+                    VirtualFileOwnerSwitchResult result = new VirtualDeploymentService(manager.VirtualModActivator,
+                        deploymentManager).SwitchFileOwner(relativePath, selectedOwnerKey);
+                    if (result != null && result.Success)
+                        manager.RecordManualFileOwnerChange(previousOwnerKey, result.SelectedOwnerKey, affectedOwnerKeys);
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                return VirtualFileOwnerSwitchResult.Failed(ex);
+            }
         }
 
         public void SetManualSource(FileManagerRow row, FileManagerSource source, FileManagerSource previousSource)

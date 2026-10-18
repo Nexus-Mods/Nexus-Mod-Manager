@@ -26,6 +26,13 @@
       "$ref": "#/$defs/identifier",
       "description": "Stable, globally unique game-mode identifier. Do not change after release."
     },
+    "nexusDomain": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "Optional canonical Nexus catalog slug. Does not change ModeId, storage or ownership. Installed modes sharing an explicitly declared catalog participate in inbound NXM destination selection. Omission preserves legacy aliases."
+    },
     "name": {
       "$ref": "#/$defs/nonEmptyString",
       "description": "Display name shown by NMM."
@@ -35,7 +42,9 @@
       "enum": [
         "generic",
         "gamebryo",
-        "baldursgate3"
+        "baldursgate3",
+        "witcher3remastered",
+        "managed-content"
       ],
       "description": "Selects the runtime behavior base. Plugin management is currently part of the gamebryo profile; baldursgate3 preserves BG3-specific split-root and manifest behavior."
     },
@@ -130,6 +139,15 @@
     "modInstall": {
       "$ref": "#/$defs/modInstall"
     },
+    "packageFiles": {
+      "$ref": "#/$defs/packageFiles"
+    },
+    "structuredEffects": {
+      "$ref": "#/$defs/structuredEffects"
+    },
+    "managedContent": {
+      "$ref": "#/$defs/managedContent"
+    },
     "gamebryo": {
       "$ref": "#/$defs/gamebryo"
     },
@@ -178,6 +196,91 @@
     ]
   },
   "allOf": [
+    {
+      "if": {
+        "properties": {
+          "behaviorProfile": {
+            "const": "managed-content"
+          }
+        },
+        "required": [
+          "behaviorProfile"
+        ]
+      },
+      "then": {
+        "required": [
+          "managedContent"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "managedContent"
+        ]
+      },
+      "then": {
+        "required": [
+          "modInstall"
+        ],
+        "properties": {
+          "behaviorProfile": {
+            "enum": [
+              "managed-content",
+              "witcher3remastered"
+            ]
+          },
+          "modInstall": {
+            "properties": {
+              "pathAdjustmentProfile": {
+                "const": "none"
+              },
+              "supportsGameRootInstall": {
+                "const": false
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "managedInstallationPath"
+                  ]
+                },
+                {
+                  "properties": {
+                    "gameRootPackageRules": {
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "gameRootPackageRules"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "modeId": {
+            "const": "Witcher3Remastered"
+          }
+        },
+        "required": [
+          "modeId"
+        ]
+      },
+      "then": {
+        "properties": {
+          "behaviorProfile": {
+            "const": "witcher3remastered"
+          }
+        }
+      }
+    },
     {
       "if": {
         "properties": {
@@ -243,6 +346,395 @@
     }
   ],
   "$defs": {
+    "structuredEffects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "provider",
+        "revision",
+        "metadataFile",
+        "metadataArray",
+        "metadataEncoding",
+        "profileRoot",
+        "manifestFile",
+        "excludedProfiles",
+        "keyPrefix",
+        "containerId",
+        "recordId",
+        "identityField",
+        "fields"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1,
+          "type": "integer"
+        },
+        "provider": {
+          "const": "profiled-attribute-records-v1",
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "metadataFile": {
+          "$ref": "#/$defs/fileName"
+        },
+        "metadataArray": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "metadataEncoding": {
+          "enum": [
+            "Ascii",
+            "Utf8"
+          ],
+          "type": "string"
+        },
+        "profileRoot": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "manifestFile": {
+          "$ref": "#/$defs/fileName"
+        },
+        "excludedProfiles": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/fileName"
+          }
+        },
+        "keyPrefix": {
+          "type": "string",
+          "maxLength": 129,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*\\|$"
+        },
+        "containerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "identityField": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/structuredRecordField"
+          }
+        }
+      },
+      "description": "Native-owned GUID attribute records in existing LocalAppData profile XML. Literal node/attribute structure, metadata aliases and stable key namespace; no XPath or script execution."
+    },
+    "structuredRecordField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+          }
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "defaultValue": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "sources"
+          ],
+          "not": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "required": [
+            "value"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "sources"
+                ]
+              },
+              {
+                "required": [
+                  "defaultValue"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+
+    "managedContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "installLayout"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "installLayout": {
+          "$ref": "#/$defs/managedContentInstallLayout"
+        },
+        "componentOrdering": {
+          "$ref": "#/$defs/managedContentComponentOrdering"
+        }
+      }
+    },
+    "managedContentComponentOrdering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "revision",
+        "fileRoot",
+        "relativePath",
+        "componentKind",
+        "componentPrefix",
+        "priorityKey",
+        "enabledKey"
+      ],
+      "properties": {
+        "provider": {
+          "const": "sectioned-ini-order-v1"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fileRoot": {
+          "enum": [
+            "GameRoot",
+            "Documents"
+          ]
+        },
+        "relativePath": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/relativePath"
+            }
+          ],
+          "maxLength": 4096,
+          "description": "Literal Windows-safe relative path; no absolute paths, traversal, templates or executable substitutions."
+        },
+        "componentKind": {
+          "$ref": "#/$defs/identifier"
+        },
+        "componentPrefix": {
+          "$ref": "#/$defs/fileName",
+          "maxLength": 255
+        },
+        "priorityKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "enabledKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "editing": {
+          "type": "string",
+          "const": "reviewed-sequential-ini-v1",
+          "description": "Opt-in existing-file editing: complete configured order, sequential priorities 1-9999, 0/1 enabled, explicit review and recovery. Not supported by the reserved Remastered adapter."
+        }
+      },
+      "description": "Read-only INI order-file observation. Component kind must resolve to one configured target folder/prefix. This provider does not publish settings or enable order writes."
+    },
+    "managedContentInstallLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "revision",
+        "rules"
+      ],
+      "properties": {
+        "provider": {
+          "const": "bounded-folder-layout-v1"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximumWrapperSegments": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 0
+        },
+        "ignoredFileNames": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+            "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+          }
+        },
+        "rejectedFileSuffixes": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+            "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+          }
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/managedContentLayoutRule"
+          }
+        }
+      }
+    },
+    "managedContentLayoutRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "componentPrefix",
+        "contentFolder",
+        "targetRoot",
+        "targetFolder",
+        "componentKind",
+        "maximumComponentNameLength"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "kind": {
+          "enum": [
+            "component-folder",
+            "generated-folder"
+          ]
+        },
+        "sourceRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+          "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+        },
+        "componentPrefix": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+          "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+        },
+        "contentFolder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+          "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+        },
+        "targetRoot": {
+          "const": "Data"
+        },
+        "targetFolder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^<>:\"/\\\\|?*\\u0000-\\u001F]+$",
+          "description": "Literal single Windows-safe segment; runtime also rejects device names, dot/trailing-dot/space aliases."
+        },
+        "componentKind": {
+          "$ref": "#/$defs/identifier"
+        },
+        "maximumComponentNameLength": {
+          "type": "integer",
+          "minimum": 13,
+          "maximum": 255
+        }
+      },
+      "description": "Component folders: [sourceRoot/]componentPrefix*/contentFolder/<file>. Generated folders: sourceRoot/<file> maps to targetFolder/<stable-name>/contentFolder/<file>; sourceRoot must equal contentFolder. Runtime validates duplicate IDs, case aliases and name-budget relationships.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "generated-folder"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sourceRoot"
+            ]
+          }
+        }
+      ]
+    },
     "nonEmptyString": {
       "type": "string",
       "minLength": 1,
@@ -1069,6 +1561,56 @@
         }
       ],
       "description": "Non-zero UInt32 written as a JSON integer or a 0x-prefixed hexadecimal string."
+    },
+    "packageFiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "provider",
+        "revision",
+        "sourceFolder",
+        "destinationPath",
+        "documentRoot",
+        "recordElement",
+        "identityAttribute"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "provider": {
+          "type": "string",
+          "const": "package-xml-elements-v1"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceFolder": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "destinationPath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "documentRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "recordElement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "identityAttribute": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "description": "Optional package-local XML record merge. Inputs are consumed from this archive only; the output is an ordinary native-owned Data file. Runtime validation enforces unqualified XML names, independent paths, supported hosts and configured managed-layout bounds. No cross-mod union/rebuild is implied."
     }
   }
 }

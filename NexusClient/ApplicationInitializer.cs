@@ -266,17 +266,13 @@
 		/// <c>false</c> otherwise.</returns>
 		protected bool DoApplicationInitialize(IGameModeFactory p_gmfGameModeFactory, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
-            // W3R.6: a discovered 5.x game is not yet a writable NMM target. Reject BEFORE
-            // applying delayed settings, provisioning Game Storage, or opening native services.
-            // BuildGameMode carries a second fail-closed guard for callers outside startup.
+            // Share the compiled release decision with direct factory callers. Reject before
+            // delayed settings, Game Storage provisioning or native services are changed.
             if (String.Equals(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
-                Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+                Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase) &&
+                !Witcher3RemasteredReleasePolicy.NativeActivationApproved)
             {
-                p_vwmErrorMessage = new ViewMessage(
-                    "The Witcher 3 Remastered game mode is registered for discovery, but cannot be activated yet. " +
-                    "Mod installation and load-order integration are still in progress. " +
-                    "No game files or native ownership records have been changed.",
-                    null, "Witcher 3 Remastered - activation not enabled", MessageBoxIcon.Information);
+                p_vwmErrorMessage = Witcher3RemasteredReleasePolicy.CreateActivationBlockMessage();
                 return false;
             }
 			if (EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
@@ -542,7 +538,7 @@
 
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
-			IModRepository mrpModRepository = new NexusModsApiRepository(gameMode.ModeId, ApiCallManager.Instance(EnvironmentInfo), gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
+			IModRepository mrpModRepository = new NexusModsApiRepository(NexusGameDomain.Resolve(gameMode), ApiCallManager.Instance(EnvironmentInfo), gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 			Trace.Unindent();
 			StepOverallProgress();
 

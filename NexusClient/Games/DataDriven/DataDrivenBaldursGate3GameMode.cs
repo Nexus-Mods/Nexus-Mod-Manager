@@ -70,6 +70,7 @@ namespace Nexus.Client.Games.DataDriven
 
         public override IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
         {
+            if (StructuredRecords != null && p_modSelectedMod?.HasInstallScript == false) return base.SpecialFileInstall(p_modSelectedMod);
             if (HasRootManifestMetadata(p_modSelectedMod))
                 AddManifest(p_modSelectedMod);
             return null;
@@ -94,14 +95,15 @@ namespace Nexus.Client.Games.DataDriven
         /// <summary>Returns the same ordinary archive-file selection used after the legacy BG3 manifest edit.</summary>
         public override IEnumerable<string> GetDeterministicSpecialFileInstallPlan(IMod p_modSelectedMod)
         {
-            return p_modSelectedMod == null ? null : p_modSelectedMod.GetFileList();
+            return StructuredRecords == null ? (p_modSelectedMod == null ? null : p_modSelectedMod.GetFileList()) : base.GetDeterministicSpecialFileInstallPlan(p_modSelectedMod);
         }
 
         /// <summary>Plans exact per-profile ModuleShortDesc entries without modifying modsettings.lsx.</summary>
-        public IEnumerable<BasicInstallGameSpecificValue> GetDeterministicSpecialFileGameValues(IMod p_modSelectedMod)
+        public override IEnumerable<BasicInstallGameSpecificValue> GetDeterministicSpecialFileGameValues(IMod p_modSelectedMod)
         {
             if (p_modSelectedMod == null)
                 throw new ArgumentNullException(nameof(p_modSelectedMod));
+            if (StructuredRecords != null) return base.GetDeterministicSpecialFileGameValues(p_modSelectedMod);
             if (!HasRootManifestMetadata(p_modSelectedMod))
                 return new BasicInstallGameSpecificValue[0];
             return DataDrivenBaldursGate3ModSettingsValue.BuildPlanFromInfoBytes(
@@ -109,20 +111,22 @@ namespace Nexus.Client.Games.DataDriven
         }
 
         /// <summary>Identifies game-specific keys owned by the deterministic BG3 special-install contract.</summary>
-        public bool IsDeterministicSpecialFileGameValueKey(string p_strKey)
+        public override bool IsDeterministicSpecialFileGameValueKey(string p_strKey)
         {
-            return DataDrivenBaldursGate3ModSettingsValue.IsSupportedKey(p_strKey);
+            return StructuredRecords == null ? DataDrivenBaldursGate3ModSettingsValue.IsSupportedKey(p_strKey) : base.IsDeterministicSpecialFileGameValueKey(p_strKey);
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
+            if (StructuredRecords != null) return base.GetGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_futFileUtility, p_dlgOverwriteConfirmationDelegate);
             return new DataDrivenBaldursGate3GameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
+            if (StructuredRecords != null) return base.GetGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_futFileUtility, p_dlgOverwriteConfirmationDelegate);
             return new DataDrivenBaldursGate3GameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
 

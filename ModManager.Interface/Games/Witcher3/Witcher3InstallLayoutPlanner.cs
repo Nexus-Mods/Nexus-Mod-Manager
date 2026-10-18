@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
+using Nexus.Client.Games.ManagedContent;
 
 namespace Nexus.Client.Games.Witcher3
 {
@@ -123,8 +122,6 @@ namespace Nexus.Client.Games.Witcher3
 	public static class Witcher3InstallLayoutPlanner
 	{
 		private const int MaxRemasteredModFolderLength = 63;
-		private const int MaximumPathSegmentLength = 255;
-		private const int MaximumRelativePathLength = 4096;
 		private const int MaximumWrapperSegments = 2;
 		private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
 
@@ -427,57 +424,16 @@ namespace Nexus.Client.Games.Witcher3
 				Eq(name, "changelog.txt") || Eq(name, "changelog.md") || Eq(name, ".DS_Store");
 		}
 
+		/// <summary>Preserves the existing Witcher folder name through the shared deterministic naming primitive.</summary>
 		private static string GenerateModFolder(string identity, string suggestedName)
 		{
-			if (String.IsNullOrWhiteSpace(identity) || String.IsNullOrWhiteSpace(suggestedName)) return null;
-			var stem = new StringBuilder();
-			foreach (char c in suggestedName)
-			{
-				if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-					(c >= '0' && c <= '9') || c == '_' || c == '-')
-					stem.Append(c);
-				else if (stem.Length > 0 && stem[stem.Length - 1] != '_')
-					stem.Append('_');
-			}
-			string label = stem.ToString().Trim('_', '-');
-			if (label.Length == 0) label = "Package";
-			using (SHA256 sha = SHA256.Create())
-			{
-				string hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(identity)))
-					.Replace("-", String.Empty).Substring(0, 10);
-				int maxStem = MaxRemasteredModFolderLength - "mod".Length - 1 - hash.Length;
-				return "mod" + label.Substring(0, Math.Min(label.Length, maxStem)).TrimEnd('_', '-') + "_" + hash;
-			}
+			return ManagedContentPath.GenerateComponentName(identity, suggestedName, "mod", MaxRemasteredModFolderLength);
 		}
 
+		/// <summary>Uses the same Windows path restrictions as configurable managed-content layouts.</summary>
 		private static bool TryParseRelativePath(string path, out string[] parts)
 		{
-			parts = null;
-			if (String.IsNullOrWhiteSpace(path) || path.Length > MaximumRelativePathLength) return false;
-			string normalized = path.Replace('/', '\\');
-			if (normalized[0] == '\\' || normalized[normalized.Length - 1] == '\\') return false;
-			string[] segments = normalized.Split('\\');
-			foreach (string segment in segments)
-			{
-				if (segment.Length == 0 || segment.Length > MaximumPathSegmentLength ||
-					segment == "." || segment == ".." || segment.EndsWith(".", StringComparison.Ordinal) ||
-					segment.EndsWith(" ", StringComparison.Ordinal) || IsReservedWindowsName(segment))
-						return false;
-				foreach (char c in segment)
-						if (c < ' ' || "<>:\"|?*".IndexOf(c) >= 0) return false;
-			}
-			parts = segments;
-			return true;
-		}
-
-		private static bool IsReservedWindowsName(string segment)
-		{
-			string baseName = segment.Split('.')[0];
-			if (Eq(baseName, "CON") || Eq(baseName, "PRN") || Eq(baseName, "AUX") ||
-				Eq(baseName, "NUL") || Eq(baseName, "CONIN$") || Eq(baseName, "CONOUT$")) return true;
-			return baseName.Length == 4 && baseName[3] >= '1' && baseName[3] <= '9' &&
-				(baseName.StartsWith("COM", StringComparison.OrdinalIgnoreCase) ||
-				 baseName.StartsWith("LPT", StringComparison.OrdinalIgnoreCase));
+			return ManagedContentPath.TryParse(path, out parts);
 		}
 
 		private static bool StartsWithFolder(string candidate, string prefix)

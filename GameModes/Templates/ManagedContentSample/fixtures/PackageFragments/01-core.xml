@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageSet>
+  <Package Id="Core"><Label>Core package</Label><ForeignSetting keep="true" /></Package>
+</PackageSet>

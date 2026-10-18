@@ -14,6 +14,8 @@
     using Nexus.Client.GameStorage;
     using Nexus.Client.Games;
     using Nexus.Client.ModRepositories;
+    using Nexus.Client.ModManagement.Witcher3;
+    using Nexus.Client.ModManagement.ManagedContent;
     using Nexus.Client.OnlineServices.NexusMods.Collections;
     using Nexus.Client.Properties;
     using Nexus.Client.Settings;
@@ -110,6 +112,7 @@
 			var deletedDll = CheckModScriptDLL();
 
 			string requestedGameMode = null;
+			bool downloadDestinationSelected = false;
             
 			Uri modToAdd = null;
 
@@ -153,10 +156,30 @@
 			    CheckIfDefaultGameModeIsInstalled(installedGames);
 
 				var selector = new GameModeSelector(supportedGames, installedGames, _environmentInfo);
+				if (!downloadDestinationSelected && modToAdd != null && modToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
+				{
+					IReadOnlyList<IGameModeDescriptor> destinations = NexusGameDomain.GetDestinations(modToAdd.Host, installedGames.RegisteredGameModes);
+					if (destinations.Count > 0)
+					{
+						if (destinations.Count == 1)
+							requestedGameMode = destinations[0].ModeId;
+						else
+						{
+							using (var destination = new GameModeSelectionForm(new List<IGameModeDescriptor>(destinations), _environmentInfo.Settings, modToAdd.Host))
+							{
+								if (destination.ShowDialog() != DialogResult.OK) return false;
+								requestedGameMode = destination.SelectedGameModeId;
+							}
+						}
+						downloadDestinationSelected = true;
+						changeDefaultGameMode = false;
+					}
+				}
 				var gameModeFactory = selector.SelectGameMode(requestedGameMode, changeDefaultGameMode);
 
 			    if (selector.RescanRequested)
 				{
+					downloadDestinationSelected = false;
 					_environmentInfo.Settings.InstalledGamesDetected = false;
 					_environmentInfo.Settings.Save();
 					changeDefaultGameMode = true;
@@ -259,6 +282,7 @@
 
 					if (appInitializer.Status != TaskStatus.Complete)
 					{
+						downloadDestinationSelected = false;
 						if (appInitializer.GameStorageSetupWasCancelled)
 						{
 							Trace.TraceInformation(
@@ -288,6 +312,30 @@
 					CollectionManualNativeMutationBoundary.Configure(services, gameStorageService);
 
 					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher);
+					if (ManagedContentOrderService.Supports(gameMode))
+						mainFormViewModel.InitializeManagedContentOrder(new ManagedContentOrderService(services,
+							gameStorageService, _environmentInfo.PersonalDataFolderPath));
+					// W3R.5c: inspect the actual Documents file and interrupted publication at every
+					// game-mode entry. This is read-only; a user-approved recovery action comes later.
+					if (Witcher3ModSettingsLifecycleService.SupportsMode(gameMode.ModeId))
+					{
+						var witcherLifecycle = new Witcher3ModSettingsLifecycleService(services,
+							gameStorageService, _environmentInfo.PersonalDataFolderPath);
+						mainFormViewModel.InitializeWitcher3ModSettingsLifecycle(witcherLifecycle);
+						var witcherState = witcherLifecycle.Refresh();
+						if (witcherState.HasPendingPublication)
+						{
+							Trace.TraceWarning("Witcher 3 mods.settings has a pending NMM publication: {0}",
+								witcherState.Recovery.Status);
+							MessageBox.Show(
+								LanguageManager.Format("Startup.Witcher3.PendingPublication.Message",
+									"A previous Witcher 3 load-order file update needs review ({0}). NMM has not changed or repaired the file during startup. New load-order writes remain unavailable until the pending operation is resolved. Ordinary mod management is not blocked.",
+									witcherState.Recovery.Status),
+								LanguageManager.Get("Startup.Witcher3.PendingPublication.Title", "Witcher 3 load-order recovery"),
+								MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						}
+					}
+
 					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
 						gameStorageService, collectionNxmDispatcher.Provider);
 					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);

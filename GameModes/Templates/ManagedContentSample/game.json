@@ -1,0 +1,119 @@
+{
+  "$schema": "../../schema/game-mode.schema.json",
+  "schemaVersion": 2,
+  "modeId": "ManagedContentSample",
+  "nexusDomain": "managedcontentsample",
+  "name": "Managed Content Sample (fixture only)",
+  "behaviorProfile": "managed-content",
+  "gameExecutables": [
+    "Sample.exe"
+  ],
+  "stopFolders": [
+    "Packages",
+    "assets"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "packageFiles": {
+    "schemaVersion": 1,
+    "provider": "package-xml-elements-v1",
+    "revision": 1,
+    "sourceFolder": "PackageFragments",
+    "destinationPath": "Packages\\pkgManifest\\assets\\packages.xml",
+    "documentRoot": "PackageSet",
+    "recordElement": "Package",
+    "identityAttribute": "Id"
+  },
+  "structuredEffects": {
+    "schemaVersion": 1,
+    "provider": "profiled-attribute-records-v1",
+    "revision": 1,
+    "metadataFile": "package.json",
+    "metadataArray": "Packages",
+    "metadataEncoding": "Utf8",
+    "profileRoot": "NMM Managed Content Sample\\Profiles",
+    "manifestFile": "packages.xml",
+    "excludedProfiles": [
+      "template"
+    ],
+    "keyPrefix": "nmm-sample-records-v1|",
+    "containerId": "Packages",
+    "recordId": "Package",
+    "identityField": "Id",
+    "fields": [
+      {
+        "id": "Id",
+        "type": "guid",
+        "sources": [
+          "Id"
+        ]
+      },
+      {
+        "id": "Label",
+        "type": "string",
+        "sources": [
+          "Label"
+        ]
+      },
+      {
+        "id": "Revision",
+        "type": "int64",
+        "sources": [
+          "Revision"
+        ],
+        "defaultValue": "1"
+      }
+    ]
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "managedContent": {
+    "schemaVersion": 1,
+    "installLayout": {
+      "provider": "bounded-folder-layout-v1",
+      "revision": 1,
+      "maximumWrapperSegments": 1,
+      "ignoredFileNames": [
+        "readme.md"
+      ],
+      "rules": [
+        {
+          "id": "packages",
+          "kind": "component-folder",
+          "componentPrefix": "pkg",
+          "contentFolder": "assets",
+          "targetRoot": "Data",
+          "targetFolder": "Packages",
+          "componentKind": "asset-package",
+          "maximumComponentNameLength": 80,
+          "sourceRoot": "Packages"
+        },
+        {
+          "id": "raw-assets",
+          "kind": "generated-folder",
+          "componentPrefix": "pkg",
+          "contentFolder": "assets",
+          "targetRoot": "Data",
+          "targetFolder": "Packages",
+          "componentKind": "asset-package",
+          "maximumComponentNameLength": 80,
+          "sourceRoot": "assets"
+        }
+      ]
+    },
+    "componentOrdering": {
+      "provider": "sectioned-ini-order-v1",
+      "revision": 1,
+      "fileRoot": "GameRoot",
+      "relativePath": "Config\\package-order.ini",
+      "componentKind": "asset-package",
+      "componentPrefix": "pkg",
+      "priorityKey": "Rank",
+      "enabledKey": "Active",
+      "editing": "reviewed-sequential-ini-v1"
+    }
+  }
+}

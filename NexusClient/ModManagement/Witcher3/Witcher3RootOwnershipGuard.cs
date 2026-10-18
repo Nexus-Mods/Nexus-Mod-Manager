@@ -37,6 +37,52 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public static Witcher3RootOwnershipDecision Check(IEnvironmentInfo environment,
 			string currentModeId, string currentGameRoot, string currentInstallInfo)
 		{
+			return CheckCore(environment, currentModeId, currentGameRoot, currentInstallInfo, false);
+		}
+
+		/// <summary>
+		/// Stronger pre-mutation check. A harmless Legacy discovery does not grant the
+		/// separately identified Remastered mode the right to write into that same root.
+		/// Repeat after native authority reload under the native target lease, never
+		/// substitute this read-only preflight for the lease or for native recovery.
+		/// </summary>
+		public static Witcher3RootOwnershipDecision CheckForNativeMutation(IEnvironmentInfo environment,
+			string currentModeId, string currentGameRoot, string currentInstallInfo)
+		{
+			return CheckCore(environment, currentModeId, currentGameRoot, currentInstallInfo, true);
+		}
+
+		/// <summary>
+		/// Validate the actual destination of a Game Storage reassignment, not the old
+		/// VirtualFolder setting. The caller must provide the final VirtualInstall path.
+		/// No directory or native metadata is created during this check.
+		/// </summary>
+		public static Witcher3RootOwnershipDecision CheckForStorageTransition(IEnvironmentInfo environment,
+			string currentModeId, string proposedGameRoot, string proposedInstallInfo,
+			string proposedVirtualInstall)
+		{
+			if (IsWitcherMode(currentModeId) && String.IsNullOrWhiteSpace(proposedVirtualInstall))
+				return Unverifiable("The proposed Witcher 3 VirtualInstall path is missing.");
+			return CheckCore(environment, currentModeId, proposedGameRoot, proposedInstallInfo,
+				true, proposedVirtualInstall);
+		}
+
+		/// <summary>Rejects unsafe Witcher native mutation without touching any state.</summary>
+		public static void RequireNativeMutation(IEnvironmentInfo environment, string currentModeId,
+			string currentGameRoot, string currentInstallInfo)
+		{
+			if (!IsWitcherMode(currentModeId)) return;
+			Witcher3RootOwnershipDecision decision = CheckForNativeMutation(environment,
+				currentModeId, currentGameRoot, currentInstallInfo);
+			if (!decision.AllowsNativeMutation)
+				throw new InvalidDataException("Witcher 3 native mutation blocked (" + decision.Status + "): " +
+					decision.Reason + " No ownership migration is performed automatically.");
+		}
+
+		private static Witcher3RootOwnershipDecision CheckCore(IEnvironmentInfo environment,
+			string currentModeId, string currentGameRoot, string currentInstallInfo,
+			bool forNativeMutation, string proposedVirtualInstall = null)
+		{
 			if (environment == null) throw new ArgumentNullException(nameof(environment));
 			if (!IsWitcherMode(currentModeId))
 				return Witcher3RootOwnershipPolicy.Evaluate(null, null, null, null, false, false);
@@ -45,13 +91,15 @@ namespace Nexus.Client.ModManagement.Witcher3
 			var settings = environment.Settings;
 			string otherRoot = settings.InstallationPaths[otherMode];
 			string otherInfo = settings.InstallInfoFolder[otherMode];
+			string otherVirtualSetting = settings.VirtualFolder[otherMode];
 			bool completed = settings.CompletedSetup[otherMode];
+			var storage = new GameStorageService(environment);
 			bool footprint;
 			try
 			{
 				footprint = HasNativeStoreFootprint(otherInfo) ||
-					HasVirtualInstallFootprint(environment.Settings.VirtualFolder[otherMode], environment) ||
-					new GameStorageService(environment).HasKnownNativeOwnershipEvidence(otherMode);
+					HasVirtualInstallFootprint(otherVirtualSetting, environment) ||
+					storage.HasKnownNativeOwnershipEvidence(otherMode);
 			}
 			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
 				error is System.Security.SecurityException || error is ArgumentException ||
@@ -61,7 +109,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 			}
 
 			bool hasState = completed || footprint;
-			bool configured = hasState || !String.IsNullOrWhiteSpace(otherRoot) || !String.IsNullOrWhiteSpace(otherInfo);
+			bool configured = hasState || !String.IsNullOrWhiteSpace(otherRoot) ||
+				!String.IsNullOrWhiteSpace(otherInfo) || !String.IsNullOrWhiteSpace(otherVirtualSetting);
 			if (!configured)
 				return Witcher3RootOwnershipPolicy.Evaluate(null, null, null, null, false, false);
 			if (hasState && String.IsNullOrWhiteSpace(otherInfo))
@@ -73,8 +122,46 @@ namespace Nexus.Client.ModManagement.Witcher3
 				string otherPhysical = ResolveOptional(otherRoot, hasState);
 				string currentInfoPhysical = ResolveOptional(currentInstallInfo, false);
 				string otherInfoPhysical = ResolveOptional(otherInfo, false);
-				return Witcher3RootOwnershipPolicy.Evaluate(currentPhysical, otherPhysical,
-					currentInfoPhysical, otherInfoPhysical, hasState, configured);
+				Witcher3RootOwnershipDecision rootDecision = forNativeMutation
+					? Witcher3RootOwnershipPolicy.EvaluateNativeMutation(currentPhysical, otherPhysical,
+						currentInfoPhysical, otherInfoPhysical, hasState, configured,
+						String.Equals(currentModeId, RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+					: Witcher3RootOwnershipPolicy.Evaluate(currentPhysical, otherPhysical,
+						currentInfoPhysical, otherInfoPhysical, hasState, configured);
+				if (!forNativeMutation || !rootDecision.AllowsNativeMutation)
+					return rootDecision;
+
+				// Never infer physical VirtualInstall identity from a simple path string: two
+				// different parents may contain junctions, aliases or projected missing children.
+				string currentVirtual = proposedVirtualInstall == null
+					? ResolveVirtual(storage, settings.VirtualFolder[currentModeId])
+					: ResolveVirtualPath(proposedVirtualInstall);
+				string otherVirtual = ResolveVirtual(storage, otherVirtualSetting);
+				Witcher3RootOwnershipDecision storageDecision =
+					Witcher3RootOwnershipPolicy.EvaluateNativeStorage(currentVirtual,
+						otherVirtual, currentInfoPhysical, otherInfoPhysical);
+				if (!storageDecision.AllowsNativeMutation)
+					return storageDecision;
+
+				// Historical claimed stores remain protected even when the other mode's
+				// current settings point somewhere else. Only real native-state claims
+				// are considered; download-only locations do not reserve VirtualInstall.
+				foreach (GameStorageNativeOwnershipLocation claim in storage.GetKnownNativeOwnershipLocations(otherMode))
+				{
+					if ((claim.HadVirtualPayload && String.IsNullOrWhiteSpace(claim.VirtualInstallPath)) ||
+						(claim.HadInstallLog && String.IsNullOrWhiteSpace(claim.InstallInfoPath)))
+						return Unverifiable("A previous Witcher 3 native owner has an incomplete storage-location record.");
+					string historicalInfo = ResolveOptional(claim.InstallInfoPath, false);
+					Witcher3RootOwnershipDecision historicalInfoDecision =
+						Witcher3RootOwnershipPolicy.EvaluateHistoricalInstallInfo(currentInfoPhysical, historicalInfo);
+					if (!historicalInfoDecision.AllowsNativeMutation)
+						return historicalInfoDecision;
+					storageDecision = Witcher3RootOwnershipPolicy.EvaluateNativeStorage(currentVirtual,
+						ResolveVirtualPath(claim.VirtualInstallPath), currentInfoPhysical, historicalInfo);
+					if (!storageDecision.AllowsNativeMutation)
+						return storageDecision;
+				}
+				return rootDecision;
 			}
 			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
 				error is System.Security.SecurityException || error is ArgumentException || error is NotSupportedException ||
@@ -92,6 +179,19 @@ namespace Nexus.Client.ModManagement.Witcher3
 			if (environment == null) throw new ArgumentNullException(nameof(environment));
 			string directory = new GameStorageService(environment).NormalizeVirtualInstallDirectory(virtualRoot);
 			return Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any();
+		}
+
+		private static string ResolveVirtual(GameStorageService service, string setting)
+		{
+			if (String.IsNullOrWhiteSpace(setting)) return null;
+			if (!Path.IsPathRooted(setting))
+				throw new ArgumentException("The Witcher 3 VirtualInstall parent must be absolute.", nameof(setting));
+			return ResolveVirtualPath(service.NormalizeVirtualInstallDirectory(setting));
+		}
+
+		private static string ResolveVirtualPath(string path)
+		{
+			return ResolveOptional(path, false);
 		}
 
 		private static string ResolveOptional(string path, bool requireExisting)

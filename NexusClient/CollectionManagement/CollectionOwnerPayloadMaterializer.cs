@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Games;
 using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
@@ -164,7 +165,8 @@ namespace Nexus.Client.CollectionManagement
 		private static bool SupportsArchiveBackedReconstruction(ModManager modManager)
 		{
 			return modManager != null && modManager.GameMode != null &&
-				!modManager.GameMode.RequiresSpecialFileInstallation && !modManager.GameMode.RequiresModFileMerge;
+				!modManager.GameMode.RequiresSpecialFileInstallation && !modManager.GameMode.RequiresModFileMerge &&
+				(modManager.GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan != true;
 		}
 
 		private static Func<string, IMod> CreateTransientModFactory(ModManager modManager)

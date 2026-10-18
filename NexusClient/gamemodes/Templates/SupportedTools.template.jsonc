@@ -40,6 +40,15 @@
       "id": "GameRelativeTool",
       "name": "Example Game-Relative Tool",
       "executableName": "ExampleGameTool.exe",
+
+      // Optional external-tool review; output stays external to native ownership.
+      "launchReview": {
+        "schemaVersion": 1,
+        "provider": "reviewed-external-tool-v1",
+        "revision": 1,
+        "compatibility": "manual-version-info-v1",
+        "outputPolicy": "external-unmanaged-v1"
+      },
       "discoveryRules": [
         {
           "source": "GameRelative",

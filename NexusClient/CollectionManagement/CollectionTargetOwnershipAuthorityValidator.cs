@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Witcher3;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -18,12 +19,14 @@ namespace Nexus.Client.CollectionManagement
 		private readonly GameStorageService _gameStorageService;
 		private readonly ICollectionNativeStateReloader _nativeStateReloader;
 		private readonly CollectionTargetOwnershipAuthorityStore _authorityStore;
+		private readonly Action<GameStoragePathSet> _witcher3NativeMutationPreflight;
 
 		/// <summary>
 		/// Creates a production validator using the machine-wide authority store and current NMM service graph.
 		/// </summary>
 		public CollectionTargetOwnershipAuthorityValidator(GameStorageService gameStorageService, ServiceManager services)
-			: this(gameStorageService, new CollectionServiceNativeStateReloader(services), new CollectionTargetOwnershipAuthorityStore())
+			: this(gameStorageService, new CollectionServiceNativeStateReloader(services),
+				new CollectionTargetOwnershipAuthorityStore(), CreateWitcher3Preflight(services))
 		{
 		}
 
@@ -32,10 +35,49 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		public CollectionTargetOwnershipAuthorityValidator(GameStorageService gameStorageService,
 			ICollectionNativeStateReloader nativeStateReloader, CollectionTargetOwnershipAuthorityStore authorityStore)
+			: this(gameStorageService, nativeStateReloader, authorityStore, null)
+		{
+		}
+
+		/// <summary>Testable counterpart-authority boundary. Production uses the live service graph.</summary>
+		internal CollectionTargetOwnershipAuthorityValidator(GameStorageService gameStorageService,
+			ICollectionNativeStateReloader nativeStateReloader, CollectionTargetOwnershipAuthorityStore authorityStore,
+			Action<GameStoragePathSet> witcher3NativeMutationPreflight)
 		{
 			_gameStorageService = gameStorageService ?? throw new ArgumentNullException(nameof(gameStorageService));
 			_nativeStateReloader = nativeStateReloader ?? throw new ArgumentNullException(nameof(nativeStateReloader));
 			_authorityStore = authorityStore ?? throw new ArgumentNullException(nameof(authorityStore));
+			_witcher3NativeMutationPreflight = witcher3NativeMutationPreflight;
+		}
+
+		private static Action<GameStoragePathSet> CreateWitcher3Preflight(ServiceManager services)
+		{
+			if (services == null) throw new ArgumentNullException(nameof(services));
+			return paths =>
+			{
+				// Never validate a different game's target against the active service graph.
+				var manager = services.ModManager;
+				if (manager == null || manager.GameMode == null || manager.EnvironmentInfo == null ||
+					!String.Equals(manager.GameMode.ModeId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+					throw new CollectionTargetOwnershipAuthorityException(
+						CollectionTargetOwnershipAuthorityFailureKind.TargetChanged,
+						"The active native service graph does not match this Witcher 3 mutation target.");
+				// Use the reserved target's actual paths, including the proposed VirtualInstall
+				// directory. Settings captured before Game Storage relocation are not authority.
+				Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForStorageTransition(
+					manager.EnvironmentInfo, paths.GameId, paths.GameInstallPath,
+					paths.InstallInfoPath, paths.VirtualInstallPath);
+				if (!decision.AllowsNativeMutation)
+					throw new CollectionTargetOwnershipAuthorityException(
+						CollectionTargetOwnershipAuthorityFailureKind.Witcher3CounterpartAuthorityConflict,
+						"Witcher 3 native ownership is not exclusive (" + decision.Status + "): " + decision.Reason);
+			};
+		}
+
+		private void ValidateWitcher3Counterpart(GameStoragePathSet paths)
+		{
+			if (_witcher3NativeMutationPreflight != null && Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
+				_witcher3NativeMutationPreflight(paths);
 		}
 
 		/// <summary>
@@ -88,6 +130,10 @@ namespace Nexus.Client.CollectionManagement
 					"The live game/storage authority changed after the mutation target was resolved. Mutation is blocked until the target is resolved again.");
 			}
 
+			// Target identity alone cannot authorize a second Witcher mode to reuse this
+			// game's native files. Check before reload, which may perform crash recovery.
+			ValidateWitcher3Counterpart(paths);
+
 			CollectionPhysicalDirectoryIdentity installInfoIdentity;
 			try
 			{
@@ -116,6 +162,9 @@ namespace Nexus.Client.CollectionManagement
 
 				// Reload may perform crash recovery; validate its resulting authoritative log before clearing recovery.
 				ValidateInstallLog(installLogPath);
+				// Recheck after reload: never publish an authority binding from evidence that
+				// ceased to be valid while native services/recovery were being refreshed.
+				ValidateWitcher3Counterpart(paths);
 			}
 
 			CollectionTargetOwnershipAuthorityBinding binding = _authorityStore.BindOrValidate(authority, installInfoIdentity.StableKey);

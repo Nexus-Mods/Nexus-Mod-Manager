@@ -41,7 +41,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DevExpress.Utils.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    <Reference Include="DevExpress.Utils.v25.2, Version=25.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -92,7 +92,13 @@
     <Compile Include="Games\GameLauncherBase.cs" />
     <Compile Include="Games\Witcher3\Witcher3EditionResolver.cs" />
     <Compile Include="Games\Witcher3\Witcher3InstallationProbe.cs" />
+    <Compile Include="Games\Witcher3\Witcher3LaunchPlanner.cs" />
     <Compile Include="Games\Witcher3\Witcher3InstallLayoutPlanner.cs" />
+    <Compile Include="Games\ManagedContent\ManagedContentPath.cs" />
+    <Compile Include="Games\ManagedContent\IManagedContentComponentProvider.cs" />
+    <Compile Include="Games\ManagedContent\ManagedContentLayoutPlanner.cs" />
+    <Compile Include="Games\ManagedContent\ManagedContentInstallSelection.cs" />
+    <Compile Include="ModManagement\PreparedBasicInstallMapping.cs" />
     <Compile Include="Games\GameModeDescriptorBase.cs" />
     <Compile Include="Games\GameStore.cs" />
     <Compile Include="Games\GameStoreInstallInfo.cs" />
@@ -107,6 +113,7 @@
     <Compile Include="Games\IGameLauncher.cs" />
     <Compile Include="Games\IGameMode.cs" />
     <Compile Include="Games\IDeterministicModFileMergePlanProvider.cs" />
+    <Compile Include="Games\IDeterministicPackageFilePlanProvider.cs" />
     <Compile Include="Games\IGameRootPackageRuleProvider.cs" />
     <Compile Include="Games\IGameModeEnvironmentInfo.cs" />
     <Compile Include="Games\InstallationPathAutoDetector.cs" />

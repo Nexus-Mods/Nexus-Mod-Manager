@@ -19,6 +19,8 @@
 	using Nexus.Client.ModActivationMonitoring.UI;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.UI;
+	using Nexus.Client.ModManagement.Witcher3;
+	using Nexus.Client.ModManagement.ManagedContent;
 	using Nexus.Client.ModRepositories;
 	using Nexus.Client.OnlineServices.NexusMods.Collections;
 	using Nexus.Client.Mods;
@@ -321,6 +323,33 @@
 			if (CollectionWorkflow != null && !ReferenceEquals(CollectionWorkflow, collectionWorkflow))
 				throw new InvalidOperationException("The additive Collections workflow has already been initialized.");
 			CollectionWorkflow = collectionWorkflow;
+		}
+
+		/// <summary>Game-file order observation and explicit publication/recovery boundary; null for other games.</summary>
+		public ManagedContentOrderService ManagedContentOrder { get; private set; }
+
+		/// <summary>Binds the opt-in order writer to the same current native services as the Components page.</summary>
+		public void InitializeManagedContentOrder(ManagedContentOrderService service)
+		{
+			if (service == null) throw new ArgumentNullException(nameof(service));
+			if (!ManagedContentOrderService.Supports(GameMode) || service.ModeId != GameMode.ModeId || ManagedContentOrder != null)
+				throw new InvalidOperationException("The configured order service does not match the current capability.");
+			ManagedContentOrder = service;
+		}
+
+		/// <summary>Gets the existing Witcher-specific edition, observation and publication policy.</summary>
+		public Witcher3ModSettingsLifecycleService Witcher3ModSettingsLifecycle { get; private set; }
+
+		/// <summary>Attaches the Witcher-only lifecycle service after game-mode initialization.</summary>
+		public void InitializeWitcher3ModSettingsLifecycle(Witcher3ModSettingsLifecycleService lifecycle)
+		{
+			if (lifecycle == null) throw new ArgumentNullException(nameof(lifecycle));
+			if (!Witcher3ModSettingsLifecycleService.SupportsMode(GameMode.ModeId) ||
+				!String.Equals(GameMode.ModeId, lifecycle.ModeId, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidOperationException("The Witcher load-order lifecycle cannot be attached to a different game.");
+			if (Witcher3ModSettingsLifecycle != null && !ReferenceEquals(Witcher3ModSettingsLifecycle, lifecycle))
+				throw new InvalidOperationException("The Witcher load-order lifecycle has already been initialized.");
+			Witcher3ModSettingsLifecycle = lifecycle;
 		}
 
 		/// <summary>Gets the application-level C10 Collection revision-update workflow for the active game mode.</summary>

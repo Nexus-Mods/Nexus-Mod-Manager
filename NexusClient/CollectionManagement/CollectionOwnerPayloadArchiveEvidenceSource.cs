@@ -59,7 +59,8 @@ namespace Nexus.Client.CollectionManagement
 			// Step 2B intentionally starts with ordinary unscripted/default-root file installs only.
 			// Game-specific special-install and merge paths remain byte-retained until they have their own
 			// characterized reconstruction descriptors.
-			if (_gameMode.RequiresSpecialFileInstallation || _gameMode.RequiresModFileMerge)
+			if (_gameMode.RequiresSpecialFileInstallation || _gameMode.RequiresModFileMerge ||
+				(_gameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
 				return null;
 			if (String.IsNullOrWhiteSpace(ownerKey) || target == null || String.IsNullOrWhiteSpace(payloadSourcePath) || !File.Exists(payloadSourcePath))
 				return null;

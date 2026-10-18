@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Security;
 using System.Windows.Forms;
 using Nexus.Client.Games.Settings;
 using Nexus.Client.Settings;
@@ -35,14 +37,56 @@ namespace Nexus.Client.Games.DataDriven
                 return new DataDrivenBaldursGate3GameModeDescriptor(environmentInfo, definition);
             if (string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenWitcher3RemasteredGameModeDescriptor(environmentInfo, definition);
-            if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(definition.BehaviorProfile, "managed-content", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenGameModeDescriptor(environmentInfo, definition);
             throw new InvalidOperationException("Unsupported data-driven behavior profile: " + definition.BehaviorProfile);
         }
 
         public string GetInstallationPath()
         {
-            return GameStoreInstallationPathDetector.Instance.GetInstallationPath(BuildStoreDiscovery(_definition.Discovery));
+            IEnumerable<GameStoreInstallInfo> stores = BuildStoreDiscovery(_definition.Discovery);
+            var editionValidator = _descriptor as IGameInstallationCandidateValidator;
+            if (editionValidator == null)
+                return GameStoreInstallationPathDetector.Instance.GetInstallationPath(stores);
+
+            // A DX12 executable is present in both 4.x and 5.x. A rejected Steam
+            // candidate must not prevent discovery of a valid GOG/Epic installation.
+            return SelectEditionValidStorePath(stores,
+                store => GameStoreInstallationPathDetector.Instance.GetInstallationPath(store),
+                editionValidator.IsValidInstallationCandidate);
+        }
+
+        /// <summary>
+        /// Selects the first *edition-valid* store candidate, not merely the first root with
+        /// a matching executable. This is a discovery helper, never a native write permit.
+        /// </summary>
+        internal static string SelectEditionValidStorePath(IEnumerable<GameStoreInstallInfo> stores,
+            Func<GameStoreInstallInfo, string> detectPath, Func<string, bool> isEditionValid)
+        {
+            if (detectPath == null) throw new ArgumentNullException(nameof(detectPath));
+            if (isEditionValid == null) throw new ArgumentNullException(nameof(isEditionValid));
+            if (stores == null) return null;
+
+            var examinedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (GameStoreInstallInfo store in stores)
+            {
+                if (store == null) continue;
+                try
+                {
+                    string path = detectPath(store);
+                    if (String.IsNullOrWhiteSpace(path) || !examinedPaths.Add(path))
+                        continue;
+                    if (isEditionValid(path))
+                        return path;
+                }
+                catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+                    error is SecurityException || error is ArgumentException || error is NotSupportedException)
+                {
+                    Trace.TraceWarning("Unable to verify Witcher 3 store installation: {0}", error.Message);
+                }
+            }
+            return null;
         }
 
         internal static IEnumerable<GameStoreInstallInfo> BuildStoreDiscovery(GameModeDiscoveryDefinition discovery)
@@ -114,7 +158,7 @@ namespace Nexus.Client.Games.DataDriven
         }
 
         // Explicit release gate: code for basic layout mapping is not an authorization to write.
-        private static bool RemasteredNativeActivationApproved => false;
+        private static bool RemasteredNativeActivationApproved => Witcher3RemasteredReleasePolicy.NativeActivationApproved;
 
         public IGameMode BuildGameMode(FileUtil p_futFileUtility, out ViewMessage p_imsWarning)
         {
@@ -122,18 +166,20 @@ namespace Nexus.Client.Games.DataDriven
             p_imsWarning = null;
             try
             {
-                // The native basic adapter exists, but activation still requires an audited
-                // cross-process ownership/write barrier, scripted/recipe policy and runtime
-                // Direct/Virtual tests. Never fall through to the generic game mode.
+                if (_definition.StructuredEffects != null) DataDrivenStructuredEffects.Create(_definition);
+                if (_definition.PackageFiles != null) GameModePackageFilesDefinition.Create(_definition);
+                if (_definition.ManagedContent != null &&
+                    !string.Equals(_definition.BehaviorProfile, "managed-content", StringComparison.Ordinal) &&
+                    !string.Equals(_definition.BehaviorProfile, "witcher3remastered", StringComparison.Ordinal))
+                    throw new InvalidOperationException("The declared managed-content capabilities cannot fall back to another behavior profile.");
+                // Runtime evidence for the bounded native workflow is still required for release.
+                // Optional features are outside that release scope. Never fall through to a generic host.
                 if (string.Equals(_definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(_definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!RemasteredNativeActivationApproved)
                     {
-                        p_imsWarning = new ViewMessage(
-                            "The Witcher 3 Remastered mode has reviewed native basic-install mapping, " +
-                            "but activation remains disabled pending collision/race and real-game tests.",
-                            null, "Witcher 3 Remastered - not yet enabled", MessageBoxIcon.Information);
+                        p_imsWarning = Witcher3RemasteredReleasePolicy.CreateActivationBlockMessage();
                         return null;
                     }
                     return new DataDrivenWitcher3RemasteredGameMode(_environmentInfo, p_futFileUtility, _definition);
@@ -145,6 +191,8 @@ namespace Nexus.Client.Games.DataDriven
                     EnsureLegacyReadOnlySettingsDefaults();
                     return new DataDrivenBaldursGate3GameMode(_environmentInfo, p_futFileUtility, _definition);
                 }
+                if (string.Equals(_definition.BehaviorProfile, "managed-content", StringComparison.OrdinalIgnoreCase))
+                    return new DataDrivenManagedContentGameMode(_environmentInfo, p_futFileUtility, _definition);
                 if (string.Equals(_definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
                     return new DataDrivenGameMode(_environmentInfo, p_futFileUtility, _definition);
                 throw new InvalidOperationException("Unsupported data-driven behavior profile: " + _definition.BehaviorProfile);

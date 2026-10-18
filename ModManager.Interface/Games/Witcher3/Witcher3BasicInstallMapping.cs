@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Games.ManagedContent;
 
 namespace Nexus.Client.Games.Witcher3
 {
@@ -14,7 +15,14 @@ namespace Nexus.Client.Games.Witcher3
 	/// </summary>
 	public static class Witcher3BasicInstallMapping
 	{
-		private const int MaximumFiles = 100000;
+		// This fixed compatibility policy also validates persisted native targets when no
+		// authored layout is available. It must not expand when game.json is edited.
+		private static readonly ManagedContentLayoutPlanner NativePathValidator = new ManagedContentLayoutPlanner(
+			ManagedContentLayoutPlanner.ProviderId, 1, 0, new[]
+			{
+				new ManagedContentLayoutRule("mods", "component-folder", "Mods", "mod", "content", "Data", "Mods", "mod-folder", 63),
+				new ManagedContentLayoutRule("dlc", "component-folder", "DLC", "dlc", "content", "Data", "DLC", "dlc-folder", 255)
+			}, null, new[] { ".part.txt" });
 
 		public static IReadOnlyList<KeyValuePair<string, string>> Map(
 			IEnumerable<KeyValuePair<string, string>> selectedFiles, string stablePackageIdentity,
@@ -33,7 +41,7 @@ namespace Nexus.Client.Games.Witcher3
 			var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (KeyValuePair<string, string> file in selectedFiles)
 			{
-				if (input.Count == MaximumFiles)
+				if (input.Count == ManagedContentLayoutPlanner.MaximumFiles)
 					throw new InvalidDataException("Witcher 3 archive exceeds the bounded basic-install file count.");
 				if (!String.IsNullOrWhiteSpace(file.Key) && !sources.Add(file.Key.Replace('/', '\\')))
 					throw new InvalidDataException("One Witcher archive source cannot be deployed twice in a basic-install selection.");
@@ -63,16 +71,14 @@ namespace Nexus.Client.Games.Witcher3
 		/// </summary>
 		public static string ValidatePlannedPath(string gameRelativePath)
 		{
-			Witcher3InstallLayoutPlan plan = Witcher3InstallLayoutPlanner.Plan(
-				new[] { new Witcher3LayoutInputFile(gameRelativePath) }, null, null,
-				Witcher3Edition.Remastered);
-			if (!plan.IsUnambiguous || plan.Files.Count != 1 ||
-				!String.Equals(plan.Files[0].GameRelativeTargetPath,
-					gameRelativePath?.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase) ||
-				(plan.Files[0].Kind != Witcher3LayoutKind.ModComponent &&
-				 plan.Files[0].Kind != Witcher3LayoutKind.DlcComponent))
-				throw new InvalidDataException("Witcher 3 native file path is not a reviewed Mods/DLC target: " + gameRelativePath);
-			return plan.Files[0].GameRelativeTargetPath;
+			try
+			{
+				return NativePathValidator.ValidatePlannedPath(gameRelativePath);
+			}
+			catch (InvalidDataException error)
+			{
+				throw new InvalidDataException("Witcher 3 native file path is not a reviewed Mods/DLC target: " + gameRelativePath, error);
+			}
 		}
 	}
 }

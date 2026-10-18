@@ -866,6 +866,12 @@ namespace Nexus.Client.ModManagement.UI
 			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
 
+			if (IsRemasteredMode && ActiveMods.Contains(p_modMod))
+			{
+				// Keep the old owner intact until the native lease has approved the complete replacement footprint.
+				StartReinstallMod(p_modMod, p_modUpgrade, p_micInstallContext, p_modMod);
+				return;
+			}
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 			{
@@ -877,7 +883,8 @@ namespace Nexus.Client.ModManagement.UI
 			StartReinstallMod(p_modMod, p_modUpgrade, p_micInstallContext);
 		}
 
-		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade, ModInstallContext p_micInstallContext)
+		/// <summary>Starts native reinstallation, retaining a reviewed Remastered owner for transactional upgrade.</summary>
+		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade, ModInstallContext p_micInstallContext, IMod retainedOwner = null)
 		{
 			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
@@ -893,8 +900,10 @@ namespace Nexus.Client.ModManagement.UI
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (string.IsNullOrEmpty(strErrorMessage))
 			{
-				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade,
-					ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext);
+				IBackgroundTaskSet btsReinstall = retainedOwner != null
+					? ModManager.CreateUpgradeModOperation(retainedOwner, p_modUpgrade ?? p_modMod, ConfirmItemOverwrite, p_micInstallContext, null)
+					: ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade,
+						ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext);
 				if (btsReinstall != null)
 				{
 					btsReinstall.TaskSetCompleted += (s, ev) => ReinstallCompleted(this, EventArgs.Empty);
@@ -969,6 +978,13 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (contexts.Values.Any(context => !EnsureInstallOperationAllowed(context)))
 				return;
+
+			if (IsRemasteredMode)
+			{
+				foreach (IMod mod in p_lstMods)
+					ReinstallModWithContext(mod, null, contexts[mod]);
+				return;
+			}
 
 			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(p_lstMods);
 			IBackgroundTask bgtDeactivate = ModManager.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), false, ConfirmUpdaterAction);
@@ -1060,6 +1076,12 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (p_booForceUninstall || (Result == DialogResult.Yes))
 			{
+				if (IsRemasteredMode && !p_booFilesOnly)
+				{
+					foreach (IMod mod in p_rolModList.ToList())
+						DeactivateMod(mod);
+					return;
+				}
 				DeactivatingMultipleMods(p_booSilent, new EventArgs<IBackgroundTask>(ModManager.DeactivateMultipleMods(p_rolModList, p_booFilesOnly, ConfirmUpdaterAction)));
 			}
 		}
@@ -1082,6 +1104,12 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
 		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
 		{
+			if (IsRemasteredMode)
+			{
+				foreach (IMod mod in p_lstModList)
+					if (!ActiveMods.Contains(mod)) ActivateMod(mod);
+				return;
+			}
 			ActivatingMultipleMods(this, new EventArgs<IBackgroundTask>(ModManager.ActivateMultipleMods(p_lstModList, p_booAllowCancel, ConfirmUpdaterAction, ConfirmItemOverwrite)));
 		}
 
@@ -1160,6 +1188,10 @@ namespace Nexus.Client.ModManagement.UI
 				ModManager.InstallationLog.GetModInstallMethod(p_modMod) == ModInstallMethod.Direct;
 		}
 
+		/// <summary>Identifies the native-reviewed Remastered workflow without changing legacy game behavior.</summary>
+		private bool IsRemasteredMode => String.Equals(ModManager.GameMode.ModeId,
+			Witcher3.Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase);
+
 		public void EnableMod(IMod p_modMod)
 		{
 			if (IsInstalledDirectMod(p_modMod))
@@ -1171,6 +1203,13 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			}
 
+			if (IsRemasteredMode || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
+			{
+				// Reviewed Remastered mutations and record effects require the full native lifecycle.
+				if (ActiveMods.Contains(p_modMod)) ReinstallMod(p_modMod, null);
+				else ActivateMod(p_modMod);
+				return;
+			}
 			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(ModManager.ChangeVirtualModActivation(p_modMod, false, ConfirmUpdaterAction)));
 		}
 
@@ -1181,6 +1220,11 @@ namespace Nexus.Client.ModManagement.UI
 				if (IsInstalledDirectMod(Mod))
 					continue;
 
+				if (IsRemasteredMode || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
+				{
+					DeactivateMod(Mod);
+					continue;
+				}
 				ActivatingMod(Mod, new EventArgs<IBackgroundTask>(ModManager.ChangeVirtualModActivation(Mod, true, ConfirmUpdaterAction)));
 			}
 		}

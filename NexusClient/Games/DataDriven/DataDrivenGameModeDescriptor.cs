@@ -6,9 +6,12 @@ using System.Linq;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGameModeDescriptor : GameModeDescriptorBase
+    public class DataDrivenGameModeDescriptor : GameModeDescriptorBase, INexusGameDomainProvider
     {
         protected readonly GameModeDefinition _definition;
+        /// <summary>Optional catalog identity; local mode/storage identity remains unchanged.</summary>
+        public string NexusGameDomain => _definition.NexusDomain;
+
         private Theme _theme;
 
         public DataDrivenGameModeDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)

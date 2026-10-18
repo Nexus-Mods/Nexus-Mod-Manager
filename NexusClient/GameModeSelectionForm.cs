@@ -16,6 +16,7 @@ namespace Nexus.Client
 	/// </summary>
 	public partial class GameModeSelectionForm : ManagedFontForm
 	{
+		private readonly string _downloadDomain;
 		private const string RESCAN_INSTALLED_GAMES = "__rescaninstalledgames";
 
 		/// <summary>
@@ -279,7 +280,14 @@ namespace Nexus.Client
 		/// <param name="p_lstGameModes">The list of avaliable game modes.</param>
 		/// <param name="p_setSettings">The application settings.</param>
 		public GameModeSelectionForm(IList<IGameModeDescriptor> p_lstGameModes, ISettings p_setSettings)
+			: this(p_lstGameModes, p_setSettings, null)
 		{
+		}
+
+		/// <summary>Reuses the themed selection UI for a one-link destination without changing global startup preferences.</summary>
+		internal GameModeSelectionForm(IList<IGameModeDescriptor> p_lstGameModes, ISettings p_setSettings, string downloadDomain)
+		{
+			_downloadDomain = downloadDomain;
 			Settings = p_setSettings;
 			InitializeComponent();
 			cbxRemember.Text = LanguageManager.Get("GameModes.Selection.RememberChoice", "Don't ask me next time.");
@@ -295,8 +303,19 @@ namespace Nexus.Client
 				GameModeListViewItem gliGameModeItem = new GameModeListViewItem(gmdInfo);
 				glvGameMode.Controls.Add(gliGameModeItem);
 			}
-			GameModeListViewItem gliRescan = new GameModeListViewItem(new RescanGameModeDescriptor());
-			glvGameMode.Controls.Add(gliRescan);
+			if (_downloadDomain == null)
+			{
+				GameModeListViewItem gliRescan = new GameModeListViewItem(new RescanGameModeDescriptor());
+				glvGameMode.Controls.Add(gliRescan);
+			}
+			else
+			{
+				Text = LanguageManager.Get("GameModes.DownloadDestination.Title", "Download destination");
+				lblPrompt.Text = LanguageManager.Format("GameModes.DownloadDestination.Prompt",
+					"Choose the local game mode for this {0} Nexus link:", _downloadDomain);
+				glvGameMode.MinimumSize = lblPrompt.Size;
+				cbxRemember.Visible = false;
+			}
 
 			IGameModeDescriptor gmdDefault = p_lstGameModes.Find(x => x.ModeId.Equals(p_setSettings.RememberedGameMode));
 			if (gmdDefault != null)
@@ -351,7 +370,7 @@ namespace Nexus.Client
 		/// </remarks>
 		private void StartupGameMode()
 		{
-			if (!RescanRequested)
+			if (_downloadDomain == null && !RescanRequested)
 			{
 				Settings.RememberGameMode = cbxRemember.Checked;
 				Settings.RememberedGameMode = SelectedGameModeId;

@@ -23,6 +23,8 @@ namespace Nexus.Client.ModManagement
 	public class BasicInstallTask : ThreadedBackgroundTask
 	{
 		private readonly HashSet<string> m_hstDeployedPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		// Prepared upgrades already passed ownership review; do not classify them as new components again.
+		private readonly PreparedBasicInstallMapping m_preparedBasicMapping;
 
 		#region Properties
 
@@ -133,6 +135,19 @@ namespace Nexus.Client.ModManagement
 			ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles,
 			ModInstallContext p_micInstallContext, IModDeploymentManager p_mdmDeploymentManager,
 			TxFileManager p_tfmFileManager, ModDeploymentOverwriteResolver p_dorOverwriteResolver)
+			: this(p_modMod, p_gmdGameMode, p_mfiFileInstaller, p_pmgPluginManager, p_ivaVirtualModActivator,
+				p_booSkipReadme, p_rolActiveMods, p_dicInstallFiles, p_micInstallContext, p_mdmDeploymentManager,
+				p_tfmFileManager, p_dorOverwriteResolver, null)
+		{
+		}
+
+		/// <summary>Initializes the native worker with optional exact mappings already reviewed by its caller.</summary>
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller,
+			IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme,
+			ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles,
+			ModInstallContext p_micInstallContext, IModDeploymentManager p_mdmDeploymentManager,
+			TxFileManager p_tfmFileManager, ModDeploymentOverwriteResolver p_dorOverwriteResolver,
+			PreparedBasicInstallMapping preparedBasicMapping)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -146,6 +161,7 @@ namespace Nexus.Client.ModManagement
 			DeploymentManager = p_mdmDeploymentManager;
 			FileManager = p_tfmFileManager;
 			OverwriteResolver = p_dorOverwriteResolver;
+			m_preparedBasicMapping = preparedBasicMapping;
 		}
 
 		#endregion
@@ -157,6 +173,8 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool Execute()
 		{
+			if ((GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
+				throw new NotSupportedException("Configured package generation must execute its exact native file recipe rather than raw BasicInstallTask expansion.");
 			OverallMessage = LanguageManager.Get("Tasks.Mod.Installing", "Installing Mod...");
 			ShowItemProgress = false;
 			OverallProgressStepSize = 1;
@@ -178,21 +196,27 @@ namespace Nexus.Client.ModManagement
 
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
-			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
-
-			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+			List<KeyValuePair<string, string>> lstFiles;
+			if (m_preparedBasicMapping != null)
+				lstFiles = m_preparedBasicMapping.GetFiles(Mod, GameMode, InstallContext).ToList();
+			else
 			{
-				List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+				lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
 
-				if (specialFiles != null)
-					lstFiles = specialFiles;
+				if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+				{
+					List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+
+					if (specialFiles != null)
+						lstFiles = specialFiles;
+				}
+
+				if (InstallRoot == ModInstallRoot.GameRoot)
+					lstFiles = StripGameRootWrapperFolder(lstFiles);
+
+				lstFiles = lstFiles.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+				lstFiles = ApplyReviewedBasicInstallMapping(lstFiles);
 			}
-
-			if (InstallRoot == ModInstallRoot.GameRoot)
-				lstFiles = StripGameRootWrapperFolder(lstFiles);
-
-			lstFiles = lstFiles.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
-			lstFiles = ApplyReviewedBasicInstallMapping(lstFiles);
 			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>(lstFiles.Count);
 			OverallProgressMaximum = lstFiles.Count * 2;
 
@@ -329,23 +353,29 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private bool DoDirectWork()
 		{
-			List<KeyValuePair<string, string>> files = (FilesToInstall == null)
-				? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList()
-				: FilesToInstall;
-
-			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+			List<KeyValuePair<string, string>> files;
+			if (m_preparedBasicMapping != null)
+				files = m_preparedBasicMapping.GetFiles(Mod, GameMode, InstallContext).ToList();
+			else
 			{
-				List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)
-					?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
-				if (specialFiles != null)
-					files = specialFiles;
+				files = (FilesToInstall == null)
+					? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList()
+					: FilesToInstall;
+
+				if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+				{
+					List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)
+						?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+					if (specialFiles != null)
+						files = specialFiles;
+				}
+
+				if (InstallRoot == ModInstallRoot.GameRoot)
+					files = StripGameRootWrapperFolder(files);
+
+				files = files.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+				files = ApplyReviewedBasicInstallMapping(files);
 			}
-
-			if (InstallRoot == ModInstallRoot.GameRoot)
-				files = StripGameRootWrapperFolder(files);
-
-			files = files.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
-			files = ApplyReviewedBasicInstallMapping(files);
 			OverallProgressMaximum = files.Count;
 			if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);

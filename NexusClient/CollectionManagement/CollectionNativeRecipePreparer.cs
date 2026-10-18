@@ -9,6 +9,7 @@ using System.Threading;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
@@ -711,6 +712,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(installContext));
 			if (currentState == null)
 				throw new ArgumentNullException(nameof(currentState));
+			Witcher3NativeMutationReview.RequireCollectionSupport(gameMode.ModeId);
 			if (replacement)
 			{
 				if (plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)

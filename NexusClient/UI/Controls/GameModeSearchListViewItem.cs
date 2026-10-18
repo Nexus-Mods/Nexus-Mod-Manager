@@ -205,8 +205,15 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butAccept_Click(object sender, EventArgs e)
 		{
-			Discoverer.Accept(GameMode.ModeId);
-			DisplayFinalUI();
+            if (Discoverer.TryAccept(GameMode.ModeId))
+                DisplayFinalUI();
+            else
+            {
+                m_booAcceptedPath = false;
+                m_booGamePathDetected = Discoverer.HasCandidates(GameMode.ModeId);
+                if (!m_booGamePathDetected)
+                    SetVisiblePanel(pnlNotFound);
+            }
 		}
 
 		/// <summary>
@@ -253,13 +260,30 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void butOverride_Click(object sender, EventArgs e)
 		{
-			if (Discoverer.Verify(GameMode.ModeId, tbxInstallPath.Text) ||
-				MessageBox.Show(this, LanguageManager.Get("GameSelection.Path.InvalidConfirm", "The selected path does not contain the game's EXE file. Are you sure you want to use the selected path?"), LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
-			{
-				Discoverer.Override(GameMode.ModeId, tbxInstallPath.Text);
-				DisplayFinalUI();
-			}
+            bool verified = Discoverer.Verify(GameMode.ModeId, tbxInstallPath.Text);
+            bool editionConstrained = GameMode is IGameInstallationCandidateValidator;
+            if (!verified && editionConstrained)
+            {
+                ShowEditionMismatch();
+                return;
+            }
+            if (verified || MessageBox.Show(this, LanguageManager.Get("GameSelection.Path.InvalidConfirm", "The selected path does not contain the game's EXE file. Are you sure you want to use the selected path?"), LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            {
+                if (Discoverer.TryOverride(GameMode.ModeId, tbxInstallPath.Text))
+                    DisplayFinalUI();
+                else if (editionConstrained)
+                    ShowEditionMismatch();
+            }
 		}
+
+        private void ShowEditionMismatch()
+        {
+            MessageBox.Show(this,
+                LanguageManager.Get("GameSelection.Path.EditionMismatch",
+                    "This installation does not have the executable version required by the selected game mode. Select the correct edition's installation folder."),
+                LanguageManager.Get("GameSelection.Path.EditionMismatchTitle", "Game edition not confirmed"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
 
 		/// <summary>
 		/// Handles the <see cref="Control.Click"/> event of the select path button.

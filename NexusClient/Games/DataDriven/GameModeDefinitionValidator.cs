@@ -16,7 +16,8 @@ namespace Nexus.Client.Games.DataDriven
             "generic",
             "gamebryo",
             "baldursgate3",
-            "witcher3remastered"
+            "witcher3remastered",
+            "managed-content"
         };
 
         private static readonly HashSet<string> ValidPathAdjustmentProfiles = new HashSet<string>(StringComparer.Ordinal)
@@ -68,7 +69,13 @@ namespace Nexus.Client.Games.DataDriven
             // never unlock its native installer or bypass edition-aware discovery.
             if (string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.Ordinal))
-                issues.Add(Error(definition, "behaviorProfile", "Witcher3Remastered requires its dedicated non-mutating behavior profile."));
+                issues.Add(Error(definition, "behaviorProfile", "Witcher3Remastered requires its dedicated edition-aware behavior profile."));
+
+            if (definition.NexusDomain != null && !NexusGameDomain.IsValid(definition.NexusDomain))
+                issues.Add(Error(definition, "nexusDomain", "nexusDomain must be a canonical lowercase Nexus catalog slug of 1-64 letters, digits or hyphens, starting with a letter or digit."));
+            if (String.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+                definition.NexusDomain != null && definition.NexusDomain != "witcher3")
+                issues.Add(Error(definition, "nexusDomain", "Witcher3Remastered must use the witcher3 Nexus catalog."));
 
             if (string.IsNullOrWhiteSpace(definition.Name))
                 issues.Add(Error(definition, "name", "name is required."));
@@ -79,7 +86,7 @@ namespace Nexus.Client.Games.DataDriven
             ValidateUniqueStrings(definition, definition.CompatibilityNotes, "compatibilityNotes", issues, false);
 
             if (string.IsNullOrWhiteSpace(definition.BehaviorProfile) || !ValidBehaviorProfiles.Contains(definition.BehaviorProfile))
-                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be 'generic', 'gamebryo', 'baldursgate3' or 'witcher3remastered'."));
+                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be 'generic', 'gamebryo', 'baldursgate3', 'witcher3remastered' or 'managed-content'."));
 
             ValidateExecutablePaths(definition, definition.GameExecutables, "gameExecutables", true, issues);
             ValidateRelativePaths(definition, definition.StopFolders, "stopFolders", issues);
@@ -97,11 +104,37 @@ namespace Nexus.Client.Games.DataDriven
             ValidateStorage(definition, issues);
             ValidateModInstall(definition, issues);
             ValidateProfile(definition, issues);
+            ValidateManagedContent(definition, issues);
+            try { GameModePackageFilesDefinition.Create(definition); }
+            catch (ArgumentException error) { issues.Add(Error(definition, "packageFiles", error.Message)); }
+            try { DataDrivenStructuredEffects.Create(definition); }
+            catch (ArgumentException error) { issues.Add(Error(definition, "structuredEffects", error.Message)); }
             ValidateWitcher3Remastered(definition, issues);
             ValidateGamebryo(definition, issues);
 
             return issues;
         }
+
+		/// <summary>Validates the versioned capability extension without weakening existing reserved profile gates.</summary>
+		private void ValidateManagedContent(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+		{
+			bool host = definition.BehaviorProfile == "managed-content";
+			if (definition.ManagedContent == null && !host) return;
+			if (!host && definition.BehaviorProfile != "witcher3remastered")
+				issues.Add(Error(definition, "managedContent", "managedContent requires its capability host or the reserved Witcher adapter."));
+			if (definition.ModInstall == null || definition.ModInstall.PathAdjustmentProfile != "none" ||
+				definition.ModInstall.SupportsGameRootInstall != false || definition.ModInstall.ManagedInstallationPath != null ||
+				(definition.ModInstall.GameRootPackageRules != null && definition.ModInstall.GameRootPackageRules.Count > 0))
+				issues.Add(Error(definition, "modInstall", "Managed layouts require ordinary Data-root installation, path adjustment none, and no managedInstallationPath/game-root rules."));
+			try { DataDrivenManagedContentRules.Create(definition.ManagedContent); }
+			catch (ArgumentException error) { issues.Add(Error(definition, "managedContent.installLayout", error.Message)); }
+			try
+			{
+				if (definition.BehaviorProfile == "witcher3remastered") DataDrivenManagedContentRules.CreateWitcher3Ordering(definition.ManagedContent);
+				else DataDrivenManagedContentRules.CreateOrdering(definition.ManagedContent);
+			}
+			catch (ArgumentException error) { issues.Add(Error(definition, "managedContent.componentOrdering", error.Message)); }
+		}
 
         private void ValidateStorage(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
         {
@@ -128,8 +161,8 @@ namespace Nexus.Client.Games.DataDriven
             if (!string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
                 return;
 
-            // This is a deliberately restricted, non-mutating registration shell. Do not allow
-            // third-party JSON edits to turn on the generic installer before its reviewed adapter exists.
+            // The reserved native adapter has a fixed write scope and a separate release gate.
+            // JSON cannot select the generic installer or widen the reviewed native workflow.
             if (!string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.Ordinal))
                 issues.Add(Error(definition, "modeId", "The witcher3remastered profile is reserved for the Witcher3Remastered ModeId."));
             if (definition.GameExecutables == null || definition.GameExecutables.Length != 1 ||
@@ -139,7 +172,7 @@ namespace Nexus.Client.Games.DataDriven
                 !string.Equals(definition.ModInstall.PathAdjustmentProfile, "none", StringComparison.Ordinal) ||
                 definition.ModInstall.SupportsGameRootInstall != false ||
                 !string.IsNullOrWhiteSpace(definition.ModInstall.ManagedInstallationPath))
-                issues.Add(Error(definition, "modInstall", "The unfinished Remastered profile must keep game-root installation disabled and path adjustment set to none."));
+                issues.Add(Error(definition, "modInstall", "The Remastered profile requires ordinary Data-root installation with path adjustment set to none."));
             if (definition.Storage != null && definition.Storage.ShareModsStorageWith != null &&
                 definition.Storage.ShareModsStorageWith.Length > 0)
                 issues.Add(Error(definition, "storage.shareModsStorageWith", "Witcher3Remastered must not share native storage with another ModeId."));
@@ -150,7 +183,8 @@ namespace Nexus.Client.Games.DataDriven
 
         private void ValidateProfile(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
         {
-            if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase) ||
+            if (string.Equals(definition.BehaviorProfile, "managed-content", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
             {
@@ -1080,6 +1114,15 @@ namespace Nexus.Client.Games.DataDriven
                         else if (!supportsUserGameData && DataDrivenDefinitionRules.ContainsPlaceholder(token, "{UserGameData}"))
                             issues.Add(GameModeDefinitionValidator.Error(filePath, gameModeId, path + ".argumentTokens[" + j + "]", "{UserGameData} is available only to gamebryo Game Modes."));
                     }
+                }
+
+                try
+                {
+                    GameModeToolReviewDefinition.Create(tool, gameModeDefinition);
+                }
+                catch (ArgumentException error)
+                {
+                    issues.Add(GameModeDefinitionValidator.Error(filePath, gameModeId, path + ".launchReview", error.Message));
                 }
 
                 ValidateDiscoveryRules(tool, filePath, gameModeId, path, supportsUserGameData, issues);

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "supportedTools": [
+    {
+      "id": "ScriptMerger",
+      "name": "Script Merger",
+      "settingsKey": "ScriptMerger",
+      "executableNames": [
+        "WitcherScriptMerger.exe",
+        "ScriptMerger.exe",
+        "SMFAE.exe"
+      ],
+      "launchReview": {
+        "schemaVersion": 1,
+        "provider": "reviewed-external-tool-v1",
+        "revision": 1,
+        "compatibility": "witcher3-remastered-script-merger-v1",
+        "outputPolicy": "external-unmanaged-v1"
+      }
+    }
+  ]
+}

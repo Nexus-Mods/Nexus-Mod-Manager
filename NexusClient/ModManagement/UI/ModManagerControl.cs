@@ -2098,17 +2098,18 @@ namespace Nexus.Client.ModManagement.UI
 			IMod modMod = sender as IMod;
 			if (modMod != null)
 			{
+				bool nativeRecords = (ViewModel.ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null;
 				LinkActivationTask task = e.Argument as LinkActivationTask;
 				if (task != null && !task.Disabling)
 				{
-					if (ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation && ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))
+					if (!nativeRecords && ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation && ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))
 					{
 						ViewModel.ModManager.GameMode.SpecialFileInstall(modMod);
 					}
 				}
 				else
 				{
-					if (ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation)
+					if (!nativeRecords && ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation)
 					{
 						if (ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))
 						{

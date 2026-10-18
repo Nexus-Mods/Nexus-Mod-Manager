@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
+using Nexus.Client.ModManagement.ManagedContent;
 
 namespace Nexus.Client.ModManagement.Witcher3
 {
@@ -86,16 +86,9 @@ namespace Nexus.Client.ModManagement.Witcher3
 		private static bool KeyEquals(string left, string right) =>
 			String.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 
-		internal static bool IsModFolderName(string name)
-		{
-			if (String.IsNullOrWhiteSpace(name) || name.Length <= 3 ||
-				!name.StartsWith("mod", StringComparison.OrdinalIgnoreCase) ||
-				name == "." || name == ".." || name.EndsWith(".", StringComparison.Ordinal) ||
-				name.EndsWith(" ", StringComparison.Ordinal)) return false;
-			foreach (char c in name)
-				if (Char.IsControl(c) || "\\/:*?\"<>|".IndexOf(c) >= 0) return false;
-			return true;
-		}
+		/// <summary>Preserves Witcher's existing safe mod-folder selection policy through its fixed codec format.</summary>
+		internal static bool IsModFolderName(string name) => Witcher3ModSettingsParser.Format.IsComponentName(name);
+
 	}
 
 	/// <summary>
@@ -124,136 +117,36 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public IEnumerable<Witcher3ModSettingsSection> ModSections => Sections.Where(x => x.IsModFolder);
 	}
 
-	/// <summary>
-	/// Conservative INI-style interpretation of Witcher 3 mods.settings. No file I/O, writes, sorting,
-	/// automatic fixes, default-enabled inference, Vortex-key ownership inference, or edition assumptions.
-	/// </summary>
+	/// <summary>Preserves Witcher's fixed mods.settings grammar over the shared lossless INI codec.</summary>
 	public static class Witcher3ModSettingsParser
 	{
-		public const int MaxCharacters = 1024 * 1024;
-		public const int MaxLines = 50000;
-		private static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
+		public const int MaxCharacters = IniOrderParser.MaxCharacters;
+		public const int MaxLines = IniOrderParser.MaxLines;
+		internal static readonly IniOrderFormat Format = new IniOrderFormat("mod", "Priority", "Enabled");
 
-		private sealed class PendingSection
-		{
-			internal string Name;
-			internal int Line;
-			internal readonly List<Witcher3ModSettingsValue> Values = new List<Witcher3ModSettingsValue>();
-		}
-
+		/// <summary>Interprets the existing Witcher keys while keeping Vortex metadata in the compatibility model.</summary>
 		public static Witcher3ModSettingsDocument Parse(string text)
 		{
-			if (text == null) throw new ArgumentNullException(nameof(text));
-			var issues = new List<Witcher3ModSettingsIssue>();
-			var sections = new List<PendingSection>();
-			if (text.Length > MaxCharacters)
-			{
-				Issue(issues, Witcher3ModSettingsIssueKind.InputLimitExceeded, 0, null,
-					"The settings text exceeds the read-only parser limit.");
-				return new Witcher3ModSettingsDocument(text, new Witcher3ModSettingsSection[0], issues, false);
-			}
-
-			PendingSection current = null;
-			int lineNumber = 0;
-			int position = 0;
-			while (position < text.Length)
-			{
-				if (++lineNumber > MaxLines)
-				{
-					Issue(issues, Witcher3ModSettingsIssueKind.InputLimitExceeded, lineNumber, null,
-						"The settings file exceeds the read-only line count limit.");
-					return new Witcher3ModSettingsDocument(text, new Witcher3ModSettingsSection[0], issues, false);
-				}
-				int end = position;
-				while (end < text.Length && text[end] != '\r' && text[end] != '\n') end++;
-				string line = text.Substring(position, end - position).Trim();
-				position = end < text.Length && text[end] == '\r' && end + 1 < text.Length && text[end + 1] == '\n'
-					? end + 2 : Math.Min(end + 1, text.Length);
-				if (lineNumber == 1 && line.Length > 0 && line[0] == '\uFEFF') line = line.Substring(1).TrimStart();
-				if (line.Length == 0 || line[0] == ';' || line[0] == '#') continue;
-				if (line[0] == '[')
-				{
-					int close = line.IndexOf(']');
-					string tail = close < 0 ? null : line.Substring(close + 1).TrimStart();
-					string name = close <= 1 ? null : line.Substring(1, close - 1).Trim();
-					if (String.IsNullOrWhiteSpace(name) || tail == null ||
-						(tail.Length > 0 && tail[0] != ';' && tail[0] != '#'))
-					{
-						Issue(issues, Witcher3ModSettingsIssueKind.MalformedSectionHeader, lineNumber, null,
-							"Malformed section header; later lines are not assigned to a previous section.");
-						current = null;
-						continue;
-					}
-					current = new PendingSection { Name = name, Line = lineNumber };
-					sections.Add(current);
-					continue;
-				}
-				int equal = line.IndexOf('=');
-				if (equal <= 0 || String.IsNullOrWhiteSpace(line.Substring(0, Math.Max(0, equal))))
-				{
-					Issue(issues, Witcher3ModSettingsIssueKind.MalformedSetting, lineNumber, current?.Name,
-						"Unrecognized INI line or empty setting key; original text is retained.");
-					continue;
-				}
-				if (current == null)
-				{
-					Issue(issues, Witcher3ModSettingsIssueKind.SettingOutsideSection, lineNumber, null,
-						"A setting appears before a valid section header; it is not interpreted.");
-					continue;
-				}
-				current.Values.Add(new Witcher3ModSettingsValue(line.Substring(0, equal).Trim(),
-					line.Substring(equal + 1).Trim(), lineNumber));
-			}
-
-			var names = sections.GroupBy(x => x.Name, Names)
-				.ToDictionary(x => x.Key, x => x.Count(), Names);
-			var published = new List<Witcher3ModSettingsSection>();
-			foreach (PendingSection section in sections)
-			{
-				if (names[section.Name] > 1)
-					Issue(issues, Witcher3ModSettingsIssueKind.DuplicateSection, section.Line, section.Name,
-						"The section name appears more than once (case-insensitive); its order cannot be resolved.");
-				foreach (var duplicate in section.Values.GroupBy(x => x.Key, Names).Where(x => x.Count() > 1))
-					Issue(issues, Witcher3ModSettingsIssueKind.DuplicateSetting, duplicate.First().LineNumber,
-						section.Name, "A setting key is repeated; no value is selected for that key.");
-
-				int? priority = null;
-				bool? enabled = null;
-				string vortexKey = null;
-				var priorityValues = section.Values.Where(x => Names.Equals(x.Key, "Priority")).ToList();
-				if (priorityValues.Count == 1)
-				{
-					int parsed;
-					if (Int32.TryParse(priorityValues[0].Value, NumberStyles.AllowLeadingSign,
-						CultureInfo.InvariantCulture, out parsed)) priority = parsed;
-					else Issue(issues, Witcher3ModSettingsIssueKind.InvalidPriority,
-						priorityValues[0].LineNumber, section.Name, "Priority must be an unambiguous signed integer.");
-				}
-				var enabledValues = section.Values.Where(x => Names.Equals(x.Key, "Enabled")).ToList();
-				if (enabledValues.Count == 1)
-				{
-					if (enabledValues[0].Value == "1") enabled = true;
-					else if (enabledValues[0].Value == "0") enabled = false;
-					else Issue(issues, Witcher3ModSettingsIssueKind.InvalidEnabled,
-							enabledValues[0].LineNumber, section.Name, "Enabled must be 0 or 1; no state is assumed.");
-				}
-				var vortexValues = section.Values.Where(x => Names.Equals(x.Key, "VK")).ToList();
-				if (vortexValues.Count == 1) vortexKey = vortexValues[0].Value;
-				published.Add(new Witcher3ModSettingsSection(section.Name, section.Line, section.Values,
-					names[section.Name] == 1, enabled, priority, vortexKey));
-			}
-			foreach (var conflict in published.Where(x => x.IsModFolder && x.Priority.HasValue)
-				.GroupBy(x => x.Priority.Value).Where(x => x.Count() > 1))
-				foreach (Witcher3ModSettingsSection section in conflict)
-					Issue(issues, Witcher3ModSettingsIssueKind.DuplicatePriority, section.LineNumber, section.Name,
-						"Multiple mod folders claim the same Priority; the game winner is not inferred.");
-			return new Witcher3ModSettingsDocument(text, published, issues, true);
+			return FromSharedDocument(IniOrderParser.Parse(text, Format));
 		}
 
-		private static void Issue(ICollection<Witcher3ModSettingsIssue> issues, Witcher3ModSettingsIssueKind kind,
-			int line, string section, string message)
+		/// <summary>Retains Witcher's public interpretation when the shared bounded reader already parsed its fixed format.</summary>
+		internal static Witcher3ModSettingsDocument FromSharedDocument(IniOrderDocument document)
 		{
-			issues.Add(new Witcher3ModSettingsIssue(kind, line, section, message));
+			return new Witcher3ModSettingsDocument(document.OriginalText,
+				document.Sections.Select(section => new Witcher3ModSettingsSection(section.Name, section.LineNumber,
+					section.Values.Select(value => new Witcher3ModSettingsValue(value.Key, value.Value, value.LineNumber)),
+					section.HasUniqueName, section.Enabled, section.Priority, GetVortexKey(section))),
+				document.Issues.Select(issue => new Witcher3ModSettingsIssue((Witcher3ModSettingsIssueKind)issue.Kind,
+					issue.LineNumber, issue.Section, issue.Kind == IniOrderIssueKind.DuplicatePriority
+						? "Multiple mod folders claim the same Priority; the game winner is not inferred." : issue.Message)), document.IsComplete);
+		}
+
+		/// <summary>Retains the unique VK association value without using it as native ownership evidence.</summary>
+		private static string GetVortexKey(IniOrderSection section)
+		{
+			var values = section.Values.Where(value => String.Equals(value.Key, "VK", StringComparison.OrdinalIgnoreCase)).ToList();
+			return values.Count == 1 ? values[0].Value : null;
 		}
 	}
 }

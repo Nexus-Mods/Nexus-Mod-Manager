@@ -46,6 +46,61 @@
   "settings": {
     "useGenericSettings": true
   },
+  "structuredEffects": {
+    "schemaVersion": 1,
+    "provider": "profiled-attribute-records-v1",
+    "revision": 1,
+    "metadataFile": "info.json",
+    "metadataArray": "Mods",
+    "metadataEncoding": "Ascii",
+    "profileRoot": "Larian Studios\\Baldur's Gate 3\\PlayerProfiles",
+    "manifestFile": "modsettings.lsx",
+    "excludedProfiles": [
+      "default"
+    ],
+    "keyPrefix": "bg3-modsettings-v1|",
+    "containerId": "Mods",
+    "recordId": "ModuleShortDesc",
+    "identityField": "UUID",
+    "fields": [
+      {
+        "id": "Folder",
+        "type": "LSString",
+        "sources": [
+          "Folder",
+          "folderName"
+        ]
+      },
+      {
+        "id": "MD5",
+        "type": "LSString",
+        "value": ""
+      },
+      {
+        "id": "Name",
+        "type": "LSString",
+        "sources": [
+          "Name",
+          "modName"
+        ]
+      },
+      {
+        "id": "UUID",
+        "type": "FixedString",
+        "sources": [
+          "UUID"
+        ]
+      },
+      {
+        "id": "Version64",
+        "type": "int64",
+        "sources": [
+          "Version"
+        ],
+        "defaultValue": "1"
+      }
+    ]
+  },
   "modInstall": {
     "pathAdjustmentProfile": "none",
     "realFileRequiredExtensions": [

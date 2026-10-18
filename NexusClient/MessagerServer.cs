@@ -151,6 +151,29 @@ namespace Nexus.Client
 		/// <param name="p_strFilePath">The path or URL of the mod to add to the mod manager.</param>
 		public void AddMod(string p_strFilePath)
 		{
+			Uri incoming;
+			if (Uri.TryCreate(p_strFilePath, UriKind.Absolute, out incoming))
+			{
+				try { NexusGameDomain.RequireMatchingLink(ModManager.GameMode, incoming); }
+				catch (ArgumentException error)
+				{
+					Trace.TraceWarning("Rejected an NXM link for a different configured Nexus catalog.");
+					string title = Nexus.Client.Util.Localization.LanguageManager.Get("GameModes.DownloadDestination.Title", "Download destination");
+					if (!MainForm.IsHandleCreated)
+						MessageBox.Show(error.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					else
+					{
+						MethodInvoker show = () =>
+						{
+							if (!MainForm.IsDisposed) MessageBox.Show(MainForm, error.Message, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						};
+						if (MainForm.InvokeRequired) MainForm.BeginInvoke(show);
+						else show();
+					}
+					BringToFront();
+					return;
+				}
+			}
 			NexusCollectionNxmLink collectionLink;
 			NexusNxmLinkDisposition disposition = NexusCollectionNxmLinkParser.Classify(p_strFilePath, out collectionLink);
 			if (disposition == NexusNxmLinkDisposition.Collection)

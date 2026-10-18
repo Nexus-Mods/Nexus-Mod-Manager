@@ -146,6 +146,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Witcher3BasicInstallMappingTests.cs" />
+    <Compile Include="ManagedContentLayoutTests.cs" />
     <Compile Include="Witcher3NativeMutationLeasePolicyTests.cs" />
     <Compile Include="Witcher3NativeWritePolicyTests.cs" />
     <Compile Include="Witcher3NativeUpgradePolicyTests.cs" />
@@ -153,6 +154,8 @@
     <Compile Include="Witcher3NativeUninstallDestinationPreflightTests.cs" />
     <Compile Include="Witcher3NativeUninstallPostconditionTests.cs" />
     <Compile Include="Witcher3RecoverySelectionGuardTests.cs" />
+    <Compile Include="Witcher3GameStorageWriteGuardTests.cs" />
+    <Compile Include="Witcher3StorageMutationReservationTests.cs" />
     <Compile Include="Witcher3NativeUpgradeDestinationPreflightTests.cs" />
     <Compile Include="Witcher3NativeDestinationPreflightTests.cs" />
     <Compile Include="Witcher3ReviewedBasicPlanContractTests.cs" />
@@ -167,10 +170,23 @@
     <Compile Include="Witcher3RootOwnershipPolicyTests.cs" />
     <Compile Include="Witcher3RootOwnershipGuardTests.cs" />
     <Compile Include="Witcher3RemasteredRegistrationTests.cs" />
+    <Compile Include="Witcher3RemasteredDiscoverySelectionTests.cs" />
+    <Compile Include="Witcher3RemasteredEpicDiscoveryTests.cs" />
+    <Compile Include="Witcher3LaunchPlannerTests.cs" />
     <Compile Include="Witcher3ComponentDiskScanTests.cs" />
     <Compile Include="Witcher3ModSettingsParserTests.cs" />
     <Compile Include="Witcher3ModSettingsFileReaderTests.cs" />
     <Compile Include="Witcher3LoadOrderProjectionTests.cs" />
+    <Compile Include="Witcher3ModSettingsChangePlannerTests.cs" />
+    <Compile Include="Witcher3ModSettingsPublisherTests.cs" />
+    <Compile Include="Witcher3ModSettingsLifecycleTests.cs" />
+    <Compile Include="Witcher3LoadOrderEditorSessionTests.cs" />
+    <Compile Include="Witcher3LoadOrderExtendedEditorTests.cs" />
+    <Compile Include="Witcher3ModSettingsExtendedPlannerTests.cs" />
+    <Compile Include="Witcher3NativeLifecycleRefreshTests.cs" />
+    <Compile Include="Witcher3RemasteredHealthReaderTests.cs" />
+    <Compile Include="Witcher3RemasteredComponentHealthInspectorTests.cs" />
+    <Compile Include="Witcher3ExternalScriptMergerInspectorTests.cs" />
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
@@ -437,4 +453,14 @@
   <Target Name="RemoveLegacySharedTestOutput" BeforeTargets="BeforeBuild">
     <Delete Files="..\..\Stage\$(Configuration)\$(AssemblyName).dll;..\..\Stage\$(Configuration)\$(AssemblyName).pdb;..\..\Stage\$(Configuration)\$(AssemblyName).dll.config" />
   </Target>
+  <ItemGroup>
+    <None Include="..\..\GameModes\Templates\ManagedContentSample\game.json">
+      <Link>Fixtures\ManagedContentSample.game.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Game Modes\Definitions\Witcher3Remastered\game.json">
+      <Link>Fixtures\Witcher3Remastered.game.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

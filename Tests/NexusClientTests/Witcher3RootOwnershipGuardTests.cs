@@ -105,15 +105,19 @@ namespace NexusClientTests
 			Assert.Throws<InvalidDataException>(() => service.HasKnownNativeOwnershipEvidence("Witcher3"));
 		}
 
-		private IEnvironmentInfo CreateEnvironment(string otherRoot, string otherInfo, bool completed)
+		private IEnvironmentInfo CreateEnvironment(string otherRoot, string otherInfo, bool completed,
+			string otherModeId = Witcher3RootOwnershipGuard.LegacyModeId,
+			string otherVirtualRoot = null, string currentVirtualRoot = null)
 		{
 			var gameRoots = new PerGameModeSettings<string>();
-			gameRoots[Witcher3RootOwnershipGuard.LegacyModeId] = otherRoot;
+			gameRoots[otherModeId] = otherRoot;
 			var installInfo = new PerGameModeSettings<string>();
-			installInfo[Witcher3RootOwnershipGuard.LegacyModeId] = otherInfo;
+			installInfo[otherModeId] = otherInfo;
 			var setup = new PerGameModeSettings<bool>();
-			setup[Witcher3RootOwnershipGuard.LegacyModeId] = completed;
+			setup[otherModeId] = completed;
 			var virtualFolders = new PerGameModeSettings<string>();
+			virtualFolders[otherModeId] = otherVirtualRoot;
+			virtualFolders[Witcher3RootOwnershipGuard.CounterpartModeId(otherModeId)] = currentVirtualRoot;
 			ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
 			{
 				switch (method.Name)
@@ -132,6 +136,193 @@ namespace NexusClientTests
 				if (method.Name == "get_ApplicationVersion") return new Version(0, 93, 1);
 				return null;
 			});
+		}
+
+		[Test]
+		public void HistoricalNativeLocationsAreReadOnlyAndExcludeDownloadOnlyStorage()
+		{
+			var storage = new GameStorageService(_fixture, new Version(0, 93));
+			File.WriteAllText(storage.RegistryPath,
+				"{\"SchemaVersion\":1,\"KnownStorages\":[" +
+				"{\"GameId\":\"Witcher3\",\"LastKnownArchiveCount\":4,\"VirtualInstallPath\":\"D:\\\\OnlyDownloads\"}," +
+				"{\"GameId\":\"Witcher3\",\"LastKnownVirtualFileCount\":2," +
+				"\"VirtualInstallPath\":\"D:\\\\Native\",\"InstallInfoPath\":\"C:\\\\NativeInfo\"}]}" );
+			var claims = storage.GetKnownNativeOwnershipLocations("witcher3");
+			Assert.That(claims.Count, Is.EqualTo(1));
+			Assert.That(claims[0].HadVirtualPayload, Is.True);
+			Assert.That(claims[0].HadInstallLog, Is.False);
+			Assert.That(claims[0].VirtualInstallPath, Does.Contain("Native"));
+			Assert.That(storage.GetKnownNativeOwnershipLocations("SkyrimSE"), Is.Empty);
+			Assert.That(Directory.GetFiles(_fixture).Length, Is.EqualTo(1));
+		}
+
+		[Test]
+		public void HistoricalLocationsFallBackToLastKnownGoodWhenPrimaryIsCorrupt()
+		{
+			var storage = new GameStorageService(_fixture, new Version(0, 93));
+			File.WriteAllText(storage.RegistryPath, "garbage");
+			File.WriteAllText(storage.LastKnownGoodPath,
+				"{\"SchemaVersion\":1,\"KnownStorages\":[{\"GameId\":\"Witcher3\"," +
+				"\"LastKnownInstallLogPresent\":true,\"InstallInfoPath\":\"C:\\\\PriorInfo\"}]}");
+			var claims = storage.GetKnownNativeOwnershipLocations("Witcher3");
+			Assert.That(claims.Count, Is.EqualTo(1));
+			Assert.That(claims[0].HadInstallLog, Is.True);
+			Assert.That(claims[0].InstallInfoPath, Does.Contain("PriorInfo"));
+		}
+
+		[Test]
+		public void RemasteredWriteRejectsSharedEmptyVirtualInstallOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string classicGame = Path.Combine(_fixture, "Classic");
+			string remasteredGame = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(classicGame);
+			Directory.CreateDirectory(remasteredGame);
+			string virtualParent = Path.Combine(_fixture, "VirtualParent");
+			var environment = CreateEnvironment(classicGame, Path.Combine(_fixture, "ClassicInfo"), false,
+				otherVirtualRoot: virtualParent,
+				currentVirtualRoot: Path.Combine(virtualParent, "VirtualInstall"));
+			string currentInfo = Path.Combine(_fixture, "RemasteredInfo");
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered",
+				remasteredGame, currentInfo).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3Remastered", remasteredGame, currentInfo).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.SharedVirtualInstall));
+			Assert.That(Directory.Exists(virtualParent), Is.False);
+		}
+
+		[Test]
+		public void HistoricalVirtualPayloadClaimBlocksOldStorageAfterSettingsMovedOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string classic = Path.Combine(_fixture, "Classic");
+			string remastered = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(classic);
+			Directory.CreateDirectory(remastered);
+			string oldVirtual = Path.Combine(_fixture, "OldVirtual", "VirtualInstall");
+			var environment = CreateEnvironment(classic, Path.Combine(_fixture, "ClassicInfo"), false,
+				otherVirtualRoot: Path.Combine(_fixture, "MovedVirtual"),
+				currentVirtualRoot: oldVirtual);
+			var storage = new GameStorageService(environment);
+			Directory.CreateDirectory(Path.GetDirectoryName(storage.RegistryPath));
+			File.WriteAllText(storage.RegistryPath, "{\"SchemaVersion\":1,\"KnownStorages\":[" +
+				"{\"GameId\":\"Witcher3\",\"LastKnownVirtualFileCount\":1," +
+				"\"VirtualInstallPath\":\"" + oldVirtual.Replace("\\", "\\\\") + "\"}]}");
+			// Current settings alone look independent, but the old claimed native location is not.
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", remastered,
+				Path.Combine(_fixture, "RemasteredInfo")).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3Remastered", remastered, Path.Combine(_fixture, "RemasteredInfo")).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.SharedVirtualInstall));
+		}
+
+		[Test]
+		public void ProposedStorageRecoveryPathIsCheckedInsteadOfOldSettingOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string classic = Path.Combine(_fixture, "Classic");
+			string remastered = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(classic);
+			Directory.CreateDirectory(remastered);
+			string otherVirtual = Path.Combine(_fixture, "ClassicVirtual");
+			var environment = CreateEnvironment(classic, Path.Combine(_fixture, "ClassicInfo"), false,
+				otherVirtualRoot: otherVirtual,
+				currentVirtualRoot: Path.Combine(_fixture, "RemasteredVirtual"));
+			string newInfo = Path.Combine(_fixture, "NewInfo");
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered",
+				remastered, newInfo).AllowsNativeMutation, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForStorageTransition(environment,
+				"Witcher3Remastered", remastered, newInfo,
+				Path.Combine(otherVirtual, "VirtualInstall")).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.SharedVirtualInstall));
+			Assert.That(Witcher3RootOwnershipGuard.CheckForStorageTransition(environment,
+				"Witcher3Remastered", remastered, newInfo, null).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.UnverifiablePriorOwner));
+		}
+
+		[Test]
+		public void HistoricalMissingNativeLocationFailsClosedOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string classic = Path.Combine(_fixture, "Classic");
+			string remastered = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(classic);
+			Directory.CreateDirectory(remastered);
+			var environment = CreateEnvironment(classic, Path.Combine(_fixture, "ClassicInfo"), false,
+				currentVirtualRoot: Path.Combine(_fixture, "RemasteredVirtual"));
+			var storage = new GameStorageService(environment);
+			Directory.CreateDirectory(Path.GetDirectoryName(storage.RegistryPath));
+			File.WriteAllText(storage.RegistryPath,
+				"{\"SchemaVersion\":1,\"KnownStorages\":[{" +
+				"\"GameId\":\"Witcher3\",\"LastKnownVirtualFileCount\":1}]}");
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3Remastered", remastered, Path.Combine(_fixture, "RemasteredInfo")).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.UnverifiablePriorOwner));
+		}
+
+		[Test]
+		public void IndependentVirtualInstallPathsPermitNativeMutationOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string classic = Path.Combine(_fixture, "Classic");
+			string remastered = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(classic);
+			Directory.CreateDirectory(remastered);
+			var environment = CreateEnvironment(classic, Path.Combine(_fixture, "OldInfo"), false,
+				otherVirtualRoot: Path.Combine(_fixture, "ClassicVirtual"),
+				currentVirtualRoot: Path.Combine(_fixture, "RemasteredVirtual"));
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered",
+				remastered, Path.Combine(_fixture, "NewInfo")).AllowsNativeMutation, Is.True);
+		}
+
+		[Test]
+		public void RemasteredStartupAllowsDiscoveryButNativeWriteIsRejectedOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			Directory.CreateDirectory(root);
+			IEnvironmentInfo environment = CreateEnvironment(root, Path.Combine(_fixture, "LegacyInfo"), false);
+			string newInfo = Path.Combine(_fixture, "NewInfo");
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, newInfo)
+				.AllowsNormalInitialization, Is.True);
+			Witcher3RootOwnershipDecision write = Witcher3RootOwnershipGuard.CheckForNativeMutation(
+				environment, "Witcher3Remastered", root, newInfo);
+			Assert.That(write.Status, Is.EqualTo(Witcher3RootOwnershipStatus.SharedConfiguredGameRoot));
+			Assert.Throws<InvalidDataException>(() => Witcher3RootOwnershipGuard.RequireNativeMutation(
+				environment, "Witcher3Remastered", root, newInfo));
+			Assert.That(Directory.Exists(newInfo), Is.False);
+		}
+
+		[Test]
+		public void LegacyMayStillWriteWhenRemasteredOnlyDiscoveredRootOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			Directory.CreateDirectory(root);
+			IEnvironmentInfo environment = CreateEnvironment(root, Path.Combine(_fixture, "RemasteredInfo"), false,
+				Witcher3RootOwnershipGuard.RemasteredModeId);
+			Assert.DoesNotThrow(() => Witcher3RootOwnershipGuard.RequireNativeMutation(
+				environment, "Witcher3", root, Path.Combine(_fixture, "LegacyInfo")));
+		}
+
+		[Test]
+		public void LegacyWriteSeesOwnerCreatedAfterPriorSuccessfulPreflightOnWindows()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			string otherInfo = Path.Combine(_fixture, "RemasteredInfo");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(otherInfo);
+			IEnvironmentInfo environment = CreateEnvironment(root, otherInfo, false,
+				Witcher3RootOwnershipGuard.RemasteredModeId);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3", root, Path.Combine(_fixture, "LegacyInfo")).AllowsNormalInitialization, Is.True);
+			string log = Path.Combine(otherInfo, "InstallLog.xml");
+			File.WriteAllText(log, "<installLog />");
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3", root, Path.Combine(_fixture, "LegacyInfo")).Status,
+				Is.EqualTo(Witcher3RootOwnershipStatus.SharedManagedGameRoot));
+			Assert.That(File.ReadAllText(log), Is.EqualTo("<installLog />"));
 		}
 
 		[Test]

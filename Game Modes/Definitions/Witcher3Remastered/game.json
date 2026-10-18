@@ -1,6 +1,7 @@
 {
   "schemaVersion": 2,
   "modeId": "Witcher3Remastered",
+  "nexusDomain": "witcher3",
   "name": "The Witcher 3 Remastered",
   "behaviorProfile": "witcher3remastered",
   "legacyFallback": false,
@@ -34,6 +35,11 @@
         "store": "GOG",
         "id": "1207664643",
         "executableName": "bin\\x64_dx12\\witcher3.exe"
+      },
+      {
+        "store": "Epic",
+        "id": "725a22e15ed74735bb0d6a19f3cc82d0",
+        "executableName": "bin\\x64_dx12\\witcher3.exe"
       }
     ]
   },
@@ -55,11 +61,97 @@
       ".dll"
     ]
   },
+  "managedContent": {
+    "schemaVersion": 1,
+    "installLayout": {
+      "provider": "bounded-folder-layout-v1",
+      "revision": 1,
+      "maximumWrapperSegments": 2,
+      "ignoredFileNames": [
+        "readme.txt",
+        "readme.md",
+        "license.txt",
+        "license.md",
+        "changelog.txt",
+        "changelog.md",
+        ".DS_Store"
+      ],
+      "rejectedFileSuffixes": [
+        ".part.txt"
+      ],
+      "rules": [
+        {
+          "id": "mods",
+          "kind": "component-folder",
+          "componentPrefix": "mod",
+          "contentFolder": "content",
+          "targetRoot": "Data",
+          "targetFolder": "Mods",
+          "componentKind": "mod-folder",
+          "maximumComponentNameLength": 63,
+          "sourceRoot": "Mods"
+        },
+        {
+          "id": "dlc",
+          "kind": "component-folder",
+          "componentPrefix": "dlc",
+          "contentFolder": "content",
+          "targetRoot": "Data",
+          "targetFolder": "DLC",
+          "componentKind": "dlc-folder",
+          "maximumComponentNameLength": 255,
+          "sourceRoot": "DLC"
+        },
+        {
+          "id": "bare-mod",
+          "kind": "component-folder",
+          "componentPrefix": "mod",
+          "contentFolder": "content",
+          "targetRoot": "Data",
+          "targetFolder": "Mods",
+          "componentKind": "mod-folder",
+          "maximumComponentNameLength": 63
+        },
+        {
+          "id": "bare-dlc",
+          "kind": "component-folder",
+          "componentPrefix": "dlc",
+          "contentFolder": "content",
+          "targetRoot": "Data",
+          "targetFolder": "DLC",
+          "componentKind": "dlc-folder",
+          "maximumComponentNameLength": 255
+        },
+        {
+          "id": "raw-content",
+          "kind": "generated-folder",
+          "componentPrefix": "mod",
+          "contentFolder": "content",
+          "targetRoot": "Data",
+          "targetFolder": "Mods",
+          "componentKind": "mod-folder",
+          "maximumComponentNameLength": 63,
+          "sourceRoot": "content"
+        }
+      ]
+    },
+    "componentOrdering": {
+      "provider": "sectioned-ini-order-v1",
+      "revision": 1,
+      "fileRoot": "Documents",
+      "relativePath": "The Witcher 3\\mods.settings",
+      "componentKind": "mod-folder",
+      "componentPrefix": "mod",
+      "priorityKey": "Priority",
+      "enabledKey": "Enabled"
+    }
+  },
   "compatibilityNotes": [
-    "Experimental registration shell only: runtime activation is blocked until native installation and load-order integration has been reviewed.",
+    "Native basic-package implementation is present; activation remains blocked pending runtime validation of installation, upgrade, removal and recovery.",
     "Requires 5.x executable-version evidence and no stale DX11 executable; DX12 alone never establishes Remastered.",
     "Uses the witcher3 Nexus catalog while keeping an independent NMM ModeId and native ownership namespace.",
     "Never shares native game storage or InstallLog with Witcher3. In-place upgrades require reviewed migration or an independent physical installation.",
-    "Witcher mod folders are not Bethesda plugins. Load-order reads are observational and writes are not enabled."
+    "Witcher mod folders are not Bethesda plugins. Load-order reads are observational and writes are not enabled.",
+    "First-release scope excludes Collection installation, scripted packages, automatic cross-mod merging and migration of a Legacy-managed root."
   ]
 }

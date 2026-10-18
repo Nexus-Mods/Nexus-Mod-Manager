@@ -99,6 +99,20 @@ namespace Nexus.Client.GameStorage
         }
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, bool acceptStorageIdRebinding, out GameStorageHealthCheck healthCheck)
+		{
+			Witcher3StorageMutationReservation reservation;
+			string failure;
+			if (!Witcher3StorageMutationReservation.TryAcquire(gameMode == null ? null : gameMode.ModeId,
+				out reservation, out failure))
+			{
+				healthCheck = StorageCoordinationFailure(gameMode == null ? null : gameMode.ModeId, failure);
+				return false;
+			}
+			using (reservation)
+				return ApplyRecoveryCandidateUnderReservation(gameMode, candidate, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding, out healthCheck);
+		}
+
+		private bool ApplyRecoveryCandidateUnderReservation(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, bool acceptStorageIdRebinding, out GameStorageHealthCheck healthCheck)
         {
             healthCheck = null;
             var currentPaths = FromGameMode(gameMode);
@@ -159,6 +173,20 @@ namespace Nexus.Client.GameStorage
             return true;
         }
 
+		private static GameStorageHealthCheck StorageCoordinationFailure(string gameId, string reason)
+		{
+			var health = new GameStorageHealthCheck { GameId = gameId };
+			health.Items.Add(new GameStorageHealthItem
+			{
+				Role = GameStorageFolderRole.InstallInfo,
+				Status = GameStorageHealthStatus.Unknown,
+				IsRequired = true,
+				IsRecoverable = false,
+				Message = "Witcher 3 Game Storage is busy or requires recovery: " + reason
+			});
+			return health;
+		}
+
         /// <summary>
         /// W3R mode ownership is tied to a physical game root, not to a selected
         /// InstallInfo folder. Explicit recovery and the unvalidated path fallback
@@ -179,10 +207,24 @@ namespace Nexus.Client.GameStorage
             {
                 try
                 {
-                    Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
-                        _environmentInfo, paths.GameId, paths.GameInstallPath, paths.InstallInfoPath);
-                    if (decision.AllowsNormalInitialization) return true;
-                    reason = decision.Reason;
+                    Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForStorageTransition(
+                        _environmentInfo, paths.GameId, paths.GameInstallPath, paths.InstallInfoPath,
+                        paths.VirtualInstallPath);
+                    if (decision.AllowsNativeMutation)
+                    {
+                        try
+                        {
+                            // This also runs before setup/recovery creates any directories.
+                            // Publication repeats the check while holding the reservation.
+                            RequireNoForeignWitcher3ManifestClaims(paths);
+                            return true;
+                        }
+                        catch (InvalidOperationException exception)
+                        {
+                            reason = exception.Message;
+                        }
+                    }
+                    else reason = decision.Reason;
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
                     ex is ArgumentException || ex is NotSupportedException || ex is System.Security.SecurityException)
@@ -198,7 +240,7 @@ namespace Nexus.Client.GameStorage
                 Status = GameStorageHealthStatus.Unknown,
                 IsRequired = true,
                 IsRecoverable = false,
-                Message = "Witcher 3 recovery blocked to prevent duplicate game-root ownership: " + reason,
+                Message = "Witcher 3 recovery blocked to prevent duplicate native storage ownership: " + reason,
                 SuggestedFixes = new List<string> {
                     "Select an independent physical game installation, or perform a separately verified native ownership migration."
                 }
@@ -212,6 +254,17 @@ namespace Nexus.Client.GameStorage
         /// completed from the current configuration and existing metadata is left unchanged.
         /// </summary>
         public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+		{
+			Witcher3StorageMutationReservation reservation;
+			string failure;
+			if (!Witcher3StorageMutationReservation.TryAcquire(currentPaths == null ? null : currentPaths.GameId,
+				out reservation, out failure))
+				return false;
+			using (reservation)
+				return ApplySelectedCandidatePathsUnderReservation(currentPaths, candidate);
+		}
+
+		private bool ApplySelectedCandidatePathsUnderReservation(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
         {
             GameStoragePathSet paths = ResolveExplicitlySelectedPaths(currentPaths, candidate);
             GameStorageHealthCheck witcherFailure;
@@ -294,6 +347,23 @@ namespace Nexus.Client.GameStorage
 			GameStorageCandidate candidate,
 			out GameStorageHealthCheck healthCheck)
 		{
+			Witcher3StorageMutationReservation reservation;
+			string failure;
+			if (!Witcher3StorageMutationReservation.TryAcquire(currentPaths == null ? null : currentPaths.GameId,
+				out reservation, out failure))
+			{
+				healthCheck = StorageCoordinationFailure(currentPaths == null ? null : currentPaths.GameId, failure);
+				return false;
+			}
+			using (reservation)
+				return ApplyInitialSetupCandidateUnderReservation(currentPaths, candidate, out healthCheck);
+		}
+
+		private bool ApplyInitialSetupCandidateUnderReservation(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate,
+			out GameStorageHealthCheck healthCheck)
+		{
 			healthCheck = null;
 
 			if (candidate == null ||
@@ -354,6 +424,9 @@ namespace Nexus.Client.GameStorage
 
 		private void ApplyPathSet(GameStoragePathSet paths)
 		{
+			// A candidate may have been approved before another process changed native
+			// ownership. Revalidate the exact destination before persisting settings.
+			RequireWitcher3StorageWrite(paths);
 			string gameId = paths.GameId;
 
 			_environmentInfo.Settings.InstallInfoFolder[gameId] =

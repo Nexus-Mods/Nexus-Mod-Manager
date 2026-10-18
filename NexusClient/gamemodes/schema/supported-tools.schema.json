@@ -121,6 +121,9 @@
 					},
 					"description": "Each entry is one process argument after placeholder expansion. The launcher performs quoting; do not embed command-line quoting to group tokens."
 				},
+				"launchReview": {
+					"$ref": "#/$defs/launchReview"
+				},
 				"discoveryRules": {
 					"type": "array",
 					"minItems": 1,
@@ -221,6 +224,43 @@
 					"description": "Fixed or placeholder-based candidate directory."
 				}
 			}
+		},
+		"launchReview": {
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"schemaVersion",
+				"provider",
+				"revision",
+				"compatibility",
+				"outputPolicy"
+			],
+			"properties": {
+				"schemaVersion": {
+					"type": "integer",
+					"const": 1
+				},
+				"provider": {
+					"type": "string",
+					"const": "reviewed-external-tool-v1"
+				},
+				"revision": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"compatibility": {
+					"type": "string",
+					"enum": [
+						"manual-version-info-v1",
+						"witcher3-remastered-script-merger-v1"
+					]
+				},
+				"outputPolicy": {
+					"type": "string",
+					"const": "external-unmanaged-v1"
+				}
+			},
+			"description": "Optional per-launch review. Remastered compatibility is available only to the Remastered host. External output is never automatically claimed or reverted by NMM."
 		}
 	}
 }

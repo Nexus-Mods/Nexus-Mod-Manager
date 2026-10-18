@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -103,6 +103,8 @@ namespace Nexus.Client.Games.DataDriven
 
         private void LaunchPlain()
         {
+            if (!CheckLaunchReadiness())
+                return;
             PrepareProfileForLaunch();
             Trace.TraceInformation("Launching {0} (Default)...", GameMode.Name);
             Trace.Indent();
@@ -111,6 +113,8 @@ namespace Nexus.Client.Games.DataDriven
 
         private void LaunchScriptExtender()
         {
+            if (!CheckLaunchReadiness())
+                return;
             PrepareProfileForLaunch();
             string command = GetInstalledScriptExtenderCommand(_definition);
             if (string.IsNullOrWhiteSpace(command))
@@ -130,6 +134,8 @@ namespace Nexus.Client.Games.DataDriven
 
         private void LaunchCustom()
         {
+            if (!CheckLaunchReadiness())
+                return;
             PrepareProfileForLaunch();
             Trace.TraceInformation("Launching {0} (Custom)...", GameMode.Name);
             Trace.Indent();
@@ -154,6 +160,25 @@ namespace Nexus.Client.Games.DataDriven
             string arguments = string.Empty;
             EnvironmentInfo.Settings.CustomLaunchCommandArguments.TryGetValue(GameMode.ModeId, out arguments);
             Launch(command, arguments);
+        }
+
+        /// <summary>
+        /// Game-specific preflight is evaluated on each launch attempt, not at command creation.
+        /// All ordinary data-driven modes retain their existing launch behavior.
+        /// </summary>
+        protected virtual string GetLaunchBlockMessage()
+        {
+            return null;
+        }
+
+        private bool CheckLaunchReadiness()
+        {
+            string message = GetLaunchBlockMessage();
+            if (string.IsNullOrWhiteSpace(message))
+                return true;
+            Trace.TraceWarning("Game launch blocked: {0}", message);
+            OnGameLaunched(false, message);
+            return false;
         }
 
         private string GetPlainLaunchCommand(GameModeDefinition definition)

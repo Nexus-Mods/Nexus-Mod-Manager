@@ -63,6 +63,9 @@ namespace Nexus.Client.Games.Witcher3
         {
 			Trace.TraceInformation("Launching Witcher3 (Custom)...");
             Trace.Indent();
+            Witcher3LaunchDecision decision = GetCurrentLaunchDecision();
+            if (!ReportBlockedLaunch(decision))
+                return;
 
             string strCommand = GetCustomLaunchCommand();
             string strCommandArgs = EnvironmentInfo.Settings.CustomLaunchCommandArguments[GameMode.ModeId];
@@ -104,9 +107,11 @@ namespace Nexus.Client.Games.Witcher3
         {
 			Trace.TraceInformation("Launching Witcher3 (Default)...");
             Trace.Indent();
-            string strCommand = GetPlainLaunchCommand();
-            Trace.TraceInformation("Command: " + strCommand);
-            Launch(strCommand, null);
+            Witcher3LaunchDecision decision = GetCurrentLaunchDecision();
+            if (!ReportBlockedLaunch(decision))
+                return;
+            Trace.TraceInformation("Command: " + decision.ExecutablePath);
+            Launch(decision.ExecutablePath, null);
         }
 
         /// <summary>
@@ -115,8 +120,30 @@ namespace Nexus.Client.Games.Witcher3
         /// <returns>The default launch command.</returns>
         private string GetPlainLaunchCommand()
         {
-			string strCommand = Path.Combine(GameMode.ExecutablePath, "bin", "x64", "Witcher3.exe");
-            return strCommand;
+            Witcher3LaunchDecision decision = GetCurrentLaunchDecision();
+            if (decision.CanLaunch)
+                return decision.ExecutablePath;
+            // SetupCommands uses this for icon extraction only. Never launch this
+            // fallback without the fresh validation in LaunchWitcher3Plain.
+            return Path.Combine(GameMode.ExecutablePath ?? String.Empty, "bin", "x64", "witcher3.exe");
+        }
+
+        private Witcher3LaunchDecision GetCurrentLaunchDecision()
+        {
+            return Witcher3LaunchPlanner.ReviewCurrentInstallation(
+                GameMode.GameModeEnvironmentInfo.InstallationPath,
+                GameMode.GameModeEnvironmentInfo.ExecutablePath,
+                Witcher3Edition.Legacy);
+        }
+
+        private bool ReportBlockedLaunch(Witcher3LaunchDecision decision)
+        {
+            if (decision.CanLaunch)
+                return true;
+            Trace.TraceWarning("Legacy Witcher 3 launch blocked: {0}", decision.BlockReason);
+            Trace.Unindent();
+            OnGameLaunched(false, decision.GetUserMessage());
+            return false;
         }
 
         #endregion

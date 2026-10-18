@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.IO;
-using System.Security;
-using System.Security.Cryptography;
-using System.Text;
+using Nexus.Client.ModManagement.ManagedContent;
 
 namespace Nexus.Client.ModManagement.Witcher3
 {
@@ -46,6 +44,11 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Diagnostic = diagnostic;
 		}
 
+		/// <summary>Adapts the same exact-byte observation to the shared codec without another disk read.</summary>
+		internal IniOrderFileObservation ToShared() => new IniOrderFileObservation(FilePath, (IniOrderReadStatus)Status,
+			Document == null ? null : IniOrderParser.Parse(Document.OriginalText, Witcher3ModSettingsParser.Format),
+			Encoding.HasValue ? (IniOrderTextEncoding?)Encoding.Value : null, ByteLength, ContentSha256, LastWriteTimeUtc, Diagnostic);
+
 		public string FilePath { get; }
 		public Witcher3ModSettingsReadStatus Status { get; }
 		public Witcher3ModSettingsDocument Document { get; }
@@ -73,125 +76,15 @@ namespace Nexus.Client.ModManagement.Witcher3
 			return Path.Combine(Path.GetFullPath(documentsDirectory), "The Witcher 3", "mods.settings");
 		}
 
+		/// <summary>Adapts the shared bounded observer while retaining Witcher's public read/status/encoding contracts.</summary>
 		public static Witcher3ModSettingsFileReadResult Read(string absoluteFilePath, int maxBytes = DefaultMaxBytes)
 		{
-			if (String.IsNullOrWhiteSpace(absoluteFilePath) || !Path.IsPathRooted(absoluteFilePath))
-				throw new ArgumentException("A fully resolved settings file path is required.", nameof(absoluteFilePath));
-			if (maxBytes < 1 || maxBytes == Int32.MaxValue)
-				throw new ArgumentOutOfRangeException(nameof(maxBytes));
-			string fullPath = Path.GetFullPath(absoluteFilePath);
-			try
-			{
-				var before = new FileInfo(fullPath);
-				before.Refresh();
-				long beforeLength = before.Exists ? before.Length : -1;
-				DateTime beforeWrite = before.Exists ? before.LastWriteTimeUtc : DateTime.MinValue;
-				byte[] bytes;
-				using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read,
-					FileShare.ReadWrite | FileShare.Delete))
-				{
-					if (stream.Length > maxBytes)
-						return Result(fullPath, Witcher3ModSettingsReadStatus.TooLarge,
-							"The settings file exceeds the bounded read limit.");
-					using (var memory = new MemoryStream())
-					{
-						var buffer = new byte[8192];
-						int count;
-						while ((count = stream.Read(buffer, 0, Math.Min(buffer.Length,
-							maxBytes - (int)memory.Length + 1))) > 0)
-						{
-							memory.Write(buffer, 0, count);
-							if (memory.Length > maxBytes)
-								return Result(fullPath, Witcher3ModSettingsReadStatus.TooLarge,
-									"The settings file grew beyond the bounded read limit.");
-						}
-						bytes = memory.ToArray();
-					}
-				}
-				var after = new FileInfo(fullPath);
-				after.Refresh();
-				if (!before.Exists || !after.Exists || beforeLength != bytes.Length ||
-					after.Length != bytes.Length || beforeWrite != after.LastWriteTimeUtc)
-					return Result(fullPath, Witcher3ModSettingsReadStatus.ChangedDuringRead,
-						"The settings file changed during observation. Refresh before interpreting it.");
-
-				Witcher3ModSettingsTextEncoding encoding;
-				string text;
-				if (!TryDecode(bytes, out text, out encoding))
-					return Result(fullPath, Witcher3ModSettingsReadStatus.UnsupportedEncoding,
-						"Unsupported or malformed text encoding; original bytes were left untouched.");
-				Witcher3ModSettingsDocument document = Witcher3ModSettingsParser.Parse(text);
-				if (!document.IsComplete)
-					return new Witcher3ModSettingsFileReadResult(fullPath,
-						Witcher3ModSettingsReadStatus.ParseRejected, document, encoding, bytes.Length,
-						Hash(bytes), after.LastWriteTimeUtc, "The parser limit was reached; no order was inferred.");
-				return new Witcher3ModSettingsFileReadResult(fullPath,
-						Witcher3ModSettingsReadStatus.Loaded, document, encoding, bytes.Length,
-						Hash(bytes), after.LastWriteTimeUtc, null);
-			}
-			catch (FileNotFoundException)
-			{
-				return Result(fullPath, Witcher3ModSettingsReadStatus.Missing, "No mods.settings file exists.");
-			}
-			catch (DirectoryNotFoundException)
-			{
-				return Result(fullPath, Witcher3ModSettingsReadStatus.Missing, "The settings directory does not exist.");
-			}
-			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
-				error is SecurityException || error is NotSupportedException)
-			{
-				return Result(fullPath, Witcher3ModSettingsReadStatus.ReadFailed, error.Message);
-			}
-		}
-
-		private static Witcher3ModSettingsFileReadResult Result(string path,
-			Witcher3ModSettingsReadStatus status, string diagnostic)
-		{
-			return new Witcher3ModSettingsFileReadResult(path, status, null, null,
-				null, null, null, diagnostic);
-		}
-
-		private static bool TryDecode(byte[] bytes, out string text,
-			out Witcher3ModSettingsTextEncoding encoding)
-		{
-			text = null;
-			encoding = Witcher3ModSettingsTextEncoding.Utf8;
-			if (bytes.Length >= 4 && ((bytes[0] == 0 && bytes[1] == 0 && bytes[2] == 0xFE && bytes[3] == 0xFF) ||
-				(bytes[0] == 0xFF && bytes[1] == 0xFE && bytes[2] == 0 && bytes[3] == 0)))
-				return false; // UTF-32 is deliberately unsupported; don't misread it as UTF-16.
-			int offset = 0;
-			Encoding decoder;
-			if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-			{
-				encoding = Witcher3ModSettingsTextEncoding.Utf8Bom;
-				decoder = new UTF8Encoding(false, true);
-				offset = 3;
-			}
-			else if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
-			{
-				encoding = Witcher3ModSettingsTextEncoding.Utf16LittleEndianBom;
-				decoder = new UnicodeEncoding(false, true, true);
-				offset = 2;
-			}
-			else if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
-			{
-				encoding = Witcher3ModSettingsTextEncoding.Utf16BigEndianBom;
-				decoder = new UnicodeEncoding(true, true, true);
-				offset = 2;
-			}
-			else decoder = new UTF8Encoding(false, true);
-			try
-			{
-				text = decoder.GetString(bytes, offset, bytes.Length - offset);
-				return text.IndexOf('\0') < 0; // Refuse binary or BOM-less UTF-16 disguised as UTF-8.
-			}
-			catch (DecoderFallbackException) { return false; }
-		}
-
-		private static string Hash(byte[] bytes)
-		{
-			using (var sha = SHA256.Create())
-				return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", String.Empty);
+			IniOrderFileObservation observed = IniOrderFileReader.Read(absoluteFilePath, Witcher3ModSettingsParser.Format, maxBytes);
+			string diagnostic = observed.Diagnostic == "No order settings file exists." ? "No mods.settings file exists." : observed.Diagnostic;
+			return new Witcher3ModSettingsFileReadResult(observed.FilePath, (Witcher3ModSettingsReadStatus)observed.Status,
+				observed.Document == null ? null : Witcher3ModSettingsParser.FromSharedDocument(observed.Document),
+				observed.Encoding.HasValue ? (Witcher3ModSettingsTextEncoding?)observed.Encoding.Value : null,
+				observed.ByteLength, observed.ContentSha256, observed.LastWriteTimeUtc, diagnostic);
 		}
 	}
 }

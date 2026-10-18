@@ -21,6 +21,7 @@ namespace Nexus.Client.ModManagement
 		private readonly IInstallLog m_ilgInstallLog;
 		private readonly IVirtualModActivator m_vmaVirtualModActivator;
 		private readonly IGameMode m_gmdGameMode;
+		internal NativeDeploymentMutationSignal NativeOwnerMutations { get; } = new NativeDeploymentMutationSignal();
 
 		/// <summary>
 		/// Initializes the deployment coordinator.
@@ -164,24 +165,29 @@ namespace Nexus.Client.ModManagement
 
 			string currentOwnerKey = owners[owners.Count - 1];
 			string deploymentPath = GetDeploymentPath(p_mdtTarget);
-			using (var transaction = new TransactionScope())
+			// Collections and profile operations can switch promoted winners without
+			// a ModActivationMonitor task. Block an in-flight Witcher index read.
+			using (NativeOwnerMutations.Begin())
 			{
-				var fileManager = new TxFileManager();
-				TouchDeploymentRecoveryTarget(p_mdtTarget);
-				DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, fileManager);
+				using (var transaction = new TransactionScope())
+				{
+					var fileManager = new TxFileManager();
+					TouchDeploymentRecoveryTarget(p_mdtTarget);
+					DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, fileManager);
 
-				if (GetOwnerMethod(p_strSelectedOwnerKey) == ModInstallMethod.Virtual)
-					m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, p_strSelectedOwnerKey, fileManager);
-				else
-					RestoreBackup(p_mdtTarget, p_strSelectedOwnerKey, deploymentPath, fileManager);
+					if (GetOwnerMethod(p_strSelectedOwnerKey) == ModInstallMethod.Virtual)
+						m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, p_strSelectedOwnerKey, fileManager);
+					else
+						RestoreBackup(p_mdtTarget, p_strSelectedOwnerKey, deploymentPath, fileManager);
 
-				owners.RemoveAt(selectedIndex);
-				owners.Add(p_strSelectedOwnerKey);
-				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
-				transaction.Complete();
+					owners.RemoveAt(selectedIndex);
+					owners.Add(p_strSelectedOwnerKey);
+					m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
+					transaction.Complete();
+				}
+
+				m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 			}
-
-			m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <inheritdoc />
@@ -215,10 +221,13 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException("A profile cannot select the unmanaged original file as the winner while managed owners remain.");
 
 			string currentWinner = currentOwners[currentOwners.Count - 1];
-			if (!desiredWinner.Equals(currentWinner, StringComparison.OrdinalIgnoreCase))
-				SwitchPromotedOwner(p_mdtTarget, desiredWinner);
+			using (NativeOwnerMutations.Begin())
+			{
+				if (!desiredWinner.Equals(currentWinner, StringComparison.OrdinalIgnoreCase))
+					SwitchPromotedOwner(p_mdtTarget, desiredWinner);
 
-			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, desiredOwners);
+				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, desiredOwners);
+			}
 		}
 
 		/// <inheritdoc />

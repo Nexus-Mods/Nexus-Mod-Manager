@@ -556,6 +556,8 @@ namespace Nexus.Client
 			_categoryManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_fileManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_collectionsPreviewControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
+			_witcher3LoadOrderControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
+			_managedContentComponentsControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 		}
 
 		private sealed class ButtonPresentationScopeChoice

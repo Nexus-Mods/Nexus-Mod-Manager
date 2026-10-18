@@ -10,6 +10,7 @@ using Nexus.Client.Games.DataDriven;
 using Nexus.Client.Games.Witcher3;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.PluginManagement;
 
 namespace Nexus.Client.ModManagement.Witcher3
@@ -37,6 +38,14 @@ namespace Nexus.Client.ModManagement.Witcher3
     /// </summary>
     public sealed class Witcher3NativeMutationReview
     {
+        /// <summary>Exposes the existing manual-only Remastered boundary before Collection acquisition or recipe preparation.</summary>
+        public static void RequireCollectionSupport(string modeId)
+        {
+            if (String.Equals(modeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+                throw new NotSupportedException(LanguageManager.Get("Witcher3.Collections.Unsupported",
+                    "Witcher 3 Remastered Collection installation is not supported yet. Collection metadata can be inspected, but archives cannot be prepared or installed through this workflow. Supported basic packages require the reviewed manual installation path."));
+        }
+
         private readonly IEnvironmentInfo _environment;
         private readonly IGameMode _gameMode;
         private readonly IInstallLog _installLog;
@@ -89,9 +98,9 @@ namespace Nexus.Client.ModManagement.Witcher3
             // Use the final active service path, not just the original settings value:
             // setup may have redirected InstallInfo after startup preflight.
             string installInfo = gameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
-            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
+            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForNativeMutation(
                 environment, gameMode.ModeId, root, installInfo);
-            if (!decision.AllowsNormalInitialization)
+            if (!decision.AllowsNativeMutation)
                 throw new InvalidDataException("Witcher 3 native ownership is not exclusive: " + decision.Reason);
             Witcher3InstallationObservation edition = Witcher3InstallationProbe.Inspect(root);
             if (!DataDrivenWitcher3RemasteredGameModeDescriptor.IsConfirmedRemastered(edition.Edition))
@@ -213,11 +222,13 @@ namespace Nexus.Client.ModManagement.Witcher3
                 throw new InvalidDataException("Witcher 3 native removal was blocked (" +
                     decision.Status + "): " + decision.Reason);
             Witcher3NativeUninstallDestinationPreflight.RequireExistingTargets(_gameRoot, decision.ExactTargets);
+            _completedRemovalVerified = false;
             _reviewedUninstallOwnerKey = ownerKey;
             _reviewedUninstallTargets = decision.ExactTargets;
             return decision;
         }
 
+        private bool _completedRemovalVerified;
         private string _reviewedUninstallOwnerKey;
         private ReadOnlyCollection<string> _reviewedUninstallTargets;
 
@@ -232,10 +243,10 @@ namespace Nexus.Client.ModManagement.Witcher3
             AssertLease(_lease);
             if (String.IsNullOrWhiteSpace(_reviewedUninstallOwnerKey) || _reviewedUninstallTargets == null)
                 throw new InvalidOperationException("No Witcher 3 removal was authorized by this lease review.");
-            Witcher3RootOwnershipDecision ownership = Witcher3RootOwnershipGuard.Check(
+            Witcher3RootOwnershipDecision ownership = Witcher3RootOwnershipGuard.CheckForNativeMutation(
                 _environment, _gameMode.ModeId, _gameRoot,
                 _gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
-            if (!ownership.AllowsNormalInitialization)
+            if (!ownership.AllowsNativeMutation)
                 throw new InvalidDataException("A second Witcher 3 physical-root owner appeared during removal: " + ownership.Reason);
             if (!DataDrivenWitcher3RemasteredGameModeDescriptor.IsConfirmedRemastered(
                 Witcher3InstallationProbe.Inspect(_gameRoot).Edition))
@@ -250,6 +261,44 @@ namespace Nexus.Client.ModManagement.Witcher3
                     catch (FileNotFoundException) { return false; }
                     catch (DirectoryNotFoundException) { return false; }
                 });
+            _completedRemovalVerified = true;
+        }
+
+        /// <summary>Removes only empty ancestors of the exact removed files after native removal has been verified.</summary>
+        internal void RemoveEmptyUninstalledDirectories()
+        {
+            if (!_completedRemovalVerified)
+                throw new InvalidOperationException("Empty-directory cleanup requires verified completed native removal.");
+            // Promoted removal preserves directories. Leaving an empty component behind would block
+            // the next new-component install. Never recurse or remove Mods/DLC themselves.
+            var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string target in _reviewedUninstallTargets)
+            {
+                string[] parts = Witcher3BasicInstallMapping.ValidatePlannedPath(target).Split('\\');
+                for (int count = 2; count < parts.Length; ++count)
+                    directories.Add(String.Join("\\", parts.Take(count)));
+            }
+            foreach (string relative in directories.OrderByDescending(path => path.Length).ThenBy(path => path, StringComparer.Ordinal))
+            {
+                AssertLease(_lease);
+                FileAttributes rootAttributes = File.GetAttributes(_gameRoot);
+                if ((rootAttributes & FileAttributes.Directory) == 0 || (rootAttributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("The reviewed removal root changed before directory cleanup.");
+                string cursor = _gameRoot;
+                bool exists = true;
+                foreach (string segment in relative.Split('\\'))
+                {
+                    cursor = Path.Combine(cursor, segment);
+                    FileAttributes attributes;
+                    try { attributes = File.GetAttributes(cursor); }
+                    catch (FileNotFoundException) { exists = false; break; }
+                    catch (DirectoryNotFoundException) { exists = false; break; }
+                    if ((attributes & FileAttributes.Directory) == 0 || (attributes & FileAttributes.ReparsePoint) != 0)
+                        throw new InvalidDataException("A reviewed removal directory changed type or became linked.");
+                }
+                if (exists && !Directory.EnumerateFileSystemEntries(cursor).Any())
+                    Directory.Delete(cursor, false);
+            }
         }
 
         private static void AssertLease(CollectionTargetMutationLease lease)

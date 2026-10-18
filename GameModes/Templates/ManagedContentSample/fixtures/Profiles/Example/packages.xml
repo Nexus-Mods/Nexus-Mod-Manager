@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<save>
+  <!-- Unrelated XML remains outside the selected package record. -->
+  <node id="Packages">
+    <children>
+      <node id="Package" fixture="external">
+        <attribute id="Id" type="guid" value="22222222-2222-4222-8222-222222222222" />
+        <attribute id="Label" type="string" value="External package" />
+        <attribute id="Revision" type="int64" value="1" />
+        <attribute id="ForeignField" type="string" value="preserve" />
+      </node>
+    </children>
+  </node>
+  <node id="ForeignSettings"><children /></node>
+</save>

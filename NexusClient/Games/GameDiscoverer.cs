@@ -313,20 +313,34 @@
 		/// <param name="gameModeId">The id of the game mode whose current installation path is to be accepted.</param>
 		public void Accept(string gameModeId)
 		{
-			if (!_candidatePathsByGame.ContainsKey(gameModeId))
+			TryAccept(gameModeId);
+		}
+
+        /// <summary>
+        /// Revalidates edition-constrained candidates at the moment of acceptance. An
+        /// executable may have changed since the background scan produced the candidate.
+        /// </summary>
+        public bool TryAccept(string gameModeId)
+        {
+            Queue<string> candidates;
+            IGameModeDescriptor descriptor;
+            if (!_candidatePathsByGame.TryGetValue(gameModeId, out candidates) ||
+                candidates.Count == 0 || !_gameModesById.TryGetValue(gameModeId, out descriptor))
+                return false;
+
+            string path = candidates.Peek();
+            if (descriptor is IGameInstallationCandidateValidator && !Verify(gameModeId, path))
             {
-                return;
+                Reject(gameModeId);
+                return false;
             }
 
-            var installPath = _candidatePathsByGame[gameModeId].Peek();
-			_foundGameModes.Add(new GameInstallData(_gameModesById[gameModeId], installPath));
-			Stop(gameModeId);
-			OnGameResolved(_gameModesById[gameModeId], installPath);
-			
+            _foundGameModes.Add(new GameInstallData(descriptor, path));
+            Stop(gameModeId);
+            OnGameResolved(descriptor, path);
             if (_candidatePathsByGame.Count == 0)
-            {
                 Status = TaskStatus.Complete;
-            }
+            return true;
         }
 
 		/// <summary>
@@ -336,18 +350,29 @@
 		/// <param name="installPath">The path to use as the specified game mode's installation path.</param>
 		public void Override(string gameModeId, string installPath)
 		{
-			if (!string.IsNullOrEmpty(installPath))
-            {
-                _foundGameModes.Add(new GameInstallData(_gameModesById[gameModeId], installPath));
-            }
+            if (!TryOverride(gameModeId, installPath))
+                throw new InvalidOperationException("The selected game installation failed edition validation.");
+        }
 
+        /// <summary>
+        /// Existing modes retain their manual override behavior; modes with a dedicated
+        /// edition validator cannot override into an incompatible or ambiguous game root.
+        /// </summary>
+        public bool TryOverride(string gameModeId, string installPath)
+        {
+            IGameModeDescriptor descriptor;
+            if (!_gameModesById.TryGetValue(gameModeId, out descriptor))
+                return false;
+            if (descriptor is IGameInstallationCandidateValidator && !Verify(gameModeId, installPath))
+                return false;
+
+            if (!String.IsNullOrEmpty(installPath))
+                _foundGameModes.Add(new GameInstallData(descriptor, installPath));
             Stop(gameModeId);
-			OnGameResolved(_gameModesById[gameModeId], installPath);
-			
+            OnGameResolved(descriptor, installPath);
             if (_candidatePathsByGame.Count == 0)
-            {
                 Status = TaskStatus.Complete;
-            }
+            return true;
         }
 
 		/// <summary>

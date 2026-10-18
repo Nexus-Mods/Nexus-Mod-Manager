@@ -136,6 +136,9 @@ namespace Nexus.Client.ModManagement
 		/// </remarks>
 		public event EventHandler NativeStateReinitialized = delegate { };
 
+		/// <summary>Raised after an ordinary File Manager owner switch has completed.</summary>
+		public event EventHandler NativeFileOwnerChanged = delegate { };
+
 		#endregion
 
 		#region Properties
@@ -1564,6 +1567,10 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		internal void RecordManualFileOwnerChange(string previousOwnerKey, string selectedOwnerKey, IEnumerable<string> affectedOwnerKeys)
 		{
+			// A File Manager switch has already finished. This notification must never turn a
+			// successful native owner switch into a reported failure if a consumer throws.
+			try { NativeFileOwnerChanged(this, EventArgs.Empty); }
+			catch (Exception ex) { Trace.TraceWarning("Native owner-change observer failed: {0}", ex.Message); }
 			CollectionManualMutationDriftCoordinator coordinator = CollectionManualMutationDriftCoordinator.TryCreateForCurrentTarget(GameMode, EnvironmentInfo);
 			if (coordinator == null)
 				return;

@@ -15,13 +15,16 @@ using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGamebryoGameMode : GamebryoGameModeBase, IGameRootPackageRuleProvider
+    public class DataDrivenGamebryoGameMode : GamebryoGameModeBase, IGameRootPackageRuleProvider, INexusGameDomainProvider
     {
         [ThreadStatic]
         private static GameModeDefinition _pendingDefinition;
 
         private readonly GameModeDefinition _definition;
 		private readonly IReadOnlyList<GameRootPackageRule> _gameRootPackageRules;
+        /// <summary>Optional catalog identity; local mode/storage identity remains unchanged.</summary>
+        public string NexusGameDomain => _definition.NexusDomain;
+
         private IGameLauncher _gameLauncher;
         private IToolLauncher _toolLauncher;
         private ISupportedToolsLauncher _supportedToolsLauncher;

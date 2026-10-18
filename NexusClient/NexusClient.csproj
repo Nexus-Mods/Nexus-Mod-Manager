@@ -575,11 +575,32 @@
     <Compile Include="ModManagement\VirtualDeploymentResult.cs" />
     <Compile Include="ModManagement\VirtualDeploymentService.cs" />
     <Compile Include="ModManagement\VirtualDeploymentSession.cs" />
+    <Compile Include="ModManagement\NativeDeploymentMutationSignal.cs" />
     <Compile Include="ModManagement\ModDeploymentManager.LocalRestore.cs" />
     <Compile Include="ModManagement\ModDeploymentManager.cs" />
     <Compile Include="ModManagement\NativeStateCaptureReader.cs" />
     <Compile Include="ModManagement\NativeStateCaptureSnapshot.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeComponentIndex.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentNativeComponentIndex.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentComponentDiskObservation.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentComponentDiskScan.cs" />
+    <Compile Include="ModManagement\ManagedContent\NativeComponentLifecycleObserver.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentComponentViewService.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderDocument.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderDocumentRule.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderFileReader.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderChangePlanner.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderPublisher.cs" />
+    <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordRule.cs" />
+    <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordStore.cs" />
+    <Compile Include="ModManagement\ManagedContent\StructuredGameSpecificValueInstaller.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
+    <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs" />
+    <Compile Include="ModManagement\ManagedContent\UI\IniOrderReviewDialog.cs" />
+    <Compile Include="ModManagement\ManagedContent\ManagedContentOrderObservation.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderByteCodec.cs" />
+    <Compile Include="ModManagement\ManagedContent\IniOrderTextEdits.cs" />
+    <Compile Include="ModManagement\ManagedContent\UI\ManagedContentComponentsControl.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeDestinationPreflight.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeWritePolicy.cs" />
@@ -595,7 +616,22 @@
     <Compile Include="ModManagement\Witcher3\Witcher3ComponentDiskScan.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsDocument.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsFileReader.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsChangePlanner.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsPublisher.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsLifecycleService.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3LoadOrderProjection.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3LoadOrderEditorSession.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeLifecycleObserver.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3RemasteredHealthReader.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3RemasteredComponentHealthInspector.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ExternalScriptMergerInspector.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3LoadOrderViewService.cs" />
+    <Compile Include="ModManagement\Witcher3\UI\Witcher3LoadOrderControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\Witcher3\UI\Witcher3LoadOrderReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\ModDeploymentManager.Recovery.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
@@ -1311,6 +1347,7 @@
     <Compile Include="Games\IGameInstallationCandidateValidator.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
+    <Compile Include="Games\NexusGameDomain.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGamebryoGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGamebryoGameModeDescriptor.cs" />
@@ -1319,6 +1356,8 @@
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenWitcher3RemasteredGameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenWitcher3RemasteredGameMode.cs" />
+    <Compile Include="Games\DataDriven\Witcher3RemasteredReleasePolicy.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenWitcher3RemasteredGameLauncher.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameRootPackageRules.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
@@ -1331,8 +1370,16 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Games\DataDriven\DataDrivenSupportedToolsLauncher.cs" />
+    <Compile Include="Games\DataDriven\GameModeToolReviewDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModePackageFilesDefinition.cs" />
+    <Compile Include="ModManagement\ManagedContent\PackageXmlFragmentRule.cs" />
+    <Compile Include="ModManagement\ManagedContent\PackageXmlFragmentPlanner.cs" />
+    <Compile Include="ModManagement\ManagedContent\ExternalToolLaunchReview.cs" />
     <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeManagedContentDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeStructuredEffectsDefinition.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenManagedContentGameMode.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionLoadResult.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionValidator.cs" />
@@ -1414,6 +1461,7 @@
     <Compile Include="GameStorage\GameStorageHealth.cs" />
     <Compile Include="GameStorage\GameStorageModels.cs" />
     <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\Witcher3StorageMutationReservation.cs" />
     <Compile Include="GameStorage\GameStorageRecoveryService.cs" />
     <Compile Include="GameStorage\UI\GameStorageRecoveryForm.cs">
       <SubType>Form</SubType>
@@ -1474,8 +1522,8 @@
     <Reference Include="Accessibility">
       <Private>False</Private>
     </Reference>
-    <Reference Include="DevExpress.XtraBars.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
-    <Reference Include="DevExpress.XtraDialogs.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.XtraBars.v25.2, Version=25.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.XtraDialogs.v25.2, Version=25.2.10.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="DevExpress.Dialogs.v25.2.Core">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Dialogs.v25.2.Core.dll</HintPath>
       <Private>True</Private>

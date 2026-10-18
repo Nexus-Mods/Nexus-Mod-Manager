@@ -2,6 +2,8 @@
 
 Data-driven game modes describe the parts of an old compiled `GameMode` project that can be represented safely as data. The runtime definitions are packaged under `GameModes\Definitions\<GameId>\game.json`; the `GameModes` folder at repository root contains authoring aids.
 
+For advanced folder layouts, see [Managed-content authoring](../../GameModes/ManagedContent-Authoring.md), the JSON-only `GameModes/Templates/ManagedContentSample/game.json`, and the [capability audit](../../GameModes/ManagedContent-Capability-Audit.md). Only the documented first layout slice is implemented; ordering and merge capabilities remain separate.
+
 ## Authoring Files
 
 - `GameModes/Templates/GameMode.template.jsonc`: commented starter definition for new modes.

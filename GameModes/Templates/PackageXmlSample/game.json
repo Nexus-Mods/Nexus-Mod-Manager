@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schema/game-mode.schema.json",
+  "schemaVersion": 2,
+  "modeId": "PackageXmlSample",
+  "nexusDomain": "nmm-package-xml-fixture",
+  "name": "Package XML Sample (fixture only)",
+  "behaviorProfile": "generic",
+  "gameExecutables": [
+    "PackageSample.exe"
+  ],
+  "stopFolders": [
+    "Fragments"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "packageFiles": {
+    "schemaVersion": 1,
+    "provider": "package-xml-elements-v1",
+    "revision": 1,
+    "sourceFolder": "Fragments",
+    "destinationPath": "Generated\\registry.xml",
+    "documentRoot": "Registry",
+    "recordElement": "Entry",
+    "identityAttribute": "key"
+  }
+}

@@ -194,6 +194,22 @@
 				_pluginManagerControl.Hide();
 			}
 
+			if (ViewModel.Witcher3ModSettingsLifecycle != null)
+			{
+				EnsureMdiDocument(_witcher3LoadOrderControl, "Witcher3LoadOrderDocument",
+					L("MainForm.Tabs.Witcher3LoadOrder", "Witcher Load Order"));
+			}
+			else if (_witcher3LoadOrderControl.Visible)
+			{
+				_witcher3LoadOrderControl.Hide();
+			}
+
+			if (ViewModel.GameMode is Games.ManagedContent.IManagedContentComponentProvider)
+				EnsureMdiDocument(_managedContentComponentsControl, "ManagedContentComponentsDocument",
+					L("MainForm.Tabs.Components", "Components"));
+			else if (_managedContentComponentsControl.Visible)
+				_managedContentComponentsControl.Hide();
+
 			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
 			if (IsFileManagerAvailable())
@@ -214,8 +230,8 @@
 		/// </summary>
 		private Control[] GetDefaultMainDocumentOrder()
 		{
-			return new Control[] { _pluginManagerControl, (Control)_modManagerControl, _categoryManagerControl,
-				_fileManagerControl, _collectionsPreviewControl };
+			return new Control[] { _pluginManagerControl, _witcher3LoadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
+				_fileManagerControl, _collectionsPreviewControl, _managedContentComponentsControl };
 		}
 
 		/// <summary>
@@ -546,6 +562,16 @@
 
 			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _collectionsPreviewControl))
 				_collectionsPreviewControl.RefreshInstalledState();
+
+			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null &&
+				Object.ReferenceEquals(e.Document.Control, _witcher3LoadOrderControl) &&
+				ViewModel.Witcher3ModSettingsLifecycle != null)
+				await _witcher3LoadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
+
+			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null &&
+				Object.ReferenceEquals(e.Document.Control, _managedContentComponentsControl) &&
+				ViewModel.GameMode is Games.ManagedContent.IManagedContentComponentProvider)
+				await _managedContentComponentsControl.RefreshOnActivateAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>

@@ -250,7 +250,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 				? status == Witcher3ModSettingsReadStatus.Missing
 					? Witcher3OrderConfigurationMode.DefaultNoModOverrides
 					: Witcher3OrderConfigurationMode.SettingsUnavailable
-				: document.ModSections.Any()
+				: document.ModSections.Any(x => x.HasPriorityField || x.HasEnabledField)
 					? Witcher3OrderConfigurationMode.ExternalConfigurationPresent
 					: Witcher3OrderConfigurationMode.DefaultNoModOverrides;
 			Witcher3OrderEffectEvidence effect = edition == Witcher3Edition.Legacy

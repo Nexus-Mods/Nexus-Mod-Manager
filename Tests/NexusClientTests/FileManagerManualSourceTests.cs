@@ -11,6 +11,7 @@
 
     using Nexus.Client.Games;
     using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.UI;
     using Nexus.Client.ModManagement.InstallationLog;
     using Nexus.Client.Mods;
     using Nexus.Client.Util.Collections;
@@ -19,6 +20,65 @@
 
     public class FileManagerManualSourceTests
     {
+        [Test]
+        public void WitcherOwnerSwitch_RequiresTheFreshOwnerAndCandidateSet()
+        {
+            FileManagerRow current = CreateReviewedWitcherRow("A", "B");
+            Assert.DoesNotThrow(() => FileManagerVM.RequireFreshWitcherOwnerChoice(null, "A", "B", new[] { "A", "B" }, current));
+            Assert.DoesNotThrow(() => FileManagerVM.RequireFreshWitcherOwnerChoice(null, "a", "b", new[] { "a", "b" }, current));
+        }
+
+        [Test]
+        public void WitcherOwnerSwitch_RejectsStaleOrMissingOwners()
+        {
+            FileManagerRow current = CreateReviewedWitcherRow("C", "D");
+            Assert.Throws<InvalidOperationException>(() =>
+                FileManagerVM.RequireFreshWitcherOwnerChoice(null, "A", "D", new[] { "C", "D" }, current));
+            Assert.Throws<InvalidOperationException>(() =>
+                FileManagerVM.RequireFreshWitcherOwnerChoice(null, "C", "Missing", new[] { "C", "D" }, current));
+            Assert.Throws<InvalidOperationException>(() =>
+                FileManagerVM.RequireFreshWitcherOwnerChoice(null, "C", "D", new[] { "C", "D" }, new FileManagerRow()));
+        }
+
+        [Test]
+        public void WitcherOwnerSwitch_RejectsChangedCandidateStacksEvenWhenWinnerIsUnchanged()
+        {
+            FileManagerRow current = CreateReviewedWitcherRow("A", "B");
+            Assert.Throws<InvalidOperationException>(() => FileManagerVM.RequireFreshWitcherOwnerChoice(
+                null, "A", "B", new[] { "B", "A" }, current));
+            Assert.Throws<InvalidOperationException>(() => FileManagerVM.RequireFreshWitcherOwnerChoice(
+                null, "A", "B", new[] { "A", "B", "C" }, current));
+            Assert.Throws<InvalidOperationException>(() => FileManagerVM.RequireFreshWitcherOwnerChoice(
+                null, "A", "B", new[] { "A", "C" }, current));
+        }
+
+        [Test]
+        public void WitcherOwnerSwitch_RejectsPromotionTopologyChanges()
+        {
+            FileManagerRow current = CreateReviewedWitcherRow("A", "B");
+            var promotedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Mods\\modA\\content\\x.ws");
+            Assert.Throws<InvalidOperationException>(() =>
+                FileManagerVM.RequireFreshWitcherOwnerChoice(promotedTarget, "A", "B", new[] { "A", "B" }, current));
+            current.DeploymentTarget = promotedTarget;
+            Assert.DoesNotThrow(() => FileManagerVM.RequireFreshWitcherOwnerChoice(promotedTarget, "A", "B", new[] { "A", "B" }, current));
+            Assert.Throws<InvalidOperationException>(() =>
+                FileManagerVM.RequireFreshWitcherOwnerChoice(null, "A", "B", new[] { "A", "B" }, current));
+        }
+
+        private static FileManagerRow CreateReviewedWitcherRow(string previousOwner, string nextOwner)
+        {
+            return new FileManagerRow
+            {
+                RelativePath = "Mods\\modA\\content\\x.ws",
+                OwnerKey = previousOwner,
+                OwnerCandidates = new List<FileManagerOwnerCandidate>
+                {
+                    new FileManagerOwnerCandidate(previousOwner, "Previous", 1),
+                    new FileManagerOwnerCandidate(nextOwner, "Next", 2)
+                }
+            };
+        }
+
         [Test]
         public void UntrackedRowsExposeSourceDropdown()
         {

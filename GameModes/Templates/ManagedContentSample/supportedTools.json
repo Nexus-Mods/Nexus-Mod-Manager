@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "supportedTools": [
+    {
+      "id": "PackageMerge",
+      "name": "Sample Package Merge Tool",
+      "executableName": "SamplePackageMerge.exe",
+      "argumentTokens": [
+        "--game-root",
+        "{GamePath}"
+      ],
+      "launchReview": {
+        "schemaVersion": 1,
+        "provider": "reviewed-external-tool-v1",
+        "revision": 1,
+        "compatibility": "manual-version-info-v1",
+        "outputPolicy": "external-unmanaged-v1"
+      }
+    }
+  ]
+}

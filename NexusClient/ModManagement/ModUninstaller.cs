@@ -198,6 +198,12 @@ namespace Nexus.Client.ModManagement
 				using (var mutationLease = AcquireMutationLease())
 				lock (objUninstallLock)
 				{
+					// A mode opened before another Witcher mode acquired native ownership
+					// must not uninstall against that other mode's physical game root.
+					if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+						Witcher3RootOwnershipGuard.RequireNativeMutation(EnvironmentInfo, GameMode.ModeId,
+							GameMode.GameModeEnvironmentInfo.InstallationPath,
+							GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
 					bool booHasManagedFiles = DeploymentManager != null
 						? DeploymentManager.HasManagedFiles(Mod)
@@ -316,6 +322,7 @@ namespace Nexus.Client.ModManagement
                     {
                         remasteredRemovalReview.VerifyCompletedUninstall(
                             VirtualModActivator, DeploymentManager, PluginManager);
+                        remasteredRemovalReview.RemoveEmptyUninstalledDirectories();
                         m_booRemasteredRemovalVerificationPending = false;
                     }
 				}

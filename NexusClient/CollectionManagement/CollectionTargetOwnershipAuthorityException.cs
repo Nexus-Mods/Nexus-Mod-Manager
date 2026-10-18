@@ -17,7 +17,8 @@ namespace Nexus.Client.CollectionManagement
 		AuthorityConflict = 7,
 		AuthorityBindingInvalid = 8,
 		AuthorityStoreUnavailable = 9,
-		NativeReloadFailed = 10
+		NativeReloadFailed = 10,
+		Witcher3CounterpartAuthorityConflict = 11
 	}
 
 	/// <summary>

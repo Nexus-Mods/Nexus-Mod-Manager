@@ -12,6 +12,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Witcher3;
+using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
@@ -30,6 +31,8 @@ namespace Nexus.Client.ModManagement
 	public class ModInstaller : ModInstallerBase
 	{
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
+		private BasicInstallPlan m_preparedPackageFilePlan;
+		private string m_preparedPackageDataRoot;
 		private ModDeploymentOverwriteResolver m_dorOverwriteResolver;
 		private bool m_booUsedPromotedDeployment;
 		private bool m_booUsePromotedDeploymentPath;
@@ -38,7 +41,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booVirtualStorePersistenceRequired;
 		private bool m_booVirtualStorePersisted;
 		private Action _collectionArchivePreparation;
-		private IReadOnlyList<KeyValuePair<string, string>> m_lstReviewedRemasteredBasicFiles;
+		private PreparedBasicInstallMapping m_preparedBasicMapping;
 
 		#region Properties
 
@@ -286,10 +289,17 @@ namespace Nexus.Client.ModManagement
 				using (var mutationLease = AcquireMutationLease())
 				lock (objInstallLock)
 				{
+					// Startup discovery is not write authorization: counterpart ownership can
+					// change after the mode was opened. Check again under the native lease
+					// BEFORE replay deletion, registration or a native transaction.
+					if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+						Witcher3RootOwnershipGuard.RequireNativeMutation(EnvironmentInfo, GameMode.ModeId,
+							GameMode.GameModeEnvironmentInfo.InstallationPath,
+							GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 					// The native lease is held, and the authority has been reloaded, but no
 					// native transaction has begun. Capture committed Witcher owners HERE:
 					// the generic snapshot reader rejects any ambient native transaction.
-					m_lstReviewedRemasteredBasicFiles = null;
+					m_preparedBasicMapping = null;
 					Witcher3NativeMutationReview remasteredReview = null;
 					if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
 						StringComparison.OrdinalIgnoreCase))
@@ -321,9 +331,10 @@ namespace Nexus.Client.ModManagement
 						if (remasteredReview != null)
 						{
 							var upgrade = this as ModUpgrader;
-							m_lstReviewedRemasteredBasicFiles = upgrade == null
+							IReadOnlyList<KeyValuePair<string, string>> reviewed = upgrade == null
 								? remasteredReview.AuthorizeBasicInstall(Mod, InstallContext)
 								: remasteredReview.AuthorizeBasicUpgrade(upgrade.ReplacedMod, Mod, InstallContext);
+							m_preparedBasicMapping = PreparedBasicInstallMapping.Capture(Mod, GameMode, InstallContext, reviewed);
 						}
 						_collectionArchivePreparation?.Invoke();
 						m_booNativeMutationStarted = true;
@@ -528,13 +539,28 @@ namespace Nexus.Client.ModManagement
 		/// Revalidates an explicit recipe immediately before native mutation begins.
 		/// </summary>
 		/// <remarks>
-		/// Recipe-less manual installs retain their existing behavior. Recipe-bearing installs fail closed when translation
+		/// Opted-in package plans are frozen before replay cleanup; other recipe-less installs retain their behavior.
+		/// Recipe-bearing installs fail closed when translation
 		/// has not produced a native plan or when the archive bytes no longer match the immutable C5.3 expectation.
 		/// </remarks>
 		private void ValidateInstallationRecipeExecutionInput()
 		{
+			bool packageFiles = (GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true;
+			if (packageFiles && Mod.HasInstallScript)
+				throw new NotSupportedException("Configured package generation does not support scripted package execution.");
 			if (InstallationRecipeInput == null)
+			{
+				if (packageFiles)
+				{
+					ValidateLegacyReplayBasenameCollision();
+					BasicInstallPlanResult planned = new BasicInstallPlanBuilder().Build(Mod, GameMode, InstallContext,
+						EnvironmentInfo.Settings.SkipReadmeFiles, null, ActiveMods);
+					if (!planned.IsSupported) throw new NotSupportedException(planned.Message);
+					m_preparedPackageFilePlan = planned.Plan;
+					m_preparedPackageDataRoot = Path.GetFullPath(GameMode.GameModeEnvironmentInfo.InstallationPath);
+				}
 				return;
+			}
 
 			ModOperationIdentity recipeOperation = InstallationRecipeInput.OperationIdentity;
 			if (OperationIdentity == null ||
@@ -767,7 +793,7 @@ namespace Nexus.Client.ModManagement
 			IScriptedFileSelectionCache replayCache = new ScriptedFileSelectionCache(Mod, GameMode);
 			var executor = new ImmediateScriptedInstallOperationExecutor(
 				Mod, GameMode, EnvironmentInfo, VirtualModActivator, VirtualModActivator.GetModLinkInstaller(), installers,
-				x => OnTaskStarted(x), replayCache, true, InstallationRecipeInput.DeferPluginReconciliation);
+				x => OnTaskStarted(x), replayCache, true, InstallationRecipeInput != null && InstallationRecipeInput.DeferPluginReconciliation);
 
 			bool result = true;
 			using (executor.BeginExecutionBatch(p_lstOperations.Count))
@@ -849,10 +875,42 @@ namespace Nexus.Client.ModManagement
 			if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
 				StringComparison.OrdinalIgnoreCase))
 			{
-				if (m_lstReviewedRemasteredBasicFiles == null)
+				if (m_preparedBasicMapping == null)
 					throw new InvalidOperationException("Remastered basic install has no locked native ownership authorization.");
-				p_dicInstallFiles = m_lstReviewedRemasteredBasicFiles.ToList();
 			}
+			if ((GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
+			{
+				// The existing native recipe executor owns both generated payload retention and Direct/Virtual deployment.
+				if (m_preparedPackageFilePlan == null || p_dicInstallFiles != null ||
+					!String.Equals(m_preparedPackageDataRoot, Path.GetFullPath(GameMode.GameModeEnvironmentInfo.InstallationPath), StringComparison.OrdinalIgnoreCase) ||
+					m_preparedPackageFilePlan.InstallContext.Method != InstallContext.Method ||
+					m_preparedPackageFilePlan.InstallContext.InstallRoot != InstallContext.InstallRoot)
+					throw new InvalidOperationException("The package file recipe no longer matches its reviewed native context.");
+				var operations = new List<ScriptedInstallOperation>();
+				foreach (BasicInstallGameSpecificValue value in m_preparedPackageFilePlan.GameSpecificValues)
+					operations.Add(new EditGameSpecificValueOperation(value.Key, value.Value));
+				foreach (BasicInstallPlanFile file in m_preparedPackageFilePlan.Files)
+					operations.Add(new InstallModFileOperation(file.SourcePath, file.DestinationPath));
+				foreach (BasicInstallGeneratedFile file in m_preparedPackageFilePlan.GeneratedFiles)
+					operations.Add(new GenerateDataFileOperation(file.DestinationPath, file.Data));
+				(p_mfiFileInstaller as ModFileUpgradeInstaller)?.RetainPreparedStagingFiles(operations);
+				return RunInstallationRecipe(p_mfiFileInstaller, operations, p_tfmFileManager);
+			}
+			StructuredXmlRecordRule records = (GameMode as IStructuredXmlRecordProvider)?.StructuredRecords;
+			IGameSpecificValueInstaller structuredInstaller = null;
+			if (records != null && !Mod.HasInstallScript)
+			{
+				// The enclosing native transaction owns both full-file snapshots and value history.
+				// Plan all profiles before the first edit, then use the same installer as Collections.
+				IReadOnlyList<BasicInstallGameSpecificValue> values = new StructuredXmlRecordStore(records).BuildPlan(Mod);
+				structuredInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+				if (structuredInstaller == null) throw new InvalidOperationException("Configured structured effects require a native game-value installer.");
+				foreach (BasicInstallGameSpecificValue value in values)
+					if (!structuredInstaller.EditGameSpecificValue(value.Key, value.Value)) return false;
+			}
+			PreparedBasicInstallMapping prepared = m_preparedBasicMapping;
+			if (prepared == null && records == null && GameMode is IReviewedBasicInstallMappingProvider)
+				prepared = PreparedBasicInstallMapping.Prepare(Mod, GameMode, InstallContext, p_dicInstallFiles);
 			BasicInstallTask bitTask = new BasicInstallTask(
 				Mod,
 				GameMode,
@@ -865,9 +923,11 @@ namespace Nexus.Client.ModManagement
 				InstallContext,
 				deploymentManager,
 				p_tfmFileManager,
-				deploymentManager == null ? null : m_dorOverwriteResolver);
+				deploymentManager == null ? null : m_dorOverwriteResolver,
+				prepared);
 			OnTaskStarted(bitTask);
 			bool result = bitTask.Execute();
+			if (result) structuredInstaller?.FinalizeInstall();
 			m_booUsedPromotedDeployment |= bitTask.UsedPromotedDeployment;
 			return result;
 		}

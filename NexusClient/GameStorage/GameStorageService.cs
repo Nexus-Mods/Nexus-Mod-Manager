@@ -7,6 +7,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
+using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.GameStorage
@@ -43,6 +44,17 @@ namespace Nexus.Client.GameStorage
         /// </summary>
         public bool HasKnownNativeOwnershipEvidence(string gameModeId)
         {
+            return GetKnownNativeOwnershipLocations(gameModeId).Count > 0;
+        }
+
+        /// <summary>
+        /// Read-only historical native authority paths, even when the current game settings
+        /// were moved. Uses the same primary/last-known-good selection as the ownership flag.
+        /// Corrupt or future-schema registries cannot prove that ownership is absent.
+        /// Download-only storage records are not native ownership evidence.
+        /// </summary>
+        public IReadOnlyList<GameStorageNativeOwnershipLocation> GetKnownNativeOwnershipLocations(string gameModeId)
+        {
             if (String.IsNullOrWhiteSpace(gameModeId))
                 throw new ArgumentException("A game mode id is required.", nameof(gameModeId));
             GameStorageMetadataReadResult<GameStorageRegistry> primary = ReadRegistryResult(RegistryPath);
@@ -52,12 +64,18 @@ namespace Nexus.Client.GameStorage
                 GameStorageMetadataReadResult<GameStorageRegistry> fallback = ReadRegistryResult(LastKnownGoodPath);
                 if (fallback.Status == GameStorageMetadataReadStatus.Valid) selected = fallback;
                 else if (primary.Status == GameStorageMetadataReadStatus.Missing &&
-                    fallback.Status == GameStorageMetadataReadStatus.Missing) return false;
+                    fallback.Status == GameStorageMetadataReadStatus.Missing)
+                    return new List<GameStorageNativeOwnershipLocation>().AsReadOnly();
                 else throw new InvalidDataException("Game Storage registry evidence is unavailable or unreadable.");
             }
-            return selected.Value.KnownStorages != null && selected.Value.KnownStorages.Any(entry =>
-                entry != null && String.Equals(entry.GameId, gameModeId, StringComparison.OrdinalIgnoreCase) &&
-                (entry.LastKnownInstallLogPresent || entry.LastKnownVirtualFileCount > 0));
+            return (selected.Value.KnownStorages ?? new List<GameStorageRegistryEntry>())
+                .Where(entry => entry != null &&
+                    String.Equals(entry.GameId, gameModeId, StringComparison.OrdinalIgnoreCase) &&
+                    (entry.LastKnownInstallLogPresent || entry.LastKnownVirtualFileCount > 0))
+                .Select(entry => new GameStorageNativeOwnershipLocation(entry.InstallInfoPath,
+                    entry.VirtualInstallPath, entry.LastKnownInstallLogPresent,
+                    entry.LastKnownVirtualFileCount > 0))
+                .ToList().AsReadOnly();
         }
 
 		public GameStoragePathSet FromGameMode(IGameMode gameMode)
@@ -287,6 +305,9 @@ namespace Nexus.Client.GameStorage
 
 			try
 			{
+				// A recovery caller may have checked the proposed storage before another
+				// NMM instance established native ownership. Recheck at publication.
+				RequireWitcher3StorageWrite(paths);
 				// This overwrites the incorrect manifest in Mods with role Mods,
 				// creates the missing manifest inside VirtualInstall, and updates
 				// the registry and last-known-good metadata.
@@ -302,6 +323,10 @@ namespace Nexus.Client.GameStorage
 				return false;
 			}
 			catch (IOException)
+			{
+				return false;
+			}
+			catch (InvalidOperationException) when (Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
 			{
 				return false;
 			}
@@ -410,7 +435,24 @@ namespace Nexus.Client.GameStorage
 		/// </summary>
 		public bool RepairKnownLegacyStorageMetadata(GameStoragePathSet paths)
 		{
+			Witcher3StorageMutationReservation reservation;
+			string failure;
+			if (!Witcher3StorageMutationReservation.TryAcquire(paths == null ? null : paths.GameId,
+				out reservation, out failure))
+				return false;
+			using (reservation)
+				return RepairKnownLegacyStorageMetadataUnderReservation(paths);
+		}
+
+		private bool RepairKnownLegacyStorageMetadataUnderReservation(GameStoragePathSet paths)
+		{
 			if (paths == null)
+				return false;
+
+			// Even the narrow legacy metadata repair publishes manifests and registry
+			// claims. The direct API must not bypass the recovery candidate preflight.
+			GameStorageHealthCheck failure;
+			if (!TryGuardWitcherRecoveryPaths(paths, out failure))
 				return false;
 
 			var registry = LoadRegistry();
@@ -474,6 +516,15 @@ namespace Nexus.Client.GameStorage
 
 		public void InitializeMetadataForStorage(GameStoragePathSet paths)
 		{
+			using (Witcher3StorageMutationReservation.Acquire(paths == null ? null : paths.GameId))
+				InitializeMetadataForStorageUnderReservation(paths);
+		}
+
+		private void InitializeMetadataForStorageUnderReservation(GameStoragePathSet paths)
+		{
+			// Called directly from configured startup/adoption, not only recovery UI.
+			// Validate the final native destinations before attempting any repair.
+			RequireWitcher3StorageWrite(paths);
 			var registry = LoadRegistry();
 
 			TryRepairLegacyVirtualInstallManifestCollision(
@@ -483,8 +534,10 @@ namespace Nexus.Client.GameStorage
 			string storageId = ResolveStorageId(paths, registry);
 			var result = Validate(paths, storageId, registry);
 
-			if (result.IsHealthy)
-				TryInitializeMetadata(paths, storageId, registry, result);
+			if (result.IsHealthy && !TryInitializeMetadata(paths, storageId, registry, result) &&
+				Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
+				throw new InvalidOperationException("Witcher 3 Game Storage metadata was not safely initialized: " +
+					result.ToUserMessage());
 		}
 
 		public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
@@ -870,8 +923,67 @@ namespace Nexus.Client.GameStorage
             }
         }
 
+        /// <summary>
+        /// Verifies Witcher counterpart authority at the actual metadata write boundary.
+        /// Validation is observational; it does not acquire the cross-process native lease
+        /// or perform an ownership migration. Non-Witcher behavior remains unchanged.
+        /// </summary>
+        private void RequireWitcher3StorageWrite(GameStoragePathSet paths)
+        {
+            if (paths == null) throw new ArgumentNullException(nameof(paths));
+            Witcher3StorageMutationReservation.RequireHeld(paths.GameId);
+            GameStorageHealthCheck failure;
+            if (!TryGuardWitcherRecoveryPaths(paths, out failure))
+            {
+                string message = failure == null || failure.Items.Count == 0
+                    ? "The proposed native storage authority could not be verified."
+                    : failure.Items[0].Message;
+                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: " + message);
+            }
+            // The read-only guard also checks on-disk manifests; the caller holds
+            // the cross-process reservation so this is the authoritative recheck.
+        }
+
+        /// <summary>
+        /// Rejects on-disk cross-mode claims even when a second NMM instance has no
+        /// knowledge of the other instance's current game settings or registry.
+        /// Missing manifests are not treated as proof of native ownership. An invalid
+        /// manifest is not safely replaceable by an automatic Witcher transition.
+        /// </summary>
+        private void RequireNoForeignWitcher3ManifestClaims(GameStoragePathSet paths)
+        {
+            string counterpart = Witcher3RootOwnershipGuard.CounterpartModeId(paths.GameId);
+            foreach (KeyValuePair<GameStorageFolderRole, string> assignment in GetMetadataFolderAssignments(paths))
+            {
+                if (String.IsNullOrWhiteSpace(assignment.Value) || !Directory.Exists(assignment.Value))
+                    continue;
+                GameStorageMetadataReadResult<GameStorageFolderManifest> read =
+                    ReadFolderManifestResult(assignment.Value);
+                if (read.Status == GameStorageMetadataReadStatus.Missing)
+                    continue;
+                if (read.Status != GameStorageMetadataReadStatus.Valid)
+                    throw new InvalidOperationException("Witcher 3 Game Storage write blocked: an existing storage folder manifest cannot be verified at " + assignment.Value);
+                if (GetManifestBindings(read.Value).Any(binding =>
+                    String.Equals(binding.GameId, counterpart, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the other Witcher edition already claims " + assignment.Value);
+            }
+
+            string root = TryGetSharedStorageRoot(paths);
+            if (String.IsNullOrWhiteSpace(root)) return;
+            GameStorageMetadataReadResult<GameStorageRootManifest> rootRead = ReadRootManifestResult(root);
+            if (rootRead.Status == GameStorageMetadataReadStatus.Missing) return;
+            if (rootRead.Status != GameStorageMetadataReadStatus.Valid)
+                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the existing storage root manifest cannot be verified at " + root);
+            if (String.Equals(rootRead.Value.GameId, counterpart, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the other Witcher edition already claims the storage root " + root);
+        }
+
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
+            // Shared publication boundary: invoked by recovery, initial setup, direct
+            // initialization, and the legacy manifest repair. Never publish a second
+            // Witcher 3 native owner based solely on an earlier dialog/startup check.
+            RequireWitcher3StorageWrite(paths);
             DateTime now = DateTime.UtcNow;
             WriteFolderManifests(paths, storageId, now);
 
@@ -1284,6 +1396,16 @@ namespace Nexus.Client.GameStorage
         }
 
         public bool RemoveStorageBinding(string gameId, string storageId)
+		{
+			Witcher3StorageMutationReservation reservation;
+			string failure;
+			if (!Witcher3StorageMutationReservation.TryAcquire(gameId, out reservation, out failure))
+				return false;
+			using (reservation)
+				return RemoveStorageBindingUnderReservation(gameId, storageId);
+		}
+
+		private bool RemoveStorageBindingUnderReservation(string gameId, string storageId)
         {
             if (string.IsNullOrWhiteSpace(gameId) || string.IsNullOrWhiteSpace(storageId))
                 return false;
@@ -1294,6 +1416,28 @@ namespace Nexus.Client.GameStorage
                 string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase)).ToList();
             if (entries.Count == 0)
                 return false;
+
+            if (Witcher3RootOwnershipGuard.IsWitcherMode(gameId))
+            {
+                // Removing this binding would erase historical native ownership evidence
+                // used by the cross-mode guard. Even an apparently empty current folder
+                // must not erase recorded InstallLog/Virtual ownership without an explicit
+                // migration/reconciliation workflow. Metadata-only records may be removed.
+                try
+                {
+                    if (entries.Any(entry => entry.LastKnownInstallLogPresent ||
+                        entry.LastKnownVirtualFileCount > 0 ||
+                        Witcher3RootOwnershipGuard.HasNativeStoreFootprint(entry.InstallInfoPath) ||
+                        HasWitcherVirtualPayload(entry.VirtualInstallPath)))
+                        return false;
+                }
+                catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+                    error is ArgumentException || error is NotSupportedException ||
+                    error is System.Security.SecurityException)
+                {
+                    return false;
+                }
+            }
 
             foreach (var entry in entries)
             {
@@ -1337,6 +1481,15 @@ namespace Nexus.Client.GameStorage
 
             SaveRegistryWithBackup(registry);
             return true;
+        }
+
+        private static bool HasWitcherVirtualPayload(string virtualInstallPath)
+        {
+            if (string.IsNullOrWhiteSpace(virtualInstallPath) || !Directory.Exists(virtualInstallPath))
+                return false;
+            return Directory.EnumerateFileSystemEntries(virtualInstallPath).Any(path =>
+                !String.Equals(Path.GetFileName(path), GameStorageConstants.FolderManifestFileName,
+                    StringComparison.OrdinalIgnoreCase));
         }
 
         private void RemoveFolderManifestBinding(string folderPath, GameStorageFolderRole role, string gameId, string storageId)

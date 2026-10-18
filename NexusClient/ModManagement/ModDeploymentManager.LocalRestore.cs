@@ -27,26 +27,30 @@
 		{
 			ValidateCapturedRestoreStack(p_mdtTarget, p_booPromoted, p_lstOwners, p_mdrFallback);
 
-			using (var transaction = new TransactionScope())
+			// A Local Collection restore may not appear in the ordinary activation queue.
+			using (NativeOwnerMutations.Begin())
 			{
-				var fileManager = new TxFileManager();
-				// Exact Local restore must have a crash-recovery boundary even for pure-Virtual targets.
-				// The VMA transaction uses the same InstallLog deployment commit marker to distinguish
-				// prepared pre/post state after restart.
-				TouchDeploymentRecoveryTarget(p_mdtTarget);
-				ClearCurrentTargetOwnership(p_mdtTarget, fileManager);
+				using (var transaction = new TransactionScope())
+				{
+					var fileManager = new TxFileManager();
+					// Exact Local restore must have a crash-recovery boundary even for pure-Virtual targets.
+					// The VMA transaction uses the same InstallLog deployment commit marker to distinguish
+					// prepared pre/post state after restart.
+					TouchDeploymentRecoveryTarget(p_mdtTarget);
+					ClearCurrentTargetOwnership(p_mdtTarget, fileManager);
 
-				if (p_booPromoted)
-					RestorePromotedCapturedStack(p_mdtTarget, p_lstOwners, fileManager);
-				else
-					RestorePureVirtualCapturedStack(p_mdtTarget, p_lstOwners, p_mdrFallback, fileManager);
+					if (p_booPromoted)
+						RestorePromotedCapturedStack(p_mdtTarget, p_lstOwners, fileManager);
+					else
+						RestorePureVirtualCapturedStack(p_mdtTarget, p_lstOwners, p_mdrFallback, fileManager);
 
-				transaction.Complete();
+					transaction.Complete();
+				}
+
+				// VMA target mutations are persisted during transaction Prepare for both
+				// promoted and pure-Virtual targets, not in a post-commit SaveList window.
+				m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 			}
-
-			// VMA target mutations are now persisted during transaction Prepare for both promoted
-			// and pure-Virtual targets, so no post-commit SaveList crash window remains here.
-			m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <summary>Rejects malformed or context-inconsistent exact-restore owner inputs before filesystem mutation.</summary>

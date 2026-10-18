@@ -337,6 +337,98 @@ namespace NexusClientTests
 			return new CollectionTargetIdentityResolver(_storageService).Resolve(paths);
 		}
 
+		[TestCase("Witcher3")]
+		[TestCase("Witcher3Remastered")]
+		public void WitcherCounterpartCollision_BlocksBeforeAnyNativeReloadOrBinding(string modeId)
+		{
+			GameStoragePathSet paths = CreateStorage(modeId, "WitcherRejected", "WitcherGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			int checks = 0;
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader,
+				_authorityStore, proposed =>
+				{
+					checks++;
+					Assert.That(proposed.GameInstallPath, Is.EqualTo(paths.GameInstallPath));
+					Assert.That(proposed.InstallInfoPath, Is.EqualTo(paths.InstallInfoPath));
+					Assert.That(proposed.VirtualInstallPath, Is.EqualTo(paths.VirtualInstallPath));
+					throw new CollectionTargetOwnershipAuthorityException(
+						CollectionTargetOwnershipAuthorityFailureKind.Witcher3CounterpartAuthorityConflict,
+						"Synthetic shared Witcher VirtualInstall.");
+				});
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority))
+			{
+				CollectionTargetOwnershipAuthorityException error = Assert.Throws<CollectionTargetOwnershipAuthorityException>(() =>
+					validator.ValidateAndReload(lease, authority, paths));
+				Assert.That(error.FailureKind, Is.EqualTo(CollectionTargetOwnershipAuthorityFailureKind.Witcher3CounterpartAuthorityConflict));
+				Assert.That(checks, Is.EqualTo(1));
+				Assert.That(reloader.ReloadCount, Is.EqualTo(0));
+				Assert.That(lease.HasValidatedNativeAuthority, Is.False);
+			}
+			Assert.That(!Directory.Exists(Path.Combine(_tempRoot, "MachineAuthority")) ||
+				!Directory.EnumerateFiles(Path.Combine(_tempRoot, "MachineAuthority")).Any(), Is.True);
+		}
+
+		[Test]
+		public void WitcherCounterpartChangeDuringReload_RejectsBeforePublishingAuthority()
+		{
+			GameStoragePathSet paths = CreateStorage("Witcher3Remastered", "WitcherChanging", "WitcherGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			int checks = 0;
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader,
+				_authorityStore, proposed =>
+				{
+					checks++;
+					if (checks == 2) throw new CollectionTargetOwnershipAuthorityException(
+						CollectionTargetOwnershipAuthorityFailureKind.Witcher3CounterpartAuthorityConflict,
+						"A counterpart acquired ownership during reload.");
+				});
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority))
+			{
+				Assert.Throws<CollectionTargetOwnershipAuthorityException>(() =>
+					validator.ValidateAndReload(lease, authority, paths));
+				Assert.That(checks, Is.EqualTo(2));
+				Assert.That(reloader.ReloadCount, Is.EqualTo(1));
+				Assert.That(lease.HasValidatedNativeAuthority, Is.False);
+			}
+		}
+
+		[Test]
+		public void WitcherCommittedAuthority_RechecksCounterpartWithoutAnotherReload()
+		{
+			GameStoragePathSet paths = CreateStorage("Witcher3", "WitcherCommitted", "WitcherGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			int checks = 0;
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader,
+				_authorityStore, proposed => checks++);
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority))
+			{
+				validator.ValidateAndReload(lease, authority, paths);
+				validator.ValidateCommittedAuthority(lease, authority, paths);
+				Assert.That(checks, Is.EqualTo(3));
+				Assert.That(reloader.ReloadCount, Is.EqualTo(1));
+			}
+		}
+
+		[Test]
+		public void NonWitcherAuthorities_AreNotAffectedByWitcherGuard()
+		{
+			GameStoragePathSet paths = CreateStorage("SkyrimSE", "NormalStorage", "NormalGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader,
+				_authorityStore, proposed => Assert.Fail("Witcher guard must not examine Bethesda authority."));
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority))
+				validator.ValidateAndReload(lease, authority, paths);
+			Assert.That(reloader.ReloadCount, Is.EqualTo(1));
+		}
+
 		private GameStoragePathSet CreateStorage(string gameId, string storageName, string gameDirectoryName)
 		{
 			string root = Path.Combine(_tempRoot, storageName);

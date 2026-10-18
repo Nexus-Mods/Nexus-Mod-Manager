@@ -22,6 +22,7 @@
     using Nexus.Client.PluginManagement;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
     using Nexus.Client.Util.Collections;
     using Nexus.Transactions;
 
@@ -50,6 +51,7 @@
 
 		public event EventHandler ModActivationChanged;
 		public event EventHandler VirtualStoreMutationEnded = delegate { };
+		internal NativeDeploymentMutationSignal NativeOwnerMutations { get; } = new NativeDeploymentMutationSignal();
 
 		#region Static Properties
 
@@ -2504,50 +2506,53 @@
 				booPluginWasRegistered = PluginManager.IsPluginRegistered(strDeployedPath);
 			}
 
-			try
-			{
-				if (File.Exists(strDeployedPath))
-				{
-					strBackupPath = Path.Combine(Path.GetTempPath(), "NMM_FileManager_" + Guid.NewGuid().ToString("N") + Path.GetExtension(strDeployedPath));
-					File.Copy(strDeployedPath, strBackupPath, true);
-				}
-
-				AddFileLink(modSelected, vmlSelectedOwner.VirtualModPath, sourcePath, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
-				if (!File.Exists(strDeployedPath))
-					throw new IOException("The selected owner file could not be deployed.");
-
-				NormalizeFileOwnerPriorities(lstFileLinks, vmlSelectedOwner);
-				SaveList(true);
-
-				if ((PluginManager != null) && PluginManager.IsActivatiblePluginFile(strDeployedPath))
-				{
-					if (booPluginWasRegistered && !PluginManager.IsPluginRegistered(strDeployedPath))
-						PluginManager.AddPlugin(strDeployedPath);
-					if (booPluginWasActive && !PluginManager.IsPluginActive(strDeployedPath))
-						PluginManager.ActivatePlugin(strDeployedPath);
-				}
-
-				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, resolveOwnerKey(vmlSelectedOwner));
-			}
-			catch (Exception ex)
+			using (NativeOwnerMutations.Begin())
 			{
 				try
 				{
-					if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
-						File.Copy(strBackupPath, strDeployedPath, true);
-				}
-				catch { }
+					if (File.Exists(strDeployedPath))
+					{
+						strBackupPath = Path.Combine(Path.GetTempPath(), "NMM_FileManager_" + Guid.NewGuid().ToString("N") + Path.GetExtension(strDeployedPath));
+						File.Copy(strDeployedPath, strBackupPath, true);
+					}
 
-				return VirtualFileOwnerSwitchResult.Failed(ex);
-			}
-			finally
-			{
-				try
-				{
-					if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
-						File.Delete(strBackupPath);
+					AddFileLink(modSelected, vmlSelectedOwner.VirtualModPath, sourcePath, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
+					if (!File.Exists(strDeployedPath))
+						throw new IOException("The selected owner file could not be deployed.");
+
+					NormalizeFileOwnerPriorities(lstFileLinks, vmlSelectedOwner);
+					SaveList(true);
+
+					if ((PluginManager != null) && PluginManager.IsActivatiblePluginFile(strDeployedPath))
+					{
+						if (booPluginWasRegistered && !PluginManager.IsPluginRegistered(strDeployedPath))
+							PluginManager.AddPlugin(strDeployedPath);
+						if (booPluginWasActive && !PluginManager.IsPluginActive(strDeployedPath))
+							PluginManager.ActivatePlugin(strDeployedPath);
+					}
+
+					return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, resolveOwnerKey(vmlSelectedOwner));
 				}
-				catch { }
+				catch (Exception ex)
+				{
+					try
+					{
+						if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
+							File.Copy(strBackupPath, strDeployedPath, true);
+					}
+					catch { }
+
+					return VirtualFileOwnerSwitchResult.Failed(ex);
+				}
+				finally
+				{
+					try
+					{
+						if (!string.IsNullOrEmpty(strBackupPath) && File.Exists(strBackupPath))
+							File.Delete(strBackupPath);
+					}
+					catch { }
+				}
 			}
 		}
 
@@ -3423,6 +3428,9 @@
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ActivatingMod(IMod p_modMod, bool p_booDisabling, ConfirmActionMethod p_camConfirm)
 		{
+			if (String.Equals(GameMode.ModeId, Witcher3.Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException(LanguageManager.Get("Witcher3.Native.LinkToggleUnsupported",
+					"Witcher 3 Remastered requires the full install or remove workflow. Link-only enable/disable is not supported."));
 			if (p_booDisabling)
 				if (!CheckIsModActive(p_modMod))
 					return null;

@@ -12,6 +12,7 @@ namespace Nexus.Client.Games.DataDriven
 
         public int SchemaVersion { get; set; }
         public string ModeId { get; set; }
+        public string NexusDomain { get; set; }
         public string Name { get; set; }
         public string BehaviorProfile { get; set; }
         public bool LegacyFallback { get; set; }
@@ -36,6 +37,9 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeStorageDefinition Storage { get; set; }
         public GameModeModInstallDefinition ModInstall { get; set; }
         public GameModeGamebryoDefinition Gamebryo { get; set; }
+        public GameModeManagedContentDefinition ManagedContent { get; set; }
+        public GameModeStructuredEffectsDefinition StructuredEffects { get; set; }
+        public GameModePackageFilesDefinition PackageFiles { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
 
         [JsonIgnore]
@@ -258,6 +262,7 @@ namespace Nexus.Client.Games.DataDriven
         public string[] ExecutableNames { get; set; }
         public string[] ArgumentTokens { get; set; }
         public List<GameModeToolDiscoveryRuleDefinition> DiscoveryRules { get; set; }
+        public GameModeToolReviewDefinition LaunchReview { get; set; }
     }
 
     public class GameModeSupportedToolsDefinition

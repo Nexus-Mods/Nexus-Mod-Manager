@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using Nexus.Client.Games;
+using Nexus.Client.Games.ManagedContent;
 using Nexus.Client.Mods;
 
 namespace Nexus.Client.ModManagement
@@ -81,6 +82,7 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public sealed class BasicInstallGeneratedFile
 	{
+		private readonly byte[] m_bteData;
 		/// <summary>Creates one immutable generated BasicInstall output.</summary>
 		public BasicInstallGeneratedFile(string sourcePath, string destinationPath, byte[] data)
 		{
@@ -92,12 +94,12 @@ namespace Nexus.Client.ModManagement
 				throw new ArgumentException("Generated BasicInstall output requires non-empty bytes.", nameof(data));
 			SourcePath = sourcePath;
 			DestinationPath = destinationPath;
-			Data = (byte[])data.Clone();
+			m_bteData = (byte[])data.Clone();
 		}
 
 		public string SourcePath { get; }
 		public string DestinationPath { get; }
-		public byte[] Data { get; }
+		public byte[] Data { get { return (byte[])m_bteData.Clone(); } }
 	}
 
 	/// <summary>
@@ -396,6 +398,41 @@ namespace Nexus.Client.ModManagement
 			}
 
 			var generatedFiles = new List<BasicInstallGeneratedFile>();
+			var packageProvider = gameMode as IDeterministicPackageFilePlanProvider;
+			bool packageFiles = packageProvider != null && packageProvider.HasPackageFilePlan;
+			HashSet<ModDeploymentTarget> packageTargets = packageFiles ? new HashSet<ModDeploymentTarget>() : null;
+			if (packageFiles)
+			{
+				if (gameMode.RequiresModFileMerge || mod.HasInstallScript || installContext.InstallRoot != ModInstallRoot.Data)
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
+						"Package generation requires a non-scripted Data-root recipe without cross-mod merge hooks.");
+				try
+				{
+					PackageGeneratedFilePlan package = packageProvider.GetPackageFilePlan(mod, installContext, files);
+					if (package == null) throw new InvalidDataException("Package generation did not return a plan.");
+					var consumed = new HashSet<string>(package.ConsumedSources.Select(path => path.Replace('/', '\\')), StringComparer.OrdinalIgnoreCase);
+					if (consumed.Any(path => !files.Any(file => String.Equals(file.Key.Replace('/', '\\'), path, StringComparison.OrdinalIgnoreCase))))
+						throw new InvalidDataException("A generated package source is outside the selected native files.");
+					files = files.Where(file => !consumed.Contains(file.Key.Replace('/', '\\'))).ToList();
+					foreach (BasicInstallGeneratedFile output in package.GeneratedFiles)
+					{
+						string[] parts;
+						if (!ManagedContentPath.TryParse(output.DestinationPath, out parts) || ModInstallFileFilter.IsIgnored(output.DestinationPath))
+							throw new InvalidDataException("Unsafe or ignored generated package destination.");
+						string gamePath = GetAdjustedPath(gameMode, mod, installContext.InstallRoot, output.DestinationPath, ModPathContext.GameInstall);
+						if (String.IsNullOrEmpty(gamePath) || (installContext.Method == ModInstallMethod.Virtual &&
+							String.IsNullOrEmpty(GetAdjustedPath(gameMode, mod, installContext.InstallRoot, output.DestinationPath, ModPathContext.VirtualStorage))))
+							throw new InvalidDataException("The generated package target cannot be projected into native storage.");
+						if (!packageTargets.Add(ModDeploymentTargetResolver.Resolve(gameMode, mod, output.DestinationPath, installContext.InstallRoot)))
+							throw new InvalidDataException("Generated package outputs collide at one native target.");
+						generatedFiles.Add(output);
+					}
+				}
+				catch (Exception error) when (error is ArgumentException || error is IOException || error is UnauthorizedAccessException)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge, error.Message);
+				}
+			}
 			bool deferredDeterministicMergeOutput = false;
 			if (gameMode.RequiresModFileMerge)
 			{
@@ -442,11 +479,11 @@ namespace Nexus.Client.ModManagement
 			// by Collections' read-only deterministic planner. A mapped destination must
 			// never be inferred independently by either caller.
 			var mappingProvider = gameMode as IReviewedBasicInstallMappingProvider;
-			if (mappingProvider != null)
+			if (mappingProvider != null && (!packageFiles || files.Count > 0))
 			{
 				if (mod.HasInstallScript)
 					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ReviewedGameLayoutRejected,
-						"Scripted Witcher packages require reviewed selected-operation replay, not basic archive expansion.");
+						"Scripted packages require reviewed selected-operation replay, not basic archive expansion.");
 				try
 				{
 					files = mappingProvider.MapBasicInstallFiles(mod, installContext, files).ToList();
@@ -498,6 +535,9 @@ namespace Nexus.Client.ModManagement
 				}
 
 				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, mod, destination, installContext.InstallRoot);
+				if (packageTargets != null && !packageTargets.Add(target))
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.DestinationCollision,
+						"An ordinary archive file collides with a generated package target.");
 				plannedFiles.Add(new BasicInstallPlanFile(simpleMapping.SourcePath, simpleMapping.DestinationPath,
 					gameInstallPath, virtualStoragePath, target));
 			}

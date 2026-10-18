@@ -526,6 +526,15 @@
 			ShowItemProgress = true;
 			OverallMessage = $"{_downloadPath}...";
 
+			try { NexusGameDomain.RequireMatchingLink(_gameMode, _downloadPath); }
+			catch (ArgumentException error)
+			{
+				Status = TaskStatus.Error;
+				OverallMessage = error.Message;
+				OnTaskEnded(error.Message, null);
+				return;
+			}
+
 			try
 			{
 				if (Descriptor == null || Descriptor.SourceUri == null || !Descriptor.SourceUri.Equals(_downloadPath))

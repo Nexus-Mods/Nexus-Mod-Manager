@@ -45,6 +45,27 @@ namespace Nexus.Client.GameStorage
         public List<GameStorageRegistryEntry> KnownStorages { get; set; } = new List<GameStorageRegistryEntry>();
     }
 
+    /// <summary>
+    /// Immutable read-only evidence of a previously managed native storage location.
+    /// This is not an ownership transfer or a current installed-state record.
+    /// </summary>
+    public sealed class GameStorageNativeOwnershipLocation
+    {
+        public GameStorageNativeOwnershipLocation(string installInfoPath, string virtualInstallPath,
+            bool hadInstallLog, bool hadVirtualPayload)
+        {
+            InstallInfoPath = installInfoPath;
+            VirtualInstallPath = virtualInstallPath;
+            HadInstallLog = hadInstallLog;
+            HadVirtualPayload = hadVirtualPayload;
+        }
+
+        public string InstallInfoPath { get; }
+        public string VirtualInstallPath { get; }
+        public bool HadInstallLog { get; }
+        public bool HadVirtualPayload { get; }
+    }
+
     public class GameStorageRegistryEntry
     {
         public string StorageId { get; set; }

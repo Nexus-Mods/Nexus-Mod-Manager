@@ -5,10 +5,13 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Microsoft.Win32;
 using Nexus.Client.Commands;
+using Nexus.Client.Games.Witcher3;
+using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Localization;
@@ -18,11 +21,19 @@ namespace Nexus.Client.Games.DataDriven
     public class DataDrivenSupportedToolsLauncher : SupportedToolsLauncherBase
     {
         private readonly GameModeDefinition _definition;
+        private readonly Dictionary<GameModeToolDefinition, ExternalToolLaunchRule> _reviewRules =
+            new Dictionary<GameModeToolDefinition, ExternalToolLaunchRule>();
+        private bool _reviewInProgress;
 
         public DataDrivenSupportedToolsLauncher(IGameMode gameMode, IEnvironmentInfo environmentInfo, GameModeDefinition definition)
             : base(gameMode, environmentInfo)
         {
             _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+            foreach (GameModeToolDefinition tool in (definition.SupportedTools ?? Enumerable.Empty<GameModeToolDefinition>()).Where(item => item != null))
+            {
+                ExternalToolLaunchRule rule = GameModeToolReviewDefinition.Create(tool, definition);
+                if (rule != null) _reviewRules.Add(tool, rule);
+            }
             SetupCommands();
         }
 
@@ -80,6 +91,12 @@ namespace Nexus.Client.Games.DataDriven
 
         private void LaunchTool(GameModeToolDefinition tool)
         {
+            ExternalToolLaunchRule rule;
+            if (_reviewRules.TryGetValue(tool, out rule))
+            {
+                LaunchReviewedTool(tool, rule);
+                return;
+            }
             Trace.TraceInformation("Launching {0}", tool.Name);
             Trace.Indent();
 
@@ -93,6 +110,92 @@ namespace Nexus.Client.Games.DataDriven
             }
 
             Launch(command, BuildArgumentString(tool.ArgumentTokens));
+        }
+
+        /// <summary>Reviews detached executable evidence and unmanaged output before an explicit tool launch.</summary>
+        private async void LaunchReviewedTool(GameModeToolDefinition tool, ExternalToolLaunchRule rule)
+        {
+            if (_reviewInProgress) return;
+            _reviewInProgress = true;
+            try
+            {
+                string command = GetToolLaunchCommand(tool);
+                string arguments = BuildArgumentString(tool.ArgumentTokens);
+                string gameRoot = GetGameRootPath();
+                string blockMessage = GetReviewedTargetBlockMessage(rule, gameRoot);
+                if (blockMessage != null)
+                {
+                    ShowReviewFailure(blockMessage);
+                    return;
+                }
+                ExternalToolLaunchObservation observed = await Task.Run(() =>
+                    ExternalToolLaunchReview.Inspect(rule, command)).ConfigureAwait(true);
+                if (!observed.CanLaunch)
+                {
+                    ShowReviewFailure(observed.Assessment);
+                    return;
+                }
+                string message = LanguageManager.Format("ManagedContent.Tool.Review",
+                    "Executable: {0}\nProduct: {1}\nVersion: {2}\nArguments: {3}\nCurrent game root: {4}\nSHA-256: {5}\n\n{6}\n\nVersion information is self-reported and does not prove authenticity or working merges. Confirm the tool's own target directory before applying changes. NMM will not track or undo files written by this tool. Starting the tool does not mean a merge succeeded. Finish installing, enabling or disabling mods before using the tool, then refresh Components after closing it.\n\nLaunch this external tool?",
+                    observed.ExecutablePath, observed.Product, observed.Version, arguments, gameRoot, observed.Sha256, observed.Assessment);
+                if (XtraMessageBox.Show(message, LanguageManager.Get("ManagedContent.Tool.ReviewTitle", "Review external tool launch"),
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                    return;
+
+                ExternalToolLaunchObservation current = await Task.Run(() =>
+                    ExternalToolLaunchReview.Inspect(rule, command)).ConfigureAwait(true);
+                if (!observed.Matches(current) ||
+                    !String.Equals(command, GetToolLaunchCommand(tool), StringComparison.OrdinalIgnoreCase) ||
+                    !String.Equals(gameRoot, GetGameRootPath(), StringComparison.OrdinalIgnoreCase) ||
+                    !String.Equals(arguments, BuildArgumentString(tool.ArgumentTokens), StringComparison.Ordinal))
+                {
+                    ShowReviewFailure(LanguageManager.Get("ManagedContent.Tool.ReviewChanged",
+                        "The executable, arguments or current game root changed during review. Start a new review."));
+                    return;
+                }
+                blockMessage = GetReviewedTargetBlockMessage(rule, gameRoot);
+                if (blockMessage != null)
+                {
+                    ShowReviewFailure(blockMessage);
+                    return;
+                }
+                // Keep the existing launch event, process setup and result reporting. This is not a native effect.
+                Trace.TraceInformation("Launching reviewed external tool {0}", tool.Name);
+                Trace.Indent();
+                Launch(command, arguments);
+            }
+            catch (Exception error)
+            {
+                Trace.TraceError("External tool review failed: {0}", error);
+                ShowReviewFailure(LanguageManager.Get("ManagedContent.Tool.ReviewFailed",
+                    "The external tool could not be reviewed or launched. Check its configuration and try again."));
+            }
+            finally
+            {
+                _reviewInProgress = false;
+            }
+        }
+
+        /// <summary>Rechecks existing target/edition policy without granting native write authority.</summary>
+        private string GetReviewedTargetBlockMessage(ExternalToolLaunchRule rule, string gameRoot)
+        {
+            if (String.IsNullOrWhiteSpace(gameRoot) || !Path.IsPathRooted(gameRoot) || !Directory.Exists(gameRoot))
+                return LanguageManager.Get("ManagedContent.Tool.TargetUnavailable", "The current game root is unavailable. Refresh the game setup before launching this tool.");
+            if (rule.Compatibility == ExternalToolLaunchRule.RemasteredCompatibility)
+            {
+                Witcher3LaunchDecision decision = Witcher3LaunchPlanner.ReviewCurrentInstallation(
+                    GameMode.GameModeEnvironmentInfo.InstallationPath,
+                    GameMode.GameModeEnvironmentInfo.ExecutablePath, Witcher3Edition.Remastered);
+                return decision.CanLaunch ? null : decision.GetUserMessage();
+            }
+            return null;
+        }
+
+        /// <summary>Shows a local review failure without reporting an external process as started.</summary>
+        private static void ShowReviewFailure(string message)
+        {
+            XtraMessageBox.Show(message, LanguageManager.Get("ManagedContent.Tool.ReviewTitle", "Review external tool launch"),
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private string GetToolLaunchCommand(GameModeToolDefinition tool)

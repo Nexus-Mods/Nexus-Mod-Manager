@@ -26,11 +26,14 @@
 	using Nexus.Client.DownloadMonitoring.UI;
 	using Nexus.Client.UI.Controls;
 	using Nexus.Client.Games;
+	using Nexus.Client.Games.ManagedContent;
+	using Nexus.Client.ModManagement.ManagedContent.UI;
 	using Nexus.Client.Games.Settings;
 	using Nexus.Client.Games.Tools;
 	using Nexus.Client.ModActivationMonitoring.UI;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.UI;
+	using Nexus.Client.ModManagement.Witcher3.UI;
 	using Nexus.Client.ModRepositories;
 	using Nexus.Client.Mods;
 	using Nexus.Client.Mods.Formats.FOMod;
@@ -62,6 +65,8 @@
 		private readonly CategoryManagerControl _categoryManagerControl;
 		private readonly FileManagerControl _fileManagerControl;
 		private readonly CollectionsPreviewControl _collectionsPreviewControl;
+		private readonly Witcher3LoadOrderControl _witcher3LoadOrderControl;
+		private readonly ManagedContentComponentsControl _managedContentComponentsControl;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
@@ -166,6 +171,10 @@
 
 				_modActivationMonitorControl.ViewModel = _viewModel.ModActivationMonitorVM;
 				_fileManagerControl.ViewModel = _viewModel.ModManagerVM;
+				if (_viewModel.Witcher3ModSettingsLifecycle != null)
+					_witcher3LoadOrderControl.Initialize(_viewModel, () => IsMainDocumentActive(_witcher3LoadOrderControl));
+				if (_viewModel.GameMode is IManagedContentComponentProvider)
+					_managedContentComponentsControl.Initialize(_viewModel, () => IsMainDocumentActive(_managedContentComponentsControl));
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
 					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
 					_viewModel.CollectionRevisionUpdateWorkflow);
@@ -288,6 +297,9 @@
 			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
 			_fileManagerControl = new FileManagerControl();
 			_collectionsPreviewControl = new CollectionsPreviewControl();
+			_witcher3LoadOrderControl = new Witcher3LoadOrderControl();
+			_managedContentComponentsControl = new ManagedContentComponentsControl();
+			Disposed += (sender, args) => _managedContentComponentsControl.Dispose();
 			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
 			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
 			_collectionsPreviewControl.ManagedAssociationsChanged += CollectionsPreviewControl_ManagedAssociationsChanged;
@@ -1006,6 +1018,10 @@
 
 			if (IsMainDocumentActive(_fileManagerControl))
 				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
+			if (ViewModel.Witcher3ModSettingsLifecycle != null && IsMainDocumentActive(_witcher3LoadOrderControl))
+				await _witcher3LoadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
+			if (ViewModel.GameMode is IManagedContentComponentProvider && IsMainDocumentActive(_managedContentComponentsControl))
+				await _managedContentComponentsControl.RefreshOnActivateAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>
