@@ -22,7 +22,8 @@ namespace Nexus.Client.ModManagement.Witcher3
         MethodOrRootMismatch = 4,
         SharedOrUnmanagedComponent = 5,
         NonFileEffectsBlocked = 6,
-        FileFootprintChanged = 7
+        FileFootprintChanged = 7,
+        ReviewedFootprintChangeCandidate = 8
     }
 
     public sealed class Witcher3NativeUpgradeDecision
@@ -42,6 +43,8 @@ namespace Nexus.Client.ModManagement.Witcher3
         public ReadOnlyCollection<string> ExactTargets { get; }
         /// <summary>Only characterization. The live lease and Windows rollback gate are separate.</summary>
         public bool IsExactFootprintCandidate => Status == Witcher3NativeUpgradeStatus.ExactFootprintCandidate;
+        public bool IsSupportedUpgradeCandidate => IsExactFootprintCandidate ||
+            Status == Witcher3NativeUpgradeStatus.ReviewedFootprintChangeCandidate;
     }
 
     public static class Witcher3NativeUpgradePolicy
@@ -144,14 +147,39 @@ namespace Nexus.Client.ModManagement.Witcher3
                 if (entry.OwnerKeys.Contains(replacedOwnerKey, Names)) registeredTargets.Add(entry.Target);
             foreach (VirtualModReadLink link in native.VirtualState.Links)
                 if (Names.Equals(link.OwnerKey, replacedOwnerKey)) registeredTargets.Add(link.Target);
-            var expectedNativeTargets = new HashSet<ModDeploymentTarget>(
-                proposed.Select(target => ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, target)));
-            if (!registeredTargets.SetEquals(expectedNativeTargets) || !managedFiles.SetEquals(proposed))
+            // Every old owner target must be fully accounted for; otherwise a component-only
+            // index could hide an older bin/config/script effect during an upgrade.
+            var expectedOldTargets = new HashSet<ModDeploymentTarget>(
+                managedFiles.Select(target => ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, target)));
+            if (!registeredTargets.SetEquals(expectedOldTargets))
                 return Deny(Witcher3NativeUpgradeStatus.FileFootprintChanged,
-                    "The replacement adds, removes, moves or omits a previously owned target.", sequence);
+                    "The previous owner contains effects outside its verified Mods/DLC component files.", sequence);
 
-            return new Witcher3NativeUpgradeDecision(Witcher3NativeUpgradeStatus.ExactFootprintCandidate,
-                "Like-for-like target replacement only; transaction and rollback readiness remain mandatory.",
+            var indexedComponents = index.Components.ToDictionary(item => item.GameRelativeFolderPath, Names);
+            foreach (string target in proposed.Where(path => !managedFiles.Contains(path)))
+            {
+                string[] parts = target.Split('\\');
+                Witcher3NativeComponent component;
+                if (indexedComponents.TryGetValue(parts[0] + "\\" + parts[1], out component) &&
+                    (component.Owners.Count != 1 ||
+                     !Names.Equals(component.Owners[0].NativeModKey, replacedOwnerKey) ||
+                     component.HasMixedManagedAndUnmanagedFiles || component.IsMergeCandidate))
+                    return Deny(Witcher3NativeUpgradeStatus.SharedOrUnmanagedComponent,
+                        "An added file would enter another owner's or unmanaged component: " + target, sequence);
+                var nativeTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, target);
+                if (native.InstallLog.Files.Any(file => file.Target.Equals(nativeTarget)) ||
+                    native.InstallLog.DeploymentTargets.Any(file => file.Target.Equals(nativeTarget)) ||
+                    native.VirtualState.Links.Any(link => link.Target.Equals(nativeTarget)))
+                    return Deny(Witcher3NativeUpgradeStatus.SharedOrUnmanagedComponent,
+                        "An added file already has a native deployment history: " + target, sequence);
+            }
+
+            bool sameFootprint = managedFiles.SetEquals(proposed);
+            return new Witcher3NativeUpgradeDecision(sameFootprint
+                    ? Witcher3NativeUpgradeStatus.ExactFootprintCandidate
+                    : Witcher3NativeUpgradeStatus.ReviewedFootprintChangeCandidate,
+                sameFootprint ? "Like-for-like owner upgrade." :
+                    "Exclusive owner file additions/removals are reviewed; native upgrade handles the transactional delta.",
                 sequence, proposed.OrderBy(path => path, Names).ThenBy(path => path, StringComparer.Ordinal));
         }
 

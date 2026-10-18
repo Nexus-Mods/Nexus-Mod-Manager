@@ -93,10 +93,13 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		private readonly string _target;
 		private readonly IniOrderFormat _format;
 		private readonly string _gameId;
+		private readonly bool _allowCreate;
+		private static readonly string MissingHash = new string('0', 64);
 
 		/// <summary>Uses compiled sidecar identities; existing Witcher markers retain their historical format.</summary>
 		internal IniOrderPublisher(string target, IniOrderFormat format, string gameId,
-			string markerSuffix, string sidecarPrefix, string markerVersion)
+			string markerSuffix, string sidecarPrefix, string markerVersion,
+			bool allowCreate = false)
 		{
 			_target = Path.GetFullPath(target);
 			_format = format ?? throw new ArgumentNullException(nameof(format));
@@ -104,6 +107,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			MarkerSuffix = markerSuffix;
 			SidecarPrefix = sidecarPrefix;
 			MarkerVersion = markerVersion;
+			_allowCreate = allowCreate;
 		}
 
 		/// <summary>The bounded persisted pre/postimage identities for one interrupted operation.</summary>
@@ -153,7 +157,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			string temporary = TemporaryPath(target, record.Id);
 			try
 			{
-				if (IsLinkedOrDirectory(target) ||
+				if (((File.Exists(target) || Directory.Exists(target)) && IsLinkedOrDirectory(target)) ||
 					((File.Exists(backup) || Directory.Exists(backup)) && IsLinkedOrDirectory(backup)) ||
 					((File.Exists(temporary) || Directory.Exists(temporary)) && IsLinkedOrDirectory(temporary)))
 					return Recovery(IniOrderRecoveryStatus.Conflict,
@@ -164,6 +168,17 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (File.Exists(temporary) && !MatchesFile(temporary, record.AfterLength, record.AfterHash))
 					return Recovery(IniOrderRecoveryStatus.Conflict,
 						"The unpublished temporary file no longer matches its recorded identity.", backup, marker);
+				if (record.BeforeLength == -1)
+				{
+					if (!File.Exists(target) && !Directory.Exists(target))
+						return Recovery(IniOrderRecoveryStatus.OriginalIntact,
+							"The file was not created. The interrupted first publication can be acknowledged.", null, marker);
+					if (MatchesFile(target, record.AfterLength, record.AfterHash))
+						return Recovery(IniOrderRecoveryStatus.PublishedIntact,
+							"The newly created file matches its recorded bytes. Acknowledge before another write.", null, marker);
+					return Recovery(IniOrderRecoveryStatus.Conflict,
+						"The newly created order file differs from the pending image; manual recovery is required.", null, marker);
+				}
 				if (MatchesFile(target, record.BeforeLength, record.BeforeHash))
 					return Recovery(IniOrderRecoveryStatus.OriginalIntact,
 						"The old settings bytes are intact. The interrupted publication can be acknowledged without replacing them.", backup, marker);
@@ -251,7 +266,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			if (!String.Equals(Path.GetFullPath(preview.FilePath), target, StringComparison.OrdinalIgnoreCase))
 				return Result(IniOrderPublishStatus.Blocked,
 					"The reviewed file is not the configured resolved settings file.");
-			if (!SameFormat(preview.Format) || !explicitlyApproved ||
+			bool creating = preview.ObservedStatus == IniOrderReadStatus.Missing;
+			if ((creating && !_allowCreate) || !SameFormat(preview.Format) || !explicitlyApproved ||
 				preview.Status == IniOrderChangePlanStatus.Blocked)
 				return Result(IniOrderPublishStatus.Blocked,
 					"Explicit approval and a supported configured game-order preview are required.");
@@ -266,7 +282,9 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			try
 			{
 				if (!preview.TextEncoding.HasValue || !preview.ProposedByteLength.HasValue ||
-					!preview.ObservedByteLength.HasValue || String.IsNullOrEmpty(preview.ObservedSha256) ||
+					(!creating && (!preview.ObservedByteLength.HasValue || String.IsNullOrEmpty(preview.ObservedSha256))) ||
+					(creating && (preview.ObservedByteLength.HasValue || preview.ObservedSha256 != null ||
+						preview.TextEncoding != IniOrderTextEncoding.Utf8)) ||
 					String.IsNullOrEmpty(preview.ProposedSha256) || preview.ProposedText == null)
 					return Result(IniOrderPublishStatus.Blocked, "The reviewed file identity is incomplete.");
 				proposed = IniOrderByteCodec.Encode(preview.ProposedText, preview.TextEncoding.Value);
@@ -276,7 +294,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (!Matches(proposed, preview.ProposedByteLength.Value, preview.ProposedSha256) ||
 					!IniOrderParser.Parse(preview.ProposedText, _format).IsUnambiguous)
 					return Result(IniOrderPublishStatus.Blocked, "The proposed settings identity or format is invalid.");
-				if (IsLinkedOrDirectory(target))
+				if ((File.Exists(target) || Directory.Exists(target)) && IsLinkedOrDirectory(target))
 					return Result(IniOrderPublishStatus.Blocked, "Directory or linked settings targets cannot be replaced.");
 			}
 			catch (Exception error) when (error is IOException || error is InvalidDataException ||
@@ -287,7 +305,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			}
 
 			IniOrderFileObservation current = IniOrderFileReader.Read(target, _format);
-			if (!SamePreimage(current, preview))
+			if (!(creating ? current.Status == IniOrderReadStatus.Missing : SamePreimage(current, preview)))
 				return Result(IniOrderPublishStatus.StaleReview,
 					"The settings file changed since review. Refresh the preview instead of overwriting external changes.");
 			if (preview.Status == IniOrderChangePlanStatus.Unchanged)
@@ -298,8 +316,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 
 			var record = new PendingRecord
 			{
-				Id = Guid.NewGuid().ToString("N"), BeforeLength = preview.ObservedByteLength.Value,
-				BeforeHash = preview.ObservedSha256.ToUpperInvariant(),
+				Id = Guid.NewGuid().ToString("N"), BeforeLength = creating ? -1 : preview.ObservedByteLength.Value,
+				BeforeHash = creating ? MissingHash : preview.ObservedSha256.ToUpperInvariant(),
 				AfterLength = proposed.Length, AfterHash = preview.ProposedSha256.ToUpperInvariant()
 			};
 			string marker = target + MarkerSuffix;
@@ -308,20 +326,24 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			bool markerCreated = false;
 			try
 			{
+				if (creating) RequireSafeNewFileParent(target);
 				// CreateNew is the final exclusive collision check even if another NMM process
 				// targets the same Documents directory through a different game authority.
 				WriteFlushedNew(marker, SerializeMarker(record));
 				markerCreated = true;
 				checkpoint?.Invoke(IniOrderPublicationStep.AfterMarker);
 
-				byte[] original = ReadBounded(target, IniOrderFileReader.DefaultMaxBytes,
-					FileShare.Read | FileShare.Delete);
-				if (!Matches(original, record.BeforeLength, record.BeforeHash))
-					return Result(IniOrderPublishStatus.RecoveryRequired,
-						"The original settings changed while preparing their backup. The pending record was retained.");
-				WriteFlushedNew(backup, original);
-				if (!MatchesFile(backup, record.BeforeLength, record.BeforeHash))
-					throw new IOException("The original backup did not verify after flushing.");
+				if (!creating)
+				{
+					byte[] original = ReadBounded(target, IniOrderFileReader.DefaultMaxBytes,
+						FileShare.Read | FileShare.Delete);
+					if (!Matches(original, record.BeforeLength, record.BeforeHash))
+						return Result(IniOrderPublishStatus.RecoveryRequired,
+							"The original settings changed while preparing their backup. The pending record was retained.");
+					WriteFlushedNew(backup, original);
+					if (!MatchesFile(backup, record.BeforeLength, record.BeforeHash))
+						throw new IOException("The original backup did not verify after flushing.");
+				}
 				checkpoint?.Invoke(IniOrderPublicationStep.AfterBackup);
 
 				WriteFlushedNew(temporary, proposed);
@@ -333,29 +355,40 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (!livePolicy())
 					return Result(IniOrderPublishStatus.RecoveryRequired,
 						"The live host policy changed during publication; no replacement was attempted.", backup);
-				if (IsLinkedOrDirectory(target))
+				if ((File.Exists(target) || Directory.Exists(target)) && IsLinkedOrDirectory(target))
 					return Result(IniOrderPublishStatus.RecoveryRequired,
-						"The settings target was redirected before replacement; no replacement was attempted.", backup);
-
-				// Deny ordinary concurrent writers while hashing and replacing the SAME file.
-				// FileShare.Delete permits Windows ReplaceFile to operate on the target.
-				using (var locked = new FileStream(target, FileMode.Open, FileAccess.Read,
-					FileShare.Read | FileShare.Delete))
+						"The settings target was redirected before replacement; no replacement was attempted.", creating ? null : backup);
+				if (creating)
 				{
-					byte[] latest = ReadBounded(locked, IniOrderFileReader.DefaultMaxBytes);
-					if (!Matches(latest, record.BeforeLength, record.BeforeHash))
+					// Move must fail when another editor creates the file first. No synthetic
+					// zero-byte preimage and no overwrite of an unobserved external file.
+					if (File.Exists(target) || Directory.Exists(target))
 						return Result(IniOrderPublishStatus.RecoveryRequired,
-							"An external edit invalidated the staged publication; the pending record was retained.", backup);
-					File.Replace(temporary, target, null);
+							"Another writer created mods.settings after review. The pending intent is retained.");
+					File.Move(temporary, target);
+				}
+				else
+				{
+					// Deny ordinary concurrent writers while hashing and replacing the SAME file.
+					// FileShare.Delete permits Windows ReplaceFile to operate on the target.
+					using (var locked = new FileStream(target, FileMode.Open, FileAccess.Read,
+						FileShare.Read | FileShare.Delete))
+					{
+						byte[] latest = ReadBounded(locked, IniOrderFileReader.DefaultMaxBytes);
+						if (!Matches(latest, record.BeforeLength, record.BeforeHash))
+							return Result(IniOrderPublishStatus.RecoveryRequired,
+								"An external edit invalidated the staged publication; the pending record was retained.", backup);
+						File.Replace(temporary, target, null);
+					}
 				}
 				checkpoint?.Invoke(IniOrderPublicationStep.AfterReplacement);
 
 				if (!MatchesFile(target, record.AfterLength, record.AfterHash) ||
-					!MatchesFile(backup, record.BeforeLength, record.BeforeHash))
+					(!creating && !MatchesFile(backup, record.BeforeLength, record.BeforeHash)))
 					return Result(IniOrderPublishStatus.RecoveryRequired,
 						"Post-write verification failed. The recovery marker and original backup were retained.", backup);
 				File.Delete(marker);
-				return Result(IniOrderPublishStatus.Published, null, backup);
+				return Result(IniOrderPublishStatus.Published, null, creating ? null : backup);
 			}
 			catch (Exception error)
 			{
@@ -446,10 +479,11 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			Guid id;
 			long before, after;
 			if (!Guid.TryParseExact(fields[1], "N", out id) || id.ToString("N") != fields[1] ||
-				!Int64.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out before) ||
+				!Int64.TryParse(fields[2], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out before) ||
 				!Int64.TryParse(fields[4], NumberStyles.None, CultureInfo.InvariantCulture, out after) ||
 				before > IniOrderFileReader.DefaultMaxBytes || after > IniOrderFileReader.DefaultMaxBytes ||
-				!ValidHash(fields[3]) || !ValidHash(fields[5])) return false;
+				!ValidHash(fields[3]) || !ValidHash(fields[5]) ||
+				(before < 0 && !(_allowCreate && before == -1 && fields[3] == MissingHash))) return false;
 			record = new PendingRecord { Id = fields[1], BeforeLength = before, BeforeHash = fields[3],
 				AfterLength = after, AfterHash = fields[5] };
 			return true;
@@ -459,6 +493,24 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		private static bool ValidHash(string hash)
 		{
 			return hash != null && hash.Length == 64 && hash.All(c => c >= '0' && c <= '9' || c >= 'A' && c <= 'F');
+		}
+
+		/// <summary>
+		/// Only the Documents/The Witcher 3 directory may be provisioned for a new file.
+		/// Reject redirected ancestors; never follow an existing junction/symlink or create
+		/// an arbitrary chain of missing parent directories.
+		/// </summary>
+		private static void RequireSafeNewFileParent(string target)
+		{
+			string parent = Path.GetDirectoryName(target);
+			string documents = Path.GetDirectoryName(parent);
+			if (!Directory.Exists(documents) ||
+				(File.GetAttributes(documents) & FileAttributes.ReparsePoint) != 0)
+				throw new IOException("The configured Documents directory is missing or redirected.");
+			if (!Directory.Exists(parent)) Directory.CreateDirectory(parent);
+			FileAttributes attributes = File.GetAttributes(parent);
+			if ((attributes & FileAttributes.Directory) == 0 || (attributes & FileAttributes.ReparsePoint) != 0)
+				throw new IOException("The game's Documents settings directory is not a direct directory.");
 		}
 
 		/// <summary>Exclusively creates and durably flushes a sidecar before proceeding.</summary>

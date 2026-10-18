@@ -75,7 +75,8 @@ namespace Nexus.Client.Games.DataDriven
 		public static IniOrderDocumentRule CreateWitcher3Ordering(GameModeManagedContentDefinition definition)
 		{
 			IniOrderDocumentRule order = CreateOrdering(definition);
-			if (order?.Editing != null) throw new ArgumentException("Remastered component order editing remains unsupported; the reserved adapter permits observation only.");
+			if (order != null && order.Editing != IniOrderDocumentRule.EditProviderId)
+				throw new ArgumentException("Remastered order editing requires reviewed-sequential-ini-v1.");
 			if (order != null && (order.FileRoot != "Documents" || order.RelativePath != @"The Witcher 3\mods.settings" ||
 				order.ComponentKind != "mod-folder" || order.TargetFolder != "Mods" || order.Format.ComponentPrefix != "mod" ||
 				order.Format.PriorityKey != "Priority" || order.Format.EnabledKey != "Enabled"))

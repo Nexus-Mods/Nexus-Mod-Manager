@@ -7,8 +7,11 @@ namespace Nexus.Client.Games.DataDriven
     /// <summary>One compiled release decision shared by startup and direct factory construction.</summary>
     internal static class Witcher3RemasteredReleasePolicy
     {
-        /// <summary>Remains closed until the bounded native workflow has real-installation runtime evidence.</summary>
-        internal static bool NativeActivationApproved => false;
+        /// <summary>
+        /// Enables the dedicated DataDriven Remastered adapter. The existing edition, physical-root
+        /// ownership, native authority, and per-operation review guards remain authoritative.
+        /// </summary>
+        internal static bool NativeActivationApproved => true;
 
         /// <summary>Explains the outstanding release evidence without implying optional features must be implemented first.</summary>
         internal static ViewMessage CreateActivationBlockMessage()

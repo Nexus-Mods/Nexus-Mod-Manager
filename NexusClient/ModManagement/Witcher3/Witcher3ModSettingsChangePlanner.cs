@@ -66,7 +66,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 			string diagnostic, Witcher3ModSettingsFileReadResult observed, string proposedText,
 			long? proposedByteLength, string proposedSha256,
 			IEnumerable<Witcher3ModSettingsOrderChange> changes,
-			Witcher3ModSettingsChangeKind kind = Witcher3ModSettingsChangeKind.ManagedOrder)
+			Witcher3ModSettingsChangeKind kind = Witcher3ModSettingsChangeKind.ManagedOrder,
+			Witcher3ModSettingsTextEncoding? newFileEncoding = null)
 		{
 			Status = status;
 			Kind = kind;
@@ -75,7 +76,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 			ObservedStatus = observed.Status;
 			ObservedByteLength = observed.ByteLength;
 			ObservedSha256 = observed.ContentSha256;
-			TextEncoding = observed.Encoding;
+			TextEncoding = observed.Encoding ?? newFileEncoding;
 			ProposedText = proposedText;
 			ProposedByteLength = proposedByteLength;
 			ProposedSha256 = proposedSha256;
@@ -99,12 +100,16 @@ namespace Nexus.Client.ModManagement.Witcher3
 		internal IniOrderChangePreview ToShared()
 		{
 			var observed = new IniOrderFileObservation(FilePath, (IniOrderReadStatus)ObservedStatus,
-				IniOrderParser.Parse(String.Empty, Witcher3ModSettingsParser.Format),
-				TextEncoding.HasValue ? (IniOrderTextEncoding?)TextEncoding.Value : null,
+				ObservedStatus == Witcher3ModSettingsReadStatus.Missing ? null :
+					IniOrderParser.Parse(String.Empty, Witcher3ModSettingsParser.Format),
+				ObservedStatus == Witcher3ModSettingsReadStatus.Missing ? null :
+					(TextEncoding.HasValue ? (IniOrderTextEncoding?)TextEncoding.Value : null),
 				ObservedByteLength, ObservedSha256, null, null);
 			return new IniOrderChangePreview((IniOrderChangePlanStatus)Status, Diagnostic, observed, ProposedText,
 				ProposedByteLength, ProposedSha256, Changes.Select(change => new IniOrderChange(change.FolderName,
-					change.PreviousPriority, change.ProposedPriority, change.PreviousEnabled, change.ProposedEnabled)), (IniOrderChangeKind)Kind);
+					change.PreviousPriority, change.ProposedPriority, change.PreviousEnabled, change.ProposedEnabled)),
+				(IniOrderChangeKind)Kind, Witcher3ModSettingsParser.Format,
+				TextEncoding.HasValue ? (IniOrderTextEncoding?)TextEncoding.Value : null);
 		}
 
 		/// <summary>W3R.5a does not publish any file mutation capability.</summary>
@@ -126,15 +131,17 @@ namespace Nexus.Client.ModManagement.Witcher3
 		/// <summary>Requires Legacy policy before delegating complete-order and explicit-addition validation.</summary>
 		public static Witcher3ModSettingsChangePreview PrepareWithNewFolders(Witcher3ModSettingsFileReadResult observed,
 			Witcher3Edition edition, IEnumerable<Witcher3ModSettingsOrderEntry> desiredOrder, bool explicitlyRequestedManagedOrder,
-			IEnumerable<string> allowedNewFolders)
+			IEnumerable<string> allowedNewFolders, bool preserveExistingPriorities = false)
 		{
 			if (observed == null) throw new ArgumentNullException(nameof(observed));
 			if (desiredOrder == null) throw new ArgumentNullException(nameof(desiredOrder));
 			if (allowedNewFolders == null) throw new ArgumentNullException(nameof(allowedNewFolders));
-			if (explicitlyRequestedManagedOrder && edition != Witcher3Edition.Legacy) return Blocked(observed);
+			if (explicitlyRequestedManagedOrder && edition != Witcher3Edition.Legacy &&
+				edition != Witcher3Edition.Remastered) return Blocked(observed);
 			return FromShared(IniOrderChangePlanner.PrepareWithNewFolders(observed.ToShared(),
 				desiredOrder.Select(entry => entry == null ? null : new IniOrderEntry(entry.FolderName, entry.Enabled)),
-				explicitlyRequestedManagedOrder, allowedNewFolders), observed);
+				explicitlyRequestedManagedOrder, allowedNewFolders, Witcher3ModSettingsParser.Format,
+				preserveExistingPriorities), observed);
 		}
 
 		/// <summary>Removes only configured order/enabled overrides after the existing Legacy check.</summary>
@@ -142,7 +149,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Witcher3Edition edition, bool explicitlyRequestedRestore)
 		{
 			if (observed == null) throw new ArgumentNullException(nameof(observed));
-			if (explicitlyRequestedRestore && edition != Witcher3Edition.Legacy) return Blocked(observed);
+			if (explicitlyRequestedRestore && edition != Witcher3Edition.Legacy &&
+				edition != Witcher3Edition.Remastered) return Blocked(observed);
 			return FromShared(IniOrderChangePlanner.PrepareRestoreGameDefaults(observed.ToShared(), explicitlyRequestedRestore), observed);
 		}
 
@@ -152,13 +160,15 @@ namespace Nexus.Client.ModManagement.Witcher3
 			return new Witcher3ModSettingsChangePreview((Witcher3ModSettingsChangePlanStatus)preview.Status,
 				preview.Diagnostic, observed, preview.ProposedText, preview.ProposedByteLength, preview.ProposedSha256,
 				preview.Changes.Select(change => new Witcher3ModSettingsOrderChange(change.FolderName, change.PreviousPriority,
-					change.ProposedPriority, change.PreviousEnabled, change.ProposedEnabled)), (Witcher3ModSettingsChangeKind)preview.Kind);
+					change.ProposedPriority, change.PreviousEnabled, change.ProposedEnabled)),
+				(Witcher3ModSettingsChangeKind)preview.Kind,
+				preview.TextEncoding.HasValue ? (Witcher3ModSettingsTextEncoding?)preview.TextEncoding.Value : null);
 		}
 
 		/// <summary>Preserves the blocked Remastered/unknown-edition result.</summary>
 		private static Witcher3ModSettingsChangePreview Blocked(Witcher3ModSettingsFileReadResult observed) =>
 			new Witcher3ModSettingsChangePreview(Witcher3ModSettingsChangePlanStatus.Blocked,
-				"Only documented Legacy ordering can be edited; Remastered requires runtime validation.", observed,
+				"Ordering requires a confirmed Witcher 3 Legacy or Remastered installation.", observed,
 				null, null, null, new Witcher3ModSettingsOrderChange[0]);
 
 		/// <summary>Preserves exact encoding for existing publication callers.</summary>

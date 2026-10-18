@@ -69,9 +69,10 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			string diagnostic, IniOrderFileObservation observed, string proposedText,
 			long? proposedByteLength, string proposedSha256,
 			IEnumerable<IniOrderChange> changes,
-			IniOrderChangeKind kind = IniOrderChangeKind.ManagedOrder)
+			IniOrderChangeKind kind = IniOrderChangeKind.ManagedOrder,
+			IniOrderFormat missingFormat = null, IniOrderTextEncoding? newFileEncoding = null)
 		{
-			Format = observed.Document?.Format;
+			Format = observed.Document?.Format ?? missingFormat;
 			Status = status;
 			Kind = kind;
 			Diagnostic = diagnostic;
@@ -79,7 +80,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			ObservedStatus = observed.Status;
 			ObservedByteLength = observed.ByteLength;
 			ObservedSha256 = observed.ContentSha256;
-			TextEncoding = observed.Encoding;
+			TextEncoding = observed.Encoding ?? newFileEncoding;
 			ProposedText = proposedText;
 			ProposedByteLength = proposedByteLength;
 			ProposedSha256 = proposedSha256;
@@ -131,11 +132,14 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		public static IniOrderChangePreview PrepareWithNewFolders(
 			IniOrderFileObservation observed,
 			IEnumerable<IniOrderEntry> desiredOrder, bool explicitlyRequestedManagedOrder,
-			IEnumerable<string> allowedNewFolders)
+			IEnumerable<string> allowedNewFolders, IniOrderFormat missingFormat = null,
+			bool preserveExistingPriorities = false)
 		{
 			if (observed == null) throw new ArgumentNullException(nameof(observed));
 			if (desiredOrder == null) throw new ArgumentNullException(nameof(desiredOrder));
 			if (allowedNewFolders == null) throw new ArgumentNullException(nameof(allowedNewFolders));
+			if (observed.Status == IniOrderReadStatus.Missing && explicitlyRequestedManagedOrder)
+				return PrepareNewFile(observed, desiredOrder, allowedNewFolders, missingFormat);
 			if (!explicitlyRequestedManagedOrder)
 				return Blocked(observed, "Managed ordering must be explicitly requested.");
 			string original;
@@ -160,7 +164,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			}
 			var desiredNames = new HashSet<string>(requested.Select(x => x.FolderName), Names);
 			if (sections.Any(x => !desiredNames.Contains(x.Name)) ||
-				requested.Any(x => !existing.ContainsKey(x.FolderName) && !permitted.Contains(x.FolderName)))
+				requested.Any(x => !existing.ContainsKey(x.FolderName) && !permitted.Contains(x.FolderName)) ||
+				(preserveExistingPriorities && (permitted.Count > 0 || requested.Count != sections.Count)))
 				return Blocked(observed, "All existing sections must remain; new folders must be explicitly observed and selected.");
 
 			var lines = SplitLines(original);
@@ -173,12 +178,18 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			var additions = new Dictionary<int, List<string>>();
 			var newSections = new List<IniOrderEntry>();
 			var changes = new List<IniOrderChange>();
+			IniOrderSection firstSection;
+			bool keepMergeZero = requested.Count > 0 &&
+				Names.Equals(requested[0].FolderName, "mod0000_MergedFiles") &&
+				existing.TryGetValue(requested[0].FolderName, out firstSection) && firstSection.Priority == 0;
 			for (int i = 0; i < requested.Count; i++)
 			{
 				IniOrderEntry entry = requested[i];
-				int priority = i + 1;
 				IniOrderSection section;
-				if (!existing.TryGetValue(entry.FolderName, out section))
+				bool hasExisting = existing.TryGetValue(entry.FolderName, out section);
+				int? priority = preserveExistingPriorities && hasExisting
+					? section.Priority : (int?)(i + (keepMergeZero ? 0 : 1));
+				if (!hasExisting)
 				{
 					// A newly enlisted component is explicitly game-enabled; null is not
 					// interpreted as an implicit game default in a managed section.
@@ -192,8 +203,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (section.Priority != priority || section.Enabled != newEnabled)
 					changes.Add(new IniOrderChange(section.Name, section.Priority,
 						priority, section.Enabled, newEnabled));
-				if (section.Priority != priority)
-					SetValue(section, observed.Document.Format.PriorityKey, priority.ToString(CultureInfo.InvariantCulture), lines,
+				if (section.Priority != priority && priority.HasValue)
+					SetValue(section, observed.Document.Format.PriorityKey, priority.Value.ToString(CultureInfo.InvariantCulture), lines,
 						replacements, additions, nextHeader);
 				if (entry.Enabled.HasValue && section.Enabled != newEnabled)
 					SetValue(section, observed.Document.Format.EnabledKey, newEnabled.Value ? "1" : "0", lines,
@@ -201,20 +212,66 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			}
 
 			string proposed = AppendNewSections(Render(lines, replacements, additions), lines,
-					newSections, requested, observed.Document.Format);
+					newSections, requested, observed.Document.Format, keepMergeZero);
 			IniOrderDocument verified = IniOrderParser.Parse(proposed, observed.Document.Format);
 			if (!verified.IsUnambiguous)
 				return Blocked(observed, "The proposed text could not be reparsed without ambiguity.");
 			var verifiedByName = verified.ComponentSections.ToDictionary(x => x.Name, Names);
 			if (verifiedByName.Count != requested.Count || requested.Where((x, i) =>
 				!verifiedByName.ContainsKey(x.FolderName) ||
-				verifiedByName[x.FolderName].Priority != i + 1 ||
+				verifiedByName[x.FolderName].Priority !=
+					(preserveExistingPriorities && existing.ContainsKey(x.FolderName)
+						? existing[x.FolderName].Priority : (int?)(i + (keepMergeZero ? 0 : 1))) ||
 				(verifiedByName[x.FolderName].Enabled != (existing.ContainsKey(x.FolderName)
 					? x.Enabled ?? existing[x.FolderName].Enabled : x.Enabled ?? true))).Any())
 				return Blocked(observed, "The proposed settings do not match the complete requested order.");
 
 			return Preview(observed, original, proposed, changes,
 				IniOrderChangeKind.ManagedOrder);
+		}
+
+		/// <summary>
+		/// First-file workflow: a genuinely missing preimage has NO hash or byte length.
+		/// Require explicit folder selection and a trusted compiled format; never infer an
+		/// existing empty file. The publisher enforces absence again under native authority.
+		/// </summary>
+		private static IniOrderChangePreview PrepareNewFile(IniOrderFileObservation observed,
+			IEnumerable<IniOrderEntry> desiredOrder, IEnumerable<string> allowedNewFolders,
+			IniOrderFormat format)
+		{
+			if (format == null || observed.Document != null || observed.Encoding.HasValue ||
+				observed.ByteLength.HasValue || observed.ContentSha256 != null)
+				return Blocked(observed, "An exact missing-file observation and a declared format are required.");
+			var requested = desiredOrder.Take(MaxGamePriority + 1).ToList();
+			if (requested.Count < 1 || requested.Count > MaxGamePriority ||
+				requested.Any(entry => entry == null || !format.IsComponentName(entry.FolderName)) ||
+				requested.Select(entry => entry.FolderName).Distinct(Names).Count() != requested.Count)
+				return Blocked(observed, "Select 1-9999 distinct safe folders to create the order file.");
+			var allowed = allowedNewFolders.ToList();
+			if (allowed.Count != requested.Count || allowed.Any(name => !format.IsComponentName(name)) ||
+				allowed.Distinct(Names).Count() != allowed.Count ||
+				!new HashSet<string>(allowed, Names).SetEquals(requested.Select(entry => entry.FolderName)))
+				return Blocked(observed, "Every newly configured folder must be individually observed and selected.");
+			var text = new StringBuilder();
+			var changes = new List<IniOrderChange>();
+			for (int i = 0; i < requested.Count; i++)
+			{
+				bool enabled = requested[i].Enabled ?? true;
+				text.Append('[').Append(requested[i].FolderName).Append("]\r\n")
+					.Append(format.EnabledKey).Append('=').Append(enabled ? '1' : '0').Append("\r\n")
+					.Append(format.PriorityKey).Append('=').Append(i + 1).Append("\r\n");
+				changes.Add(new IniOrderChange(requested[i].FolderName, null, i + 1, null, enabled));
+			}
+			string proposed = text.ToString();
+			IniOrderDocument parsed = IniOrderParser.Parse(proposed, format);
+			if (!parsed.IsUnambiguous || parsed.ComponentSections.Count() != requested.Count)
+				return Blocked(observed, "The generated settings failed structural validation.");
+			byte[] bytes = Encode(proposed, IniOrderTextEncoding.Utf8);
+			if (bytes.Length > IniOrderFileReader.DefaultMaxBytes)
+				return Blocked(observed, "The new settings file exceeds the bounded write limit.");
+			return new IniOrderChangePreview(IniOrderChangePlanStatus.PreviewAvailable,
+				null, observed, proposed, bytes.Length, Hash(bytes), changes,
+				IniOrderChangeKind.ManagedOrder, format, IniOrderTextEncoding.Utf8);
 		}
 
 		/// <summary>
@@ -290,7 +347,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		/// <summary>Appends only explicitly selected new components using the configured literal keys.</summary>
 		private static string AppendNewSections(string proposed, IList<IniOrderSourceLine> sourceLines,
 			IList<IniOrderEntry> additions,
-			IList<IniOrderEntry> requestedOrder, IniOrderFormat format)
+			IList<IniOrderEntry> requestedOrder, IniOrderFormat format, bool keepMergeZero)
 		{
 			if (additions.Count == 0) return proposed;
 			string newline = PickNewline(sourceLines, sourceLines.Count - 1);
@@ -304,7 +361,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (!byName.TryGetValue(requestedOrder[i].FolderName, out added)) continue;
 				result.Append('[').Append(added.FolderName).Append(']').Append(newline);
 				result.Append(format.EnabledKey).Append('=').Append(added.Enabled.Value ? '1' : '0').Append(newline);
-				result.Append(format.PriorityKey).Append('=').Append(i + 1).Append(newline);
+				result.Append(format.PriorityKey).Append('=').Append(i + (keepMergeZero ? 0 : 1)).Append(newline);
 			}
 			return result.ToString();
 		}

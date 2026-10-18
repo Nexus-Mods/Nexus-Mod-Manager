@@ -63,11 +63,15 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Projection = projection;
 			_edition = edition;
 			HasPendingPublication = pendingPublication;
-			CanEdit = String.Equals(modeId, "Witcher3", StringComparison.OrdinalIgnoreCase) &&
-				edition == Witcher3Edition.Legacy && !pendingPublication && observed.IsLoaded &&
-				observed.Document != null && observed.Document.IsUnambiguous &&
-				observed.Encoding.HasValue && !String.IsNullOrEmpty(observed.ContentSha256) &&
-				observed.Document.ModSections.Count() <= Witcher3ModSettingsChangePlanner.MaxGamePriority;
+			bool legacy = String.Equals(modeId, "Witcher3", StringComparison.OrdinalIgnoreCase) &&
+				edition == Witcher3Edition.Legacy;
+			bool remastered = String.Equals(modeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+				edition == Witcher3Edition.Remastered;
+			CanEdit = (legacy || remastered) && !pendingPublication &&
+				((observed.IsLoaded && observed.Document != null && observed.Document.IsUnambiguous &&
+					observed.Encoding.HasValue && !String.IsNullOrEmpty(observed.ContentSha256) &&
+					observed.Document.ModSections.Count() <= Witcher3ModSettingsChangePlanner.MaxGamePriority) ||
+				 (remastered && observed.Status == Witcher3ModSettingsReadStatus.Missing));
 
 			var rows = projection.Rows.Select(x => new Witcher3LoadOrderEditorRow(x)).ToList();
 			_originalConfigured = rows.Where(x => x.IsConfigured).ToList();
@@ -83,7 +87,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public Witcher3LoadOrderProjection Projection { get; }
 		public bool HasPendingPublication { get; }
 		public bool CanEdit { get; }
-		public bool CanRestoreGameDefaults => CanEdit &&
+		public bool CanRestoreGameDefaults => CanEdit && _observed.Document != null &&
 			_observed.Document.ModSections.Any(x => x.HasEnabledField || x.HasPriorityField);
 		public int ConfiguredCount => _originalConfigured.Count;
 		public int DraftCount => _configured.Count;
@@ -125,6 +129,19 @@ namespace Nexus.Client.ModManagement.Witcher3
 			return true;
 		}
 
+		/// <summary>
+		/// Select all eligible physically observed folders as an unsaved draft, including
+		/// newly installed multi-component packages. No game file is written here.
+		/// </summary>
+		public int AddAllObservedToOrder()
+		{
+			if (!CanEdit) return 0;
+			int added = 0;
+			foreach (Witcher3LoadOrderEditorRow row in _other.ToArray())
+				if (AddToOrder(row.FolderName)) added++;
+			return added;
+		}
+
 		public bool RemoveDraftAddition(string folderName)
 		{
 			Witcher3LoadOrderEditorRow row = Find(folderName);
@@ -144,6 +161,9 @@ namespace Nexus.Client.ModManagement.Witcher3
 			int index = _configured.IndexOf(row);
 			int target = index + direction;
 			if (target < 0 || target >= _configured.Count) return false;
+			if (_configured.Count > 0 &&
+				Names.Equals(_configured[0].FolderName, "mod0000_MergedFiles") &&
+				_configured[0].GamePriority == 0 && (index == 0 || target == 0)) return false;
 			_configured.RemoveAt(index);
 			_configured.Insert(target, row);
 			UpdateDraftPositions();
@@ -195,10 +215,15 @@ namespace Nexus.Client.ModManagement.Witcher3
 
 		public Witcher3ModSettingsChangePreview PrepareChange()
 		{
+			bool preservePriorities = _configured.Count == _originalConfigured.Count &&
+				_configured.Select(x => x.FolderName).SequenceEqual(
+					_originalConfigured.Select(x => x.FolderName), Names);
 			return Witcher3ModSettingsChangePlanner.PrepareWithNewFolders(_observed, _edition,
 				_configured.Select(x => new Witcher3ModSettingsOrderEntry(x.FolderName,
-					x.HasEnabledEdit ? x.DraftEnabled : (bool?)null)), CanEdit && IsDirty,
-				_configured.Where(x => x.IsNewInDraft).Select(x => x.FolderName));
+					x.HasEnabledEdit ? x.DraftEnabled :
+						(_edition == Witcher3Edition.Remastered && !x.GameEnabled.HasValue ? true : (bool?)null))),
+				CanEdit && IsDirty,
+				_configured.Where(x => x.IsNewInDraft).Select(x => x.FolderName), preservePriorities);
 		}
 
 		public Witcher3ModSettingsChangePreview PrepareRestoreGameDefaults()

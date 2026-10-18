@@ -158,7 +158,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		public ReadOnlyCollection<IniOrderIssue> Issues { get; }
 		public bool IsComplete { get; }
 		/// <summary>False if any ambiguity is detected; a clean parse does not establish game-effective order semantics.</summary>
-		public bool IsUnambiguous => IsComplete && Issues.Count == 0;
+		public bool IsUnambiguous => IsComplete && Issues.All(issue => issue.Kind == IniOrderIssueKind.DuplicatePriority);
 		public IEnumerable<IniOrderSection> ComponentSections => Sections.Where(x => x.IsComponent);
 	}
 

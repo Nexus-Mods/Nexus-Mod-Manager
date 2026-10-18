@@ -198,10 +198,13 @@ namespace Nexus.Client.ModManagement.Witcher3
             Witcher3NativeUpgradeDecision decision = Witcher3NativeUpgradePolicy.Assess(_index,
                 _native, oldKey, installContext.Method, installContext.InstallRoot,
                 mapped.Select(file => file.Value));
-            if (!decision.IsExactFootprintCandidate)
+            if (!decision.IsSupportedUpgradeCandidate)
                 throw new InvalidDataException("Witcher 3 native upgrade was blocked (" +
                     decision.Status + "): " + decision.Reason);
-            Witcher3NativeUpgradeDestinationPreflight.RequireExistingOwnedFiles(_gameRoot,
+            Witcher3NativeUpgradeDestinationPreflight.RequireUpgradeTargets(_gameRoot,
+                _index.Components.Where(component => component.Owners.Any(owner =>
+                    String.Equals(owner.NativeModKey, oldKey, StringComparison.OrdinalIgnoreCase)))
+                    .SelectMany(component => component.Files.Select(file => file.GameRelativePath)),
                 mapped.Select(file => file.Value));
             return new ReadOnlyCollection<KeyValuePair<string, string>>(mapped.ToList());
         }

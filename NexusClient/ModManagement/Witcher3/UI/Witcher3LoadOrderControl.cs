@@ -38,6 +38,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		private readonly SimpleButton _enable;
 		private readonly SimpleButton _disable;
 		private readonly SimpleButton _add;
+		private readonly SimpleButton _addAll;
 		private readonly SimpleButton _removeAddition;
 		private readonly SimpleButton _restoreDefaults;
 		private readonly SimpleButton _resetDraft;
@@ -84,7 +85,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			};
 
 			var description = new LabelControl { Dock = DockStyle.Top, AutoSizeMode = LabelAutoSizeMode.Vertical,
-				Text = L("Witcher3.Order.Introduction", "Witcher game mod folders (Mods/mod*), not NMM archives or Bethesda plugins. For Legacy 4.x, lower configured priorities win conflicts; 5.x behavior is unverified. A game-enabled flag does not install or uninstall a mod."),
+				Text = L("Witcher3.Order.Introduction", "Witcher Mods/mod* folders (not archive Sort or Bethesda plugins). Lower Priority loads first and wins conflicts; alphabetical folder names break ties. A game-enabled flag does not install or uninstall an NMM archive."),
 				Padding = new Padding(7), UseMnemonic = false };
 			description.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 
@@ -95,6 +96,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_enable = Button(commands, "Witcher3.Order.Actions.Enable", "Enable in game", () => SetEnabled(true));
 			_disable = Button(commands, "Witcher3.Order.Actions.Disable", "Disable in game", () => SetEnabled(false));
 			_add = Button(commands, "Witcher3.Order.Actions.Add", "Add folder to order", AddSelectedFolder);
+			_addAll = Button(commands, "Witcher3.Order.Actions.AddAll", "Add all observed folders", AddAllObservedFolders);
 			_removeAddition = Button(commands, "Witcher3.Order.Actions.RemoveAddition", "Remove draft addition", RemoveSelectedAddition);
 			_restoreDefaults = Button(commands, "Witcher3.Order.Actions.RestoreDefaults", "Restore default ordering", () => _ = ReviewAndApplyAsync(true));
 			_resetDraft = Button(commands, "Witcher3.Order.Actions.ResetDraft", "Discard draft", ResetDraft);
@@ -355,6 +357,17 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			}
 		}
 
+		private void AddAllObservedFolders()
+		{
+			if (_snapshot?.Editor == null || _busy) return;
+			string focused = SelectedFolder();
+			if (_snapshot.Editor.AddAllObservedToOrder() > 0)
+			{
+				BindRows(focused);
+				UpdateStatus();
+			}
+		}
+
 		private void RemoveSelectedAddition()
 		{
 			if (_snapshot?.Editor == null || _busy) return;
@@ -395,7 +408,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 				if (IsDisposed || Disposing) return;
 				if (!Witcher3NativeRefreshPolicy.CanApprove(_observedNativeRevision,
 					_nativeChanges?.Revision ?? 0, NativeOperationRunning) || reviewedRevision != _observedNativeRevision ||
-					now.Lifecycle.HasPendingPublication || now.Lifecycle.Edition != Witcher3Edition.Legacy ||
+					now.Lifecycle.HasPendingPublication || !now.Editor.CanEdit ||
+					now.Lifecycle.Edition != _snapshot.Lifecycle.Edition ||
 					!String.Equals(_snapshot.PhysicalGameRoot, now.PhysicalGameRoot, StringComparison.OrdinalIgnoreCase) ||
 					!editor.MatchesObservedFile(now.Lifecycle.Settings) ||
 					(!restoreDefaults && !editor.AddedFoldersStillObserved(now.Projection)))
@@ -459,7 +473,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		{
 			if (_busy || _snapshot == null || !_snapshot.Lifecycle.HasPendingPublication) return;
 			Witcher3ModSettingsRecoveryInspection state = _lifecycle.Refresh().Recovery;
-			bool safe = String.Equals(_lifecycle.ModeId, "Witcher3", StringComparison.OrdinalIgnoreCase) &&
+			bool safe = Witcher3ModSettingsLifecycleService.SupportsMode(_lifecycle.ModeId) &&
 				(state.Status == Witcher3ModSettingsRecoveryStatus.OriginalIntact ||
 				state.Status == Witcher3ModSettingsRecoveryStatus.PublishedIntact);
 			var text = new StringBuilder();
@@ -540,6 +554,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_enable.Enabled = inDraft && selected.DraftEnabled != true;
 			_disable.Enabled = inDraft && selected.DraftEnabled != false;
 			_add.Enabled = editable && editor.CanAddToOrder(selected?.FolderName);
+			_addAll.Enabled = editable && editor.UnconfiguredCount > 0 &&
+				EditorHasAddableFolders(editor);
 			_removeAddition.Enabled = inDraft && selected.IsNewInDraft;
 			_restoreDefaults.Enabled = editable && editor.CanRestoreGameDefaults && !editor.IsDirty;
 			_resetDraft.Enabled = !_busy && editor?.IsDirty == true;
@@ -549,6 +565,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_inspectMerger.Visible = _snapshot?.RemasteredHealth != null;
 			_inspectMerger.Enabled = !_busy && _snapshot?.RemasteredHealth != null;
 		}
+
+		private static bool EditorHasAddableFolders(Witcher3LoadOrderEditorSession editor) =>
+			editor.Rows.Any(row => editor.CanAddToOrder(row.FolderName));
 
 		private void UpdateSelectedDetails()
 		{
@@ -580,15 +599,16 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (_snapshot.Lifecycle.HasPendingPublication)
 				sb.AppendLine(L("Witcher3.Order.Status.Pending",
 					"A previous settings write needs review. All changes are blocked until recovery is resolved."));
-			if (_snapshot.Lifecycle.Edition != Witcher3Edition.Legacy || !_snapshot.Lifecycle.ModeId.Equals("Witcher3", StringComparison.OrdinalIgnoreCase))
-				sb.AppendLine(L("Witcher3.Order.Status.Remastered",
-					"Read-only: Remastered 5.x game-effective mods.settings behavior is not runtime verified."));
+			if (!editor.CanEdit && (_snapshot.Lifecycle.Settings.IsLoaded ||
+				_snapshot.Lifecycle.Settings.Status == Witcher3ModSettingsReadStatus.Missing))
+				sb.AppendLine(L("Witcher3.Order.Status.EditionBlocked",
+					"Editing requires the selected game mode's confirmed edition and no pending recovery."));
 			if (_snapshot.Lifecycle.Settings.Status == Witcher3ModSettingsReadStatus.Missing)
 				sb.AppendLine(L("Witcher3.Order.Status.Default",
-					"No mods.settings exists: the game's default alphabetical discovery is not a saved NMM order. This version will not create the file."));
+					"No mods.settings exists. Select observed folders (or Add all), then Review and apply to create an explicit game order. Cancel leaves the file absent."));
 			if (editor.UnconfiguredCount > 0)
 				sb.AppendLine(L("Witcher3.Order.Status.Unconfigured",
-					"Only physically observed folders in a complete inventory can be explicitly added to an existing file. Other unconfigured folders remain untouched."));
+					"Observed unconfigured mod folders may be added to your draft. External folders remain external; DLC has no mod-folder order."));
 			if (_snapshot.Projection.Issues.Count > 0 || _snapshot.Projection.NativeIndex.Issues.Count > 0)
 			{
 				sb.AppendLine(String.Format(L("Witcher3.Order.Status.Issues",
@@ -607,9 +627,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (editor.CanRestoreGameDefaults)
 				sb.AppendLine(L("Witcher3.Order.Status.DefaultResetLimit",
 					"Restore default ordering removes explicit Priority/Enabled overrides from all mod folders after review. Section headers and third-party metadata remain; the file is not deleted."));
-			if (!editor.CanEdit && _snapshot.Lifecycle.Edition == Witcher3Edition.Legacy)
+			if (!editor.CanEdit && _snapshot.Lifecycle.Settings.Status != Witcher3ModSettingsReadStatus.Missing)
 				sb.AppendLine(L("Witcher3.Order.Status.NoEdit",
-					"Changes require an existing, unambiguous mods.settings with no pending publication."));
+					"Changes require an unambiguous mods.settings observation, matching game edition, and no pending publication."));
 			_status.Text = sb.ToString();
 			UpdateRemasteredHealth();
 			UpdateCommands();

@@ -47,8 +47,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 	/// W3R.5c: the active-game lifecycle boundary for the W3R.4 reader and W3R.5a/b
 	/// review/publisher. Startup and manual refresh only observe external game state.
 	/// Publication/acknowledgement explicitly acquire the existing physical-target lease,
-	/// reload and validate native authority, then refresh from disk. No startup auto-repair,
-	/// archive Sort integration or Remastered 5.x game-order writer is provided here.
+	/// reload and validate native authority, then refresh from disk. No startup auto-repair
+	/// or archive Sort integration is performed.
 	/// </summary>
 	public sealed class Witcher3ModSettingsLifecycleService
 	{
@@ -135,7 +135,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 				editionDiagnostic = "The current game edition could not be inspected: " + error.Message;
 			}
 			var settings = Witcher3ModSettingsFileReader.Read(_filePath);
-			var recovery = Witcher3ModSettingsPublisher.InspectRecovery(_documentsDirectory);
+			var recovery = Witcher3ModSettingsPublisher.InspectRecovery(_documentsDirectory, ExpectedEdition);
 			var fresh = new Witcher3ModSettingsLifecycleSnapshot(_modeId, edition,
 				editionDiagnostic, settings, recovery);
 			Volatile.Write(ref _current, fresh);
@@ -143,7 +143,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 		}
 
 		/// <summary>
-		/// Explicitly approved, Legacy-only publication. The preimage/edition and pending marker
+		/// Explicitly approved edition-scoped publication. The preimage/edition and pending marker
 		/// are rechecked by the W3R.5b publisher under freshly validated native authority.
 		/// </summary>
 		public Witcher3ModSettingsPublishResult Publish(Witcher3ModSettingsChangePreview preview,
@@ -160,9 +160,9 @@ namespace Nexus.Client.ModManagement.Witcher3
 			bool explicitlyApproved, string expectedPhysicalGameRoot)
 		{
 			if (preview == null) throw new ArgumentNullException(nameof(preview));
-			if (!IsLegacyMode || !explicitlyApproved)
+			if (!explicitlyApproved)
 				return new Witcher3ModSettingsPublishResult(Witcher3ModSettingsPublishStatus.Blocked,
-					"Only an explicitly approved Legacy Witcher 3 change can be published.", null);
+					"An explicitly approved Witcher 3 settings review is required.", null);
 			try
 			{
 				return WithValidatedAuthority((authority, lease) =>
@@ -173,7 +173,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 						return new Witcher3ModSettingsPublishResult(Witcher3ModSettingsPublishStatus.StaleReview,
 							"The selected physical Witcher 3 installation changed since the review.", null);
 					return _publish(preview, _documentsDirectory,
-						Witcher3Edition.Legacy, authority, lease, true);
+						ExpectedEdition, authority, lease, true);
 				});
 			}
 			finally { Refresh(); }
@@ -193,19 +193,21 @@ namespace Nexus.Client.ModManagement.Witcher3
 		/// </summary>
 		public Witcher3ModSettingsRecoveryInspection AcknowledgePendingPublication(bool explicitlyApproved)
 		{
-			if (!IsLegacyMode)
-				throw new InvalidOperationException("Only the Legacy game mode can acknowledge its publication marker.");
+			if (!SupportsMode(_modeId))
+				throw new InvalidOperationException("Witcher 3 publication recovery requires a supported mode.");
 			if (!explicitlyApproved)
 				return Refresh().Recovery;
 			try
 			{
 				return WithValidatedAuthority((authority, lease) =>
-					Witcher3ModSettingsPublisher.AcknowledgeRecovery(_documentsDirectory, authority, lease));
+					Witcher3ModSettingsPublisher.AcknowledgeRecovery(_documentsDirectory, ExpectedEdition, authority, lease));
 			}
 			finally { Refresh(); }
 		}
 
-		private bool IsLegacyMode => String.Equals(_modeId, "Witcher3", StringComparison.OrdinalIgnoreCase);
+		private Witcher3Edition ExpectedEdition =>
+			String.Equals(_modeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase)
+				? Witcher3Edition.Remastered : Witcher3Edition.Legacy;
 
 		private T WithValidatedAuthority<T>(Func<CollectionTargetAuthority, CollectionTargetMutationLease, T> work)
 		{

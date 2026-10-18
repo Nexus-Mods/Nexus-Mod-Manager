@@ -143,15 +143,16 @@
       "componentKind": "mod-folder",
       "componentPrefix": "mod",
       "priorityKey": "Priority",
-      "enabledKey": "Enabled"
+      "enabledKey": "Enabled",
+      "editing": "reviewed-sequential-ini-v1"
     }
   },
   "compatibilityNotes": [
-    "Native basic-package implementation is present; activation remains blocked pending runtime validation of installation, upgrade, removal and recovery.",
+    "Dedicated Remastered native basic-package management is enabled with physical-root, edition and ownership validation; Windows gameplay/runtime validation is still required.",
     "Requires 5.x executable-version evidence and no stale DX11 executable; DX12 alone never establishes Remastered.",
     "Uses the witcher3 Nexus catalog while keeping an independent NMM ModeId and native ownership namespace.",
     "Never shares native game storage or InstallLog with Witcher3. In-place upgrades require reviewed migration or an independent physical installation.",
-    "Witcher mod folders are not Bethesda plugins. Load-order reads are observational and writes are not enabled.",
+    "Witcher mod folders are not Bethesda plugins. Explicitly approved order and enablement changes publish to Documents/The Witcher 3/mods.settings.",
     "First-release scope excludes Collection installation, scripted packages, automatic cross-mod merging and migration of a Legacy-managed root."
   ]
 }

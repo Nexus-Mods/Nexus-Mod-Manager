@@ -37,7 +37,10 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			Controls.Add(root);
 
 			var heading = new LabelControl { Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.Vertical,
-				UseMnemonic = false, Margin = new Padding(0, 0, 0, 8), Text = String.Format(preview.Kind == Witcher3ModSettingsChangeKind.RestoreGameDefaults
+				UseMnemonic = false, Margin = new Padding(0, 0, 0, 8), Text = preview.ObservedStatus == Witcher3ModSettingsReadStatus.Missing
+					? String.Format(LanguageManager.Get("Witcher3.Order.Review.CreateSummary",
+						"Create Documents/The Witcher 3/mods.settings with {0} explicit enabled/order entries? No previous file exists or will be overwritten."), preview.Changes.Count)
+					: String.Format(preview.Kind == Witcher3ModSettingsChangeKind.RestoreGameDefaults
 					? LanguageManager.Get("Witcher3.Order.Review.DefaultSummary",
 						"Remove Priority/Enabled overrides for {0} game mod folders, including external/manual entries? All section headers, comments and foreign keys remain. mods.settings is NOT deleted; its original bytes are backed up and changes are reviewed before writing.")
 					: LanguageManager.Get("Witcher3.Order.Review.Summary",

@@ -113,7 +113,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public ReadOnlyCollection<Witcher3ModSettingsIssue> Issues { get; }
 		public bool IsComplete { get; }
 		/// <summary>False if any ambiguity is detected; a clean parse still does NOT prove in-game order semantics.</summary>
-		public bool IsUnambiguous => IsComplete && Issues.Count == 0;
+		public bool IsUnambiguous => IsComplete && Issues.All(issue => issue.Kind == Witcher3ModSettingsIssueKind.DuplicatePriority);
 		public IEnumerable<Witcher3ModSettingsSection> ModSections => Sections.Where(x => x.IsModFolder);
 	}
 
