@@ -218,6 +218,10 @@ namespace Nexus.Client.CollectionManagement.UI
 		private int _previewGeneration;
 		private bool _initialized;
 		private bool _workflowBusy;
+
+		/// <summary>Fail closed while an asynchronous Collections operation owns the UI.
+		/// Do not dispose its native services until the foreground work has actually returned.</summary>
+		internal bool HasActiveSessionWork => _workflowBusy || _workflowContext != null;
 		private bool _selectionDirty;
 		private bool _selectionCapabilityBlocked;
 		private bool _hasInterruptedReplacement;

@@ -68,7 +68,8 @@
 			_mainTabbedView.BeginUpdate();
 			_mainDocumentStartupUpdatePending = true;
 
-			CreateMonitorDockPanels();
+			if (_downloadMonitorControl != null && _modActivationMonitorControl != null)
+				CreateMonitorDockPanels();
 
 			barMainToolbarHost?.BringToFront();
 			barStatusHost?.BringToFront();
@@ -98,16 +99,20 @@
 			_modActivationMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
 			EnsureMonitorDockContent(_modActivationMonitorDockPanel, _modActivationMonitorControl);
 
-			_downloadMonitorControl.TextChanged += (sender, args) =>
-			{
-				if (_downloadMonitorDockPanel != null)
-					_downloadMonitorDockPanel.Text = _downloadMonitorControl.Text;
-			};
-			_modActivationMonitorControl.TextChanged += (sender, args) =>
-			{
-				if (_modActivationMonitorDockPanel != null)
-					_modActivationMonitorDockPanel.Text = _modActivationMonitorControl.Text;
-			};
+			_downloadMonitorControl.TextChanged += DownloadMonitor_TextChanged;
+			_modActivationMonitorControl.TextChanged += ModActivationMonitor_TextChanged;
+		}
+
+		private void DownloadMonitor_TextChanged(object sender, EventArgs args)
+		{
+			if (_downloadMonitorDockPanel != null && Object.ReferenceEquals(sender, _downloadMonitorControl))
+				_downloadMonitorDockPanel.Text = _downloadMonitorControl.Text;
+		}
+
+		private void ModActivationMonitor_TextChanged(object sender, EventArgs args)
+		{
+			if (_modActivationMonitorDockPanel != null && Object.ReferenceEquals(sender, _modActivationMonitorControl))
+				_modActivationMonitorDockPanel.Text = _modActivationMonitorControl.Text;
 		}
 
 		/// <summary>
@@ -182,6 +187,15 @@
 		/// </summary>
 		private void EnsureMainDocuments()
 		{
+			if (ViewModel == null)
+			{
+				EnsureMdiDocument(_emptyModsDocument, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
+				EnsureMdiDocument(_emptyCategoriesDocument, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
+				EnsureMdiDocument(_emptyCollectionsDocument, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
+				EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.Title", "Game Discovery"));
+				return;
+			}
+
 			// Form.Show() activates MDI children. Register every non-preferred page first so
 			// Mods is the last activation DevExpress can defer. Visual order is applied
 			// after the startup update has ended and the document group is available.
@@ -222,6 +236,7 @@
 			}
 
 			EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
+			EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.Title", "Game Discovery"));
 			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 		}
 
@@ -230,7 +245,9 @@
 		/// </summary>
 		private Control[] GetDefaultMainDocumentOrder()
 		{
-			return new Control[] { _pluginManagerControl, _witcher3LoadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
+			if (ViewModel == null)
+				return new Control[] { _gameDiscoveryDocument, _emptyModsDocument, _emptyCategoriesDocument, _emptyCollectionsDocument };
+			return new Control[] { _gameDiscoveryDocument, _pluginManagerControl, _witcher3LoadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
 				_fileManagerControl, _collectionsPreviewControl, _managedContentComponentsControl };
 		}
 
@@ -552,7 +569,7 @@
 		/// </summary>
 		private async void MainTabbedView_DocumentSelected(object sender, DocumentEventArgs e)
 		{
-			if (_mainDocumentStartupUpdatePending)
+			if (_mainDocumentStartupUpdatePending || ViewModel == null)
 				return;
 			SetBarItemVisible(toolStripTextBoxFind, false);
 			toolStripTextBoxFind.Enabled = false;
@@ -600,7 +617,8 @@
 				return;
 
 			CompleteMainDocumentStartup(_mainTabbedView, GetDefaultMainDocumentOrder(),
-				GetLayoutSetting(DevExpressDocumentOrderSettingsKey), (Control)_modManagerControl);
+				ViewModel == null ? null : GetLayoutSetting(DevExpressDocumentOrderSettingsKey),
+				ViewModel == null ? (Control)_gameDiscoveryDocument : (Control)_modManagerControl);
 			_mainDocumentStartupUpdatePending = false;
 		}
 

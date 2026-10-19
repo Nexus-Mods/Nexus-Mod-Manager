@@ -17,6 +17,10 @@ namespace Nexus.Client.GameStorage.UI
     {
         private readonly LabelControl _titleLabel;
         private readonly MemoEdit _descriptionEdit;
+        private readonly GroupControl _candidateGroup;
+        private readonly LabelControl _candidateStatusLabel;
+        private readonly SimpleButton _refreshButton;
+        private readonly SimpleButton _applyButton;
         private readonly GridControl _healthGridControl;
         private readonly GridView _healthGridView;
         private readonly GridControl _candidateGridControl;
@@ -32,13 +36,15 @@ namespace Nexus.Client.GameStorage.UI
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
-        private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
+        private int _draftGeneration;
+        private readonly List<SimpleButton> _manualPathButtons = new List<SimpleButton>();
 
         public event EventHandler RefreshRequested;
         public event EventHandler ApplyRequested;
         public event EventHandler CandidatePreviewRequested;
         public event EventHandler ManualVirtualInstallPathChanged;
         public event EventHandler ManualPathsChanged;
+        public event EventHandler DraftChanged;
         public event EventHandler CancelRequested;
         public event EventHandler LegacySetupRequested;
 
@@ -62,24 +68,31 @@ namespace Nexus.Client.GameStorage.UI
             _descriptionEdit = new MemoEdit
             {
                 Dock = DockStyle.Top,
-                Height = 150,
+                Height = 82,
                 ReadOnly = true,
                 Text = LanguageManager.Get("GameStorage.Recovery.ControlDescription", "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.")
             };
             _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 
-            var manualPanel = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.SelectedFolders", "Selected folders"), Dock = DockStyle.Top, Height = 138 };
-            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.InstallInfo", "Install info"), 30);
-            _manualModsEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.ModArchives", "Mod archives"), 56);
-            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.VirtualInstall", "Virtual install"), 82);
-            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.LinkFolder", "Link folder"), 108);
+            // Role paths must stretch with the dialog and Windows DPI scaling. Only the
+            // label, editor, and browse action are visible; each remains a DevExpress control.
+            var manualPanel = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.SelectedFolders", "Selected folders"), Dock = DockStyle.Top, Height = 166 };
+            var rolePaths = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 4, Padding = new Padding(8, 4, 8, 4) };
+            rolePaths.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 116));
+            rolePaths.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            rolePaths.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
+            for (int index = 0; index < 4; index++)
+                rolePaths.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+            manualPanel.Controls.Add(rolePaths);
+            _manualInstallInfoEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.InstallInfo", "Install info"), 0);
+            _manualModsEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.ModArchives", "Mod archives"), 1);
+            _manualVirtualInstallEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.VirtualInstall", "Virtual install"), 2);
+            _manualLinkFolderEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.LinkFolder", "Link folder"), 3);
             _manualInstallInfoEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualModsEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualVirtualInstallEdit.EditValueChanged += ManualVirtualInstallEditValueChanged;
             _manualLinkFolderEdit.EditValueChanged += ManualPathEditValueChanged;
-            _manualLinkFolderButton = _manualPathRows.Last().Item2;
-            manualPanel.Resize += (sender, args) => LayoutManualPathRows(manualPanel);
-            LayoutManualPathRows(manualPanel);
+            _manualLinkFolderButton = _manualPathButtons.Last();
 
             var splitContainer = new SplitContainerControl
             {
@@ -106,31 +119,33 @@ namespace Nexus.Client.GameStorage.UI
 
             var healthGroup = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.SelectedFoldersCheck", "Selected folders check"), Dock = DockStyle.Fill };
             healthGroup.Controls.Add(_healthGridControl);
-            var candidateGroup = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.DetectedSetupOptions", "Detected setup options"), Dock = DockStyle.Fill };
-            candidateGroup.Controls.Add(_candidateGridControl);
+            _candidateGroup = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.DetectedSetupOptions", "Detected setup options"), Dock = DockStyle.Fill };
+            _candidateStatusLabel = new LabelControl { Dock = DockStyle.Top, Height = 23, Padding = new Padding(5, 2, 0, 0), AutoSizeMode = LabelAutoSizeMode.None };
+            _candidateGroup.Controls.Add(_candidateGridControl);
+            _candidateGroup.Controls.Add(_candidateStatusLabel);
             splitContainer.Panel1.Controls.Add(healthGroup);
-            splitContainer.Panel2.Controls.Add(candidateGroup);
+            splitContainer.Panel2.Controls.Add(_candidateGroup);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            var refreshButton = new SimpleButton { Text = LanguageManager.Get("Common.Action.Refresh", "Refresh"), Width = 90, Top = 8 };
-            var applyButton = new SimpleButton { Text = LanguageManager.Get("GameStorage.Common.ApplySelected", "Apply selected"), Width = 118, Top = 8 };
+            _refreshButton = new SimpleButton { Text = LanguageManager.Get("Common.Action.Refresh", "Refresh"), Width = 90, Top = 8 };
+            _applyButton = new SimpleButton { Text = LanguageManager.Get("GameStorage.Common.ApplySelected", "Apply selected"), Width = 142, Top = 8 };
             _legacySetupButton = new SimpleButton { Text = LanguageManager.Get("GameStorage.Common.KeepLegacySetup", "Keep legacy setup"), Width = 128, Top = 8, Visible = false };
             var cancelButton = new SimpleButton { Text = LanguageManager.Get("Common.Action.Cancel", "Cancel"), Width = 90, Top = 8 };
-            NmmIconProvider.Bind(refreshButton, NmmIconAction.Refresh);
-            NmmIconProvider.Bind(applyButton, NmmIconAction.Apply);
+            NmmIconProvider.Bind(_refreshButton, NmmIconAction.Refresh);
+            NmmIconProvider.Bind(_applyButton, NmmIconAction.Apply);
             NmmIconProvider.Bind(_legacySetupButton, NmmIconAction.Restore);
             NmmIconProvider.Bind(cancelButton, NmmIconAction.Cancel);
-            refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
-            applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
+            _refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
+            _applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
             _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
             cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
-            buttonPanel.Controls.Add(refreshButton);
-            buttonPanel.Controls.Add(applyButton);
+            buttonPanel.Controls.Add(_refreshButton);
+            buttonPanel.Controls.Add(_applyButton);
             buttonPanel.Controls.Add(_legacySetupButton);
             buttonPanel.Controls.Add(cancelButton);
-            buttonPanel.Resize += (sender, args) => LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
-            _legacySetupButton.VisibleChanged += (sender, args) => LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
-            LayoutButtons(buttonPanel, refreshButton, _legacySetupButton, cancelButton, applyButton);
+            buttonPanel.Resize += (sender, args) => LayoutButtons(buttonPanel, _refreshButton, _legacySetupButton, cancelButton, _applyButton);
+            _legacySetupButton.VisibleChanged += (sender, args) => LayoutButtons(buttonPanel, _refreshButton, _legacySetupButton, cancelButton, _applyButton);
+            LayoutButtons(buttonPanel, _refreshButton, _legacySetupButton, cancelButton, _applyButton);
 
             Controls.Add(splitContainer);
             Controls.Add(buttonPanel);
@@ -142,6 +157,12 @@ namespace Nexus.Client.GameStorage.UI
         public GameStorageCandidate SelectedCandidate => _manualPathsEdited ? null : _candidateGridView.GetFocusedRow() as GameStorageCandidate;
 
         public string ManualVirtualInstallPath => _manualVirtualInstallEdit.Text;
+        public int DraftGeneration => _draftGeneration;
+
+        public void SetApplyCaption(string caption)
+        {
+            _applyButton.Text = caption;
+        }
 
         public void PreviewCandidate(GameStorageCandidate candidate)
         {
@@ -181,6 +202,7 @@ namespace Nexus.Client.GameStorage.UI
         private void SetManualPathValues(string installInfoPath, string modsPath, string virtualInstallPath, string linkFolderPath)
         {
             _manualValidationTimer.Stop();
+            _draftGeneration++;
             _suppressManualPathChanged = true;
             try
             {
@@ -212,6 +234,8 @@ namespace Nexus.Client.GameStorage.UI
                 return;
 
             _manualPathsEdited = true;
+            _draftGeneration++;
+            DraftChanged?.Invoke(this, EventArgs.Empty);
             _candidateGridView.ClearSelection();
             _candidateGridView.FocusedRowHandle = GridControl.InvalidRowHandle;
 
@@ -277,6 +301,17 @@ namespace Nexus.Client.GameStorage.UI
             }
         }
 
+        /// <summary>Reports discovery/validation progress without blocking Cancel.</summary>
+        public void SetReadOnlyChecksBusy(bool refreshing, bool validating, string description)
+        {
+            _refreshButton.Enabled = !refreshing && !validating;
+            // Initial save must not race a registry scan or newer draft validation.
+            // Cancel remains usable throughout these read-only operations.
+            _applyButton.Enabled = !refreshing && !validating;
+            _candidateStatusLabel.Text = description ?? string.Empty;
+            _candidateStatusLabel.ToolTip = _candidateStatusLabel.Text;
+        }
+
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
         {
             _healthGridControl.DataSource = rows?.ToList() ?? new List<GameStorageSetupRow>();
@@ -286,6 +321,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             _candidateGridControl.DataSource = candidates?.ToList() ?? new List<GameStorageCandidate>();
             _candidateGridView.RefreshData();
+            ClearCandidateSelection();
         }
 
         /// <summary>
@@ -353,36 +389,18 @@ namespace Nexus.Client.GameStorage.UI
             applyButton.Top = top;
         }
 
-        private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
+        private TextEdit CreateManualPathEdit(TableLayoutPanel parent, string caption, int row)
         {
-            var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
-            var edit = new TextEdit { Left = 96, Top = top, Width = 724 };
-            var button = new SimpleButton { Text = "...", Left = 828, Top = top - 1, Width = 28, Height = 22 };
+            var label = new LabelControl { Text = caption, Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.None };
+            var edit = new TextEdit { Dock = DockStyle.Fill, Margin = new Padding(2, 4, 3, 4) };
+            var button = new SimpleButton { Text = "...", Dock = DockStyle.Fill, Margin = new Padding(0, 3, 0, 3) };
             NmmIconProvider.Bind(button, NmmIconAction.Browse);
             button.Click += (sender, args) => BrowseForFolder(edit, caption);
-            parent.Controls.Add(label);
-            parent.Controls.Add(edit);
-            parent.Controls.Add(button);
-            _manualPathRows.Add(Tuple.Create(edit, button));
+            parent.Controls.Add(label, 0, row);
+            parent.Controls.Add(edit, 1, row);
+            parent.Controls.Add(button, 2, row);
+            _manualPathButtons.Add(button);
             return edit;
-        }
-
-        private void LayoutManualPathRows(Control parent)
-        {
-            const int editLeft = 96;
-            const int buttonWidth = 28;
-            const int rightPadding = 10;
-            const int gap = 6;
-
-            int buttonLeft = Math.Max(editLeft + 80, parent.ClientSize.Width - rightPadding - buttonWidth);
-            int editWidth = Math.Max(80, buttonLeft - gap - editLeft);
-
-            foreach (var row in _manualPathRows)
-            {
-                row.Item1.Left = editLeft;
-                row.Item1.Width = editWidth;
-                row.Item2.Left = buttonLeft;
-            }
         }
 
         private void BrowseForFolder(TextEdit edit, string caption)

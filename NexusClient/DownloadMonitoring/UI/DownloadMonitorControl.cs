@@ -232,7 +232,15 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			_rows.Add(new DownloadTaskRow(task));
 		}
 
-		/// <summary>Detaches download notifications when the monitor is destroyed during shutdown or a game-mode switch.</summary>
+		/// <summary>Persist current columns and release the owner-form hook before detaching game services.</summary>
+		internal void DetachFromSessionHost(Form owner)
+		{
+			if (!_formClosingHooked) return;
+			DownloadMonitorControl_FormClosing(this, new FormClosingEventArgs(CloseReason.None, false));
+			owner.FormClosing -= DownloadMonitorControl_FormClosing;
+			_formClosingHooked = false;
+		}
+
 		private void DownloadMonitorControl_Disposed(object sender, EventArgs e)
 		{
 			if (ViewModel != null)

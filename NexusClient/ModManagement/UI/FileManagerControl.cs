@@ -404,6 +404,9 @@
             }
         }
 
+        internal bool HasActiveSessionWork => _fileManagerVM != null &&
+            (_fileManagerVM.IsScanning || _fileManagerVM.IsRemovingUntracked || _fileManagerVM.IsResolvingLinkTypes);
+
         internal Task EnsureInitialLoadAsync()
         {
             QueueFileManagerSplitterRestore();

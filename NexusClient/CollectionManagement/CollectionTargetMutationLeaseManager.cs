@@ -42,6 +42,27 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
+		/// Nonblocking process-wide barrier used solely while detaching the old game.
+		/// It never takes a target lock and must be released BEFORE initializing the next game.
+		/// Active native work (including manual operations) prevents session teardown.
+		/// </summary>
+		internal bool TryAcquireIdleSessionTransition(out CollectionTargetMutationLease lease)
+		{
+			lease = null;
+			if (!_processGate.Wait(0)) return false;
+			try
+			{
+				lease = CreateRootLease("nmm-session-transition", null);
+				return true;
+			}
+			catch
+			{
+				_processGate.Release();
+				throw;
+			}
+		}
+
+		/// <summary>
 		/// Acquires the process reservation and named cross-process reservation for the specified canonical target.
 		/// </summary>
 		/// <param name="authority">The live canonical target authority established by C4.13.</param>

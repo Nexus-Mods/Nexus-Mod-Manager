@@ -688,6 +688,12 @@
 		/// Initializes the main form view model with the read-only incoming Collection NXM dispatcher.
 		/// </summary>
 		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, ModActivationMonitor p_mamMonitor, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, NexusCollectionNxmDispatcher p_collectionNxmDispatcher)
+			: this(p_eifEnvironmentInfo, p_gmrInstalledGames, p_gmdGameMode, p_mrpModRepository, p_dmtMonitor, p_mamMonitor, p_mmgModManager, p_pmgPluginManager, p_collectionNxmDispatcher, null)
+		{
+		}
+
+		internal MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, ModActivationMonitor p_mamMonitor, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, NexusCollectionNxmDispatcher p_collectionNxmDispatcher,
+			ModManagerVM.PreparedModCategories preparedCategories)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
@@ -700,7 +706,7 @@
 			CollectionNxmDispatcher = p_collectionNxmDispatcher;
 			UpdateManager = new UpdateManager(GameMode, EnvironmentInfo);
 			BackupManager = new BackupManager(ModManager, ProfileManager);
-			ModManagerVM = new ModManagerVM(p_mmgModManager, ProfileManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);
+			ModManagerVM = new ModManagerVM(p_mmgModManager, ProfileManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme, preparedCategories);
 			DownloadMonitorVM = new DownloadMonitorVM(p_dmtMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager, p_mrpModRepository);
 			ModActivationMonitor = p_mamMonitor;
 			ModActivationMonitorVM = new ModActivationMonitorVM(p_mamMonitor, p_eifEnvironmentInfo.Settings, p_mmgModManager);

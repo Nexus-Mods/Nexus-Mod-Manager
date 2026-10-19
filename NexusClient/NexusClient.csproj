@@ -595,12 +595,18 @@
     <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordStore.cs" />
     <Compile Include="ModManagement\ManagedContent\StructuredGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
-    <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs" />
-    <Compile Include="ModManagement\ManagedContent\UI\IniOrderReviewDialog.cs" />
+    <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\ManagedContent\UI\IniOrderReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderObservation.cs" />
     <Compile Include="ModManagement\ManagedContent\IniOrderByteCodec.cs" />
     <Compile Include="ModManagement\ManagedContent\IniOrderTextEdits.cs" />
-    <Compile Include="ModManagement\ManagedContent\UI\ManagedContentComponentsControl.cs" />
+    <Compile Include="ModManagement\ManagedContent\UI\ManagedContentComponentsControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\Witcher3\Witcher3NativeDestinationPreflight.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeWritePolicy.cs" />
@@ -1342,6 +1348,26 @@
       <DependentUpon>GameModeSearchListViewItem.cs</DependentUpon>
     </Compile>
     <Compile Include="Games\FileSearcher.cs" />
+    <Compile Include="Games\GameDiscoveryCatalog.cs" />
+    <Compile Include="Games\GameDiscoveryStartupIntent.cs" />
+    <Compile Include="Games\GameDiscoveryConfigurationService.cs" />
+    <Compile Include="Games\GameSessionEntryGate.cs" />
+    <Compile Include="Games\UI\GameDiscoveryGameRequestedEventArgs.cs" />
+    <Compile Include="Games\GameDiscoveryRecursiveScanner.cs" />
+    <Compile Include="Games\QuickGameDiscovery.cs" />
+    <Compile Include="Games\UI\GameDiscoveryDocument.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Games\UI\GameRequiredDocument.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.GameDiscovery.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainForm.Session.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FirstGameSessionController.cs" />
     <Compile Include="Games\GameDiscoverer.cs" />
     <Compile Include="Games\GameInstallationCandidatePath.cs" />
     <Compile Include="Games\IGameInstallationCandidateValidator.cs" />
@@ -1461,6 +1487,7 @@
     <Compile Include="GameStorage\GameStorageHealth.cs" />
     <Compile Include="GameStorage\GameStorageModels.cs" />
     <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\GameStorageInitialPaths.cs" />
     <Compile Include="GameStorage\Witcher3StorageMutationReservation.cs" />
     <Compile Include="GameStorage\GameStorageRecoveryService.cs" />
     <Compile Include="GameStorage\UI\GameStorageRecoveryForm.cs">

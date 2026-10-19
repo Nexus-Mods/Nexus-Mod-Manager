@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Linq;
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
@@ -15,15 +18,22 @@ namespace Nexus.Client.GameStorage.UI
     {
         private readonly GameStorageService _service;
         private readonly GameStoragePathSet _currentPaths;
-        private readonly GameStorageHealthCheck _currentHealthCheck;
         private readonly GameStorageSetupControl _control;
         private List<GameStorageCandidate> _candidates = new List<GameStorageCandidate>();
+        private readonly SemaphoreSlim _readGate = new SemaphoreSlim(1, 1);
+        private readonly CancellationTokenSource _closingCancellation = new CancellationTokenSource();
+        private CancellationTokenSource _draftCancellation;
+        private bool _refreshBusy;
+        private bool _validationBusy;
+        private bool _initialRefreshStarted;
+        private bool _closing;
+        private int _refreshGeneration;
+        private string _candidateMessage = string.Empty;
 
-        public GameStorageSetupForm(GameStorageService service, GameStoragePathSet currentPaths, GameStorageHealthCheck healthCheck)
+        public GameStorageSetupForm(GameStorageService service, GameStoragePathSet currentPaths, GameStorageHealthCheck healthCheck, bool allowLegacySetup = true)
         {
             _service = service;
             _currentPaths = currentPaths;
-            _currentHealthCheck = healthCheck;
             Text = LanguageManager.Format("GameStorage.Setup.Title", "Game Storage setup - {0}", currentPaths.GameName);
             Width = 1120;
             Height = 680;
@@ -33,14 +43,15 @@ namespace Nexus.Client.GameStorage.UI
 
             _control = new GameStorageSetupControl();
             _control.ConfigureText(LanguageManager.Format("GameStorage.Setup.Title", "Game Storage setup - {0}", currentPaths.GameName),
-                LanguageManager.Get("GameStorage.Setup.Description", "Choose where NMM should store this game's mod data. If NMM found an existing setup, use the recommended folders to preserve your current mods, install records, and mod archives. NMM will only create missing folders inside the paths selected below." + Environment.NewLine + Environment.NewLine +
-                "Selected folders are the directories NMM will use for this game. You can edit them manually or choose one of the detected setups below." + Environment.NewLine + Environment.NewLine +
-                "Selected folders check parses the selected folders for existing mod data, missing folders, invalid paths, and setup problems before applying the configuration." + Environment.NewLine + Environment.NewLine +
-                "Detected setup options are the possible folder setups on your system. Compatible shared Mods libraries are listed separately and never replace this game's InstallInfo, VirtualInstall, overwrite state, or Link Folder."), true);
+                LanguageManager.Get("GameStorage.Setup.ShortDescription",
+                    "Choose folders for this game's install records, mod archives and virtual installation. Keep existing paths to reuse your data, or select Use on a detected setup to preview it. NMM won't move or delete existing files."), allowLegacySetup);
+            _control.SetApplyCaption(LanguageManager.Get("GameStorage.Setup.SaveConfiguration", "Save configuration"));
             _control.SetManualPaths(currentPaths);
+            _control.ClearCandidateSelection();
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ManualPathsChanged += ManualPathsChanged;
+            _control.DraftChanged += DraftChanged;
             _control.ApplyRequested += ApplyRequested;
             _control.CandidatePreviewRequested += CandidatePreviewRequested;
             _control.LegacySetupRequested += LegacySetupRequested;
@@ -48,7 +59,8 @@ namespace Nexus.Client.GameStorage.UI
             Controls.Add(_control);
 
             SetHealth(healthCheck);
-            RefreshCandidates();
+            _candidateMessage = LanguageManager.Get("GameStorage.Setup.LookingForCandidates", "Existing setups will be checked after this window opens.");
+            UpdateBusyState();
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -60,9 +72,20 @@ namespace Nexus.Client.GameStorage.UI
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public bool WasCancelled { get; private set; }
 
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            if (_initialRefreshStarted)
+                return;
+            _initialRefreshStarted = true;
+            // File-system discovery can be slow on large or disconnected storage drives.
+            // Do not run it in the constructor before the dialog can paint.
+            _ = RefreshCandidatesAsync();
+        }
+
         private void RefreshRequested(object sender, EventArgs e)
         {
-            RefreshCandidates();
+            _ = RefreshCandidatesAsync();
         }
 
         private void CancelRequested(object sender, EventArgs e)
@@ -75,8 +98,20 @@ namespace Nexus.Client.GameStorage.UI
         {
             if (DialogResult != DialogResult.OK)
                 WasCancelled = true;
-
+            _closing = true;
+            _closingCancellation.Cancel();
+            _draftCancellation?.Cancel();
             base.OnFormClosing(e);
+        }
+
+        private void DraftChanged(object sender, EventArgs e)
+        {
+            // Discard pending validation as soon as the user types, not 400 ms later.
+            CancellationTokenSource previousValidation = _draftCancellation;
+            _draftCancellation = null;
+            previousValidation?.Cancel();
+            _validationBusy = true;
+            UpdateBusyState();
         }
 
         private void ManualVirtualInstallPathChanged(object sender, EventArgs e)
@@ -88,7 +123,12 @@ namespace Nexus.Client.GameStorage.UI
         {
             var candidate = _control.ManualCandidate;
             if (candidate == null)
+            {
+                _draftCancellation?.Cancel();
+                _validationBusy = false;
+                UpdateBusyState();
                 return;
+            }
 
             candidate.GameId = _currentPaths.GameId;
             candidate.LinkFolderRequired = candidate.LinkFolderRequired ||
@@ -96,7 +136,7 @@ namespace Nexus.Client.GameStorage.UI
 
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetLinkFolderRequired(paths.LinkFolderRequired);
-            SetHealth(_service.ValidateStorage(paths));
+            _ = ValidateDraftAsync(paths, _control.DraftGeneration);
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)
@@ -107,11 +147,15 @@ namespace Nexus.Client.GameStorage.UI
 
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths));
+            _ = ValidateDraftAsync(paths, _control.DraftGeneration);
         }
 
         private void ApplyRequested(object sender, EventArgs e)
         {
+            // Guard keyboard/programmatic activation as well as the disabled button.
+            if (_closing || _refreshBusy || _validationBusy)
+                return;
+
             var selectedCandidate = _control.SelectedCandidate;
             var manualCandidate = selectedCandidate == null ? _control.ManualCandidate : null;
             var candidate = selectedCandidate ?? manualCandidate;
@@ -149,34 +193,142 @@ namespace Nexus.Client.GameStorage.UI
             DialogResult = DialogResult.OK;
         }
 
-        private void RefreshCandidates()
+        private async Task RefreshCandidatesAsync()
         {
-            _candidates = _service.DiscoverRecoveryCandidates(_currentPaths);
-            _control.SetCandidates(_candidates);
-            PreviewBestCandidateIfCurrentIsNotUsable();
+            if (_closing || _refreshBusy)
+                return;
+
+            _refreshBusy = true;
+            int refreshGeneration = ++_refreshGeneration;
+            GameStoragePathSet originalPaths = CopyPaths(_currentPaths);
+            UpdateBusyState();
+
+            try
+            {
+                // Serialize reads using the existing service. It reads the same registry and
+                // manifests as validation; never inspect a mutable editor/control on a worker.
+                var result = await Task.Run(async () =>
+                {
+                    await _readGate.WaitAsync(_closingCancellation.Token).ConfigureAwait(false);
+                    try
+                    {
+                        _closingCancellation.Token.ThrowIfCancellationRequested();
+                        List<GameStorageCandidate> candidates = _service.DiscoverRecoveryCandidates(originalPaths);
+                        GameStorageCandidate best = _service.GetBestRecoveryCandidate(originalPaths,
+                            candidates.Where(x => x != null && !string.Equals(x.CandidateKind, "Proposed setup", StringComparison.OrdinalIgnoreCase)));
+                        return Tuple.Create(candidates, best);
+                    }
+                    finally { _readGate.Release(); }
+                }, _closingCancellation.Token);
+
+                if (_closing || IsDisposed || refreshGeneration != _refreshGeneration)
+                    return;
+                // Restore the user's *current* explicit choice, not the choice that
+                // happened to be active when the search started.
+                GameStorageCandidate currentSelection = _control.SelectedCandidate;
+                _candidates = result.Item1;
+                _control.SetCandidates(_candidates);
+                if (currentSelection != null)
+                    _control.SelectCandidate(currentSelection);
+
+                // Suggest using the recovery service's health/usability policy, not
+                // confidence alone. Never silently replace existing or edited folders.
+                _candidateMessage = result.Item2 == null
+                    ? LanguageManager.Get("GameStorage.Setup.NoRecommendation", "Review the selected folders or choose a detected setup.")
+                    : LanguageManager.Format("GameStorage.Setup.RecommendedOption", "Suggested setup: {0}. Select its Use action to preview it.", result.Item2.CandidateKindDisplay);
+            }
+            catch (OperationCanceledException) when (_closingCancellation.IsCancellationRequested) { }
+            catch (Exception ex) when (!(ex is OutOfMemoryException))
+            {
+                Trace.TraceWarning("Game Storage candidate discovery failed: {0}", ex);
+                if (!_closing && !IsDisposed)
+                    _candidateMessage = LanguageManager.Get("GameStorage.Setup.SearchFailed", "Could not search existing storage setups. Enter folders manually or refresh.");
+            }
+            finally
+            {
+                if (!_closing && !IsDisposed)
+                {
+                    _refreshBusy = false;
+                    UpdateBusyState();
+                }
+            }
         }
 
-        private void PreviewBestCandidateIfCurrentIsNotUsable()
+        private async Task ValidateDraftAsync(GameStoragePathSet snapshot, int generation)
         {
-            if (_currentHealthCheck != null && _currentHealthCheck.IsHealthy)
-                return;
+            _draftCancellation?.Cancel();
+            var request = CancellationTokenSource.CreateLinkedTokenSource(_closingCancellation.Token);
+            _draftCancellation = request;
+            _validationBusy = true;
+            UpdateBusyState();
+            try
+            {
+                GameStorageHealthCheck health = await Task.Run(async () =>
+                {
+                    await _readGate.WaitAsync(request.Token).ConfigureAwait(false);
+                    try
+                    {
+                        request.Token.ThrowIfCancellationRequested();
+                        return _service.ValidateStorage(snapshot);
+                    }
+                    finally { _readGate.Release(); }
+                }, request.Token);
 
-            GameStorageCandidate currentCandidate = _candidates.FirstOrDefault(x => string.Equals(x.CandidateKind, "Proposed setup", StringComparison.OrdinalIgnoreCase));
-            GameStorageCandidate bestCandidate = _candidates
-                .Where(x => x != null && !string.Equals(x.CandidateKind, "Proposed setup", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(x => x.ConfidenceScore)
-                .ThenBy(x => x.CandidateKind)
-                .FirstOrDefault();
+                if (!_closing && !IsDisposed && !request.IsCancellationRequested &&
+                    ReferenceEquals(_draftCancellation, request) && generation == _control.DraftGeneration)
+                    SetHealth(health);
+            }
+            catch (OperationCanceledException) when (request.IsCancellationRequested) { }
+            catch (Exception ex) when (!(ex is OutOfMemoryException))
+            {
+                Trace.TraceWarning("Game Storage draft validation failed: {0}", ex);
+                if (!_closing && !IsDisposed && ReferenceEquals(_draftCancellation, request) &&
+                    generation == _control.DraftGeneration)
+                    _control.SetRows(new[] { new GameStorageSetupRow
+                    {
+                        Status = LanguageManager.Get("GameStorage.Setup.ValidationFailed", "Validation unavailable"),
+                        Message = ex.Message
+                    } });
+            }
+            finally
+            {
+                if (ReferenceEquals(_draftCancellation, request))
+                {
+                    _draftCancellation = null;
+                    _validationBusy = false;
+                    if (!_closing && !IsDisposed)
+                        UpdateBusyState();
+                }
+                request.Dispose();
+            }
+        }
 
-            if (bestCandidate == null)
+        private void UpdateBusyState()
+        {
+            if (_closing || IsDisposed)
                 return;
-            if (currentCandidate != null && currentCandidate.ConfidenceScore >= bestCandidate.ConfidenceScore)
-                return;
+            string message = _refreshBusy
+                ? LanguageManager.Get("GameStorage.Setup.Searching", "Checking existing storage setups...")
+                : _validationBusy
+                    ? LanguageManager.Get("GameStorage.Setup.Validating", "Checking selected folders...")
+                    : _candidateMessage;
+            _control.SetReadOnlyChecksBusy(_refreshBusy, _validationBusy, message);
+        }
 
-            _control.SelectCandidate(bestCandidate);
-            GameStoragePathSet paths = CreatePathSetFromCandidate(bestCandidate);
-            _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths));
+        private static GameStoragePathSet CopyPaths(GameStoragePathSet source)
+        {
+            return new GameStoragePathSet
+            {
+                GameId = source.GameId, GameName = source.GameName,
+                GameInstallPath = source.GameInstallPath,
+                InstallInfoPath = source.InstallInfoPath,
+                ModsPath = source.ModsPath,
+                VirtualInstallPath = source.VirtualInstallPath,
+                LinkFolderPath = source.LinkFolderPath,
+                LinkFolderRequired = source.LinkFolderRequired,
+                CompatibleSharedModsGameIds = source.CompatibleSharedModsGameIds == null
+                    ? new List<string>() : new List<string>(source.CompatibleSharedModsGameIds)
+            };
         }
 
         private void SetHealth(GameStorageHealthCheck healthCheck)

@@ -320,6 +320,9 @@
     <Compile Include="ScriptedPluginActivationStateTests.cs" />
     <Compile Include="ScriptedPluginReconciliationIntegrationTests.cs" />
     <Compile Include="ScriptedInstallerTestDoubles.cs" />
+    <Compile Include="GameDiscoveryRecursiveScannerTests.cs" />
+    <Compile Include="GameDiscoveryCatalogTests.cs" />
+    <Compile Include="GameDiscoveryStartupIntentTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />

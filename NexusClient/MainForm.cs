@@ -57,16 +57,18 @@
 	public partial class MainForm : ManagedFontXtraForm
 	{
 		private MainFormVM _viewModel;
+		private bool _persistentSessionShell;
+		private readonly EnvironmentInfo _shellEnvironmentInfo;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
-		private readonly IModManagerView _modManagerControl;
-		private readonly PluginManagerDXControl _pluginManagerControl;
-		private readonly DownloadMonitorControl _downloadMonitorControl;
-		private readonly ModActivationMonitorControl _modActivationMonitorControl;
-		private readonly CategoryManagerControl _categoryManagerControl;
-		private readonly FileManagerControl _fileManagerControl;
-		private readonly CollectionsPreviewControl _collectionsPreviewControl;
-		private readonly Witcher3LoadOrderControl _witcher3LoadOrderControl;
-		private readonly ManagedContentComponentsControl _managedContentComponentsControl;
+		private IModManagerView _modManagerControl;
+		private PluginManagerDXControl _pluginManagerControl;
+		private DownloadMonitorControl _downloadMonitorControl;
+		private ModActivationMonitorControl _modActivationMonitorControl;
+		private CategoryManagerControl _categoryManagerControl;
+		private FileManagerControl _fileManagerControl;
+		private CollectionsPreviewControl _collectionsPreviewControl;
+		private Witcher3LoadOrderControl _witcher3LoadOrderControl;
+		private ManagedContentComponentsControl _managedContentComponentsControl;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
@@ -265,17 +267,23 @@
 		/// A simple constructor that initializes the view with its dependencies.
 		/// </summary>
 		/// <param name="viewModel">The view model that provides the data and operations for this view.</param>
-		public MainForm(MainFormVM viewModel)
+		public MainForm(MainFormVM viewModel, GameModeRegistry supportedGames = null)
 		{
+			if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+			// The process bootstrap supplies the concrete environment; the VM exposes only IEnvironmentInfo.
+			_shellEnvironmentInfo = viewModel.EnvironmentInfo as EnvironmentInfo
+				?? throw new ArgumentException("The main window requires the application EnvironmentInfo.", nameof(viewModel));
+			_gameDiscoveryRegistry = supportedGames;
 
 			// Restore the global skin before any DevExpress controls are created.
-			InitializeDevExpressLookAndFeel(viewModel);
+			InitializeDevExpressLookAndFeel(_shellEnvironmentInfo);
+			InitializeGameDiscoveryDocument();
 			InitializeMainLocalizationCache();
 
 			InitializeComponent();
 			InitializeMainBars();
 			InitializeDevExpressSkinSelector();
-			InitializeDevExpressDisplaySelector(viewModel);
+			InitializeDevExpressDisplaySelector(_shellEnvironmentInfo);
 			BuildMainToolbarLinks();
 
 			FormClosing += CheckDownloadsOnClosing;
@@ -288,40 +296,9 @@
 			_activePluginsProfileSaveTimer.Interval = 250;
 			_activePluginsProfileSaveTimer.Tick += ActivePluginsProfileSaveTimer_Tick;
 
-			_pluginManagerControl = new PluginManagerDXControl();
-			_modManagerControl = new ModManagerDXControl();
-			_downloadMonitorControl = new DownloadMonitorControl();
-			_modActivationMonitorControl = new ModActivationMonitorControl();
-			_categoryManagerControl = new CategoryManagerControl();
-			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
-			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
-			_fileManagerControl = new FileManagerControl();
-			_collectionsPreviewControl = new CollectionsPreviewControl();
-			_witcher3LoadOrderControl = new Witcher3LoadOrderControl();
-			_managedContentComponentsControl = new ManagedContentComponentsControl();
-			Disposed += (sender, args) => _managedContentComponentsControl.Dispose();
-			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
-			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
-			_collectionsPreviewControl.ManagedAssociationsChanged += CollectionsPreviewControl_ManagedAssociationsChanged;
-			InitializeMainDockingInfrastructure();
-			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
-			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
-			_modManagerControl.UpdateModsCount += MmgModManagerControlUpdateModsCount;
-			_modManagerControl.UninstallModFromProfiles += ModManagerControlUninstallModFromProfiles;
-			_modManagerControl.UninstalledAllMods += MmgModManagerControlUninstalledAllMods;
-			_downloadMonitorControl.SetTextBoxFocus += DmcDownloadMonitorControlSetTextBoxFocus;
-			_pluginManagerControl.UpdatePluginsCount += PmcPluginManagerControlUpdatePluginsCount;
-			_pluginManagerControl.PluginMoved += pmcPluginManager_PluginMoved;
-			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
-			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
-			viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
-
-			if (viewModel.GameMode.SupportedToolsLauncher != null)
-			{
-				viewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += SupportedTools_ChangedToolPath;
-			}
-
+			InitializeGameSurfaceControls(viewModel, true);
 			ViewModel = viewModel;
+			_gameDiscoveryDocument.SetSessionReady();
 			ShowEmbeddedDockContents();
 			ApplyDevExpressDisplaySettingsToSurfaces();
 
@@ -336,6 +313,108 @@
 
 			viewModel.EnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			_lastWindowState = WindowState;
+		}
+
+
+
+		/// <summary>Creates a fresh set of per-game surfaces. The host is process-scoped;</summary>
+		/// <remarks>The first-session path adds monitor docks to the already-created shell.</remarks>
+		private void InitializeGameSurfaceControls(MainFormVM viewModel, bool createDockHost)
+		{
+			_pluginManagerControl = new PluginManagerDXControl();
+			_modManagerControl = new ModManagerDXControl();
+			_downloadMonitorControl = new DownloadMonitorControl();
+			_modActivationMonitorControl = new ModActivationMonitorControl();
+			_categoryManagerControl = new CategoryManagerControl();
+			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
+			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
+			_fileManagerControl = new FileManagerControl();
+			_collectionsPreviewControl = new CollectionsPreviewControl();
+			_witcher3LoadOrderControl = new Witcher3LoadOrderControl();
+			_managedContentComponentsControl = new ManagedContentComponentsControl();
+			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
+			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
+			_collectionsPreviewControl.ManagedAssociationsChanged += CollectionsPreviewControl_ManagedAssociationsChanged;
+			if (createDockHost)
+				InitializeMainDockingInfrastructure();
+			else
+			{
+				// A restored DevExpress layout can replace DockPanel objects.
+				RefreshMonitorDockPanelReferences();
+				if (_downloadMonitorDockPanel == null || _modActivationMonitorDockPanel == null)
+					CreateMonitorDockPanels();
+				else
+				{
+					// Same process-scoped dock panels, fresh game-scoped monitor controls.
+					_downloadMonitorControl.TextChanged += DownloadMonitor_TextChanged;
+					_modActivationMonitorControl.TextChanged += ModActivationMonitor_TextChanged;
+					EnsureMonitorDockContent(_downloadMonitorDockPanel, _downloadMonitorControl);
+					EnsureMonitorDockContent(_modActivationMonitorDockPanel, _modActivationMonitorControl);
+					_downloadMonitorDockPanel.Visibility = DevExpress.XtraBars.Docking.DockVisibility.Visible;
+					_modActivationMonitorDockPanel.Visibility = DevExpress.XtraBars.Docking.DockVisibility.Visible;
+				}
+			}
+			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
+			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
+			_modManagerControl.UpdateModsCount += MmgModManagerControlUpdateModsCount;
+			_modManagerControl.UninstallModFromProfiles += ModManagerControlUninstallModFromProfiles;
+			_modManagerControl.UninstalledAllMods += MmgModManagerControlUninstalledAllMods;
+			_downloadMonitorControl.SetTextBoxFocus += DmcDownloadMonitorControlSetTextBoxFocus;
+			_pluginManagerControl.UpdatePluginsCount += PmcPluginManagerControlUpdatePluginsCount;
+			_pluginManagerControl.PluginMoved += pmcPluginManager_PluginMoved;
+			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
+			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
+			viewModel.ModRepository.RateLimitExceeded += ModRepository_RateLimitExceeded;
+
+			if (viewModel.GameMode.SupportedToolsLauncher != null)
+			{
+				viewModel.GameMode.SupportedToolsLauncher.ChangedToolPath += SupportedTools_ChangedToolPath;
+			}
+
+		}
+
+		/// <summary>
+		/// Constructs a lightweight, game-independent MainForm. Game services and large mod
+		/// controls are intentionally not created. The session controller will attach them
+		/// in the following implementation stage.
+		/// </summary>
+		public MainForm(EnvironmentInfo environmentInfo)
+		{
+			_persistentSessionShell = true;
+			_shellEnvironmentInfo = environmentInfo ?? throw new ArgumentNullException(nameof(environmentInfo));
+			InitializeDevExpressLookAndFeel(_shellEnvironmentInfo);
+			InitializeGameDiscoveryDocument();
+			InitializeMainLocalizationCache();
+			InitializeComponent();
+			InitializeMainBars();
+			InitializeDevExpressSkinSelector();
+			InitializeDevExpressDisplaySelector(_shellEnvironmentInfo);
+			BuildMainToolbarLinks();
+
+			FormClosing += MainForm_FormClosing;
+			Shown += MainForm_Shown;
+			InitializeNoGameDocuments();
+			InitializeMainDockingInfrastructure();
+			EnsureMainDocuments();
+			DisableGameDependentBars();
+			ApplyDevExpressDisplaySettingsToSurfaces();
+			Text = CommonData.ModManagerName;
+			_shellEnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
+			_lastWindowState = WindowState;
+		}
+
+		private void ModRepository_RateLimitExceeded(object sender, RateLimitExceededArgs args)
+		{
+			if (IsDisposed || Disposing || !IsHandleCreated) return;
+			try
+			{
+				BeginInvoke((MethodInvoker)(() =>
+				{
+					if (!IsDisposed && !Disposing && Object.ReferenceEquals(sender, ViewModel?.ModRepository))
+						OnRateLimitExceeded(args);
+				}));
+			}
+			catch (InvalidOperationException) { }
 		}
 
 		private void OnRateLimitExceeded(RateLimitExceededArgs args)
@@ -457,21 +536,21 @@
 
 		#region DevExpress Skin
 
-		private static void InitializeDevExpressLookAndFeel(MainFormVM viewModel)
+		private static void InitializeDevExpressLookAndFeel(EnvironmentInfo environmentInfo)
 		{
 			SkinManager.EnableFormSkins();
 
-			if (viewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null)
+			if (environmentInfo?.Settings?.DockPanelLayouts == null)
 				return;
 
-			if (!viewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey(
+			if (!environmentInfo.Settings.DockPanelLayouts.ContainsKey(
 					DevExpressSkinSettingsKey))
 			{
 				return;
 			}
 
 			string savedSkin =
-				viewModel.EnvironmentInfo.Settings.DockPanelLayouts[
+				environmentInfo.Settings.DockPanelLayouts[
 					DevExpressSkinSettingsKey];
 
 			if (String.IsNullOrWhiteSpace(savedSkin))
@@ -558,10 +637,10 @@
 			_modManagerControl?.ForceListRefresh();
 			ApplyDevExpressDisplaySettingsToSurfaces();
 
-			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts != null)
+			if (_shellEnvironmentInfo?.Settings?.DockPanelLayouts != null)
 			{
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressSkinSettingsKey] = skinName;
-				ViewModel.EnvironmentInfo.Settings.Save();
+				_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressSkinSettingsKey] = skinName;
+				_shellEnvironmentInfo.Settings.Save();
 			}
 
 			_devExpressSkinComboBox.Hint = LanguageManager.Format("MainForm.Skin.Current", "Current skin: {0}", skinName);
@@ -1006,6 +1085,10 @@
 
 		private async void MainForm_Shown(object sender, EventArgs e)
 		{
+			// Catalog loading/quick detection begin after first paint, without a disk crawl.
+			_ = RefreshGameDiscoveryAsync();
+			if (ViewModel == null)
+				return;
 			ShowEmbeddedDockContents();
 			ApplyDefaultMonitorPanelSizes();
 			RestoreMonitorColumnWidths();
@@ -1350,6 +1433,16 @@
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void ChangeGameModeCommand_Executed(object sender, EventArgs e)
 		{
+			if (_persistentSessionShell)
+			{
+				// Reload/profile-restore requests must not close the process-scoped window.
+				// Legacy rescan/default flags are deliberately NOT interpreted as a disk scan.
+				if (!String.IsNullOrWhiteSpace(ViewModel?.RequestedGameMode))
+					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(ViewModel.RequestedGameMode));
+				else
+					_mainTabbedView?.ActivateDocument(_gameDiscoveryDocument);
+				return;
+			}
 			Close();
 		}
 
@@ -1409,6 +1502,23 @@
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			if (IsFirstSessionLoading)
+			{
+				e.Cancel = true; // Native initializer has no safe immediate-abort contract.
+				SetGameLoadMessage(L("GameDiscovery.LoadCloseBlocked", "Finish game initialization before closing NMM."));
+				return;
+			}
+			if (!e.Cancel)
+			{
+				_gameDiscoveryCancellation?.Cancel();
+				_gameDiscoveryScanCancellation?.Cancel();
+			}
+			if (ViewModel == null)
+			{
+				// Placeholders must never overwrite an existing game's layout/profile state.
+				_shellEnvironmentInfo.Settings.Save();
+				return;
+			}
 			if (!e.Cancel)
 			{
 				SaveMainDocumentOrder();
@@ -1662,7 +1772,7 @@
 			if (!DesignMode)
 			{
 				SaveMainDockingLayout();
-				ViewModel.EnvironmentInfo.Settings.Save();
+				_shellEnvironmentInfo.Settings.Save();
 			}
 
 			base.OnClosed(e);
@@ -3263,7 +3373,8 @@
 		protected override void OnClosing(CancelEventArgs e)
 		{
 			base.OnClosing(e);
-			ViewModel.EnvironmentInfo.Settings.WindowPositions.SetWindowPosition("MainForm", this);
+			if (!e.Cancel)
+				_shellEnvironmentInfo.Settings.WindowPositions.SetWindowPosition("MainForm", this);
 		}
 
 		/// <summary>
@@ -3294,6 +3405,8 @@
 		{
 			base.OnShown(e);
 			ShowStartupMessage();
+			if (ViewModel == null)
+				return;
 			ViewModel.ViewIsShown();
 
 			if (ViewModel.ModRepository.IsOffline)

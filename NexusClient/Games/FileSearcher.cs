@@ -74,6 +74,18 @@
 		}
 
 		/// <summary>
+		/// Starts the same recursive scan on a background thread. Only call this
+		/// after an explicit user request; launcher detection never uses it.
+		/// The original Find behavior is preserved for the legacy detector.
+		/// </summary>
+		public void FindInBackground(string[] searchFiles)
+		{
+			ShowItemProgress = false;
+			ShowOverallProgressAsMarquee = true;
+			Start(true, searchFiles);
+		}
+
+		/// <summary>
 		/// The delegate that is called to start the background task.
 		/// </summary>
 		/// <param name="args">the file patterns to search for.</param>

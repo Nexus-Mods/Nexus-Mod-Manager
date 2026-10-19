@@ -26,6 +26,8 @@ namespace Nexus.Client.Games.DataDriven
         }
 
         public IGameModeDescriptor GameModeDescriptor => _descriptor;
+        // Quick discovery reads store metadata without invoking the legacy recursive detector.
+        internal GameModeDefinition Definition => _definition;
         public bool LegacyFallback => _definition.LegacyFallback;
         public string DefinitionPath => _definition.DefinitionPath;
 

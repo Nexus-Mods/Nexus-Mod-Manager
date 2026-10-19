@@ -456,6 +456,40 @@ namespace Nexus.Client.ModManagement.UI
 
 		#region Constructors
 
+		internal sealed class PreparedModCategories
+		{
+			internal readonly CategoryManager Manager;
+			internal readonly bool Initialized;
+
+			internal PreparedModCategories(CategoryManager manager, bool initialized)
+			{
+				Manager = manager;
+				Initialized = initialized;
+			}
+		}
+
+		/// <summary>
+		/// Category XML loading/backup is prepared before Mods controls subscribe. Only
+		/// the read/metadata-loading portion runs on a worker; mutations to managed mod
+		/// assignments stay on the UI/native-session thread after ProfileManager exists.
+		/// </summary>
+		internal static PreparedModCategories PrepareCategories(ModManager modManager)
+		{
+			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
+			var manager = new CategoryManager(modManager.CurrentGameModeModDirectory, "categories");
+			bool initialized = manager.IsValidPath;
+			if (initialized)
+			{
+				// Disk-bound load/migration is safe before MainFormVM creates UI objects.
+				// Mod-archive remapping stays in the VM constructor, after ProfileManager
+				// has been initialized and bound exactly as in the legacy startup path.
+				manager.LoadCategories(modManager.CurrentGameModeDefaultCategories);
+			}
+			else
+				manager.Backup();
+			return new PreparedModCategories(manager, initialized);
+		}
+
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
@@ -463,32 +497,34 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_setSettings">The application and user settings.</param>
 		/// <param name="p_thmTheme">The current theme to use for the views.</param>
 		public ModManagerVM(ModManager p_mmdModManager, IProfileManager p_prmProfileManager, ISettings p_setSettings, Theme p_thmTheme)
+			: this(p_mmdModManager, p_prmProfileManager, p_setSettings, p_thmTheme, null)
+		{
+		}
+
+		/// <summary>
+		/// Uses category definitions prepared before UI attachment. Normal legacy callers
+		/// retain the exact same category loading and migration behavior.
+		/// </summary>
+		internal ModManagerVM(ModManager p_mmdModManager, IProfileManager p_prmProfileManager, ISettings p_setSettings,
+			Theme p_thmTheme, PreparedModCategories preparedCategories)
 		{
 			ModManager = p_mmdModManager;
 			ModRepository = p_mmdModManager.ModRepository;
 			ProfileManager = p_prmProfileManager;
 			Settings = p_setSettings;
 			CurrentTheme = p_thmTheme;
-			CategoryManager = new CategoryManager(ModManager.CurrentGameModeModDirectory, "categories");
+			PreparedModCategories categories = preparedCategories ?? PrepareCategories(ModManager);
+			CategoryManager = categories.Manager;
+			m_booIsCategoryInitialized = categories.Initialized;
 
 			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
 				SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
 
-			if (this.CategoryManager.IsValidPath)
-			{
-				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
-				// 0.92.4/0.92.5 could migrate a legacy low-ID custom category even when
-				// no repository category was replacing it, leaving repository CategoryId
-				// assignments without a definition and therefore displayed as Unassigned.
-				// Repair missing or legacy-custom-occupied bundled repository IDs; existing
-				// repository/online definitions and unrelated custom categories stay untouched.
-				this.CategoryManager.RepairBundledRepositoryCategories(
-					ModManager.CurrentGameModeDefaultCategories,
-					ModManager.RemapCategoryAssignments);
-				m_booIsCategoryInitialized = true;
-			}
-			else
-				this.CategoryManager.Backup();
+			// Run the same legacy custom-category migration *after* the native profile
+			// manager exists. Only XML loading/backup is prepared on the worker thread.
+			if (m_booIsCategoryInitialized)
+				CategoryManager.RepairBundledRepositoryCategories(
+					ModManager.CurrentGameModeDefaultCategories, ModManager.RemapCategoryAssignments);
 
 			AddModCommand = new Command<string>(LanguageManager.Get("Mods.Actions.Add.Name", "Add Mod"), LanguageManager.Get("Mods.Actions.Add.Description", "Adds a mod to the manager."), AddMod);
 			DeleteModCommand = new Command<IMod>(LanguageManager.Get("Mods.Actions.Delete.Name", "Delete Mod"), LanguageManager.Get("Mods.Actions.Delete.Description", "Deletes the selected mod."), DeleteMod);

@@ -651,27 +651,52 @@
 
 		private void LoadMods()
 		{
+			var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 			RebindRestoredManagedMods(_viewModel.ManagedMods);
 			RebuildVisibleModList();
 			_presentationState.ClearDerivedCaches();
-
 			RebuildActivationStateCache();
-			QueueMissingArchiveScan();
-			_gridModListSurface.RefreshDataSource();
-			_flatGridCategoryDataDirty = false;
+			QueueMissingArchiveScan(); // Physical file checks already run on the worker pool.
+			long snapshotMilliseconds = stopwatch.ElapsedMilliseconds;
+
+			// With large libraries, a data-source refresh followed by layout restoration,
+			// sorting and then view-mode restoration can repeatedly rebuild DevExpress
+			// rows. Defer bound-row processing until the initial layout/sort is stable.
+			gridView.BeginDataUpdate();
+			try
+			{
+				_gridModListSurface.RefreshDataSource();
+				_flatGridCategoryDataDirty = false;
+				RestoreGridLayout();
+				RestoreGridSort();
+			}
+			finally
+			{
+				gridView.EndDataUpdate();
+			}
+			long gridMilliseconds = stopwatch.ElapsedMilliseconds - snapshotMilliseconds;
+
+			// Category TreeList construction remains lazy for flat-list users. A saved
+			// Category View is restored once after the grid's update transaction.
 			ConfigureCategoryTreeCategories();
-			RestoreGridLayout();
-			RestoreGridSort();
 			RestoreModViewMode();
 
 			if (IsHandleCreated)
 			{
-				BeginInvoke(
-					(MethodInvoker)RestoreFindPanelVisibility);
+				BeginInvoke((MethodInvoker)RestoreFindPanelVisibility);
 			}
 
 			_lastGridSortSignature = GetGridSortSignature();
 			UpdateModCountLabel();
+
+			// Profile the actual library rather than promising that all game-specific
+			// constructors are nonblocking. Report only measurable slow startup work.
+			if (stopwatch.ElapsedMilliseconds >= 200)
+				System.Diagnostics.Trace.TraceInformation(
+					"Game Discovery: Mods UI attach ({0} mods): snapshot={1}ms, grid={2}ms, remaining={3}ms, total={4}ms",
+					_modList.Count, snapshotMilliseconds, gridMilliseconds,
+					stopwatch.ElapsedMilliseconds - snapshotMilliseconds - gridMilliseconds,
+					stopwatch.ElapsedMilliseconds);
 		}
 
 		// ── Collection / property changed ────────────────────────────────────

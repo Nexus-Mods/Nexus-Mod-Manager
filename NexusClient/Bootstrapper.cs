@@ -16,6 +16,7 @@
     using Nexus.Client.ModRepositories;
     using Nexus.Client.ModManagement.Witcher3;
     using Nexus.Client.ModManagement.ManagedContent;
+    using Nexus.Client.ModManagement.UI;
     using Nexus.Client.OnlineServices.NexusMods.Collections;
     using Nexus.Client.Properties;
     using Nexus.Client.Settings;
@@ -58,14 +59,14 @@
 	        // Hack to allow Skyrim VR to use NMM links from the website.
 	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
 	        if ((gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) || gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase)) 
-                && _environmentInfo.Settings.RememberedGameMode.Equals("skyrimvr", StringComparison.OrdinalIgnoreCase))
+                && String.Equals(_environmentInfo.Settings.RememberedGameMode, "skyrimvr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "SkyrimVR";
 	        }
 	        
             // Hack to allow Fallout 4 VR to use NMM links from the website.
 	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
-            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && _environmentInfo.Settings.RememberedGameMode.Equals("fallout4vr", StringComparison.OrdinalIgnoreCase))
+            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && String.Equals(_environmentInfo.Settings.RememberedGameMode, "fallout4vr", StringComparison.OrdinalIgnoreCase))
 	        {
 	            return "Fallout4VR";
 	        }
@@ -110,6 +111,28 @@
             SetCompressorPath(_environmentInfo);
 
 			var deletedDll = CheckModScriptDLL();
+
+			// The process-wide shell is now the normal startup path. The legacy loop is
+			// retained behind an explicit maintainer escape hatch until Windows smoke
+			// testing certifies same-window game transitions.
+			if (!Array.Exists(args, arg => String.Equals(arg, "-legacy-startup", StringComparison.OrdinalIgnoreCase)))
+			{
+				var fonts = SetUpFonts();
+				try
+				{
+					var intent = GameDiscoveryStartupIntent.Parse(args, DetermineRequestedGameMode);
+					using (var shell = new MainForm(_environmentInfo))
+					using (var controller = new FirstGameSessionController(this, shell, _environmentInfo,
+						fonts, deletedDll, intent))
+						Application.Run(shell);
+					return true;
+				}
+				finally
+				{
+					FileUtil.ForceDelete(_environmentInfo.TemporaryPath);
+					FontManager.Dispose();
+				}
+			}
 
 			string requestedGameMode = null;
 			bool downloadDestinationSelected = false;
@@ -307,49 +330,11 @@
 
 					var gameMode = appInitializer.GameMode;
 					var services = appInitializer.Services;
-					var collectionNxmDispatcher = new NexusCollectionNxmDispatcher(ApiCallManager.Instance(_environmentInfo).NexusService.Collections);
-					var gameStorageService = new GameStorageService(_environmentInfo);
-					CollectionManualNativeMutationBoundary.Configure(services, gameStorageService);
+					var mainFormViewModel = CreateSessionViewModel(appInitializer, installedGames);
+					var mainForm = new MainForm(mainFormViewModel, supportedGames);
 
-					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher);
-					if (ManagedContentOrderService.Supports(gameMode))
-						mainFormViewModel.InitializeManagedContentOrder(new ManagedContentOrderService(services,
-							gameStorageService, _environmentInfo.PersonalDataFolderPath));
-					// W3R.5c: inspect the actual Documents file and interrupted publication at every
-					// game-mode entry. This is read-only; a user-approved recovery action comes later.
-					if (Witcher3ModSettingsLifecycleService.SupportsMode(gameMode.ModeId))
-					{
-						var witcherLifecycle = new Witcher3ModSettingsLifecycleService(services,
-							gameStorageService, _environmentInfo.PersonalDataFolderPath);
-						mainFormViewModel.InitializeWitcher3ModSettingsLifecycle(witcherLifecycle);
-						var witcherState = witcherLifecycle.Refresh();
-						if (witcherState.HasPendingPublication)
-						{
-							Trace.TraceWarning("Witcher 3 mods.settings has a pending NMM publication: {0}",
-								witcherState.Recovery.Status);
-							MessageBox.Show(
-								LanguageManager.Format("Startup.Witcher3.PendingPublication.Message",
-									"A previous Witcher 3 load-order file update needs review ({0}). NMM has not changed or repaired the file during startup. New load-order writes remain unavailable until the pending operation is resolved. Ordinary mod management is not blocked.",
-									witcherState.Recovery.Status),
-								LanguageManager.Get("Startup.Witcher3.PendingPublication.Title", "Witcher 3 load-order recovery"),
-								MessageBoxButtons.OK, MessageBoxIcon.Warning);
-						}
-					}
-
-					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
-						gameStorageService, collectionNxmDispatcher.Provider);
-					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
-					var collectionReplacementWorkflow = new CollectionReplacementApplicationService(services, mainFormViewModel.ProfileManager, gameStorageService);
-					mainFormViewModel.InitializeCollectionReplacementWorkflow(collectionReplacementWorkflow);
-					var collectionCaptureWorkflow = new CollectionLocalCaptureApplicationService(services, gameStorageService);
-					mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
-					var collectionManagementWorkflow = new CollectionManagementApplicationService(services, gameStorageService);
-					mainFormViewModel.InitializeCollectionManagementWorkflow(collectionManagementWorkflow);
-					var collectionRevisionUpdateWorkflow = new CollectionRevisionUpdateApplicationService(services, gameStorageService);
-					mainFormViewModel.InitializeCollectionRevisionUpdateWorkflow(collectionRevisionUpdateWorkflow);
-					var mainForm = new MainForm(mainFormViewModel);
-
-					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))
+					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm,
+						mainFormViewModel.CollectionNxmDispatcher))
 					{
 						if (modToAdd != null)
 						{
@@ -394,6 +379,65 @@
 			} while (!string.IsNullOrEmpty(requestedGameMode) || changeDefaultGameMode);
 
 		    return true;
+		}
+
+
+		/// <summary>
+		/// One authoritative session composition path for the legacy startup and the
+		/// opt-in persistent-shell first-load path. No parallel Collections setup.
+		/// All UI-owning view models are constructed on the WinForms thread.
+		/// </summary>
+		internal MainFormVM CreateSessionViewModel(ApplicationInitializer appInitializer, GameModeRegistry installedGames,
+			ModManagerVM.PreparedModCategories preparedCategories = null)
+		{
+			var gameMode = appInitializer.GameMode;
+			var services = appInitializer.Services;
+			var collectionNxmDispatcher = new NexusCollectionNxmDispatcher(ApiCallManager.Instance(_environmentInfo).NexusService.Collections);
+			var gameStorageService = new GameStorageService(_environmentInfo);
+			CollectionManualNativeMutationBoundary.Configure(services, gameStorageService);
+
+			var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher, preparedCategories);
+			if (ManagedContentOrderService.Supports(gameMode))
+				mainFormViewModel.InitializeManagedContentOrder(new ManagedContentOrderService(services,
+					gameStorageService, _environmentInfo.PersonalDataFolderPath));
+			// W3R.5c: inspect the actual Documents file and interrupted publication at every
+			// game-mode entry. This is read-only; a user-approved recovery action comes later.
+			if (Witcher3ModSettingsLifecycleService.SupportsMode(gameMode.ModeId))
+			{
+				var witcherLifecycle = new Witcher3ModSettingsLifecycleService(services,
+					gameStorageService, _environmentInfo.PersonalDataFolderPath);
+				mainFormViewModel.InitializeWitcher3ModSettingsLifecycle(witcherLifecycle);
+				var witcherState = witcherLifecycle.Refresh();
+				if (witcherState.HasPendingPublication)
+				{
+					Trace.TraceWarning("Witcher 3 mods.settings has a pending NMM publication: {0}",
+						witcherState.Recovery.Status);
+					MessageBox.Show(
+						LanguageManager.Format("Startup.Witcher3.PendingPublication.Message",
+							"A previous Witcher 3 load-order file update needs review ({0}). NMM has not changed or repaired the file during startup. New load-order writes remain unavailable until the pending operation is resolved. Ordinary mod management is not blocked.",
+							witcherState.Recovery.Status),
+						LanguageManager.Get("Startup.Witcher3.PendingPublication.Title", "Witcher 3 load-order recovery"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				}
+			}
+
+			var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
+				gameStorageService, collectionNxmDispatcher.Provider);
+			mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
+			var collectionReplacementWorkflow = new CollectionReplacementApplicationService(services, mainFormViewModel.ProfileManager, gameStorageService);
+			mainFormViewModel.InitializeCollectionReplacementWorkflow(collectionReplacementWorkflow);
+			var collectionCaptureWorkflow = new CollectionLocalCaptureApplicationService(services, gameStorageService);
+			mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
+			var collectionManagementWorkflow = new CollectionManagementApplicationService(services, gameStorageService);
+			mainFormViewModel.InitializeCollectionManagementWorkflow(collectionManagementWorkflow);
+			var collectionRevisionUpdateWorkflow = new CollectionRevisionUpdateApplicationService(services, gameStorageService);
+			mainFormViewModel.InitializeCollectionRevisionUpdateWorkflow(collectionRevisionUpdateWorkflow);
+			return mainFormViewModel;
+		}
+
+		internal void ReleaseSessionServices(ServiceManager services)
+		{
+			DisposeServices(services);
 		}
 
 		#region Pre Game Mode Selection

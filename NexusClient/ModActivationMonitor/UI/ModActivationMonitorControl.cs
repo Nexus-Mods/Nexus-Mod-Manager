@@ -51,6 +51,13 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			get { return m_vmlViewModel; }
 			set
 			{
+				if (m_vmlViewModel != null)
+					m_vmlViewModel.Tasks.CollectionChanged -= Tasks_CollectionChanged;
+				foreach (ModActivationMonitorRow row in _rows)
+				{
+					row.Detach();
+					row.Task.TaskSetCompleted -= TaskSet_TaskSetCompleted;
+				}
 				m_vmlViewModel = value;
 				_rows.Clear();
 				if (m_vmlViewModel == null)
@@ -181,9 +188,18 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			_columnWidthsRestored = true;
 		}
 
-		/// <summary>
-		/// Saves the current DevExpress grid column widths when the main form closes.
-		/// </summary>
+		/// <summary>Persist current columns and release owner-form and VM hooks across game switches.</summary>
+		internal void DetachFromSessionHost(Form owner)
+		{
+			if (_formClosingHooked)
+			{
+				ModActivationMonitorControl_FormClosing(this, new FormClosingEventArgs(CloseReason.None, false));
+				owner.FormClosing -= ModActivationMonitorControl_FormClosing;
+				_formClosingHooked = false;
+			}
+			ViewModel = null;
+		}
+
 		private void ModActivationMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
 		{
 			if (ViewModel == null)

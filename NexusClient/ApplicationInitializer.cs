@@ -680,30 +680,7 @@
         /// </summary>
         private GameStoragePathSet CreateInitialGameStoragePathSet(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath)
         {
-            string gameId = gameModeFactory.GameModeDescriptor.ModeId;
-            string root = GetInitialGameStorageRoot(gameId, gameInstallPath);
-            string virtualFolderSetting = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
-            string virtualPath = gameStorageService.NormalizeVirtualInstallDirectory(
-                string.IsNullOrWhiteSpace(virtualFolderSetting) ? root : virtualFolderSetting);
-            string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
-            bool multiHd = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId);
-
-            if (string.IsNullOrWhiteSpace(linkPath))
-                linkPath = Path.Combine(root, "LinkFolder");
-
-            bool linkRequired = multiHd || IsCrossDrivePath(virtualPath, gameInstallPath);
-            return new GameStoragePathSet
-            {
-                GameId = gameId,
-                GameName = gameModeFactory.GameModeDescriptor.Name,
-                GameInstallPath = gameInstallPath,
-                InstallInfoPath = GetSettingValue(EnvironmentInfo.Settings.InstallInfoFolder, gameId) ?? Path.Combine(root, "InstallInfo"),
-                ModsPath = GetSettingValue(EnvironmentInfo.Settings.ModFolder, gameId) ?? Path.Combine(root, "Mods"),
-                VirtualInstallPath = virtualPath,
-                LinkFolderPath = linkRequired ? linkPath : null,
-                LinkFolderRequired = linkRequired,
-                CompatibleSharedModsGameIds = GameModeStorageSharingRegistry.GetMutuallyCompatibleModsStorageModeIds(gameId)
-            };
+            return GameStorageInitialPaths.Create(EnvironmentInfo, gameStorageService, gameModeFactory, gameInstallPath);
         }
 
         /// <summary>
@@ -723,15 +700,6 @@
             string virtualPath = gameStorageService.NormalizeVirtualInstallDirectory(virtualFolderSetting);
             bool linkRequired = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId) || IsCrossDrivePath(virtualPath, gameInstallPath);
             return !linkRequired || !string.IsNullOrWhiteSpace(linkPath);
-        }
-
-        private string GetInitialGameStorageRoot(string gameId, string gameInstallPath)
-        {
-            string gameDriveRoot = GetPathRoot(gameInstallPath);
-            if (!string.IsNullOrWhiteSpace(gameDriveRoot) && Directory.Exists(gameDriveRoot))
-                return Path.Combine(gameDriveRoot, "Games", "NMMCE", gameId);
-
-            return Path.Combine(EnvironmentInfo.ApplicationPersonalDataFolderPath, "Game Storage", gameId);
         }
 
         private string GetSettingValue(IDictionary<string, string> settings, string gameId)

@@ -74,6 +74,18 @@ namespace Nexus.Client.ModActivationMonitoring
 			}
 		}
 
+		/// <summary>Includes unstarted, publishing and queued children; IsInstalling alone is not safe for session teardown.</summary>
+		public bool HasPendingNativeOperations
+		{
+			get
+			{
+				lock (m_objSubmissionLock)
+					return (m_btsRunningTask != null && !m_btsRunningTask.IsCompleted) ||
+						m_lstPublishingTasks.Count != 0 || m_lstQueuedTasks.Count != 0 ||
+						m_oclTasks.Any(task => task != null && !task.IsCompleted);
+			}
+		}
+
 		public bool IsInstalling
 		{
 			get

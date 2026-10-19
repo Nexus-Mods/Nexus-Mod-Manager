@@ -49,18 +49,18 @@ namespace Nexus.Client
 		/// <summary>
 		/// Creates the DevExpress display selector and restores its persisted values.
 		/// </summary>
-		/// <param name="viewModel">The main-form view model containing persisted UI settings.</param>
-		private void InitializeDevExpressDisplaySelector(MainFormVM viewModel)
+		/// <param name="environmentInfo">The shell environment containing persisted UI settings.</param>
+		private void InitializeDevExpressDisplaySelector(EnvironmentInfo environmentInfo)
 		{
-			string fontName = DevExpressDisplaySettings.ResolveFontFamily(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayFontSettingsKey, LegacyDevExpressDisplayFontSettingsKey, DevExpressDisplaySettings.DefaultFontFamily));
-			float fontSize = DevExpressDisplaySettings.ParseFontSize(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayFontSizeSettingsKey, LegacyDevExpressDisplayFontSizeSettingsKey, DevExpressDisplaySettings.FormatFontSize(DevExpressDisplaySettings.DefaultFontSizePt)));
-			string density = DevExpressDisplaySettings.ResolveDensity(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayDensitySettingsKey, LegacyDevExpressDisplayDensitySettingsKey, DevExpressDisplaySettings.DefaultDensity));
-			NmmIconStyle iconStyle = DevExpressDisplaySettings.ResolveIconStyle(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconStyleSettingsKey, null, DevExpressDisplaySettings.DefaultIconStyle.ToString()));
-			int iconSize = DevExpressDisplaySettings.ParseIconSize(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconSizeSettingsKey, null, DevExpressDisplaySettings.FormatIconSize(DevExpressDisplaySettings.DefaultIconSize)));
-			NmmIconColorProfile iconColorProfile = DevExpressDisplaySettings.ResolveIconColorProfile(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconColorProfileSettingsKey, null, DevExpressDisplaySettings.DefaultIconColorProfile.ToString()));
+			string fontName = DevExpressDisplaySettings.ResolveFontFamily(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayFontSettingsKey, LegacyDevExpressDisplayFontSettingsKey, DevExpressDisplaySettings.DefaultFontFamily));
+			float fontSize = DevExpressDisplaySettings.ParseFontSize(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayFontSizeSettingsKey, LegacyDevExpressDisplayFontSizeSettingsKey, DevExpressDisplaySettings.FormatFontSize(DevExpressDisplaySettings.DefaultFontSizePt)));
+			string density = DevExpressDisplaySettings.ResolveDensity(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayDensitySettingsKey, LegacyDevExpressDisplayDensitySettingsKey, DevExpressDisplaySettings.DefaultDensity));
+			NmmIconStyle iconStyle = DevExpressDisplaySettings.ResolveIconStyle(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayIconStyleSettingsKey, null, DevExpressDisplaySettings.DefaultIconStyle.ToString()));
+			int iconSize = DevExpressDisplaySettings.ParseIconSize(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayIconSizeSettingsKey, null, DevExpressDisplaySettings.FormatIconSize(DevExpressDisplaySettings.DefaultIconSize)));
+			NmmIconColorProfile iconColorProfile = DevExpressDisplaySettings.ResolveIconColorProfile(ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayIconColorProfileSettingsKey, null, DevExpressDisplaySettings.DefaultIconColorProfile.ToString()));
 			NmmButtonPresentationProfile buttonPresentationProfile = DevExpressDisplaySettings.ResolveButtonPresentationProfile(
-				ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.FormatButtonPresentationGlobal(DevExpressDisplaySettings.DefaultButtonPresentationProfile)),
-				scope => ReadDevExpressDisplaySetting(viewModel, DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope), null, DevExpressDisplaySettings.DefaultButtonPresentationProfile.Get(scope).ToString()));
+				ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.FormatButtonPresentationGlobal(DevExpressDisplaySettings.DefaultButtonPresentationProfile)),
+				scope => ReadDevExpressDisplaySetting(environmentInfo, DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope), null, DevExpressDisplaySettings.DefaultButtonPresentationProfile.Get(scope).ToString()));
 
 			_devExpressDisplaySettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
 			NmmIconProvider.ApplySettings(iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
@@ -108,26 +108,26 @@ namespace Nexus.Client
 		/// <summary>
 		/// Reads a current or legacy display setting and falls back when neither contains a value.
 		/// </summary>
-		/// <param name="viewModel">The main-form view model.</param>
+		/// <param name="environmentInfo">The shell environment.</param>
 		/// <param name="key">The current settings key.</param>
 		/// <param name="legacyKey">The legacy settings key.</param>
 		/// <param name="defaultValue">The fallback value.</param>
 		/// <returns>The persisted or fallback value.</returns>
-		private static string ReadDevExpressDisplaySetting(MainFormVM viewModel, string key, string legacyKey, string defaultValue)
+		private static string ReadDevExpressDisplaySetting(EnvironmentInfo environmentInfo, string key, string legacyKey, string defaultValue)
 		{
-			if (viewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null)
+			if (environmentInfo?.Settings?.DockPanelLayouts == null)
 				return defaultValue;
 
-			if (viewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey(key))
+			if (environmentInfo.Settings.DockPanelLayouts.ContainsKey(key))
 			{
-				string value = viewModel.EnvironmentInfo.Settings.DockPanelLayouts[key];
+				string value = environmentInfo.Settings.DockPanelLayouts[key];
 				if (!String.IsNullOrWhiteSpace(value))
 					return value;
 			}
 
-			if (!String.IsNullOrWhiteSpace(legacyKey) && viewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey(legacyKey))
+			if (!String.IsNullOrWhiteSpace(legacyKey) && environmentInfo.Settings.DockPanelLayouts.ContainsKey(legacyKey))
 			{
-				string legacyValue = viewModel.EnvironmentInfo.Settings.DockPanelLayouts[legacyKey];
+				string legacyValue = environmentInfo.Settings.DockPanelLayouts[legacyKey];
 				if (!String.IsNullOrWhiteSpace(legacyValue))
 					return legacyValue;
 			}
@@ -461,18 +461,18 @@ namespace Nexus.Client
 			UpdateDevExpressDisplaySelector();
 			ApplyDevExpressDisplaySettingsToSurfaces();
 
-			if (save && ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts != null)
+			if (save && _shellEnvironmentInfo?.Settings?.DockPanelLayouts != null)
 			{
 				SaveDevExpressDisplaySetting(DevExpressDisplayFontSettingsKey, LegacyDevExpressDisplayFontSettingsKey, newSettings.FontFamilyName);
 				SaveDevExpressDisplaySetting(DevExpressDisplayFontSizeSettingsKey, LegacyDevExpressDisplayFontSizeSettingsKey, DevExpressDisplaySettings.FormatFontSize(newSettings.FontSizePt));
 				SaveDevExpressDisplaySetting(DevExpressDisplayDensitySettingsKey, LegacyDevExpressDisplayDensitySettingsKey, newSettings.Density);
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconStyleSettingsKey] = newSettings.IconStyle.ToString();
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconSizeSettingsKey] = DevExpressDisplaySettings.FormatIconSize(newSettings.IconSize);
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconColorProfileSettingsKey] = newSettings.IconColorProfile.ToString();
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayButtonPresentationSettingsKey] = DevExpressDisplaySettings.FormatButtonPresentationGlobal(newSettings.ButtonPresentationProfile);
+				_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconStyleSettingsKey] = newSettings.IconStyle.ToString();
+				_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconSizeSettingsKey] = DevExpressDisplaySettings.FormatIconSize(newSettings.IconSize);
+				_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconColorProfileSettingsKey] = newSettings.IconColorProfile.ToString();
+				_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayButtonPresentationSettingsKey] = DevExpressDisplaySettings.FormatButtonPresentationGlobal(newSettings.ButtonPresentationProfile);
 				foreach (NmmButtonPresentationScope scope in Enum.GetValues(typeof(NmmButtonPresentationScope)))
-					ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope)] = newSettings.ButtonPresentationProfile.Get(scope).ToString();
-				ViewModel.EnvironmentInfo.Settings.Save();
+					_shellEnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope)] = newSettings.ButtonPresentationProfile.Get(scope).ToString();
+				_shellEnvironmentInfo.Settings.Save();
 			}
 
 			// DevExpress appearance objects retain the assigned Font instance and can
@@ -487,8 +487,8 @@ namespace Nexus.Client
 		/// </summary>
 		private void SaveDevExpressDisplaySetting(string key, string legacyKey, string value)
 		{
-			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[key] = value;
-			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[legacyKey] = value;
+			_shellEnvironmentInfo.Settings.DockPanelLayouts[key] = value;
+			_shellEnvironmentInfo.Settings.DockPanelLayouts[legacyKey] = value;
 		}
 
 		/// <summary>
