@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Threading;
 using Nexus.Client;
@@ -84,6 +86,45 @@ namespace NexusClientTests
 			gate.Finish("Ready", false);
 			Assert.That(gate.State, Is.EqualTo(GameSessionEntryGate.EntryState.Failed));
 			Assert.That(gate.TryBegin(ready), Is.True);
+		}
+
+		[Test]
+		public void StartupDefault_ManagedGameIsExclusiveAndMayBeCleared()
+		{
+			var settings = NewSettings();
+			foreach (string id in new[] { "First", "Second" })
+			{
+				settings.CompletedSetup[id] = true;
+				settings.ExecutablePaths[id] = @"C:\Games\" + id;
+				settings.InstallationPaths[id] = @"D:\NMM\" + id;
+			}
+			var descriptors = new[] { new Descriptor("First"), new Descriptor("Second"), new Descriptor("Supported") };
+			var catalog = GameDiscoveryCatalogBuilder.Build(descriptors, settings);
+			Assert.That(GameDiscoveryStartupPreference.Toggle(settings, catalog.Entries.Single(e => e.ModeId == "First")), Is.True);
+			Assert.That(settings.RememberGameMode, Is.True);
+			Assert.That(settings.RememberedGameMode, Is.EqualTo("First"));
+			catalog = GameDiscoveryCatalogBuilder.Build(descriptors, settings);
+			Assert.That(GameDiscoveryStartupPreference.Toggle(settings, catalog.Entries.Single(e => e.ModeId == "Second")), Is.True);
+			catalog = GameDiscoveryCatalogBuilder.Build(descriptors, settings);
+			Assert.That(catalog.Entries.Count(e => e.IsStartupDefault), Is.EqualTo(1));
+			Assert.That(catalog.Entries.Single(e => e.IsStartupDefault).ModeId, Is.EqualTo("Second"));
+			Assert.That(GameDiscoveryStartupPreference.Toggle(settings, catalog.Entries.Single(e => e.ModeId == "Second")), Is.True);
+			Assert.That(settings.RememberGameMode, Is.False);
+			Assert.That(settings.RememberedGameMode, Is.Empty);
+			Assert.That(GameDiscoveryCatalogBuilder.Build(descriptors, settings).Entries.Any(e => e.IsStartupDefault), Is.False);
+		}
+
+		[Test]
+		public void StartupDefault_DoesNotSelectUnsupportedOrUnconfiguredGame()
+		{
+			var settings = NewSettings();
+			settings.InstalledGames.Add("Found");
+			settings.ExecutablePaths["Found"] = @"C:\Games\Found";
+			var catalog = GameDiscoveryCatalogBuilder.Build(
+				new[] { new Descriptor("Found"), new Descriptor("Supported") }, settings);
+			Assert.That(GameDiscoveryStartupPreference.Toggle(settings, catalog.Entries.Single(e => e.ModeId == "Found")), Is.False);
+			Assert.That(GameDiscoveryStartupPreference.Toggle(settings, catalog.Entries.Single(e => e.ModeId == "Supported")), Is.False);
+			Assert.That(settings.RememberGameMode, Is.False);
 		}
 
 		[Test]
@@ -347,6 +388,43 @@ namespace NexusClientTests
 			Assert.That(QuickGameDiscovery.IsVerifiedGameRoot(descriptor, _root), Is.False);
 			descriptor.Accept = true;
 			Assert.That(QuickGameDiscovery.IsVerifiedGameRoot(descriptor, _root), Is.True);
+		}
+
+		[Test]
+		public void Artwork_UsesPackagedImageThenUserOverrideAndCanReset()
+		{
+			string definition = Path.Combine(_root, "game.json");
+			File.WriteAllText(definition, "{}");
+			using (var packaged = new Bitmap(640, 360))
+				packaged.Save(Path.Combine(_root, "game-cover.png"), ImageFormat.Png);
+			var artwork = new GameDiscoveryArtwork(Path.Combine(_root, "NmmData"), id => definition);
+			using (var image = artwork.Load("Fixture"))
+			{
+				Assert.That(image, Is.Not.Null);
+				Assert.That(image.Width, Is.EqualTo(GameDiscoveryArtwork.BannerWidth));
+			}
+			string squarePath = Path.Combine(_root, "square.png");
+			using (var square = new Bitmap(600, 600)) square.Save(squarePath, ImageFormat.Png);
+			artwork.Import("Fixture", squarePath);
+			Assert.That(artwork.HasOverride("Fixture"), Is.True);
+			using (var image = artwork.Load("Fixture"))
+			{
+				Assert.That(image.Width, Is.EqualTo(GameDiscoveryArtwork.BannerWidth));
+				Assert.That(image.Height, Is.EqualTo(GameDiscoveryArtwork.BannerHeight));
+			}
+			artwork.ClearOverride("Fixture");
+			using (var image = artwork.Load("Fixture"))
+				Assert.That(image.Width, Is.EqualTo(GameDiscoveryArtwork.BannerWidth));
+			Assert.That(artwork.HasOverride("Fixture"), Is.False);
+		}
+
+		[Test]
+		public void Artwork_RejectsTraversalAndMissingPackagedImageIsOptional()
+		{
+			var artwork = new GameDiscoveryArtwork(Path.Combine(_root, "NmmData"), id =>
+				Path.Combine(_root, "missing", "game.json"));
+			Assert.That(artwork.Load("Fixture"), Is.Null);
+			Assert.Throws<ArgumentException>(() => artwork.Import("../outside", "anything.png"));
 		}
 
 		[Test]

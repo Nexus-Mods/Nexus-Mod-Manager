@@ -240,8 +240,10 @@
 		{
 			var gmfGameModeFactory = (IGameModeFactory)args[0];
 			var scxUIContext = (SynchronizationContext)args[1];
+            OverallMessage = LanguageManager.Get("GameDiscovery.Phase.Settings", "Preparing game settings");
             OverallProgress = 0;
-			OverallProgressMaximum = 17;
+			// Fifteen checkpoints in DoApplicationInitialize and one final DoWork checkpoint.
+			OverallProgressMaximum = 16;
 			OverallProgressStepSize = 1;
 
             if (!DoApplicationInitialize(gmfGameModeFactory, scxUIContext, out var vwmErrorMessage) && Status != TaskStatus.Error)
@@ -297,6 +299,7 @@
 
             StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.DelayedSettings", "Applying pending settings");
 			if (!ApplyDelayedSettings(p_gmfGameModeFactory.GameModeDescriptor.ModeId, out p_vwmErrorMessage))
 			{
 				EnvironmentInfo.Settings.Reload();
@@ -307,6 +310,7 @@
 
             StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.GamePath", "Checking game installation and permissions");
 			var strUacCheckPath = EnvironmentInfo.Settings.InstallationPaths[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
 
             if (string.IsNullOrEmpty(strUacCheckPath) || !string.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.InstallationPath))
@@ -361,6 +365,7 @@
 
 			StepOverallProgress();
 
+            OverallMessage = LanguageManager.Get("GameDiscovery.Phase.StorageSetup", "Checking Game Storage configuration");
             bool hadCompletedSetup = EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) && EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
             bool completedGameStorageSetupThisRun = false;
             var gameStorageService = new GameStorageService(EnvironmentInfo);
@@ -383,6 +388,7 @@
 
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.CriticalFiles", "Verifying required game files");
 			if (p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames != null)
             {
                 foreach (var strPlugin in p_gmfGameModeFactory.GameModeDescriptor.OrderedCriticalPluginNames)
@@ -414,6 +420,7 @@
 
             StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.Factory", "Initializing game-specific components");
 			if (!p_gmfGameModeFactory.PerformInitialization(ShowView, ShowMessage))
 			{
 				p_vwmErrorMessage = null;
@@ -427,6 +434,7 @@
 			IGameMode gameMode = null;
 			ViewMessage warningMessage = null;
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.GameMode", "Creating game mode");
 			try
 			{
 				gameMode = p_gmfGameModeFactory.BuildGameMode(nfuFileUtility, out warningMessage);
@@ -464,6 +472,7 @@
 			FontSetResolver.AddFontSets(gameMode.ModeTheme.FontSets);
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.Writability", "Checking writable folders");
 			if (!UacCheckEnvironment(gameMode, out p_vwmErrorMessage))
 			{
 				// TODO: it would be really nice of us if we, instead of closing,
@@ -472,6 +481,7 @@
 			}
 			StepOverallProgress();
 
+            OverallMessage = LanguageManager.Get("GameDiscovery.Phase.StorageHealth", "Validating Game Storage and recovery");
             if (hadCompletedSetup && !completedGameStorageSetupThisRun)
             {
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
@@ -533,9 +543,11 @@
 			Trace.TraceInformation($"NMM Link Path: {EnvironmentInfo.Settings.HDLinkFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]}");
 			Trace.Unindent();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ReadOnly", "Checking read-only game files");
 			ScanForReadonlyFiles(gameMode);
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.Nexus", "Preparing Nexus Mods integration");
 			Trace.TraceInformation("Initializing Mod Repository...");
 			Trace.Indent();
 			IModRepository mrpModRepository = new NexusModsApiRepository(NexusGameDomain.Resolve(gameMode), ApiCallManager.Instance(EnvironmentInfo), gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
@@ -551,6 +563,7 @@
 				return false;
 			}
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.NativeServices", "Loading native mod services");
 			var svmServices = InitializeServices(gameMode, mrpModRepository, nfuFileUtility, p_scxUIContext, out p_vwmErrorMessage);
 			if (svmServices == null)
 			{
@@ -562,9 +575,11 @@
 			}
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ModVersion", "Checking installed mod versions");
 			UpgradeMismatchedVersionMods(svmServices.ModInstallLog, svmServices.ModManager);
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.MissingMods", "Reconciling missing mods");
 			if (!UninstallMissingMods(gameMode, EnvironmentInfo, svmServices.ModManager))
 			{
 				if (Status == TaskStatus.Retrying)
@@ -579,6 +594,7 @@
 			}
 			StepOverallProgress();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.QueuedMods", "Processing queued mods");
 			svmServices.ModManager.LoadQueuedMods();
 			StepOverallProgress();
 
@@ -1019,6 +1035,7 @@
 		{
 			IModCacheManager mcmModCacheManager = new NexusModCacheManager(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, p_nfuFileUtility, EnvironmentInfo);
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ScriptEngines", "Loading installer engines");
 			Trace.TraceInformation("Registering supported Script Types...");
 			Trace.Indent();
 
@@ -1043,6 +1060,7 @@
 			Trace.TraceInformation("Found {0} script types.", stgScriptTypeRegistry.Types.Count);
 			Trace.Unindent();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ModFormats", "Registering mod formats");
 			Trace.TraceInformation("Registering supported mod formats...");
 			Trace.Indent();
 
@@ -1057,6 +1075,7 @@
 		    Trace.TraceInformation("Found {0} formats.", mfrModFormatRegistry.Formats.Count);
 			Trace.Unindent();
 
+			OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ModDiscovery", "Discovering downloaded mods");
 			Trace.TraceInformation("Finding managed mods...");
 			Trace.Indent();
 			ModRegistry mrgModRegistry = null;
@@ -1076,6 +1095,7 @@
 
 			using (CollectionTargetMutationLease initializationLease = AcquireNativeStoreInitializationLease(p_gmdGameMode))
 			{
+				OverallMessage = LanguageManager.Get("GameDiscovery.Phase.InstallLog", "Parsing install log");
 				Trace.TraceInformation("Initializing Install Log...");
 				Trace.Indent();
 				Trace.TraceInformation("Checking if upgrade is required...");
@@ -1130,6 +1150,7 @@
 				var ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
 				Trace.Unindent();
 
+				OverallMessage = LanguageManager.Get("GameDiscovery.Phase.Plugins", "Loading plugins and plugin order");
 				Trace.TraceInformation("Initializing Plugin Management Services...");
 				Trace.Indent();
 				PluginRegistry prgPluginRegistry = null;
@@ -1176,6 +1197,7 @@
 				var mamMonitor = new ModActivationMonitor();
 				Trace.Unindent();
 
+				OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ModManager", "Starting mod management");
 				Trace.TraceInformation("Initializing Mod Manager...");
 				Trace.Indent();
 				var mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, mcmModCacheManager, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);

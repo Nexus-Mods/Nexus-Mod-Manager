@@ -5854,8 +5854,33 @@ namespace Nexus.Client.CollectionManagement.UI
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			long observedRecoveryOperations = 0;
 			CollectionUiContext context = CollectionUiContext.CurrentSetup(_previewGeneration);
-			_localRestoreRecoverySources = _managementWorkflow == null
-				? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
+			// Resolve the target before starting the async-void recovery workflow. A legacy
+			// game can have CompletedSetup=true but no persisted Game Storage identity.
+			// An exception here previously escaped the async-void event callback and
+			// terminated NMM after the game/mod UI had loaded successfully.
+			try
+			{
+				_localRestoreRecoverySources = _managementWorkflow == null
+					? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
+			}
+			catch (Exception exception) when (!(exception is OutOfMemoryException))
+			{
+				if (exception is CollectionTargetAuthorityException)
+					Trace.TraceWarning("Collection startup recovery blocked by Game Storage identity: " + exception);
+				else
+					Trace.TraceError("Collection startup recovery preflight failed: " + exception);
+				RememberTechnicalFailure("workflow.recovery-preflight-failed", exception, context);
+				_localRestoreRecoverySources = new CollectionManagementLocalRestoreRecoverySource[0];
+				var authorityFailure = exception as CollectionTargetAuthorityException;
+				_workflowStatusLabel.Text = authorityFailure != null &&
+					authorityFailure.FailureKind == CollectionTargetAuthorityFailureKind.StorageIdentityUnavailable
+					? L("Collections.Workflow.StorageIdentityRequired", "Collections are unavailable for this game until its Game Storage is reviewed. Open Games, switch to another game and choose Review Game Storage for this game. Existing mods and folders were not changed.")
+					: authorityFailure != null
+						? L("Collections.Workflow.StorageAuthorityUnavailable", "Collections are unavailable because this game's storage or installation identity could not be verified. Review Game Storage before running Collection operations.")
+						: L("Collections.Workflow.RecoveryPreflightFailed", "Collections startup recovery could not be checked. Review the trace log before performing Collection operations.");
+				CollectionPerformanceMetrics.RecordStartupRecovery(performanceStarted, 0);
+				return;
+			}
 			string recoveryStatus = FormatLocalRestoreRecoveryActivity(_localRestoreRecoverySources) ??
 				FormatActiveTargetRecoveryActivity();
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, recoveryStatus);

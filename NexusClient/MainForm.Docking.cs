@@ -192,7 +192,7 @@
 				EnsureMdiDocument(_emptyModsDocument, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 				EnsureMdiDocument(_emptyCategoriesDocument, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 				EnsureMdiDocument(_emptyCollectionsDocument, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
-				EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.Title", "Game Discovery"));
+				EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.TabTitle", "Games"));
 				return;
 			}
 
@@ -236,7 +236,7 @@
 			}
 
 			EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
-			EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.Title", "Game Discovery"));
+			EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.TabTitle", "Games"));
 			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 		}
 

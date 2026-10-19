@@ -2,18 +2,22 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Drawing;
+	using System.Drawing.Drawing2D;
 	using System.Linq;
 	using System.Windows.Forms;
-
 	using DevExpress.XtraEditors;
 	using DevExpress.XtraEditors.Controls;
+	using DevExpress.XtraGrid;
+	using DevExpress.XtraGrid.Views.Grid;
 	using Nexus.Client.Games;
+	using Nexus.Client.UI;
 	using Nexus.Client.Util.Localization;
 
 	/// <summary>
-	/// Lightweight, text-first discovery document. Displaying a candidate must never
-	/// adopt storage, select a default game or initiate the recursive disk scanner.
-	/// Manage/Configure/Locate commands are wired by the future session controller.
+	/// Read-only, skin-aware game catalog. The three collections are selectors, not
+	/// separate full-window grids. Changes to storage and active sessions are only
+	/// initiated by explicit actions handled by the main window.
 	/// </summary>
 	internal sealed class GameDiscoveryDocument : XtraForm
 	{
@@ -21,139 +25,579 @@
 		private readonly SimpleButton _refresh;
 		private readonly SimpleButton _scan;
 		private readonly SimpleButton _stopScan;
-		private readonly SimpleButton _manage;
-		private readonly SimpleButton _configure;
+		private readonly SimpleButton _primaryAction;
+		private readonly SimpleButton _startupDefault;
 		private readonly SimpleButton _locate;
 		private readonly ComboBoxEdit _installations;
 		private readonly LabelControl _status;
+		private readonly TableLayoutPanel _statusLayout;
+		private readonly CompletionRing _loadingRing;
+		private readonly PictureEdit _activeArtwork;
+		private readonly LabelControl _activeGameName;
+		private readonly SimpleButton _changeArtwork;
+		private readonly SimpleButton _resetArtwork;
+		private readonly TableLayoutPanel _activeFooter;
+		private readonly PanelControl _activeCard;
+		private GameDiscoveryArtwork _artwork;
+		private string _activeModeId;
+		private readonly LabelControl _emptyList;
+		private readonly LabelControl _gameTitle;
+		private readonly LabelControl _gameState;
+		private readonly LabelControl _sourceLine;
+		private readonly LabelControl _pathTitle;
+		private readonly LabelControl _startupValue;
+		private readonly LabelControl _startupTitle;
+		private readonly LabelControl _candidateHint;
+		private readonly TextEdit _installationPath;
 		private readonly MemoEdit _details;
-		private readonly GroupControl[] _groups;
-		private readonly ListBoxControl[] _lists;
+		private readonly PanelControl _candidatePanel;
+		private readonly TableLayoutPanel _detailLayout;
+		private readonly GroupControl _listCard;
+		private readonly GridControl _grid;
+		private readonly GridView _view;
+		private readonly PanelControl[] _collectionCards = new PanelControl[3];
+		private readonly LabelControl[] _collectionTitles = new LabelControl[3];
+		private readonly LabelControl[] _collectionCounts = new LabelControl[3];
+		private readonly GameDiscoveryCollection[] _collections =
+		{
+			GameDiscoveryCollection.Managed,
+			GameDiscoveryCollection.ToConfigure,
+			GameDiscoveryCollection.Supported
+		};
+		private readonly PanelControl _viewport;
+		private readonly TableLayoutPanel _canvas;
+
 		private GameDiscoveryCatalog _catalog;
+		private GameDiscoveryCollection _visibleCollection = GameDiscoveryCollection.Managed;
 		private string _selectedModeId;
 		private string _selectedInstallationRoot;
 		private bool _updatingInstallations;
 		private bool _repopulating;
+		private bool _sessionLoading;
+		private bool _sessionActionsAvailable;
+		private bool _refreshing;
+		private bool _scanning;
 
 		internal event EventHandler RefreshRequested;
 		internal event EventHandler ScanRequested;
 		internal event EventHandler StopScanRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ManageRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> StartupDefaultRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateRequested;
 		internal GameDiscoveryCatalog Catalog => _catalog;
 
 		internal GameDiscoveryDocument()
 		{
-			Text = L("GameDiscovery.Title", "Game Discovery");
+			Text = L("GameDiscovery.TabTitle", "Games");
 			FormBorderStyle = FormBorderStyle.None;
 			ControlBox = false;
 
-			var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
-			root.RowStyles.Add(new RowStyle(SizeType.Absolute, 162));
-			root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-			root.RowStyles.Add(new RowStyle(SizeType.Absolute, 132));
-			Controls.Add(root);
+			_viewport = new PanelControl { Dock = DockStyle.Fill, AutoScroll = true, BorderStyle = BorderStyles.NoBorder };
+			Controls.Add(_viewport);
+			_canvas = new TableLayoutPanel
+			{
+				ColumnCount = 2,
+				RowCount = 5,
+				Padding = new Padding(12, 14, 12, 10),
+				Margin = Padding.Empty,
+				Width = 1180,
+				Height = 785
+			};
+			// The active game's cover lives beside the catalog, never in a footer.
+			// Reserve its column only when a game is actually loaded.
+			_canvas.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0));
+			_canvas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+			_viewport.Controls.Add(_canvas);
+			_viewport.Resize += (sender, args) => ResizeCanvas();
 
-			var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 4 };
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 285));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 145));
-			var introduction = new LabelControl { Text = L("GameDiscovery.Introduction", "Choose a game to manage. Found games need one-time configuration."), Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.Vertical };
-			header.Controls.Add(introduction, 0, 0);
-			header.SetColumnSpan(introduction, 4);
-			_status = new LabelControl { Text = L("GameDiscovery.Loading", "Checking supported games..."), Dock = DockStyle.Fill };
-			header.Controls.Add(_status, 0, 1);
-			_search = new TextEdit { Dock = DockStyle.Fill };
-			_search.Properties.NullValuePrompt = L("GameDiscovery.Search", "Search games...");
+			var heading = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+			heading.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+			heading.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			var headingTitle = new LabelControl
+			{
+				Text = L("GameDiscovery.Title", "Game Discovery"),
+				Dock = DockStyle.Fill,
+				UseMnemonic = false,
+				Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 18f, FontStyle.Bold) }
+			};
+			var introduction = new LabelControl
+			{
+				Text = L("GameDiscovery.Introduction", "Find your games, complete setup, and choose one to manage."),
+				Dock = DockStyle.Fill,
+				UseMnemonic = false
+			};
+			heading.Controls.Add(headingTitle, 0, 0);
+			heading.Controls.Add(introduction, 0, 1);
+			_canvas.Controls.Add(heading, 1, 0);
+
+			// Use fixed-height, top-aligned command controls. Stretching DevExpress
+			// SimpleButtons through a short TableLayout row clipped their captions
+			// under several DPI/font scale combinations.
+			var tools = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(0, 6, 0, 0) };
+			tools.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			tools.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 182));
+			tools.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 164));
+			tools.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_canvas.Controls.Add(tools, 1, 1);
+			_search = new TextEdit { Dock = DockStyle.Top, Height = 34, Margin = new Padding(0, 3, 16, 0) };
+			_search.Properties.NullValuePrompt = L("GameDiscovery.Search", "Search games by name...");
 			_search.EditValueChanged += (sender, args) => Populate();
-			header.Controls.Add(_search, 1, 1);
-			_refresh = new SimpleButton { Text = L("GameDiscovery.Refresh", "Refresh detected games"), Dock = DockStyle.Fill };
+			tools.Controls.Add(_search, 0, 0);
+			_refresh = new SimpleButton { Dock = DockStyle.Top, Height = 36, Text = L("GameDiscovery.Refresh", "Refresh detected games"), Margin = new Padding(0, 2, 10, 0) };
+			NmmIconProvider.BindDialogButton(_refresh, NmmIconAction.Refresh);
 			_refresh.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
-			header.Controls.Add(_refresh, 3, 1);
-			_installations = new ComboBoxEdit { Dock = DockStyle.Fill, Enabled = false };
+			tools.Controls.Add(_refresh, 1, 0);
+			_scan = new SimpleButton { Dock = DockStyle.Top, Height = 36, Text = L("GameDiscovery.Scan", "Scan for games..."), Margin = Padding.Empty, Enabled = false };
+			NmmIconProvider.BindDialogButton(_scan, NmmIconAction.Browse);
+			_scan.ToolTip = L("GameDiscovery.ScanScope", "Full scan: all ready fixed drives (only when requested)");
+			_scan.Click += (sender, args) => ScanRequested?.Invoke(this, EventArgs.Empty);
+			var scanContainer = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 0) };
+			tools.Controls.Add(scanContainer, 2, 0);
+			scanContainer.Controls.Add(_scan);
+			_stopScan = new SimpleButton { Dock = DockStyle.Top, Height = 36, Text = L("GameDiscovery.StopScan", "Stop scan"), Margin = Padding.Empty, Enabled = false, Visible = false };
+			NmmIconProvider.BindDialogButton(_stopScan, NmmIconAction.Cancel);
+			_stopScan.Click += (sender, args) => StopScanRequested?.Invoke(this, EventArgs.Empty);
+			scanContainer.Controls.Add(_stopScan);
+
+			var categories = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(0, 4, 0, 12) };
+			for (int index = 0; index < 3; index++)
+				categories.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
+			for (int index = 0; index < 3; index++)
+			{
+				int selectedIndex = index;
+				var tile = new PanelControl
+				{
+					Dock = DockStyle.Fill,
+					TabStop = true,
+					Cursor = Cursors.Hand,
+					Padding = new Padding(14, 6, 14, 4),
+					BorderStyle = BorderStyles.NoBorder,
+					Margin = new Padding(index == 0 ? 0 : 5, 0, index == 2 ? 0 : 5, 0)
+				};
+				var tileLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Cursor = Cursors.Hand };
+				tileLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+				tileLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+				var tileTitle = new LabelControl
+				{
+					Dock = DockStyle.Fill,
+					UseMnemonic = false,
+					Cursor = Cursors.Hand,
+					Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 10f, FontStyle.Regular) }
+				};
+				var tileCount = new LabelControl
+				{
+					Dock = DockStyle.Fill,
+					UseMnemonic = false,
+					Cursor = Cursors.Hand,
+					Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 19f, FontStyle.Bold) }
+				};
+				tile.Click += (sender, args) => SelectCollection(_collections[selectedIndex]);
+				tileLayout.Click += (sender, args) => SelectCollection(_collections[selectedIndex]);
+				tileTitle.Click += (sender, args) => SelectCollection(_collections[selectedIndex]);
+				tileCount.Click += (sender, args) => SelectCollection(_collections[selectedIndex]);
+				tile.KeyDown += (sender, args) =>
+				{
+					if (args.KeyCode != Keys.Enter && args.KeyCode != Keys.Space) return;
+					SelectCollection(_collections[selectedIndex]);
+					args.Handled = true;
+				};
+				tileLayout.Controls.Add(tileTitle, 0, 0);
+				tileLayout.Controls.Add(tileCount, 0, 1);
+				tile.Controls.Add(tileLayout);
+				_collectionCards[index] = tile;
+				_collectionTitles[index] = tileTitle;
+				_collectionCounts[index] = tileCount;
+				categories.Controls.Add(tile, index, 0);
+			}
+			_canvas.Controls.Add(categories, 1, 2);
+
+			var mainArea = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
+			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
+			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 16));
+			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
+			_canvas.Controls.Add(mainArea, 1, 3);
+
+			_listCard = new GroupControl { Dock = DockStyle.Fill, Text = L("GameDiscovery.ManagedGames", "Managed games") };
+			mainArea.Controls.Add(_listCard, 0, 0);
+			var listBody = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Padding = new Padding(7, 8, 7, 8) };
+			_listCard.Controls.Add(listBody);
+			_grid = new GridControl { Dock = DockStyle.Fill };
+			_view = new GridView(_grid);
+			_grid.MainView = _view;
+			_grid.ViewCollection.Add(_view);
+			_view.OptionsBehavior.Editable = false;
+			_view.OptionsBehavior.ReadOnly = true;
+			_view.OptionsView.ShowGroupPanel = false;
+			_view.OptionsView.ShowColumnHeaders = false;
+			_view.OptionsView.ShowIndicator = false;
+			_view.OptionsView.ColumnAutoWidth = true;
+			_view.OptionsView.ShowHorizontalLines = DevExpress.Utils.DefaultBoolean.False;
+			_view.OptionsView.ShowVerticalLines = DevExpress.Utils.DefaultBoolean.False;
+			_view.OptionsSelection.EnableAppearanceFocusedCell = false;
+			_view.OptionsCustomization.AllowColumnMoving = false;
+			_view.OptionsCustomization.AllowSort = false;
+			_view.OptionsCustomization.AllowFilter = false;
+			_view.RowHeight = 42;
+			var nameColumn = _view.Columns.AddVisible(nameof(GameRow.Name));
+			nameColumn.VisibleIndex = 0;
+			_view.FocusedRowChanged += (sender, args) => SelectGridRow();
+			_view.DoubleClick += (sender, args) =>
+			{
+				var position = _grid.PointToClient(Control.MousePosition);
+				if (_view.CalcHitInfo(position).InRow) InvokePrimaryAction();
+			};
+			listBody.Controls.Add(_grid);
+			_emptyList = new LabelControl
+			{
+				Dock = DockStyle.Fill,
+				Text = L("GameDiscovery.EmptySection", "No games in this section."),
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
+				Visible = false,
+				Appearance = { TextOptions = { HAlignment = DevExpress.Utils.HorzAlignment.Center, VAlignment = DevExpress.Utils.VertAlignment.Center } }
+			};
+			listBody.Controls.Add(_emptyList);
+
+			var detailCard = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.Simple, Padding = new Padding(18, 15, 18, 12) };
+			mainArea.Controls.Add(detailCard, 2, 0);
+			_detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 14 };
+			var card = _detailLayout;
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 23));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 83));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
+			card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			card.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+			detailCard.Controls.Add(card);
+
+			// The old PictureEdit produced an unthemed white rectangle on some skins.
+			// Use the game name itself as the card heading until real game icons exist.
+			_gameTitle = new LabelControl
+			{
+				Text = L("GameDiscovery.SelectGameTitle", "Select a game"),
+				Dock = DockStyle.Fill,
+				UseMnemonic = false,
+				Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 16f, FontStyle.Bold), TextOptions = { VAlignment = DevExpress.Utils.VertAlignment.Center } }
+			};
+			card.Controls.Add(_gameTitle, 0, 0);
+			_gameState = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false };
+			card.Controls.Add(_gameState, 0, 1);
+			_sourceLine = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false };
+			card.Controls.Add(_sourceLine, 0, 2);
+
+			_pathTitle = Caption(L("GameDiscovery.InstallationHeading", "INSTALLATION PATH"));
+			card.Controls.Add(_pathTitle, 0, 3);
+			_installationPath = ReadOnlyPathEdit();
+			card.Controls.Add(_installationPath, 0, 4);
+			_startupTitle = Caption(L("GameDiscovery.StartupPreference", "STARTUP PREFERENCE"));
+			card.Controls.Add(_startupTitle, 0, 5);
+			_startupValue = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false };
+			card.Controls.Add(_startupValue, 0, 6);
+			_startupDefault = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 6), Visible = false };
+			_startupDefault.Click += (sender, args) =>
+			{
+				var selected = SelectedEntry;
+				if (_startupDefault.Enabled && selected != null && selected.Collection == GameDiscoveryCollection.Managed)
+					StartupDefaultRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(selected.ModeId));
+			};
+			card.Controls.Add(_startupDefault, 0, 7);
+
+			_primaryAction = new SimpleButton
+			{
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0, 7, 0, 5),
+				Text = L("GameDiscovery.SelectGameTitle", "Select a game"),
+				Enabled = false,
+				Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 10f, FontStyle.Bold) }
+			};
+			NmmIconProvider.BindDialogButton(_primaryAction, NmmIconAction.ChangeGame);
+			_primaryAction.Click += (sender, args) => InvokePrimaryAction();
+			card.Controls.Add(_primaryAction, 0, 8);
+			_locate = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false, Text = L("GameDiscovery.Locate", "Locate game...") };
+			NmmIconProvider.BindDialogButton(_locate, NmmIconAction.Browse);
+			_locate.Click += (sender, args) =>
+			{
+				if (!_locate.Enabled || SelectedEntry == null) return;
+				// A Managed game may be based on legacy folders without persisted
+				// Game Storage identity. Review setup without entering its session.
+				if (SelectedEntry.Collection == GameDiscoveryCollection.Managed &&
+					!String.IsNullOrWhiteSpace(_selectedInstallationRoot))
+					ConfigureRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
+				else
+					LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId));
+			};
+			card.Controls.Add(_locate, 0, 9);
+
+			_candidatePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Visible = false };
+			var candidateLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+			candidateLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+			candidateLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_candidateHint = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false, AutoSizeMode = LabelAutoSizeMode.Vertical };
+			candidateLayout.Controls.Add(_candidateHint, 0, 0);
+			_installations = new ComboBoxEdit { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 8), Enabled = false };
 			_installations.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
 			_installations.Properties.NullValuePrompt = L("GameDiscovery.ChooseInstallation", "Select installation...");
 			_installations.SelectedIndexChanged += (sender, args) =>
 			{
 				if (_updatingInstallations) return;
 				_selectedInstallationRoot = (_installations.SelectedItem as CandidateChoice)?.Candidate.GameRoot;
+				UpdateDetails();
 				UpdateActions();
 			};
-			header.Controls.Add(_installations, 2, 1);
-			_manage = new SimpleButton
-			{
-				Text = L("GameDiscovery.Manage", "Manage selected game"),
-				Dock = DockStyle.Fill,
-				Enabled = false
-			};
-			_manage.Click += (sender, args) =>
-			{
-				var entry = SelectedEntry;
-				if (GameSessionEntryGate.CanManage(entry))
-					ManageRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
-			};
-			header.Controls.Add(_manage, 1, 2);
-			_configure = new SimpleButton { Text = L("GameDiscovery.Configure", "Configure game storage"), Dock = DockStyle.Fill };
-			_configure.Click += (sender, args) =>
-			{
-				if (CanConfigure(SelectedEntry) && !String.IsNullOrWhiteSpace(_selectedInstallationRoot))
-					ConfigureRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
-			};
-			header.Controls.Add(_configure, 2, 2);
-			_locate = new SimpleButton { Text = L("GameDiscovery.Locate", "Locate game..."), Dock = DockStyle.Fill };
-			_locate.Click += (sender, args) =>
-			{
-				if (SelectedEntry != null && !_sessionLoading)
-					LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId));
-			};
-			header.Controls.Add(_locate, 3, 2);
-			var scanScope = new LabelControl
-			{
-				Text = L("GameDiscovery.ScanScope", "Full scan: all ready fixed drives (only when requested)"),
-				Dock = DockStyle.Fill
-			};
-			header.Controls.Add(scanScope, 0, 3);
-			header.SetColumnSpan(scanScope, 2);
-			_scan = new SimpleButton { Text = L("GameDiscovery.Scan", "Scan for games..."), Dock = DockStyle.Fill, Enabled = false };
-			_scan.Click += (sender, args) => ScanRequested?.Invoke(this, EventArgs.Empty);
-			header.Controls.Add(_scan, 2, 3);
-			_stopScan = new SimpleButton { Text = L("GameDiscovery.StopScan", "Stop scan"), Dock = DockStyle.Fill, Enabled = false };
-			_stopScan.Click += (sender, args) => StopScanRequested?.Invoke(this, EventArgs.Empty);
-			header.Controls.Add(_stopScan, 3, 3);
-			root.Controls.Add(header, 0, 0);
+			candidateLayout.Controls.Add(_installations, 0, 1);
+			_candidatePanel.Controls.Add(candidateLayout);
+			card.Controls.Add(_candidatePanel, 0, 10);
 
-			var sections = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
-			for (int index = 0; index < 3; index++)
-				sections.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / 3f));
-			_groups = new GroupControl[3];
-			_lists = new ListBoxControl[3];
-			for (int index = 0; index < 3; index++)
-			{
-				int section = index;
-				_groups[index] = new GroupControl { Dock = DockStyle.Fill };
-				_lists[index] = new ListBoxControl { Dock = DockStyle.Fill };
-				_lists[index].SelectedIndexChanged += (sender, args) => SelectEntry(section);
-				_groups[index].Controls.Add(_lists[index]);
-				sections.Controls.Add(_groups[index], index, 0);
-			}
-			root.Controls.Add(sections, 0, 1);
-
-			_details = new MemoEdit { Dock = DockStyle.Fill };
+			var evidencePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder };
+			var evidenceLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+			evidenceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
+			evidenceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			evidenceLayout.Controls.Add(Caption(L("GameDiscovery.EvidenceTitle", "DISCOVERY DETAILS")), 0, 0);
+			// Long paths remain scrollable, but do not stretch a two-line description
+			// into a large blank editor filling the entire details card.
+			_details = new MemoEdit { Dock = DockStyle.Top, Height = 118 };
 			_details.Properties.ReadOnly = true;
 			_details.Properties.ScrollBars = ScrollBars.Vertical;
-			_details.Text = L("GameDiscovery.DetailsHint", "Select a game to see its saved paths and discovery details.");
-			root.Controls.Add(_details, 0, 2);
-			UpdateGroupCaptions(0, 0, 0);
+			_details.Properties.BorderStyle = BorderStyles.NoBorder;
+			_details.Text = L("GameDiscovery.DetailsHint", "Select a game to see its discovery details.");
+			evidenceLayout.Controls.Add(_details, 0, 1);
+			evidencePanel.Controls.Add(evidenceLayout);
+			card.Controls.Add(evidencePanel, 0, 12);
+
+			// The active game occupies its own left-side card. Its heading, 16:9
+			// artwork, and image controls form one vertical group, independent of
+			// whichever game is selected in the catalog on the right.
+			_activeCard = new PanelControl
+			{
+				Dock = DockStyle.Top,
+				Height = 338,
+				Margin = new Padding(0, 0, 16, 0),
+				BorderStyle = BorderStyles.Simple,
+				Visible = false
+			};
+			_activeFooter = new TableLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				ColumnCount = 1,
+				RowCount = 5,
+				Padding = new Padding(12, 12, 12, 12),
+				Margin = Padding.Empty
+			};
+			_activeFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 162));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 8));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+			_activeCard.Controls.Add(_activeFooter);
+			_canvas.Controls.Add(_activeCard, 0, 2);
+			_canvas.SetRowSpan(_activeCard, 2);
+
+			_activeGameName = new LabelControl
+			{
+				Dock = DockStyle.Fill,
+				UseMnemonic = false,
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
+				Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 12f, FontStyle.Bold),
+					TextOptions = { VAlignment = DevExpress.Utils.VertAlignment.Center } }
+			};
+			_activeFooter.Controls.Add(_activeGameName, 0, 0);
+
+			_activeArtwork = new PictureEdit { Dock = DockStyle.Fill, Margin = Padding.Empty, Cursor = Cursors.Hand };
+			_activeArtwork.Properties.ShowMenu = false;
+			_activeArtwork.Properties.BorderStyle = BorderStyles.NoBorder;
+			_activeArtwork.Properties.SizeMode = PictureSizeMode.Squeeze;
+			_activeArtwork.ToolTip = L("GameDiscovery.ImageHint", "Game cover, 16:9. Click to change; recommended 960 x 540 pixels.");
+			_activeArtwork.Click += (sender, args) => ChooseActiveArtwork();
+			_activeFooter.Controls.Add(_activeArtwork, 0, 1);
+
+			_changeArtwork = new SimpleButton
+			{
+				Text = L("GameDiscovery.ChangeImage", "Change image..."),
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0, 4, 0, 0)
+			};
+			_changeArtwork.Click += (sender, args) => ChooseActiveArtwork();
+			_activeFooter.Controls.Add(_changeArtwork, 0, 3);
+			_resetArtwork = new SimpleButton
+			{
+				Text = L("GameDiscovery.ResetImage", "Reset image"),
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0, 4, 0, 0)
+			};
+			_resetArtwork.Click += (sender, args) => ResetActiveArtwork();
+			_activeFooter.Controls.Add(_resetArtwork, 0, 4);
+
+			// Loading progress and operational messages remain below the catalog,
+			// but do not repeat the active-game heading.
+			_statusLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+			_statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0));
+			_statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			_loadingRing = new CompletionRing { Dock = DockStyle.Left, Width = 34, Height = 34, Visible = false };
+			_statusLayout.Controls.Add(_loadingRing, 0, 0);
+			_status = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false, AutoSizeMode = LabelAutoSizeMode.Vertical,
+				Appearance = { TextOptions = { VAlignment = DevExpress.Utils.VertAlignment.Center } } };
+			_statusLayout.Controls.Add(_status, 1, 0);
+			_canvas.Controls.Add(_statusLayout, 1, 4);
+			UpdateActiveBanner();
+			SetStatus(L("GameDiscovery.Loading", "Checking supported games..."));
+			ResizeCanvas();
+			UpdateCollectionButtons(new int[3]);
+			UpdateDetails();
+			UpdateActions();
+		}
+
+		private void UpdateActiveBanner()
+		{
+			bool active = !String.IsNullOrWhiteSpace(_activeModeId);
+			_canvas.ColumnStyles[0].Width = active ? 320 : 0;
+			_activeCard.Visible = active;
+			_activeArtwork.Visible = active;
+			_changeArtwork.Visible = active && _artwork != null;
+			_resetArtwork.Visible = active && _artwork != null && _artwork.HasOverride(_activeModeId);
+			_activeFooter.RowStyles[3].Height = _changeArtwork.Visible ? 40 : 0;
+			_activeFooter.RowStyles[4].Height = _resetArtwork.Visible ? 36 : 0;
+			UpdateActiveBannerCaption();
+			// An already displayed "Managing ..." status is the same message as
+			// the heading, so show it in the cover card only.
+			SetStatus(_status.Text);
+			ResizeCanvas();
+			if (!active) { ReleaseActiveArtwork(); return; }
+
+			Image artwork = null;
+			try { artwork = _artwork?.Load(_activeModeId); }
+			catch (ArgumentException) { /* A legacy mode with an invalid ID cannot own artwork. */ }
+			SetActiveArtwork(artwork ?? CreateDefaultArtwork());
+		}
+
+		private void UpdateActiveBannerCaption()
+		{
+			if (String.IsNullOrWhiteSpace(_activeModeId))
+			{
+				_activeGameName.Text = String.Empty;
+				return;
+			}
+			var entry = _catalog?.Entries.FirstOrDefault(item =>
+				String.Equals(item.ModeId, _activeModeId, StringComparison.OrdinalIgnoreCase));
+			_activeGameName.Text = String.Format(L("GameDiscovery.ActiveGame", "Managing {0}"),
+				entry?.Name ?? _activeModeId);
+		}
+
+		private void ChooseActiveArtwork()
+		{
+			if (String.IsNullOrWhiteSpace(_activeModeId) || _artwork == null) return;
+			using (var picker = new OpenFileDialog
+			{
+				Title = L("GameDiscovery.ChooseImage", "Choose a game cover (16:9, recommended 960 x 540)"),
+				Filter = L("GameDiscovery.ImageFilter", "Pictures (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"),
+				CheckFileExists = true,
+				Multiselect = false
+			})
+			{
+				if (picker.ShowDialog(this) != DialogResult.OK) return;
+				try
+				{
+					_artwork.Import(_activeModeId, picker.FileName);
+					UpdateActiveBanner();
+				}
+				catch (Exception error) when (error is System.IO.IOException || error is ArgumentException ||
+					error is UnauthorizedAccessException || error is System.Runtime.InteropServices.ExternalException)
+				{
+					XtraMessageBox.Show(this, error.Message, L("GameDiscovery.ImageError", "Cannot use this picture"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				}
+			}
+		}
+
+		private void ResetActiveArtwork()
+		{
+			if (_artwork == null || String.IsNullOrWhiteSpace(_activeModeId)) return;
+			try { _artwork.ClearOverride(_activeModeId); UpdateActiveBanner(); }
+			catch (Exception error) when (error is System.IO.IOException || error is UnauthorizedAccessException)
+			{
+				XtraMessageBox.Show(this, error.Message, L("GameDiscovery.ImageError", "Cannot use this picture"),
+					MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+		}
+
+		private void SetActiveArtwork(Image artwork)
+		{
+			Image previous = _activeArtwork.Image;
+			_activeArtwork.Image = artwork;
+			if (!Object.ReferenceEquals(previous, artwork)) previous?.Dispose();
+		}
+
+		private void ReleaseActiveArtwork() => SetActiveArtwork(null);
+
+		private static Image CreateDefaultArtwork()
+		{
+			var picture = new Bitmap(320, 180);
+			using (Graphics g = Graphics.FromImage(picture))
+			using (var background = new LinearGradientBrush(new Rectangle(0, 0, 320, 180),
+				Color.FromArgb(62, 72, 89), Color.FromArgb(32, 39, 54), LinearGradientMode.ForwardDiagonal))
+			{
+				g.SmoothingMode = SmoothingMode.AntiAlias;
+				g.FillRectangle(background, 0, 0, 320, 180);
+				Image icon = NmmIconProvider.GetBitmap(NmmIconAction.ChangeGame, 96, false);
+				if (icon != null) g.DrawImage(icon, 120, 36, 80, 80);
+				using (var font = new Font(SystemFonts.MessageBoxFont.FontFamily, 11f, FontStyle.Bold))
+				using (var ink = new SolidBrush(Color.WhiteSmoke))
+				using (var format = new StringFormat { Alignment = StringAlignment.Center })
+					g.DrawString("NMM CE", font, ink, new RectangleF(0, 132, 320, 36), format);
+			}
+			return picture;
+		}
+
+		private static LabelControl Caption(string text)
+		{
+			return new LabelControl
+			{
+				Text = text,
+				Dock = DockStyle.Fill,
+				UseMnemonic = false,
+				Appearance = { Font = new Font(SystemFonts.MessageBoxFont.FontFamily, 8f, FontStyle.Bold) }
+			};
+		}
+
+		private static TextEdit ReadOnlyPathEdit()
+		{
+			var edit = new TextEdit { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 6) };
+			edit.Properties.ReadOnly = true;
+			edit.Properties.BorderStyle = BorderStyles.NoBorder;
+			return edit;
+		}
+
+		private void ResizeCanvas()
+		{
+			// Purposefully bound content width; the old grid wasted an entire wide monitor.
+			// Allow vertical scrolling in small windows rather than clipping the setup controls.
+			if (_viewport.IsDisposed || _canvas.IsDisposed) return;
+			bool active = !String.IsNullOrWhiteSpace(_activeModeId);
+			int width = Math.Max(active ? 1120 : 760, _viewport.ClientSize.Width - 20);
+			int height = Math.Max(1, _viewport.ClientSize.Height - 8);
+			_canvas.Width = Math.Min(active ? 1640 : 1180, width);
+			_canvas.Height = Math.Max(770, Math.Min(855, height));
+			_canvas.Left = Math.Max(0, (_viewport.ClientSize.Width - _canvas.Width) / 2);
+			_canvas.Top = 0;
 		}
 
 		private static string L(string key, string fallback) => LanguageManager.Get(key, fallback);
 
-		private bool _sessionLoading;
-		private bool _sessionActionsAvailable;
-		private bool _refreshing;
-		private bool _scanning;
+		private GameDiscoveryEntry SelectedEntry => _catalog?.Entries.FirstOrDefault(item =>
+			String.Equals(item.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
 
 		internal void EnableFirstSessionActions()
 		{
@@ -161,40 +605,56 @@
 			UpdateActions();
 		}
 
-		private GameDiscoveryEntry SelectedEntry => _catalog?.Entries.FirstOrDefault(item =>
-			String.Equals(item.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
-
-		internal void SetSessionReady()
+		internal void ConfigureArtwork(GameDiscoveryArtwork artwork)
 		{
-			UpdateActions();
+			_artwork = artwork ?? throw new ArgumentNullException(nameof(artwork));
+			UpdateActiveBanner();
 		}
 
+		internal void SetActiveManagedGame(string modeId)
+		{
+			_activeModeId = modeId;
+			UpdateActiveBanner();
+		}
+
+		internal void SetSessionReady() => UpdateActions();
 		internal void SetSessionInactive()
 		{
+			_activeModeId = null;
+			UpdateActiveBanner();
 			UpdateActions();
 		}
 
 		internal void SetSessionLoading(string name, bool loading)
 		{
 			_sessionLoading = loading;
+			_loadingRing.Visible = loading;
+			_statusLayout.ColumnStyles[0].Width = loading ? 42 : 0;
+			if (loading) _loadingRing.SetProgress(0, 18);
 			UpdateActions();
 			UpdateDiscoveryButtons();
-			if (loading)
-				_status.Text = String.Format(L("GameDiscovery.LoadingGame", "Loading {0}..."), name);
+			if (loading) SetStatus(String.Format(L("GameDiscovery.LoadingGame", "Loading {0}..."), name));
+			else SetStatus(_status.Text); // Collapse the duplicate ready message after loading ends.
 		}
 
-		internal void SetSessionMessage(string message)
+		internal void SetSessionProgress(long completed, long maximum, string phase)
 		{
-			_status.Text = message;
+			if (!_sessionLoading) return;
+			_loadingRing.SetProgress(completed, maximum);
+			SetStatus(String.Format(L("GameDiscovery.LoadProgressPhase", "Initializing game: {0}/{1} - {2}"),
+				Math.Max(0L, completed), Math.Max(1L, maximum), String.IsNullOrWhiteSpace(phase)
+					? L("GameDiscovery.Phase.Settings", "Preparing game settings") : phase));
 		}
+
+		internal void SetSessionMessage(string message) => SetStatus(message);
 
 		internal void SetBusy(bool busy)
 		{
 			_refreshing = busy;
 			UpdateDiscoveryButtons();
 			UpdateActions();
-			_status.Text = busy ? L("GameDiscovery.Refreshing", "Checking launcher settings...")
-				: L("GameDiscovery.Ready", "Launcher check complete. A full drive scan is never automatic.");
+			SetStatus(busy ? L("GameDiscovery.Refreshing", "Checking launcher settings...") :
+				L("GameDiscovery.Ready", "Launcher check complete. A full drive scan is never automatic."));
 		}
 
 		internal void SetScanning(bool scanning)
@@ -202,39 +662,35 @@
 			_scanning = scanning;
 			UpdateDiscoveryButtons();
 			UpdateActions();
-			if (scanning)
-				_status.Text = L("GameDiscovery.Scanning", "Scanning fixed drives for game executables...");
+			if (scanning) SetStatus(L("GameDiscovery.Scanning", "Scanning fixed drives for game executables..."));
 		}
 
 		internal void SetScanProgress(string path)
 		{
 			if (_scanning && !String.IsNullOrWhiteSpace(path))
-				_status.Text = L("GameDiscovery.ScanningPath", "Scanning:") + " " + path;
+				SetStatus(L("GameDiscovery.ScanningPath", "Scanning:") + " " + path);
 		}
 
 		internal void SetScanStopping()
 		{
 			_stopScan.Enabled = false;
-			_status.Text = L("GameDiscovery.ScanStopping", "Stopping scan; confirmed results will be kept...");
+			SetStatus(L("GameDiscovery.ScanStopping", "Stopping scan; confirmed results will be kept..."));
 		}
 
 		internal void SetScanResult(int foundCount, bool cancelled)
 		{
-			_status.Text = String.Format(cancelled
+			SetStatus(String.Format(cancelled
 				? L("GameDiscovery.ScanStopped", "Scan stopped. {0} verified installation(s) retained.")
-				: L("GameDiscovery.ScanDone", "Scan complete. {0} verified installation(s) found."), foundCount);
+				: L("GameDiscovery.ScanDone", "Scan complete. {0} verified installation(s) found."), foundCount));
 		}
 
 		internal void SetError(string reason)
 		{
 			UpdateDiscoveryButtons();
-			_status.Text = L("GameDiscovery.Error", "Could not refresh game discovery:") + " " + reason;
+			SetStatus(L("GameDiscovery.Error", "Could not refresh game discovery:") + " " + reason);
 		}
 
-		internal void SetScanError(string reason)
-		{
-			_status.Text = L("GameDiscovery.ScanError", "Game scan failed:") + " " + reason;
-		}
+		internal void SetScanError(string reason) => SetStatus(L("GameDiscovery.ScanError", "Game scan failed:") + " " + reason);
 
 		internal void SetRefreshFinished()
 		{
@@ -243,10 +699,30 @@
 			UpdateActions();
 		}
 
+		private void SetStatus(string message)
+		{
+			string status = message ?? String.Empty;
+			if (!_sessionLoading && !String.IsNullOrWhiteSpace(_activeModeId))
+			{
+				var entry = _catalog?.Entries.FirstOrDefault(item =>
+					String.Equals(item.ModeId, _activeModeId, StringComparison.OrdinalIgnoreCase));
+				string name = entry?.Name ?? _activeModeId;
+				// The ready notification used to appear beneath the game list while
+				// the new artwork panel repeated it. Keep exactly one "Managing ...".
+				if (String.Equals(status, String.Format(L("GameDiscovery.GameReady", "Managing {0}"), name),
+					StringComparison.CurrentCulture) || String.Equals(status, _activeGameName.Text, StringComparison.CurrentCulture))
+					status = String.Empty;
+			}
+			_status.Text = status;
+			_status.ToolTip = status;
+		}
+
 		private void UpdateDiscoveryButtons()
 		{
 			_refresh.Enabled = !_refreshing && !_scanning && !_sessionLoading;
 			_scan.Enabled = _catalog != null && !_refreshing && !_scanning && !_sessionLoading;
+			_scan.Visible = !_scanning;
+			_stopScan.Visible = _scanning;
 			_stopScan.Enabled = _scanning;
 		}
 
@@ -257,106 +733,114 @@
 			UpdateDiscoveryButtons();
 		}
 
+		private void SelectCollection(GameDiscoveryCollection section)
+		{
+			if (_visibleCollection == section) return;
+			_visibleCollection = section;
+			_selectedModeId = null;
+			_selectedInstallationRoot = null;
+			Populate();
+		}
+
 		private void Populate()
 		{
 			if (_catalog == null) return;
 			string query = Convert.ToString(_search.EditValue)?.Trim() ?? String.Empty;
-			var collections = new[] { GameDiscoveryCollection.Managed, GameDiscoveryCollection.ToConfigure, GameDiscoveryCollection.Supported };
-			int[] counts = new int[3];
+			var filtered = _catalog.Entries.Where(item => query.Length == 0 ||
+				item.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0 ||
+				item.ModeId.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+			var counts = new int[3];
+			for (int i = 0; i < _collections.Length; i++)
+				counts[i] = filtered.Count(item => item.Collection == _collections[i]);
+
+			// Keep the external game selection when a configuration moves sections.
+			var previous = filtered.FirstOrDefault(item => String.Equals(item.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
+			if (previous != null) _visibleCollection = previous.Collection;
+			var rows = filtered.Where(item => item.Collection == _visibleCollection).Select(item => new GameRow(item)).ToList();
+			int focusIndex = rows.FindIndex(row => String.Equals(row.Entry.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
+			if (focusIndex < 0)
+			{
+				focusIndex = rows.Count > 0 ? 0 : -1;
+				_selectedModeId = focusIndex < 0 ? null : rows[0].Entry.ModeId;
+				_selectedInstallationRoot = null;
+			}
 			_repopulating = true;
 			try
 			{
-				for (int index = 0; index < _lists.Length; index++)
-				{
-					var list = _lists[index];
-					var matches = _catalog.Entries.Where(item => item.Collection == collections[index] &&
-						(query.Length == 0 || item.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0 ||
-						item.ModeId.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)).ToList();
-					counts[index] = matches.Count;
-					list.BeginUpdate();
-					try
-					{
-						list.Items.Clear();
-						foreach (GameDiscoveryEntry entry in matches)
-							list.Items.Add(new DisplayEntry(entry));
-						foreach (DisplayEntry row in list.Items)
-							if (String.Equals(row.Entry.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase))
-							{
-								list.SelectedItem = row;
-								break;
-							}
-					}
-					finally { list.EndUpdate(); }
-				}
+				_grid.DataSource = rows;
+				_view.FocusedRowHandle = focusIndex < 0 ? GridControl.InvalidRowHandle : focusIndex;
+				_grid.Visible = rows.Count > 0;
+				_emptyList.Visible = rows.Count == 0;
+				_emptyList.Text = query.Length > 0
+					? L("GameDiscovery.NoSearchMatches", "No games match your search in this section.")
+					: L("GameDiscovery.EmptySection", "No games in this section.");
 			}
 			finally { _repopulating = false; }
-			UpdateGroupCaptions(counts[0], counts[1], counts[2]);
+			UpdateCollectionButtons(counts);
+			UpdateActiveBannerCaption();
 			UpdateInstallationChoices();
 			UpdateDetails();
 			UpdateActions();
 		}
 
-		private void UpdateGroupCaptions(int managed, int unconfigured, int supported)
+		private void UpdateCollectionButtons(int[] counts)
 		{
-			_groups[0].Text = String.Format("{0} ({1})", L("GameDiscovery.Managed", "Managed"), managed);
-			_groups[1].Text = String.Format("{0} ({1})", L("GameDiscovery.ToConfigure", "To configure"), unconfigured);
-			_groups[2].Text = String.Format("{0} ({1})", L("GameDiscovery.Supported", "Supported"), supported);
+			for (int index = 0; index < _collections.Length; index++)
+			{
+				string title = _collections[index] == GameDiscoveryCollection.Managed
+					? L("GameDiscovery.Managed", "Managed")
+					: _collections[index] == GameDiscoveryCollection.ToConfigure
+						? L("GameDiscovery.ToConfigure", "To configure")
+						: L("GameDiscovery.Supported", "Supported");
+				bool selected = _visibleCollection == _collections[index];
+				_collectionTitles[index].Text = (selected ? "●  " : "○  ") + title;
+				_collectionCounts[index].Text = counts[index].ToString();
+				_collectionCards[index].BorderStyle = selected ? BorderStyles.Simple : BorderStyles.NoBorder;
+			}
+			_listCard.Text = _visibleCollection == GameDiscoveryCollection.Managed
+				? L("GameDiscovery.ManagedGames", "Managed games")
+				: _visibleCollection == GameDiscoveryCollection.ToConfigure
+					? L("GameDiscovery.ToConfigure", "To configure")
+					: L("GameDiscovery.SupportedGames", "Supported games");
 		}
 
-		private void SelectEntry(int selectionIndex)
+		private void SelectGridRow()
 		{
 			if (_repopulating) return;
-			var selected = _lists[selectionIndex].SelectedItem as DisplayEntry;
-			if (selected == null) return;
-			_selectedModeId = selected.Entry.ModeId;
-			for (int index = 0; index < _lists.Length; index++)
-				if (index != selectionIndex) _lists[index].SelectedIndex = -1;
+			var row = _view.GetFocusedRow() as GameRow;
+			string nextModeId = row?.Entry.ModeId;
+			if (String.Equals(nextModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase)) return;
+			_selectedModeId = nextModeId;
 			_selectedInstallationRoot = null;
 			UpdateInstallationChoices();
 			UpdateDetails();
 			UpdateActions();
 		}
 
-		private void UpdateDetails()
+		private void InvokePrimaryAction()
 		{
-			GameDiscoveryEntry entry = _catalog?.Entries.FirstOrDefault(item =>
-				String.Equals(item.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
-			if (entry == null)
-			{
-				_details.Text = _catalog != null && _catalog.UnavailableSavedModeIds.Count > 0
-					? L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds)
-					: L("GameDiscovery.DetailsHint", "Select a game to see its saved paths and discovery details.");
-				return;
-			}
-			var lines = new List<string> { entry.Name + " (" + entry.ModeId + ")" };
-			lines.Add(entry.Collection == GameDiscoveryCollection.Managed
-				? L("GameDiscovery.ManagedStatus", "Previously configured game")
-				: entry.Collection == GameDiscoveryCollection.ToConfigure
-					? L("GameDiscovery.NeedsSetup", "Installation found; storage configuration required")
-					: L("GameDiscovery.NotLocated", "Supported; installation not yet selected"));
-			if (entry.NeedsAttention) lines.Add(L("GameDiscovery.NeedsAttention", "Saved configuration needs review"));
-			if (entry.IsStartupDefault) lines.Add(L("GameDiscovery.Default", "Remembered startup game"));
-			if (!String.IsNullOrWhiteSpace(entry.SavedInstallationPath)) lines.Add(L("GameDiscovery.StoragePath", "Storage:") + " " + entry.SavedInstallationPath);
-			if (!String.IsNullOrWhiteSpace(entry.SavedExecutablePath)) lines.Add(L("GameDiscovery.InstallationPath", "Installation:") + " " + entry.SavedExecutablePath);
-			foreach (var candidate in entry.Candidates)
-				lines.Add(candidate.Source + ": " + candidate.GameRoot);
-			if (_catalog.UnavailableSavedModeIds.Count > 0)
-				lines.Add(L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds));
-			_details.Text = String.Join(Environment.NewLine, lines);
-		}
-
-		internal void SelectMode(string modeId)
-		{
-			_selectedModeId = modeId;
-			_selectedInstallationRoot = null;
-			_search.EditValue = String.Empty;
-			Populate();
+			if (!_primaryAction.Enabled) return;
+			var entry = SelectedEntry;
+			if (entry == null) return;
+			if (GameSessionEntryGate.CanManage(entry))
+				ManageRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
+			else if (CanConfigure(entry) && !String.IsNullOrWhiteSpace(_selectedInstallationRoot))
+				ConfigureRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId, _selectedInstallationRoot));
+			else if (CanLocate(entry))
+				LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
 		}
 
 		private static bool CanConfigure(GameDiscoveryEntry entry)
 		{
+			// Managed denotes historical configuration, not proof of persisted
+			// Game Storage identity. Its setup must remain explicitly reviewable.
 			return entry != null && (entry.Collection == GameDiscoveryCollection.ToConfigure ||
-				(entry.Collection == GameDiscoveryCollection.Managed && entry.NeedsAttention));
+				entry.Collection == GameDiscoveryCollection.Managed);
+		}
+
+		private static bool CanLocate(GameDiscoveryEntry entry)
+		{
+			return entry != null && (entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
 		}
 
 		private void UpdateInstallationChoices()
@@ -375,7 +859,7 @@
 						if (String.Equals(((_installations.Properties.Items[i] as CandidateChoice)?.Candidate.GameRoot),
 							_selectedInstallationRoot, StringComparison.OrdinalIgnoreCase))
 						{ index = i; break; }
-				// Multiple installations require an explicit user choice.
+				// Multiple installations must never be silently selected for the user.
 				if (index < 0 && _installations.Properties.Items.Count == 1) index = 0;
 				_installations.SelectedIndex = index;
 				_selectedInstallationRoot = (_installations.SelectedItem as CandidateChoice)?.Candidate.GameRoot;
@@ -383,16 +867,181 @@
 			finally { _updatingInstallations = false; }
 		}
 
+		private void UpdateDetails()
+		{
+			var entry = SelectedEntry;
+			if (entry == null)
+			{
+				_gameTitle.Text = L("GameDiscovery.SelectGameTitle", "Select a game");
+				_gameState.Text = L("GameDiscovery.SelectHint", "Choose a game from the list to view its configuration.");
+				_sourceLine.Text = String.Empty;
+				_installationPath.Text = String.Empty;
+				_startupValue.Text = String.Empty;
+				_candidateHint.Text = String.Empty;
+				_details.Text = _catalog != null && _catalog.UnavailableSavedModeIds.Count > 0
+					? L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds)
+					: L("GameDiscovery.DetailsHint", "Select a game to see its discovery details.");
+				return;
+			}
+			_gameTitle.Text = entry.Name;
+			_gameState.Text = GetStatus(entry);
+			_sourceLine.Text = entry.Candidates.Count == 0
+				? L("GameDiscovery.NoDetectionSource", "No installation detected")
+				: L("GameDiscovery.DetectedVia", "Found via") + ": " + String.Join(", ", entry.Candidates.Select(item => item.Source)
+					.Distinct(StringComparer.OrdinalIgnoreCase));
+			_pathTitle.Text = entry.Collection == GameDiscoveryCollection.Managed
+				? L("GameDiscovery.InstallationHeading", "INSTALLATION PATH")
+				: L("GameDiscovery.DetectedInstallPath", "DETECTED INSTALLATION");
+			string installPath = entry.Collection == GameDiscoveryCollection.Managed
+				? entry.SavedInstallationPath
+				: _selectedInstallationRoot;
+			_installationPath.Text = String.IsNullOrWhiteSpace(installPath)
+				? L("GameDiscovery.NotSelected", "Not selected")
+				: installPath;
+			_installationPath.ToolTip = _installationPath.Text;
+			_startupValue.Text = entry.IsStartupDefault
+				? "★  " + L("GameDiscovery.Default", "Remembered startup game")
+				: L("GameDiscovery.NotStartupDefault", "Not the default game");
+			_candidateHint.Text = entry.Candidates.Count > 1
+				? L("GameDiscovery.MultipleFoundHint", "Multiple verified installations: choose one before configuring.")
+				: L("GameDiscovery.OneFoundHint", "One installation was found for this game.");
+			var lines = new List<string>();
+			if (entry.NeedsAttention)
+				lines.Add(L("GameDiscovery.AttentionExplanation", "An existing configuration may need review. Saved settings have not been changed."));
+			else if (entry.Collection == GameDiscoveryCollection.Managed)
+				lines.Add(L("GameDiscovery.ManagedOverview", "Your existing setup will be preserved."));
+			else if (entry.Collection == GameDiscoveryCollection.ToConfigure)
+				lines.Add(L("GameDiscovery.UnconfiguredOverview", "Finish configuration before managing mods."));
+			else
+				lines.Add(L("GameDiscovery.SupportedOverview", "Locate an installation to get started."));
+			if (!String.IsNullOrWhiteSpace(entry.SavedExecutablePath))
+			{
+				lines.Add(String.Empty);
+				lines.Add(L("GameDiscovery.SavedExePath", "Saved executable path") + ": " + entry.SavedExecutablePath);
+			}
+			if (entry.Candidates.Count > 1)
+			{
+				lines.Add(String.Empty);
+				lines.Add(L("GameDiscovery.FoundLocations", "Verified installation locations:"));
+				foreach (var candidate in entry.Candidates)
+					lines.Add(candidate.Source + ": " + candidate.GameRoot);
+			}
+			if (_catalog.UnavailableSavedModeIds.Count > 0)
+			{
+				lines.Add(String.Empty);
+				lines.Add(L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds));
+			}
+			_details.Text = String.Join(Environment.NewLine, lines);
+		}
+
+		private string GetStatus(GameDiscoveryEntry entry)
+		{
+			if (entry.NeedsAttention) return "!  " + L("GameDiscovery.NeedsAttention", "Needs attention");
+			switch (entry.Collection)
+			{
+				case GameDiscoveryCollection.Managed: return "✓  " + L("GameDiscovery.ManagedStatus", "Previously configured");
+				case GameDiscoveryCollection.ToConfigure: return "+  " + L("GameDiscovery.NeedsSetup", "Setup required");
+				default: return "○  " + L("GameDiscovery.NotLocated", "Not located");
+			}
+		}
+
 		private void UpdateActions()
 		{
-			GameDiscoveryEntry entry = SelectedEntry;
-			_manage.Enabled = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing && GameSessionEntryGate.CanManage(entry);
-			_configure.Enabled = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing && CanConfigure(entry) &&
-				!String.IsNullOrWhiteSpace(_selectedInstallationRoot);
-			_locate.Enabled = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing && entry != null &&
-				(entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
-			_installations.Enabled = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing && CanConfigure(entry) &&
-				_installations.Properties.Items.Count > 0;
+			var entry = SelectedEntry;
+			bool readyForAction = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing;
+			bool canManage = GameSessionEntryGate.CanManage(entry);
+			bool canConfigure = CanConfigure(entry);
+			bool canLocate = CanLocate(entry);
+			bool hasCandidate = !String.IsNullOrWhiteSpace(_selectedInstallationRoot);
+			bool showDefaultAction = entry != null && entry.Collection == GameDiscoveryCollection.Managed;
+			_startupTitle.Visible = showDefaultAction;
+			_startupValue.Visible = showDefaultAction;
+			_startupDefault.Visible = showDefaultAction;
+			_detailLayout.RowStyles[5].Height = showDefaultAction ? 24 : 0;
+			_detailLayout.RowStyles[6].Height = showDefaultAction ? 28 : 0;
+			_detailLayout.RowStyles[7].Height = showDefaultAction ? 40 : 0;
+			_startupDefault.Text = entry != null && entry.IsStartupDefault
+				? L("GameDiscovery.ClearStartupDefault", "Clear startup default")
+				: L("GameDiscovery.SetStartupDefault", "Set as startup game");
+			_startupDefault.Enabled = readyForAction && showDefaultAction &&
+				(entry.IsStartupDefault || canManage);
+			_primaryAction.Text = entry == null ? L("GameDiscovery.SelectGameTitle", "Select a game") :
+				canManage ? String.Format(L("GameDiscovery.ManageSpecific", "Manage {0}"), entry.Name) :
+				canConfigure && hasCandidate ? L("GameDiscovery.Configure", "Configure game storage") :
+				L("GameDiscovery.Locate", "Locate game...");
+			_primaryAction.Enabled = readyForAction && entry != null && (canManage || canConfigure && hasCandidate || canLocate);
+			bool isManaged = entry != null && entry.Collection == GameDiscoveryCollection.Managed;
+			bool reviewManagedStorage = isManaged && hasCandidate;
+			_locate.Text = reviewManagedStorage
+				? L("GameDiscovery.ReviewStorage", "Review Game Storage...")
+				: L("GameDiscovery.Locate", "Locate game...");
+			_locate.Visible = reviewManagedStorage || (canConfigure && hasCandidate);
+			_locate.Enabled = readyForAction && (reviewManagedStorage || canLocate);
+			// Do not crowd ordinary Managed details with a selector when the
+			// saved installation is the only candidate.
+			_candidatePanel.Visible = canConfigure && entry != null && entry.Candidates.Count > 0 &&
+				(!isManaged || entry.Candidates.Count > 1);
+			_detailLayout.RowStyles[9].Height = _locate.Visible ? 42 : 0;
+			_detailLayout.RowStyles[10].Height = _candidatePanel.Visible ? 83 : 0;
+			_installations.Enabled = readyForAction && canConfigure && _installations.Properties.Items.Count > 0;
+		}
+
+		internal void SelectMode(string modeId)
+		{
+			_selectedModeId = modeId;
+			_selectedInstallationRoot = null;
+			var entry = _catalog?.Entries.FirstOrDefault(item => String.Equals(item.ModeId, modeId, StringComparison.OrdinalIgnoreCase));
+			if (entry != null) _visibleCollection = entry.Collection;
+			_search.EditValue = String.Empty;
+			Populate();
+		}
+
+		public sealed class GameRow
+		{
+			internal GameRow(GameDiscoveryEntry entry)
+			{
+				Entry = entry;
+				Name = entry.Name;
+			}
+			internal GameDiscoveryEntry Entry { get; }
+			public string Name { get; }
+		}
+
+		/// <summary>A determinate ring; never estimates progress from elapsed time.</summary>
+		private sealed class CompletionRing : Control
+		{
+			private long _completed;
+			private long _maximum = 1;
+
+			internal CompletionRing()
+			{
+				SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
+					ControlStyles.OptimizedDoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+				BackColor = Color.Transparent;
+			}
+
+			internal void SetProgress(long completed, long maximum)
+			{
+				_maximum = Math.Max(1L, maximum);
+				_completed = Math.Max(0L, Math.Min(_maximum, completed));
+				Invalidate();
+			}
+
+			protected override void OnPaint(PaintEventArgs e)
+			{
+				base.OnPaint(e);
+				var rect = new Rectangle(5, 5, Math.Max(1, Math.Min(Width, Height) - 11), Math.Max(1, Math.Min(Width, Height) - 11));
+				e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+				using (var track = new Pen(Color.FromArgb(80, SystemColors.GrayText), 3.5f))
+				using (var progress = new Pen(SystemColors.Highlight, 3.5f))
+				{
+					progress.StartCap = LineCap.Round;
+					progress.EndCap = LineCap.Round;
+					e.Graphics.DrawEllipse(track, rect);
+					if (_completed > 0)
+						e.Graphics.DrawArc(progress, rect, -90, (float)(360d * _completed / _maximum));
+				}
+			}
 		}
 
 		private sealed class CandidateChoice
@@ -400,14 +1049,6 @@
 			internal CandidateChoice(GameDiscoveryInstallationCandidate candidate) { Candidate = candidate; }
 			internal GameDiscoveryInstallationCandidate Candidate { get; }
 			public override string ToString() => Candidate.Source + ": " + Candidate.GameRoot;
-		}
-
-		private sealed class DisplayEntry
-		{
-			internal DisplayEntry(GameDiscoveryEntry entry) { Entry = entry; }
-			internal GameDiscoveryEntry Entry { get; }
-			public override string ToString() => Entry.Name + (Entry.NeedsAttention ? "  [Needs attention]" :
-				Entry.IsStartupDefault ? "  [Default]" : String.Empty);
 		}
 	}
 }

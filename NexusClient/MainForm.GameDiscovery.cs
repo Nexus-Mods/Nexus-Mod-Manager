@@ -7,6 +7,7 @@
 	using DevExpress.XtraBars;
 	using Nexus.Client.Games;
 	using Nexus.Client.Games.UI;
+	using Nexus.Client.Games.DataDriven;
 	using Nexus.Client.Util.Localization;
 
 	/// <summary>Game-independent discovery and placeholder surfaces owned by MainForm.</summary>
@@ -21,6 +22,7 @@
 		private CancellationTokenSource _gameDiscoveryCancellation;
 		private CancellationTokenSource _gameDiscoveryScanCancellation;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ManageGameRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> StartupDefaultGameRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureGameRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateGameRequested;
 		internal event EventHandler GameCatalogReady;
@@ -44,11 +46,17 @@
 		internal bool HasBoundGameViewModel => ViewModel != null;
 		internal void EnableFirstSessionActions() => _gameDiscoveryDocument.EnableFirstSessionActions();
 		internal void SetGameSessionReady() => _gameDiscoveryDocument.SetSessionReady();
+		internal void SetActiveManagedGame(string modeId) => _gameDiscoveryDocument.SetActiveManagedGame(modeId);
 		internal void SetGameSessionInactive() => _gameDiscoveryDocument.SetSessionInactive();
 
 		internal void SetGameLoadStatus(string name, bool loading)
 		{
 			_gameDiscoveryDocument.SetSessionLoading(name, loading);
+		}
+
+		internal void SetGameLoadProgress(long completed, long maximum, string phase)
+		{
+			_gameDiscoveryDocument.SetSessionProgress(completed, maximum, phase);
 		}
 
 		internal void SetGameLoadMessage(string message)
@@ -59,10 +67,14 @@
 		private void InitializeGameDiscoveryDocument()
 		{
 			_gameDiscoveryDocument = new GameDiscoveryDocument();
+			_gameDiscoveryDocument.ConfigureArtwork(new GameDiscoveryArtwork(
+				_shellEnvironmentInfo.ApplicationPersonalDataFolderPath, modeId =>
+				(_gameDiscoveryRegistry?.GetGameMode(modeId) as DataDrivenGameModeFactory)?.DefinitionPath));
 			_gameDiscoveryDocument.RefreshRequested += async (sender, args) => await RefreshGameDiscoveryAsync();
 			_gameDiscoveryDocument.ScanRequested += async (sender, args) => await ScanGameDiscoveryAsync();
 			_gameDiscoveryDocument.StopScanRequested += (sender, args) => StopGameDiscoveryScan();
 			_gameDiscoveryDocument.ManageRequested += (sender, args) => ManageGameRequested?.Invoke(this, args);
+			_gameDiscoveryDocument.StartupDefaultRequested += (sender, args) => StartupDefaultGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.ConfigureRequested += (sender, args) => ConfigureGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.LocateRequested += (sender, args) => LocateGameRequested?.Invoke(this, args);
 		}

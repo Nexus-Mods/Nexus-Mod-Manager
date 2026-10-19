@@ -1349,6 +1349,7 @@
     </Compile>
     <Compile Include="Games\FileSearcher.cs" />
     <Compile Include="Games\GameDiscoveryCatalog.cs" />
+    <Compile Include="Games\GameDiscoveryArtwork.cs" />
     <Compile Include="Games\GameDiscoveryStartupIntent.cs" />
     <Compile Include="Games\GameDiscoveryConfigurationService.cs" />
     <Compile Include="Games\GameSessionEntryGate.cs" />

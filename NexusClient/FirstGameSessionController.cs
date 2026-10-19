@@ -13,6 +13,7 @@
 	using Nexus.Client.Games;
 	using Nexus.Client.Games.UI;
 	using Nexus.Client.ModManagement.UI;
+	using Nexus.Client.Settings;
 	using Nexus.Client.CollectionManagement;
 	using Nexus.Client.Util;
 	using Nexus.Client.Util.Localization;
@@ -55,8 +56,36 @@
 			_shell.ConfigureGameRequested += OnConfigureRequested;
 			_shell.LocateGameRequested += OnLocateRequested;
 			_shell.ManageGameRequested += OnManageRequested;
+			_shell.StartupDefaultGameRequested += OnStartupDefaultRequested;
 			_shell.GameCatalogReady += OnCatalogReady;
 			_shell.EnableFirstSessionActions();
+		}
+
+		private void OnStartupDefaultRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
+		{
+			if (_disposed || _teardownFailed || _shell.IsFirstSessionLoading) return;
+			var entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
+				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
+			bool oldRemember = _environment.Settings.RememberGameMode;
+			string oldMode = _environment.Settings.RememberedGameMode;
+			if (!GameDiscoveryStartupPreference.Toggle(_environment.Settings, entry)) return;
+			try
+			{
+				_environment.Settings.Save();
+			}
+			catch (Exception exception) when (!(exception is OutOfMemoryException))
+			{
+				_environment.Settings.RememberGameMode = oldRemember;
+				_environment.Settings.RememberedGameMode = oldMode;
+				Trace.TraceWarning("Could not save startup game preference: {0}", exception);
+				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.StartupDefaultSaveFailed",
+					"Could not save the startup game preference."));
+				return;
+			}
+			_shell.ReprojectGameDiscoveryCatalog();
+			_shell.SetGameLoadMessage(LanguageManager.Get(
+				_environment.Settings.RememberGameMode ? "GameDiscovery.StartupDefaultSaved" : "GameDiscovery.StartupDefaultCleared",
+				_environment.Settings.RememberGameMode ? "Startup game saved." : "No startup game selected."));
 		}
 
 		private async void OnManageRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
@@ -144,42 +173,53 @@
 				String.IsNullOrWhiteSpace(candidatePath)) return;
 			var factory = _shell.GameDiscoveryRegistry?.GetGameMode(modeId);
 			if (factory == null) return;
-			if (_gate.State == GameSessionEntryGate.EntryState.Ready)
+			// Reconfiguring the *active* game requires detaching its native services.
+			// A different game is an independent storage target and does not.
+			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
+				String.Equals(_gate.ModeId, modeId, StringComparison.OrdinalIgnoreCase))
 			{
-				// Storage is a mutation of another game's persisted configuration. The
-				// existing native session must first be quiescent and released.
-				if (XtraMessageBox.Show(_shell,
-					LanguageManager.Get("GameDiscovery.CloseForSetup",
-						"Close the current game session to configure another game?"),
-					LanguageManager.Get("GameDiscovery.Configure", "Configure game storage"),
-					MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes || !TryLeaveCurrentGame())
-					return;
+				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.ActiveStorageBlocked",
+					"Storage for the active game cannot be changed until you switch away from it."));
+				return;
 			}
-			try
+			// This is a temporary target-game lock, NOT the mutex owned by the active
+			// session. Do not call TryAcquireModeMutex/ReleaseMutex here.
+			bool ownsSetupMutex;
+			using (var setupMutex = new Mutex(true,
+				String.Format("{0}-{1}-GameModeMutex", CommonData.ModManagerName, modeId),
+				out ownsSetupMutex))
 			{
-				if (!TryAcquireModeMutex(factory.GameModeDescriptor))
+				if (!ownsSetupMutex)
 				{
 					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.GameAlreadyRunning",
 						"This game is already managed by another NMM process."));
 					return;
 				}
-				string result;
-				bool configured = new GameDiscoveryConfigurationService(_environment)
-					.Configure(_shell, factory, candidatePath, out result);
-				if (configured)
+				try
 				{
-					_shell.ReprojectGameDiscoveryCatalog();
-					_shell.SelectGameInDiscovery(modeId);
+					string result;
+					bool configured = new GameDiscoveryConfigurationService(_environment)
+						.Configure(_shell, factory, candidatePath, out result, () =>
+						{
+							CollectionTargetMutationLease reservation;
+							return CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out reservation)
+								? reservation : null;
+						});
+					if (configured)
+					{
+						_shell.ReprojectGameDiscoveryCatalog();
+						_shell.SelectGameInDiscovery(modeId);
+					}
+					if (!String.IsNullOrWhiteSpace(result)) _shell.SetGameLoadMessage(result);
 				}
-				if (!String.IsNullOrWhiteSpace(result)) _shell.SetGameLoadMessage(result);
+				catch (Exception exception) when (!(exception is OutOfMemoryException))
+				{
+					Trace.TraceError("Game configuration failed: {0}", exception);
+					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupFailed",
+						"Game Storage could not be configured.") + " " + exception.Message);
+				}
+				finally { setupMutex.ReleaseMutex(); }
 			}
-			catch (Exception exception) when (!(exception is OutOfMemoryException))
-			{
-				Trace.TraceError("Game configuration failed: {0}", exception);
-				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupFailed",
-					"Game Storage could not be configured.") + " " + exception.Message);
-			}
-			finally { ReleaseMutex(); }
 		}
 
 		private async Task LoadFirstGameAsync(string modeId)
@@ -224,6 +264,7 @@
 				do
 				{
 					initializer = new ApplicationInitializer(_environment, _fonts, _deletedDll);
+					_shell.SetGameLoadProgress(0, 18, LanguageManager.Get("GameDiscovery.Phase.Settings", "Preparing game settings"));
 					await InitializeWithOwnedPresenterAsync(initializer, factory);
 					if (initializer.Status == InitializationTaskStatus.Retrying)
 						_bootstrapper.ReleaseSessionServices(initializer.Services);
@@ -247,11 +288,16 @@
 				// Read/migrate category XML on a worker before binding the Mods UI.
 				// Profile-dependent archive category remapping stays in ModManagerVM,
 				// after ProfileManager has been constructed on the UI/native thread.
-				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.LoadingCategories", "Preparing mod categories..."));
+				_shell.SetGameLoadProgress(initializer.OverallProgress, initializer.OverallProgressMaximum + 2,
+					LanguageManager.Get("GameDiscovery.LoadingCategories", "Preparing mod categories..."));
 				ModManagerVM.PreparedModCategories preparedCategories = await Task.Run(
 					() => ModManagerVM.PrepareCategories(_services.ModManager));
+				_shell.SetGameLoadProgress(initializer.OverallProgress + 1, initializer.OverallProgressMaximum + 2,
+					LanguageManager.Get("GameDiscovery.Phase.OpeningUI", "Building the game interface"));
 				MainFormVM viewModel = _bootstrapper.CreateSessionViewModel(initializer, installed, preparedCategories);
 				_shell.AttachFirstGame(viewModel);
+				_shell.SetGameLoadProgress(initializer.OverallProgress + 2, initializer.OverallProgressMaximum + 2,
+					LanguageManager.Get("GameDiscovery.Phase.Ready", "Game interface ready"));
 				_gate.Finish(entry.ModeId, true);
 
 				// The listener is owned by this session, not by MainForm or a process singleton.
@@ -266,6 +312,7 @@
 				}
 
 				_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.GameReady", "Managing {0}", entry.Name));
+				_shell.SetActiveManagedGame(entry.ModeId);
 				_shell.SetGameSessionReady();
 				DeliverPendingNxmIfMatching();
 				await _shell.NotifyFirstGameReadyAsync();
@@ -375,15 +422,17 @@
 			initializer.TaskEnded += handler;
 			System.ComponentModel.PropertyChangedEventHandler progress = (sender, args) =>
 			{
-				if (!String.Equals(args.PropertyName, "OverallProgress", StringComparison.Ordinal) ||
+				if ((!String.Equals(args.PropertyName, "OverallProgress", StringComparison.Ordinal) &&
+					!String.Equals(args.PropertyName, "OverallProgressMaximum", StringComparison.Ordinal) &&
+					!String.Equals(args.PropertyName, "OverallMessage", StringComparison.Ordinal)) ||
 					_shell.IsDisposed || !_shell.IsHandleCreated) return;
 				try
 				{
 					_shell.BeginInvoke((MethodInvoker)(() =>
 					{
 						if (!_shell.IsDisposed)
-							_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.LoadProgress",
-								"Initializing game: {0}/{1}", initializer.OverallProgress, initializer.OverallProgressMaximum));
+							_shell.SetGameLoadProgress(initializer.OverallProgress, initializer.OverallProgressMaximum + 2,
+								initializer.OverallMessage);
 					}));
 				}
 				catch (InvalidOperationException) { }
@@ -502,10 +551,27 @@
 			if (_disposed) return;
 			_disposed = true;
 			_shell.ManageGameRequested -= OnManageRequested;
+			_shell.StartupDefaultGameRequested -= OnStartupDefaultRequested;
 			_shell.ConfigureGameRequested -= OnConfigureRequested;
 			_shell.LocateGameRequested -= OnLocateRequested;
 			_shell.GameCatalogReady -= OnCatalogReady;
 			ReleaseNativeSession();
 		}
 	}
+	/// <summary>Explicit, single-value startup preference. No game discovery or storage changes.</summary>
+	internal static class GameDiscoveryStartupPreference
+	{
+		internal static bool Toggle(ISettings settings, GameDiscoveryEntry entry)
+		{
+			if (settings == null) throw new ArgumentNullException(nameof(settings));
+			if (entry == null || entry.Collection != GameDiscoveryCollection.Managed) return false;
+			bool isCurrentDefault = settings.RememberGameMode &&
+				String.Equals(settings.RememberedGameMode, entry.ModeId, StringComparison.OrdinalIgnoreCase);
+			if (!isCurrentDefault && !GameSessionEntryGate.CanManage(entry)) return false;
+			settings.RememberGameMode = !isCurrentDefault;
+			settings.RememberedGameMode = isCurrentDefault ? String.Empty : entry.ModeId;
+			return true;
+		}
+	}
+
 }

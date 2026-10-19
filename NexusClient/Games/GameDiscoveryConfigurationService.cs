@@ -21,7 +21,8 @@
 			_environment = environment ?? throw new ArgumentNullException(nameof(environment));
 		}
 
-		internal bool Configure(IWin32Window owner, IGameModeFactory factory, string selectedRoot, out string message)
+		internal bool Configure(IWin32Window owner, IGameModeFactory factory, string selectedRoot,
+			out string message, Func<IDisposable> acquireNativeWriteReservation = null)
 		{
 			message = null;
 			if (factory == null || !QuickGameDiscovery.IsVerifiedGameRoot(factory.GameModeDescriptor, selectedRoot))
@@ -65,20 +66,34 @@
 						message = LanguageManager.Get("GameDiscovery.LocationChanged", "The game installation changed while you were configuring storage. Locate it again.");
 						return false;
 					}
-					if (service.ApplyInitialSetupCandidate(paths, setup.SelectedCandidate, out health))
+					// Hold the shared native-process reservation ONLY while applying the
+					// selected storage. The modal review itself never interrupts a
+					// different game's live session.
+					IDisposable reservation = acquireNativeWriteReservation == null
+						? null : acquireNativeWriteReservation();
+					if (acquireNativeWriteReservation != null && reservation == null)
 					{
-						// The storage service has already persisted the selected folder roles.
-						// Add historical registration only after the explicit apply succeeded.
-						_environment.Settings.InstallationPaths[id] = installedPath;
-						_environment.Settings.ExecutablePaths[id] = executablePath;
-						if (!_environment.Settings.InstalledGames.Cast<string>().Any(value =>
-							String.Equals(value, id, StringComparison.OrdinalIgnoreCase)))
-							_environment.Settings.InstalledGames.Add(id);
-						_environment.Settings.CompletedSetup[id] = true;
-						_environment.Settings.InstalledGamesDetected = true;
-						_environment.Settings.Save();
-						message = LanguageManager.Format("GameDiscovery.Configured", "{0} is configured. Select Manage to open it.", factory.GameModeDescriptor.Name);
-						return true;
+						message = LanguageManager.Get("GameDiscovery.StorageBusy",
+							"A mod or Collection operation is running. Finish it before saving Game Storage.");
+						return false;
+					}
+					using (reservation)
+					{
+						if (service.ApplyInitialSetupCandidate(paths, setup.SelectedCandidate, out health))
+						{
+							// Finish the target registration under the same native-process
+							// gate as the metadata write. The active mode's keys are untouched.
+							_environment.Settings.InstallationPaths[id] = installedPath;
+							_environment.Settings.ExecutablePaths[id] = executablePath;
+							if (!_environment.Settings.InstalledGames.Cast<string>().Any(value =>
+								String.Equals(value, id, StringComparison.OrdinalIgnoreCase)))
+								_environment.Settings.InstalledGames.Add(id);
+							_environment.Settings.CompletedSetup[id] = true;
+							_environment.Settings.InstalledGamesDetected = true;
+							_environment.Settings.Save();
+							message = LanguageManager.Format("GameDiscovery.Configured", "{0} is configured. Select Manage to open it.", factory.GameModeDescriptor.Name);
+							return true;
+						}
 					}
 				}
 				// A failed metadata/ownership validation must not silently take the
