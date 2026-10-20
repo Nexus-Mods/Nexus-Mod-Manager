@@ -28,6 +28,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 	/// </summary>
 	public sealed class Witcher3LoadOrderControl : ManagedFontDockContent
 	{
+		private readonly PanelControl _surface;
+		private readonly FlowLayoutPanel _commands;
+		private readonly LabelControl _description;
 		private readonly GridControl _grid;
 		private readonly GridView _view;
 		private readonly DiagnosticTextBox _status;
@@ -73,6 +76,11 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			Name = "Witcher3LoadOrderControl";
 			Text = L("Witcher3.Order.Title", "Witcher Load Order");
 			DockAreas = DockAreas.Document;
+			// Paint the legacy dock document with the active DevExpress skin.
+			var surface = new PanelControl { Dock = DockStyle.Fill,
+				BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
+			_surface = surface;
+			Controls.Add(surface);
 			_enabledText = L("Witcher3.Order.Values.Enabled", "Enabled");
 			_disabledText = L("Witcher3.Order.Values.Disabled", "Disabled");
 			_unconfiguredText = L("Witcher3.Order.Values.Unconfigured", "Not configured");
@@ -90,10 +98,12 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			var description = new LabelControl { Dock = DockStyle.Top, AutoSizeMode = LabelAutoSizeMode.Vertical,
 				Text = L("Witcher3.Order.Introduction", "Witcher Mods/mod* folders (not archive Sort or Bethesda plugins). Lower Priority loads first and wins conflicts; alphabetical folder names break ties. A game-enabled flag does not install or uninstall an NMM archive."),
 				Padding = new Padding(7), UseMnemonic = false };
+			_description = description;
 			description.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 
 			var commands = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 42,
 				AutoScroll = true, WrapContents = false, Padding = new Padding(5, 4, 5, 2) };
+			_commands = commands;
 			_up = Button(commands, "Witcher3.Order.Actions.Up", "Move up", () => Move(-1));
 			_down = Button(commands, "Witcher3.Order.Actions.Down", "Move down", () => Move(1));
 			_enable = Button(commands, "Witcher3.Order.Actions.Enable", "Enable in game", () => SetEnabled(true));
@@ -141,12 +151,12 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_details.Properties.ReadOnly = true;
 			_status = new DiagnosticTextBox { Height = 105 };
 			_remasteredHealth = new DiagnosticTextBox { Height = 220, Visible = false };
-			Controls.Add(_grid);
-			Controls.Add(_details);
-			Controls.Add(_status);
-			Controls.Add(_remasteredHealth);
-			Controls.Add(commands);
-			Controls.Add(description);
+			surface.Controls.Add(_grid);
+			surface.Controls.Add(_details);
+			surface.Controls.Add(_status);
+			surface.Controls.Add(_remasteredHealth);
+			surface.Controls.Add(commands);
+			surface.Controls.Add(description);
 			_status.Text = L("Witcher3.Order.Initial", "Open this tab to read the game's current mod-folder order.");
 			ApplyStatusPalette();
 			UpdateCommands();
@@ -238,6 +248,10 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		/// <summary>Uses the plugin list's accessible severity colours for the current skin.</summary>
 		private void ApplyStatusPalette()
 		{
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(this);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_surface);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_commands);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_description);
 			NmmColorPalette palette = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
 				DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
 			_errorColor = palette.PluginErrorColor;

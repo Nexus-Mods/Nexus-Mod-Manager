@@ -44,6 +44,7 @@
 		private BarButtonItem tsbUpdate;
 		private BarButtonItem tsbYouTube;
 		private BarButtonItem tsbDiscord;
+		private BarButtonItem spbSocial;
 		private BarButtonItem spbSupportNMM;
 		private BarButtonItem tsbiPatreon;
 		private BarButtonItem tsbiKofi;
@@ -56,6 +57,7 @@
 		private PopupMenu popupFolders;
 		private PopupMenu popupSupportedTools;
 		private PopupMenu popupSupportNMM;
+		private PopupMenu popupSocial;
 
 		private BarButtonItem toolStripButtonOnlineStatus;
 		private BarStaticItem toolStripLabelDownloads;
@@ -141,8 +143,7 @@
 			AddMainToolbarItem(toolStripTextBoxFind);
 
 			AddMainToolbarItem(spbSupportNMM, true);
-			AddMainToolbarItem(tsbYouTube);
-			AddMainToolbarItem(tsbDiscord);
+			AddMainToolbarItem(spbSocial);
 			AddMainToolbarItem(tsbUpdate);
 			AddMainToolbarItem(spbChangeMode);
 			AddMainToolbarItem(spbHelp);
@@ -203,10 +204,15 @@
 			popupProfiles = new PopupMenu(barManagerMain);
 			popupHelp = new PopupMenu(barManagerMain);
 			popupChangeMode = new PopupMenu(barManagerMain);
+			popupChangeMode.BeforePopup += (sender, args) =>
+			{
+				if (_persistentSessionShell) BindChangeModeCommands();
+			};
 			popupTools = new PopupMenu(barManagerMain);
 			popupFolders = new PopupMenu(barManagerMain);
 			popupSupportedTools = new PopupMenu(barManagerMain);
 			popupSupportNMM = new PopupMenu(barManagerMain);
+			popupSocial = new PopupMenu(barManagerMain);
 
 			spbLaunch = CreateDropDownButton(L("MainForm.Toolbar.LaunchGame", "Launch Game"), popupLaunch, false, BarItemPaintStyle.CaptionGlyph);
 			spbLaunch.ItemClick += SpbLaunch_ItemClick;
@@ -236,8 +242,9 @@
 			spbHelp = CreateDropDownButton(L("MainForm.Toolbar.Help", "Help"), popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
 
-			spbChangeMode = CreateDropDownButton(L("MainForm.Toolbar.ChangeGameMode", "Change Game Mode"), popupChangeMode, true, BarItemPaintStyle.Standard);
+			spbChangeMode = CreateDropDownButton(L("MainForm.Toolbar.ChangeGameMode", "Switch Game"), popupChangeMode, true, BarItemPaintStyle.Standard);
 			spbChangeMode.Alignment = BarItemLinkAlignment.Right;
+			spbChangeMode.Hint = L("MainForm.Toolbar.SwitchGame.Hint", "Switch to another managed game");
 
 			toolStripSplitButtonTools = CreateDropDownButton(L("MainForm.Toolbar.Tools", "Tools"), popupTools, true, BarItemPaintStyle.Standard);
 
@@ -261,7 +268,7 @@
 				Visibility = BarItemVisibility.Never
 			};
 
-			tsbUpdate = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.CheckForUpdates", "Check for Updates"))
+			tsbUpdate = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.CheckForUpdates", "Update App"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
 				PaintStyle = BarItemPaintStyle.Standard
@@ -269,23 +276,29 @@
 
 			tsbDiscord = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.Discord", "Discord"))
 			{
-				Alignment = BarItemLinkAlignment.Right,
 				Hint = L("MainForm.Toolbar.Discord.Hint", "Join the Official NMM Community Discord"),
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbDiscord.ImageOptions.Image = ScaleBarImage(Properties.Resources.discord_logo_512, MainToolbarImageSize);
+			tsbDiscord.ImageOptions.Image = ScaleBarImage(Properties.Resources.discord_logo_512, StatusBarImageSize);
 			tsbDiscord.ItemClick += (sender, args) => tsbDiscord_Click(sender, EventArgs.Empty);
 
 			tsbYouTube = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.YouTube", "YouTube"))
 			{
-				Alignment = BarItemLinkAlignment.Right,
 				Hint = L("MainForm.Toolbar.YouTube.Hint", "Watch the official NMM Community Edition YouTube channel"),
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbYouTube.ImageOptions.Image = ScaleBarImage(Properties.Resources.youtube_logo_512, MainToolbarImageSize);
+			tsbYouTube.ImageOptions.Image = ScaleBarImage(Properties.Resources.youtube_logo_512, StatusBarImageSize);
 			tsbYouTube.ItemClick += (sender, args) => tsbYouTube_Click(sender, EventArgs.Empty);
 
-			spbSupportNMM = CreateDropDownButton(L("MainForm.Toolbar.SupportDevelopment", "Support the NMM development"), popupSupportNMM, false, BarItemPaintStyle.Standard);
+			spbSocial = CreateDropDownButton(L("MainForm.Toolbar.Social", "Social"), popupSocial, false, BarItemPaintStyle.Standard);
+			spbSocial.Alignment = BarItemLinkAlignment.Right;
+			spbSocial.Hint = L("MainForm.Toolbar.Discord.Hint", "Join the Official NMM Community Discord");
+			spbSocial.ImageOptions.Image = ScaleBarImage(Properties.Resources.discord_logo_512, MainToolbarImageSize);
+			spbSocial.ItemClick += (sender, args) => tsbDiscord_Click(sender, EventArgs.Empty);
+			popupSocial.AddItem(tsbDiscord);
+			popupSocial.AddItem(tsbYouTube);
+
+			spbSupportNMM = CreateDropDownButton(L("MainForm.Toolbar.SupportDevelopment", "Support the devs"), popupSupportNMM, false, BarItemPaintStyle.Standard);
 			spbSupportNMM.Alignment = BarItemLinkAlignment.Right;
 			spbSupportNMM.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, MainToolbarImageSize);
 			spbSupportNMM.ItemClick += (sender, args) => spbSupportNMM_ButtonClick(sender, EventArgs.Empty);
@@ -312,8 +325,7 @@
 
 			// Brand imagery remains native, but still follows Text/Icon toolbar presentation.
 			NmmIconProvider.BindPresentationOnly(spbSupportNMM);
-			NmmIconProvider.BindPresentationOnly(tsbYouTube);
-			NmmIconProvider.BindPresentationOnly(tsbDiscord);
+			NmmIconProvider.BindPresentationOnly(spbSocial);
 		}
 
 		/// <summary>

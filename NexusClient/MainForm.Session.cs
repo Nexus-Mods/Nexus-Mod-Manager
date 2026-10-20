@@ -66,11 +66,7 @@
 			ApplyDefaultMonitorPanelSizes();
 			RestoreMonitorColumnWidths();
 			_mainDocumentPersistenceEnabled = true;
-			// The permanent discovery tab owns game changes in this opt-in shell.
-			// Legacy toolbar switch commands remain disabled to avoid rescan/default side effects.
-			spbChangeMode.Enabled = false;
-			spbChangeMode.Hint = LanguageManager.Get("GameDiscovery.SwitchViaDiscovery",
-				"Switch games from the Game Discovery tab.");
+			spbChangeMode.Enabled = true;
 		}
 
 		/// <summary>Read-only switch-admission check. No in-flight native or UX-owned work may lose its services.</summary>

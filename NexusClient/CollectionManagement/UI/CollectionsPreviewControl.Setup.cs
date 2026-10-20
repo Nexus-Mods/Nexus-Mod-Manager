@@ -37,15 +37,17 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			_setupPage = CreateCollectionPage(_reviewTabs, L("Collections.Setup.Tab", "Setup & instructions"));
 			_setupNotice = new SimpleButton { AutoSize = true, Text = L("Collections.Presentation.ReviewSetup", "Review setup...") };
-			var setupSection = CreateCollectionTable(2);
+			var setupSection = CreateCollectionTable(3);
 			setupSection.Padding = new Padding(0, 8, 0, 4);
 			_setupSection = setupSection;
 			var setupHeading = CreateCollectionCaption(L("Collections.Presentation.AdditionalSetup", "Additional setup"));
 			setupHeading.Appearance.FontStyleDelta = System.Drawing.FontStyle.Bold;
 			_setupSummary = CreateCollectionCaption(String.Empty);
 			var setupActions = new CollectionActionPanel();
-			setupActions.Controls.Add(_setupSummary); setupActions.Controls.Add(_setupNotice);
-			AddCollectionCell(setupSection, setupHeading, 0); AddCollectionCell(setupSection, setupActions, 1);
+			setupActions.Controls.Add(_setupNotice);
+			AddCollectionCell(setupSection, setupHeading, 0);
+			AddCollectionCell(setupSection, _setupSummary, 1);
+			AddCollectionCell(setupSection, setupActions, 2);
 			_setupNotice.Click += (sender, args) => _reviewTabs.SelectedTabPage = _setupPage;
 			_setupSummary.TextChanged += (sender, args) => QueueDocumentLayout();
 			_setupSection.VisibleChanged += (sender, args) => QueueDocumentLayout();

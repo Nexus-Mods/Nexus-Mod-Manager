@@ -1720,10 +1720,6 @@
       <Name>Commanding</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Game Modes\SkyrimGOG\SkyrimGOG.csproj">
-      <Project>{AC26DA17-3D3F-4F82-90C3-2D1E177F9994}</Project>
-      <Name>SkyrimGOG</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Game Modes\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
       <Name>GamebryoBase</Name>
@@ -1840,4 +1836,19 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <!-- Concrete Game Mode DLLs are replaced by definitions; game-specific Script Type DLLs remain supported. -->
+  <Target Name="CleanRetiredGameModeAssemblies" AfterTargets="Build" Condition="'$(TargetDir)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <RetiredGameMode Include="Fallout3;Fallout4;FalloutNV;Oblivion;OblivionRemastered;Skyrim;SkyrimGOG;SkyrimSE;Starfield;Enderal;EnderalSE;Fallout4VR;SkyrimVR" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(TargetDir)GameModes\Definitions\%(RetiredGameMode.Identity)\game.json')"
+           Text="Cannot retire %(RetiredGameMode.Identity).dll: its replacement game definition is missing from the build output." />
+    <ItemGroup>
+      <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)%(Identity).dll')" />
+      <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)GameModes\%(Identity).dll')" />
+      <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)%(Identity).pdb')" />
+      <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)GameModes\%(Identity).pdb')" />
+    </ItemGroup>
+    <Delete Files="@(RetiredGameModeOutput)" />
+  </Target>
 </Project>

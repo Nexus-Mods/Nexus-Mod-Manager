@@ -22,6 +22,9 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 	/// <summary>Capability-driven component observations with explicit opt-in reviewed order editing.</summary>
 	public sealed class ManagedContentComponentsControl : ManagedFontDockContent
 	{
+		private readonly PanelControl _surface;
+		private readonly FlowLayoutPanel _commands;
+		private readonly LabelControl _description;
 		private readonly GridControl _grid;
 		private readonly GridView _view;
 		private readonly GridColumn _orderStateColumn;
@@ -55,6 +58,11 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			Name = "ManagedContentComponentsControl";
 			Text = L("ManagedContent.Components.Title", "Components");
 			DockAreas = DockAreas.Document;
+			// Paint the legacy dock document with the active DevExpress skin.
+			var surface = new PanelControl { Dock = DockStyle.Fill,
+				BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
+			_surface = surface;
+			Controls.Add(surface);
 			_refreshTimer = new System.Windows.Forms.Timer { Interval = 450 };
 			_refreshTimer.Tick += (sender, args) =>
 			{
@@ -67,8 +75,10 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 				Dock = DockStyle.Top, AutoSizeMode = LabelAutoSizeMode.Vertical, Padding = new Padding(7), UseMnemonic = false,
 				Text = L("ManagedContent.Components.Introduction", "Deployed component folders, their NMM contributors and observed disk presence. Refresh to observe manual changes.")
 			};
+			_description = description;
 			description.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 			var commands = new FlowLayoutPanel { Dock = DockStyle.Top, AutoScroll = true, WrapContents = false, Height = 42, Padding = new Padding(5) };
+			_commands = commands;
 			_refresh = new SimpleButton { AutoSize = true, Text = L("ManagedContent.Components.Refresh", "Refresh") };
 			_refresh.Click += (sender, args) => _ = RefreshOnActivateAsync();
 			commands.Controls.Add(_refresh);
@@ -129,11 +139,11 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			_details.Properties.ReadOnly = true;
 			_status = new DiagnosticTextBox { Height = 110 };
 			_status.Text = L("ManagedContent.Components.Initial", "Open this tab to read the component inventory.");
-			Controls.Add(_grid);
-			Controls.Add(_details);
-			Controls.Add(_status);
-			Controls.Add(commands);
-			Controls.Add(description);
+			surface.Controls.Add(_grid);
+			surface.Controls.Add(_details);
+			surface.Controls.Add(_status);
+			surface.Controls.Add(commands);
+			surface.Controls.Add(description);
 			ApplyStatusPalette();
 		}
 
@@ -493,6 +503,10 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		/// <summary>Uses the same accessible severity palette as the plugin list and Witcher load-order view.</summary>
 		private void ApplyStatusPalette()
 		{
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(this);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_surface);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_commands);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_description);
 			NmmColorPalette palette = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
 				DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
 			_errorColor = palette.PluginErrorColor;
@@ -529,8 +543,8 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 				Origin = component == null ? L("ManagedContent.Order.SettingsOnly", "Settings entry only") :
 					component.HasMixedManagedAndUnmanagedFiles ? L("ManagedContent.Components.Mixed", "NMM and external") :
 					component.IsEntirelyExternal ? L("ManagedContent.Components.External", "External files observed") :
-					component.Owners.Count > 0 ? L("ManagedContent.Components.Managed", "NMM contributors recorded") : L("ManagedContent.Components.Unconfirmed", "Unconfirmed");
-				Presence = row.ObservedOnDisk == true ? L("ManagedContent.Components.Present", "Observed") :
+					component.Owners.Count > 0 ? L("ManagedContent.Components.Managed", "Managed by NMM") : L("ManagedContent.Components.Unconfirmed", "Unconfirmed");
+				Presence = row.ObservedOnDisk == true ? L("ManagedContent.Components.Present", "Present") :
 					row.ObservedOnDisk == false ? L("ManagedContent.Components.Missing", "Missing") : L("ManagedContent.Components.Unknown", "Unknown");
 				bool empty = complete && component?.ObservedOnDisk == true && component.Files.All(file => file.ObservedOnDisk == false);
 				if (empty) Presence = L("Witcher3.Order.Presence.Empty", "Empty folder");

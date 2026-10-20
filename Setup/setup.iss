@@ -66,6 +66,8 @@ Name: associateNxmUrls; Description: Associate NXM: &URLs with {#MyAppSetupName}
 Name: associateFomodFiles; Description: &Associate *.FOMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 
+#define RetiredGameModeDlls "Fallout3.dll,Fallout4.dll,FalloutNV.dll,Oblivion.dll,OblivionRemastered.dll,Skyrim.dll,SkyrimGOG.dll,SkyrimSE.dll,Starfield.dll,Enderal.dll,EnderalSE.dll,Fallout4VR.dll,SkyrimVR.dll"
+
 [InstallDelete]
 ; Remove NMM-owned Script Type assemblies left in legacy/non-canonical locations.
 Type: files; Name: "{app}\CSharpScript.dll"
@@ -78,13 +80,41 @@ Type: files; Name: "{app}\GameModes\CSharpScript.dll"
 Type: files; Name: "{app}\GameModes\ModScript.dll"
 Type: files; Name: "{app}\GameModes\XmlScript.dll"
 
+; Remove only retired concrete Game Mode assemblies; game-specific Script Type assemblies remain installed.
+Type: files; Name: "{app}\Fallout3.dll"
+Type: files; Name: "{app}\GameModes\Fallout3.dll"
+Type: files; Name: "{app}\Fallout4.dll"
+Type: files; Name: "{app}\GameModes\Fallout4.dll"
+Type: files; Name: "{app}\FalloutNV.dll"
+Type: files; Name: "{app}\GameModes\FalloutNV.dll"
+Type: files; Name: "{app}\Oblivion.dll"
+Type: files; Name: "{app}\GameModes\Oblivion.dll"
+Type: files; Name: "{app}\OblivionRemastered.dll"
+Type: files; Name: "{app}\GameModes\OblivionRemastered.dll"
+Type: files; Name: "{app}\Skyrim.dll"
+Type: files; Name: "{app}\GameModes\Skyrim.dll"
+Type: files; Name: "{app}\SkyrimGOG.dll"
+Type: files; Name: "{app}\GameModes\SkyrimGOG.dll"
+Type: files; Name: "{app}\SkyrimSE.dll"
+Type: files; Name: "{app}\GameModes\SkyrimSE.dll"
+Type: files; Name: "{app}\Starfield.dll"
+Type: files; Name: "{app}\GameModes\Starfield.dll"
+Type: files; Name: "{app}\Enderal.dll"
+Type: files; Name: "{app}\GameModes\Enderal.dll"
+Type: files; Name: "{app}\EnderalSE.dll"
+Type: files; Name: "{app}\GameModes\EnderalSE.dll"
+Type: files; Name: "{app}\Fallout4VR.dll"
+Type: files; Name: "{app}\GameModes\Fallout4VR.dll"
+Type: files; Name: "{app}\SkyrimVR.dll"
+Type: files; Name: "{app}\GameModes\SkyrimVR.dll"
+
 [Files]
 Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
-Source: "..\Stage\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\*.dll"; Excludes: "{#RetiredGameModeDlls}"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\Languages\*"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,{#RetiredGameModeDlls}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 

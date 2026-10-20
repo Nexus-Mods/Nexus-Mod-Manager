@@ -76,16 +76,6 @@
       <Name>Fallout3.CSharpScript</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
-      <Project>{211400C3-E73E-4EBA-A9C7-9900DF9E7719}</Project>
-      <Name>Fallout3</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\FalloutNV\FalloutNV.csproj">
-      <Project>{BD5A9056-F832-4DE4-97B2-38AB62342382}</Project>
-      <Name>FalloutNV</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
       <Name>GamebryoBase</Name>

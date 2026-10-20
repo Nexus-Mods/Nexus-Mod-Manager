@@ -82,16 +82,6 @@
       <Name>Fallout3.XmlScript</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Fallout3\Fallout3.csproj">
-      <Project>{211400C3-E73E-4EBA-A9C7-9900DF9E7719}</Project>
-      <Name>Fallout3</Name>
-      <Private>False</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\Starfield\Starfield.csproj">
-      <Project>{90B15F92-E808-4E48-A4D7-BF2551959145}</Project>
-      <Name>Starfield</Name>
-      <Private>False</Private>
-    </ProjectReference>
     <ProjectReference Include="..\GamebryoBase\GamebryoBase.csproj">
       <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
       <Name>GamebryoBase</Name>

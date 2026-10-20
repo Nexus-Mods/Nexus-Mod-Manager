@@ -134,13 +134,12 @@
 
 		/// <summary>Restore ordinary game toolbar availability before binding native commands.
 		/// Per-game command bindings and view activation may disable items again.
-		/// Change-game remains disabled in the opt-in shell; Game Discovery owns switching.
 		/// </summary>
 		private void RestoreGameDependentBars()
 		{
 			foreach (BarItem item in new BarItem[] { spbLaunch, spbProfiles, _installMethodSelector,
 				toolStripSplitButtonTools, spbFolders, tsbSettings, spbSupportedTools,
-				toolStripTextBoxFind, tsbUpdate, toolStripButtonOnlineStatus,
+				toolStripTextBoxFind, tsbUpdate, spbChangeMode, toolStripButtonOnlineStatus,
 				toolStripButtonRateLimit })
 				if (item != null) item.Enabled = true;
 			_installMethodLabel.Visibility = BarItemVisibility.Always;

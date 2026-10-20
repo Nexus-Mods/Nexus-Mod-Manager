@@ -745,7 +745,7 @@
 
 			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
-			UpdateCommand = new Command(LanguageManager.Get("MainForm.Commands.Update.Name", "Update"), LanguageManager.Format("MainForm.Commands.Update.Description", "Update {0}", CommonData.ModManagerName), UpdateProgram);
+			UpdateCommand = new Command(LanguageManager.Get("MainForm.Commands.Update.Name", "Update App"), LanguageManager.Format("MainForm.Commands.Update.Description", "Update {0}", CommonData.ModManagerName), UpdateProgram);
 			ToggleLoginCommand = new Command(LanguageManager.Get("MainForm.Commands.LoginToggle.Name", "ToggleLogin"), LanguageManager.Get("MainForm.Commands.LoginToggle.Description", "Login/Logout"), ToggleLogin);
 
 			var lstChangeGameModeCommands = new List<Command>();

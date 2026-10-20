@@ -1855,6 +1855,12 @@
 				previouslyBoundCommand.Executed -= ChangeGameModeCommand_Executed;
 			_changeModeCommandsWithExecutedHandler.Clear();
 
+			if (_persistentSessionShell)
+			{
+				BindSessionGameSwitchItems();
+				return;
+			}
+
 			IEnumerable<Command> commands = ViewModel.ChangeGameModeCommands
 				.OrderByDescending(command => ViewModel.GameMode.ModeId.Equals(command?.Id, StringComparison.OrdinalIgnoreCase));
 			bool addedReloadCommand = false;
@@ -1884,6 +1890,28 @@
 
 				if (isReloadCommand)
 					addedReloadCommand = true;
+			}
+		}
+
+		/// <summary>Lists managed games in catalog order and routes switches through the discovery session controller.</summary>
+		private void BindSessionGameSwitchItems()
+		{
+			if (GameDiscoveryCatalog == null) return;
+			foreach (Games.GameDiscoveryEntry entry in GameDiscoveryCatalog.Managed)
+			{
+				string modeId = entry.ModeId;
+				BarButtonItem item = new BarButtonItem(barManagerMain, entry.Name)
+				{
+					Enabled = !IsFirstSessionLoading && Games.GameSessionEntryGate.CanManage(entry) &&
+						!String.Equals(ViewModel?.GameMode.ModeId, modeId, StringComparison.OrdinalIgnoreCase)
+				};
+				NmmIconProvider.Bind(item, NmmIconAction.ChangeGame);
+				item.ItemClick += (sender, args) =>
+				{
+					SelectGameInDiscovery(modeId);
+					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(modeId));
+				};
+				popupChangeMode.AddItem(item);
 			}
 		}
 
