@@ -40,7 +40,10 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 				UseMnemonic = false, Margin = new Padding(0, 0, 0, 8), Text = preview.ObservedStatus == Witcher3ModSettingsReadStatus.Missing
 					? String.Format(LanguageManager.Get("Witcher3.Order.Review.CreateSummary",
 						"Create Documents/The Witcher 3/mods.settings with {0} explicit enabled/order entries? No previous file exists or will be overwritten."), preview.Changes.Count)
-					: String.Format(preview.Kind == Witcher3ModSettingsChangeKind.RestoreGameDefaults
+					: String.Format(preview.Kind == Witcher3ModSettingsChangeKind.RemoveMissingEntries
+					? LanguageManager.Get("Witcher3.Order.Cleanup.ReviewSummary",
+						"Remove these {0} entries for missing or empty mod folders from mods.settings? Their complete sections will be removed. Other entries keep their current priorities and settings. The original file is backed up; installed files are untouched.")
+					: preview.Kind == Witcher3ModSettingsChangeKind.RestoreGameDefaults
 					? LanguageManager.Get("Witcher3.Order.Review.DefaultSummary",
 						"Remove Priority/Enabled overrides for {0} game mod folders, including external/manual entries? All section headers, comments and foreign keys remain. mods.settings is NOT deleted; its original bytes are backed up and changes are reviewed before writing.")
 					: LanguageManager.Get("Witcher3.Order.Review.Summary",
@@ -69,7 +72,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			string enabled = LanguageManager.Get("Witcher3.Order.Values.Enabled", "Enabled");
 			string disabled = LanguageManager.Get("Witcher3.Order.Values.Disabled", "Disabled");
 			grid.DataSource = new BindingList<ChangeRow>(preview.Changes
-				.Select(x => new ChangeRow(x, enabled, disabled)).ToList());
+				.Select(x => new ChangeRow(x, enabled, disabled, preview.Kind == Witcher3ModSettingsChangeKind.RemoveMissingEntries)).ToList());
 			content.Controls.Add(grid, 0, 0);
 
 			var settingsPreview = new MemoEdit { Dock = DockStyle.Fill, Text = preview.ProposedText };
@@ -96,11 +99,11 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 
 		private sealed class ChangeRow
 		{
-			internal ChangeRow(Witcher3ModSettingsOrderChange change, string enabled, string disabled)
+			internal ChangeRow(Witcher3ModSettingsOrderChange change, string enabled, string disabled, bool removed)
 			{
 				Folder = change.FolderName;
 				BeforePriority = change.PreviousPriority?.ToString() ?? "-";
-				AfterPriority = change.ProposedPriority?.ToString() ?? "-";
+				AfterPriority = removed ? LanguageManager.Get("Witcher3.Order.Cleanup.Removed", "Entry removed") : change.ProposedPriority?.ToString() ?? "-";
 				BeforeEnabled = Display(change.PreviousEnabled, enabled, disabled);
 				AfterEnabled = Display(change.ProposedEnabled, enabled, disabled);
 			}

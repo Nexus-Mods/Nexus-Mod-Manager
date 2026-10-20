@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Morrowind",
+  "name": "Morrowind",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "Morrowind.exe",
+    "Morrowind Launcher.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "CalienteTools",
+    "SKSE",
+    "MWSE",
+    "NVSE",
+    "F4SE",
+    "FOSE",
+    "OBSE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Morrowind.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "Tribunal.esm",
+    "Bloodmoon.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "22320",
+        "installFolderName": "Morrowind",
+        "executableName": "Morrowind.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data Files",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Morrowind Launcher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Morrowind",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Morrowind",
+    "defaultCommandText": "Launch Morrowind",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "morrowind_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "morrowind_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": true,
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ]
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "mwse_loader.exe"
+    ],
+    "userGameDataPath": "{GamePath}",
+    "iniFilePath": "{UserGameData}\\Morrowind.ini"
+  },
+  "compatibilityNotes": [
+    "Reuses the existing Gamebryo profile for plugins, Data deployment, INI locations and script-extender launch parameters.",
+    "The DLL retains BOSS-backed TES3 activation, Morrowind.ini persistence and Data Files path adjustment. The existing generic Gamebryo profile alone does not replace those Morrowind-specific operations."
+  ]
+}

@@ -161,6 +161,9 @@
 		<Setting Name="SkyrimSEDownloadOverride" Type="System.String" Scope="User">
 			<Value Profile="(Default)">SkyrimSE</Value>
 		</Setting>
+		<Setting Name="Witcher3DownloadOverride" Type="System.String" Scope="User">
+			<Value Profile="(Default)" />
+		</Setting>
 		<Setting Name="AssociateWithUrl" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">False</Value>
 		</Setting>
@@ -223,6 +226,12 @@
 			</Value>
 		</Setting>
 		<Setting Name="InstallationPaths" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+			<Value Profile="(Default)">
+				&lt;?xml version="1.0" encoding="utf-16"?&gt;
+				&lt;PerGameModeSettingsOfString /&gt;
+			</Value>
+		</Setting>
+		<Setting Name="LastGameLaunchUtc" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
 			<Value Profile="(Default)">
 				&lt;?xml version="1.0" encoding="utf-16"?&gt;
 				&lt;PerGameModeSettingsOfString /&gt;

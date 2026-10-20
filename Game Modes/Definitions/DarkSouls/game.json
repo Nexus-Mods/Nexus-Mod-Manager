@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "modeId": "DarkSouls",
+  "name": "Dark Souls",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "DARKSOULS.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "211420",
+        "installFolderName": "Dark Souls Prepare to Die Edition",
+        "pathSuffix": "Data"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "DARKSOULS.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Dark Souls",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Dark Souls",
+    "defaultCommandText": "Launch Dark Souls",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "darksouls_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\dsfix\\tex_override"
+  },
+  "compatibilityNotes": [
+    "Targets the original Prepare to Die Edition, not Dark Souls Remastered.",
+    "Steam discovery resolves the Data directory containing DARKSOULS.exe. DSfix texture overrides are deployed into dsfix\\tex_override; DSfix installation and configuration remain external."
+  ]
+}

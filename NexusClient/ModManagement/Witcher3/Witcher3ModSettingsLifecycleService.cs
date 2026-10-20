@@ -172,6 +172,18 @@ namespace Nexus.Client.ModManagement.Witcher3
 							NormalizedRoot(authority.CanonicalGameInstallPath), StringComparison.OrdinalIgnoreCase))
 						return new Witcher3ModSettingsPublishResult(Witcher3ModSettingsPublishStatus.StaleReview,
 							"The selected physical Witcher 3 installation changed since the review.", null);
+					if (preview.Kind == Witcher3ModSettingsChangeKind.RemoveMissingEntries)
+					{
+						// Recheck absence under the native lease: a folder may have been restored while review was open.
+						Witcher3ModSettingsChangePreview fresh = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(
+							Witcher3ModSettingsFileReader.Read(_filePath), _editionProbe(authority.CanonicalGameInstallPath),
+							Witcher3ComponentDiskScan.Scan(authority.CanonicalGameInstallPath));
+						if (fresh.Status != Witcher3ModSettingsChangePlanStatus.PreviewAvailable ||
+							!String.Equals(fresh.ObservedSha256, preview.ObservedSha256, StringComparison.OrdinalIgnoreCase) ||
+							!String.Equals(fresh.ProposedSha256, preview.ProposedSha256, StringComparison.OrdinalIgnoreCase))
+							return new Witcher3ModSettingsPublishResult(Witcher3ModSettingsPublishStatus.StaleReview,
+								"The settings or missing folders changed during cleanup review. Refresh and review again.", null);
+					}
 					return _publish(preview, _documentsDirectory,
 						ExpectedEdition, authority, lease, true);
 				});

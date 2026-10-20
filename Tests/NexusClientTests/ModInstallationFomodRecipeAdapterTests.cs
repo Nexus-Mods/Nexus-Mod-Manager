@@ -1106,6 +1106,75 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Resumed recipes can read sibling DLC sources from cached metadata without enumerating files first.</summary>
+		[TestCase("file")]
+		[TestCase("stream")]
+		[TestCase("copy")]
+		[TestCase("batch")]
+		[TestCase("exists")]
+		[TestCase("source-path")]
+		public void Archive_CachedPrefixPreservesSiblingSourcesBeforeEnumeration(string access)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-fomod-sibling-" + Guid.NewGuid().ToString("N"));
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(root);
+			try
+			{
+				const string prefix = "modRazorRemasteredNew";
+				const string sibling = @"dlcRazorRemasteredNew\content\br.w3strings";
+				const string primary = @"content\scripts\local\razor.ws";
+				byte[] payload = Encoding.UTF8.GetBytes("sibling DLC payload");
+				string archivePath = Path.Combine(root, "razor.zip");
+				using (var stream = new FileStream(archivePath, FileMode.Create))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+				{
+					WriteInstallerRootEntry(zip, sibling.Replace('\\', '/'), payload);
+					WriteInstallerRootEntry(zip, prefix + "/" + primary.Replace('\\', '/'), payload);
+				}
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_TemporaryPath" ? root : null);
+				IModCacheManager cacheManager = InterfaceStub<IModCacheManager>.Create((method, args) =>
+					method.Name == "get_ModCacheDirectory" ? cacheDirectory :
+					method.Name == "get_EnvironmentInfo" ? (object)environment : null);
+				IScriptTypeRegistry registry = InterfaceStub<IScriptTypeRegistry>.Create((method, args) =>
+					method.Name == "get_Types" ? new List<IScriptType>() : null);
+				Type cacheType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+				Type metadataType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadata", true);
+				object cache = Activator.CreateInstance(cacheType, cacheDirectory);
+				object metadata = Activator.CreateInstance(metadataType);
+				metadataType.GetProperty("PrefixPath").SetValue(metadata, prefix);
+				metadataType.GetProperty("InfoXml").SetValue(metadata, Encoding.UTF8.GetBytes("<fomod/>"));
+				cacheType.GetMethod("SaveDurable", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(cache, new[] { (object)archivePath, metadata });
+				var mod = new FOMod(archivePath, null, new[] { "content" }, "", new string[0], cacheManager, registry, false, false);
+				Assert.IsFalse((bool)typeof(FOMod).GetField("_movedArchiveInitialized", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(mod),
+					"The cached fixture must reach the first source read without initializing its archive map.");
+				if (access == "exists") Assert.IsTrue(mod.ContainsFile(sibling));
+				else if (access == "source-path") Assert.AreEqual(sibling, mod.GetArchiveSourcePath(sibling));
+				else if (access == "file") CollectionAssert.AreEqual(payload, mod.GetFile(sibling));
+				else if (access == "batch")
+				{
+					string output = Path.Combine(root, "copied.w3strings");
+					mod.CopyFilesTo(new Dictionary<string, string> { { sibling, output } }, System.Threading.CancellationToken.None, null);
+					CollectionAssert.AreEqual(payload, System.IO.File.ReadAllBytes(output));
+				}
+				else using (var output = new MemoryStream())
+				{
+					if (access == "copy") mod.CopyFileTo(sibling, output);
+					else using (Stream input = mod.GetFileStream(sibling)) input.CopyTo(output);
+					CollectionAssert.AreEqual(payload, output.ToArray());
+				}
+				CollectionAssert.AreEqual(payload, mod.GetFile(primary));
+				Assert.That(mod.GetFileList(), Is.EquivalentTo(new[] { sibling, primary }));
+				Assert.IsFalse(mod.ContainsFile(@"dlcRazorRemasteredNew\content\missing.w3strings"));
+			}
+			finally
+			{
+				ReleaseInstallerRootMetadataDatabase(cacheDirectory);
+				Directory.Delete(root, true);
+			}
+		}
+
 		/// <summary>Detects Data-wrapped installers and replays their relative files with cold, warm, and legacy negative metadata.</summary>
 		[TestCase("", 0, true)]
 		[TestCase("", 1, true)]

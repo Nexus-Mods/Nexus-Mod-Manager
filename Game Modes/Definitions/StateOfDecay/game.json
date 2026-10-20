@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "modeId": "StateOfDecay",
+  "name": "State of Decay",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "StateOfDecay.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "241540",
+        "installFolderName": "state of decay",
+        "executableName": "StateOfDecay.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "StateOfDecay.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch State of Decay",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom State of Decay",
+    "defaultCommandText": "Launch State of Decay",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "sod_nexus_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#FAA740"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves the original State of Decay Steam app and game-root file deployment. This definition does not target Year-One Survival Edition or implement packed-resource merging.",
+    "The DLL contains content.xml-dependent archive routing and uninstall hooks. These hooks need a game-specific audit before replacement; the JSON-only baseline is limited to complete game-relative layouts."
+  ]
+}

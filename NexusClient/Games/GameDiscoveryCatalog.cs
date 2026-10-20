@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Nexus.Client.Settings;
@@ -37,7 +38,7 @@ namespace Nexus.Client.Games
 		internal GameDiscoveryEntry(string modeId, string name, GameDiscoveryCollection collection,
 			string savedInstallationPath, string savedExecutablePath, bool completedSetup,
 			bool hasLegacyStoragePaths, bool needsAttention, bool startupDefault,
-			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates)
+			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates, DateTime? lastPlayedUtc = null)
 		{
 			ModeId = modeId;
 			Name = name;
@@ -49,6 +50,7 @@ namespace Nexus.Client.Games
 			NeedsAttention = needsAttention;
 			IsStartupDefault = startupDefault;
 			Candidates = candidates;
+			LastPlayedUtc = lastPlayedUtc;
 		}
 
 		public string ModeId { get; }
@@ -62,6 +64,8 @@ namespace Nexus.Client.Games
 		public bool NeedsAttention { get; }
 		public bool IsStartupDefault { get; }
 		public IReadOnlyList<GameDiscoveryInstallationCandidate> Candidates { get; }
+		/// <summary>Last successful game-mode entry or game launch through NMM, or null when no valid history is available.</summary>
+		public DateTime? LastPlayedUtc { get; }
 	}
 
 	public sealed class GameDiscoveryCatalog
@@ -149,7 +153,7 @@ namespace Nexus.Client.Games
 					String.Equals(settings.RememberedGameMode, id, StringComparison.OrdinalIgnoreCase);
 				result.Add(new GameDiscoveryEntry(id, mode.Name, collection, installedPath,
 					executablePath, completedSetup, legacyStorageComplete, needsAttention, startupDefault,
-					candidates.AsReadOnly()));
+					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id)));
 			}
 
 			var savedIds = new HashSet<string>(installedIds, StringComparer.OrdinalIgnoreCase);
@@ -165,7 +169,20 @@ namespace Nexus.Client.Games
 				savedIds.Add(settings.RememberedGameMode);
 			var unknown = savedIds.Where(id => !knownIds.Contains(id))
 				.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToList().AsReadOnly();
-			return new GameDiscoveryCatalog(result.AsReadOnly(), unknown);
+			// Only managed games use launch history; other sections retain their alphabetical order.
+			var ordered = result.OrderByDescending(entry => entry.Collection == GameDiscoveryCollection.Managed ? entry.LastPlayedUtc : null)
+				.ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+				.ThenBy(entry => entry.ModeId, StringComparer.OrdinalIgnoreCase).ToList();
+			return new GameDiscoveryCatalog(ordered.AsReadOnly(), unknown);
+		}
+
+		/// <summary>Treats absent, empty or invalid timestamps as unknown without changing saved settings.</summary>
+		private static DateTime? GetLastPlayedUtc(IDictionary<string, string> values, string id)
+		{
+			DateTime timestamp;
+			return DateTime.TryParseExact(GetValue(values, id), "O", CultureInfo.InvariantCulture,
+				DateTimeStyles.RoundtripKind, out timestamp) && timestamp.Kind == DateTimeKind.Utc && timestamp > DateTime.MinValue
+				? timestamp : (DateTime?)null;
 		}
 
 		private static void AddKeys<T>(ISet<string> ids, IDictionary<string, T> values)

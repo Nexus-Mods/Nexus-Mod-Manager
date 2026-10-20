@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Flags" ID="109">
+      <name>Flags</name>
+    </category>
+    <category path="Hangars" ID="108">
+      <name>Hangars</name>
+    </category>
+    <category path="Icons" ID="107">
+      <name>Icons</name>
+    </category>
+    <category path="Miscellaneous" ID="102">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Skins - Crew" ID="101">
+      <name>Skins - Crew</name>
+    </category>
+    <category path="Skins - Other" ID="103">
+      <name>Skins - Other</name>
+    </category>
+    <category path="Skins - Tanks" ID="100">
+      <name>Skins - Tanks</name>
+    </category>
+    <category path="Sounds" ID="98">
+      <name>Sounds</name>
+    </category>
+    <category path="UI - Crosshairs" ID="105">
+      <name>UI - Crosshairs</name>
+    </category>
+    <category path="UI - Other" ID="106">
+      <name>UI - Other</name>
+    </category>
+    <category path="Utilities and Tools" ID="99">
+      <name>Utilities and Tools</name>
+    </category>
+  </categoryList>
+</categoryManager>

@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 2,
+  "modeId": "SkyrimVR",
+  "name": "Skyrim VR",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "SkyrimVR.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "CalienteTools",
+    "SKSE",
+    "MWSE",
+    "NVSE",
+    "F4SE",
+    "FOSE",
+    "OBSE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Skyrim.esm",
+    "Update.esm",
+    "Dawnguard.esm",
+    "HearthFires.esm",
+    "Dragonborn.esm",
+    "SkyrimVR.esm"
+  ],
+  "orderedOfficialPluginNames": [],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "611670",
+        "installFolderName": "SkyrimVR",
+        "executableName": "SkyrimVR.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": true,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "SkyrimVR.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Skyrim VR",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Skyrim VR",
+    "defaultCommandText": "Launch Skyrim VR",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "skyrimvr_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "skyrimvr_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": true,
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ]
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "sksevr_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Skyrim VR",
+    "iniFilePath": "{UserGameData}\\SkyrimVR.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Skyrim VR\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\SkyrimPrefs.ini"
+    },
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "requiresOptionalFilesCheckOnProfileSwitch": true,
+    "optionalFileNamePrefixes": [
+      "Bashed Patch",
+      "PatchusMaximus",
+      "Dual Sheath Redux Patch"
+    ],
+    "postProfileSwitchToolPath": "{GamePath}\\Data\\tools\\GenerateFNIS_for_Users\\GenerateFNISforUsers.exe",
+    "postProfileSwitchToolMessage": "Switching profiles may require regenerating installed FNIS animations. Run FNIS now?"
+  },
+  "compatibilityNotes": [
+    "Reuses the existing Gamebryo profile for plugins, Data deployment, INI locations and script-extender launch parameters."
+  ]
+}

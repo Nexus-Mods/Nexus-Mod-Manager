@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Armour and Clothing" ID="7">
+      <name>Armour and Clothing  </name>
+    </category>
+    <category path="Audio and Music" ID="11">
+      <name>Audio and Music</name>
+    </category>
+    <category path="Characters" ID="8">
+      <name>Characters</name>
+    </category>
+    <category path="Environmental" ID="12">
+      <name>Environmental</name>
+    </category>
+    <category path="Graphics and Visuals" ID="4">
+      <name>Graphics and Visuals</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Monsters" ID="13">
+      <name>Monsters</name>
+    </category>
+    <category path="Quests and Adventures" ID="9">
+      <name>Quests and Adventures</name>
+    </category>
+	    <category path="RedShade Presets" ID="6">
+      <name>RedShade Presets</name>
+    </category>
+	<category path="Tools and Utilities" ID="5">
+      <name>Tools and Utilities</name>
+    </category>
+	<category path="User Interface" ID="3">
+      <name>User Interface</name>
+    </category>
+	<category path="Weapons" ID="10">
+      <name>Weapons</name>
+    </category>
+  </categoryList>
+</categoryManager>

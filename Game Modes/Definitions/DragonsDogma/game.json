@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 2,
+  "modeId": "DragonsDogma",
+  "name": "Dragon's Dogma",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "DDDA.exe"
+  ],
+  "stopFolders": [
+    "movie",
+    "rom",
+    "sa",
+    "sound",
+    "system",
+    "tgs",
+    "usershader",
+    "usertexture"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "367500",
+        "installFolderName": "DDDA",
+        "executableName": "DDDA.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "DDDA.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Dragon's Dogma",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Dragon's Dogma",
+    "defaultCommandText": "Launch Dragon's Dogma",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "dragonsdogma_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves the legacy simple game-root file-deployment behavior. ARC extraction, repacking and conflict merging are not performed."
+  ]
+}

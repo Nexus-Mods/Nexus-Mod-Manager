@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 
@@ -56,6 +57,45 @@ namespace Nexus.Client.ModManagement
 				plan.Add(new InstallModFileOperation(mapping.SourcePath, mapping.DestinationPath));
 
 			return recipeInput.WithNativePlan(plan.Operations);
+		}
+
+		/// <summary>Attaches a bounded prepared file/generated/value plan, including configuration-only Collection members.</summary>
+		/// <remarks>Generated content and structured values are already represented by the durable reviewed-workflow contract.
+		/// This entry point consumes exactly the declared path set and never accepts executable installer operations.</remarks>
+		public ModInstallationRecipeInput TranslatePreparedPlan(ModInstallationRecipeInput input, IEnumerable<ScriptedInstallOperation> operations)
+		{
+			if (input == null) throw new ArgumentNullException(nameof(input));
+			if (operations == null) throw new ArgumentNullException(nameof(operations));
+			ValidateAdapterContract(input.Validation);
+			var copied = operations.ToList();
+			if (copied.Count == 0 || copied.Count > 1000000) throw new InvalidDataException("Prepared native recipe has an invalid operation count.");
+			var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var values = new HashSet<string>(StringComparer.Ordinal);
+			foreach (ScriptedInstallOperation operation in copied)
+			{
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				EditGameSpecificValueOperation value = operation as EditGameSpecificValueOperation;
+				if (value != null && value.HasResolvedOverwriteDecision && value.Value != null && !String.IsNullOrWhiteSpace(value.Key))
+				{
+					if (!values.Add(value.Key)) throw new InvalidDataException("Prepared native recipe contains duplicate value edits.");
+					continue;
+				}
+				string source = file != null && file.DeploymentDecision == null ? file.SourcePath :
+					generated != null && generated.DeploymentDecision == null && generated.Data != null ? generated.PreparationSourcePath : null;
+				string destination = file != null ? file.DestinationPath : generated?.DestinationPath;
+				if (String.IsNullOrWhiteSpace(source) || String.IsNullOrWhiteSpace(destination)) throw new InvalidDataException("Prepared recipe contains an unsupported or unresolved operation.");
+				var sourcePath = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, source);
+				var targetPath = new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, destination);
+				paths.Add(CreatePathKey(sourcePath.Kind, sourcePath.Path)); paths.Add(CreatePathKey(targetPath.Kind, targetPath.Path));
+				if (!destinations.Add(targetPath.Path)) throw new InvalidDataException("Prepared native recipe contains duplicate file destinations.");
+			}
+			var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (ModInstallationRecipePath path in input.Validation.Paths)
+				if (!declared.Add(CreatePathKey(path.Kind, path.Path))) throw new InvalidDataException("Prepared native recipe contains duplicate path declarations.");
+			if (!paths.SetEquals(declared)) throw new InvalidDataException("Prepared native effects do not consume the exact declared recipe paths.");
+			return input.WithNativePlan(copied);
 		}
 
 		/// <summary>

@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Animation" ID="19">
+      <name>Animation</name>
+    </category>
+    <category path="Audio, Sound and Music" ID="22">
+      <name>Audio, Sound and Music</name>
+    </category>
+    <category path="Bug Fixes" ID="26">
+      <name>Bug Fixes</name>
+    </category>
+    <category path="Cheats or God Items" ID="16">
+      <name>Cheats or God Items</name>
+    </category>
+    <category path="Environmental Changes" ID="29">
+      <name>Environmental Changes</name>
+    </category>
+    <category path="Gameplay Changes" ID="15">
+      <name>Gameplay Changes</name>
+    </category>
+    <category path="Miscellaneous" ID="12">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Models and Textures" ID="32">
+      <name>Models and Textures</name>
+    </category>
+    <category path="Saved game files" ID="37">
+      <name>Saved game files</name>
+    </category>
+    <category path="Tools and Utilities" ID="7">
+      <name>Tools and Utilities</name>
+    </category>
+    <category path="UI" ID="11">
+      <name>UI</name>
+    </category>
+    <category path="Visuals and Graphics" ID="35">
+      <name>Visuals and Graphics</name>
+    </category>
+  </categoryList>
+</categoryManager>

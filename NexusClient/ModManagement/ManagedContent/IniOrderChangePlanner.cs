@@ -34,7 +34,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 	public enum IniOrderChangeKind
 	{
 		ManagedOrder = 0,
-		RestoreGameDefaults = 1
+		RestoreGameDefaults = 1,
+		RemoveMissingEntries = 2
 	}
 
 	/// <summary>A semantic delta for one configured game component.</summary>
@@ -311,6 +312,35 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				return Blocked(observed, "The proposed default-order file failed exact validation.");
 			return Preview(observed, original, proposed, changes,
 				IniOrderChangeKind.RestoreGameDefaults);
+		}
+
+		/// <summary>Removes only explicitly selected component sections, preserving all other source lines exactly.</summary>
+		internal static IniOrderChangePreview PrepareRemoveEntries(IniOrderFileObservation observed, IEnumerable<string> folderNames)
+		{
+			if (observed == null) throw new ArgumentNullException(nameof(observed));
+			if (folderNames == null) throw new ArgumentNullException(nameof(folderNames));
+			string original;
+			string problem = ValidatePreimage(observed, out original);
+			if (problem != null) return Blocked(observed, problem);
+			var names = new HashSet<string>(folderNames, Names);
+			var sections = observed.Document.ComponentSections.Where(section => names.Contains(section.Name)).ToList();
+			if (sections.Count != names.Count)
+				return Blocked(observed, "Only existing component sections can be removed.");
+			var lines = SplitLines(original);
+			var removals = new HashSet<int>();
+			foreach (IniOrderSection section in sections)
+			{
+				int end = observed.Document.Sections.Where(next => next.LineNumber > section.LineNumber)
+					.Select(next => next.LineNumber).DefaultIfEmpty(lines.Count + 1).Min();
+				for (int line = section.LineNumber; line < end; line++) removals.Add(line);
+			}
+			string proposed = Render(lines, new Dictionary<int, string>(), new Dictionary<int, List<string>>(), removals);
+			IniOrderDocument verified = IniOrderParser.Parse(proposed, observed.Document.Format);
+			if (!verified.IsUnambiguous || verified.ComponentSections.Any(section => names.Contains(section.Name)) ||
+				verified.Sections.Count != observed.Document.Sections.Count - sections.Count)
+				return Blocked(observed, "The cleaned settings failed structural validation.");
+			return Preview(observed, original, proposed, sections.Select(section => new IniOrderChange(
+				section.Name, section.Priority, null, section.Enabled, null)), IniOrderChangeKind.RemoveMissingEntries);
 		}
 
 		/// <summary>Requires an existing unambiguous document that reproduces its observed bytes exactly.</summary>

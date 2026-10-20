@@ -235,6 +235,57 @@ namespace NexusClientTests
 			Assert.That(descriptor.InstallationPathReadCount, Is.EqualTo(0));
 		}
 
+		/// <summary>Launch history orders managed games by recency, with alphabetical ties and unknown dates last.</summary>
+		[Test]
+		public void ManagedGames_RecentLaunchesFirst_UnknownDatesLastAlphabetically()
+		{
+			var settings = NewSettings();
+			string[] ids = { "ZuluUnknown", "Oldest", "BravoRecent", "AlphaRecent", "AlphaUnknown", "Invalid", "Empty", "NonUtc" };
+			foreach (string id in ids) settings.CompletedSetup[id] = true;
+			settings.LastGameLaunchUtc["Oldest"] = "2025-01-01T10:00:00.0000000Z";
+			settings.LastGameLaunchUtc["BravoRecent"] = "2026-01-01T10:00:00.0000000Z";
+			settings.LastGameLaunchUtc["AlphaRecent"] = "2026-01-01T10:00:00.0000000Z";
+			settings.LastGameLaunchUtc["Invalid"] = "not a date";
+			settings.LastGameLaunchUtc["Empty"] = String.Empty;
+			settings.LastGameLaunchUtc["NonUtc"] = "2026-01-01T10:00:00.0000000";
+			var catalog = GameDiscoveryCatalogBuilder.Build(ids.Select(id => new Descriptor(id)), settings);
+			Assert.That(catalog.Managed.Select(entry => entry.ModeId), Is.EqualTo(new[]
+			{
+				"AlphaRecent", "BravoRecent", "Oldest", "AlphaUnknown", "Empty", "Invalid", "NonUtc", "ZuluUnknown"
+			}));
+			Assert.That(catalog.Managed.First().LastPlayedUtc.Value.Kind, Is.EqualTo(DateTimeKind.Utc));
+			Assert.That(catalog.Managed.Where(entry => entry.ModeId == "Invalid").Single().LastPlayedUtc, Is.Null);
+			Assert.That(settings.LastGameLaunchUtc["Invalid"], Is.EqualTo("not a date"), "Reading history must not rewrite it.");
+		}
+
+		/// <summary>Old settings with no history dictionary remain valid and keep alphabetical ordering.</summary>
+		[Test]
+		public void ManagedGames_NullHistory_UsesAlphabeticalOrder()
+		{
+			var settings = NewSettings();
+			settings.LastGameLaunchUtc = null;
+			settings.CompletedSetup["Zulu"] = true;
+			settings.CompletedSetup["Alpha"] = true;
+			var catalog = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Zulu"), new Descriptor("Alpha") }, settings);
+			Assert.That(catalog.Managed.Select(entry => entry.ModeId), Is.EqualTo(new[] { "Alpha", "Zulu" }));
+			Assert.That(catalog.Managed.All(entry => !entry.LastPlayedUtc.HasValue), Is.True);
+		}
+
+		/// <summary>Historical launches do not change alphabetical ordering outside the managed section.</summary>
+		[Test]
+		public void UnmanagedGames_LaunchHistory_DoesNotChangeTheirOrder()
+		{
+			var settings = NewSettings();
+			settings.InstalledGames.Add("ZuluConfigure");
+			settings.InstalledGames.Add("AlphaConfigure");
+			settings.LastGameLaunchUtc["ZuluConfigure"] = "2026-01-01T10:00:00.0000000Z";
+			settings.LastGameLaunchUtc["ZuluSupported"] = "2026-01-01T10:00:00.0000000Z";
+			string[] ids = { "ZuluSupported", "ZuluConfigure", "AlphaSupported", "AlphaConfigure" };
+			var catalog = GameDiscoveryCatalogBuilder.Build(ids.Select(id => new Descriptor(id)), settings);
+			Assert.That(catalog.ToConfigure.Select(entry => entry.ModeId), Is.EqualTo(new[] { "AlphaConfigure", "ZuluConfigure" }));
+			Assert.That(catalog.Supported.Select(entry => entry.ModeId), Is.EqualTo(new[] { "AlphaSupported", "ZuluSupported" }));
+		}
+
 		private static GameDiscoveryEntry Single(Nexus.Client.Properties.Settings settings, string id)
 		{
 			return GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor(id) }, settings).Entries.Single();
@@ -245,6 +296,7 @@ namespace NexusClientTests
 			return new Nexus.Client.Properties.Settings
 			{
 				InstalledGames = new SettingsList(),
+				LastGameLaunchUtc = new PerGameModeSettings<string>(),
 				CompletedSetup = new PerGameModeSettings<bool>(),
 				InstallationPaths = new PerGameModeSettings<string>(),
 				ExecutablePaths = new PerGameModeSettings<string>(),

@@ -17,7 +17,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	/// <summary>
 	/// Encapsulates a FOMod mod archive.
 	/// </summary>
-	public class FOMod : ObservableObject, IMod, IModCacheResettable, IModInstallerSourceInventory, IModFileStreamSource, IModFileBatchSource
+	public class FOMod : ObservableObject, IMod, IModCacheResettable, IModInstallerSourceInventory, IModArchiveSourcePathProvider, IModFileStreamSource, IModFileBatchSource
 	{
 		#region Events
 
@@ -951,6 +951,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		protected string GetRealPath(string path)
 		{
 			path = NormalizeVirtualPath(path);
+			EnsureMovedArchiveInitialized();
 
 			if (_movedArchiveFiles.TryGetValue(path, out var strAdjustedPath))
 			{
@@ -963,6 +964,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 
 			return path.ToLowerInvariant().IndexOf(_prefixPath.ToLowerInvariant(), StringComparison.Ordinal) == 0 ? path : Path.Combine(_prefixPath, path);
+		}
+
+		/// <summary>Resolves a logical source to its original archive entry without changing the virtual inventory.</summary>
+		public string GetArchiveSourcePath(string logicalPath)
+		{
+			return GetRealPath(logicalPath);
 		}
 
 		/// <summary>
@@ -1204,19 +1211,20 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			return GetFileListCore(folderPath, recurse, true);
 		}
 
+		/// <summary>Restores cached logical-to-archive mappings before either enumeration or direct source access.</summary>
+		private void EnsureMovedArchiveInitialized()
+		{
+			if (_movedArchiveInitialized) return;
+			// Cached metadata retains the prefix but not sibling/renamed source mappings. A resumed
+			// recipe may read a source before GetFileList, so both paths must initialize the same map.
+			if (!string.IsNullOrEmpty(_prefixPath)) InitializeMovedArchive(_prefixPath);
+			_movedArchiveInitialized = true;
+		}
+
 		private List<string> GetFileListCore(string folderPath, bool recurse, bool includeFomodFiles)
 		{
 			var files = new List<string>();
-
-			if (!_movedArchiveInitialized)
-			{
-				if (!string.IsNullOrEmpty(_prefixPath))
-				{
-					InitializeMovedArchive(_prefixPath);
-				}
-
-				_movedArchiveInitialized = true;
-			}
+			EnsureMovedArchiveInitialized();
 
 			foreach (var file in ArchiveFile.GetFiles(folderPath, recurse))
 			{

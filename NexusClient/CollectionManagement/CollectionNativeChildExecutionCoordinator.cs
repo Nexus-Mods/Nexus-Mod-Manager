@@ -237,8 +237,9 @@ namespace Nexus.Client.CollectionManagement
 				ModInstallerBase nativeOperation = nativeTask as ModInstallerBase;
 				if (nativeOperation == null || !Matches(child.NativeOperation, nativeOperation.OperationIdentity))
 					throw new InvalidOperationException("The constructed native task does not preserve the exact prepared Collection operation identity.");
-				if (!exactReviewedOutputs && !skipContentChecks)
+				if (!exactReviewedOutputs)
 				{
+					// Recovery evidence is required even when optional post-install content checks are disabled.
 					ModInstaller installer = nativeTask as ModInstaller;
 					if (installer == null)
 						throw new InvalidOperationException("Deferred Collection file evidence requires the native mod installer's archive preparation boundary.");
@@ -515,7 +516,8 @@ namespace Nexus.Client.CollectionManagement
 			return matches[0];
 		}
 
-		private static IMod ResolveIncomingManagedMod(ResolvedCollectionMemberPlan member, IMod previousMod,
+		/// <summary>Resolves the unique native managed archive by both retained content and repository identity.</summary>
+		internal static IMod ResolveIncomingManagedMod(ResolvedCollectionMemberPlan member, IMod previousMod,
 			CollectionRecoveryArtifact incomingArchive, ModManager modManager, CancellationToken cancellationToken)
 		{
 			if (member == null) throw new ArgumentNullException(nameof(member));
@@ -712,7 +714,8 @@ namespace Nexus.Client.CollectionManagement
 			return full.Substring(root.Length).Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
 		}
 
-		private static CollectionNativeChildExecutionEvidence CaptureExecutionEvidence(ResolvedCollectionMemberPlan member,
+		/// <summary>Captures exact physical preimages and recipe postimages before native mutation or explicit forward repair.</summary>
+		internal static CollectionNativeChildExecutionEvidence CaptureExecutionEvidence(ResolvedCollectionMemberPlan member,
 			CollectionMemberEffectPreview reviewedPreview, ModInstallationRecipeInput recipeInput, IMod incomingMod,
 			string installInfoDirectory, Nexus.Client.Games.IGameMode gameMode)
 		{

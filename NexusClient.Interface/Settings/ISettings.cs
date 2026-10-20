@@ -180,6 +180,9 @@
 		/// <value>The installation path dictionary.</value>
 		PerGameModeSettings<string> InstallationPaths { get; }
 
+		/// <summary>Gets or sets the last successful game-mode entry or game launch, stored per mode as an invariant UTC round-trip timestamp.</summary>
+		PerGameModeSettings<string> LastGameLaunchUtc { get; set; }
+
 		/// <summary>
 		/// Gets the executable path dictionary.
 		/// </summary>
@@ -479,5 +482,8 @@
 		/// Either SkyrimSE or SkyrimGOG.
 		/// </summary>
 		string SkyrimSEDownloadOverride { get; set; }
+
+		/// <summary>The local Witcher 3 edition selected for shared witcher3 Nexus downloads; empty uses the current/remembered edition.</summary>
+		string Witcher3DownloadOverride { get; set; }
 	}
 }

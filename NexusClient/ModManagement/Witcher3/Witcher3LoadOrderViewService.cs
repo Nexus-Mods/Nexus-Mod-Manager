@@ -14,7 +14,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Witcher3ModSettingsLifecycleSnapshot lifecycle,
 			Witcher3LoadOrderProjection projection, Witcher3LoadOrderEditorSession editor,
 			Witcher3RemasteredHealthObservation remasteredHealth,
-			Witcher3RemasteredComponentHealthReport remasteredComponents)
+			Witcher3RemasteredComponentHealthReport remasteredComponents, Witcher3ComponentDiskObservation disk)
 		{
 			PhysicalGameRoot = physicalGameRoot;
 			Lifecycle = lifecycle;
@@ -22,6 +22,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Editor = editor;
 			RemasteredHealth = remasteredHealth;
 			RemasteredComponents = remasteredComponents;
+			Disk = disk;
 		}
 
 		/// <summary>Exact game root associated with this read observation; never reuse across game switches.</summary>
@@ -29,6 +30,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public Witcher3ModSettingsLifecycleSnapshot Lifecycle { get; }
 		public Witcher3LoadOrderProjection Projection { get; }
 		public Witcher3LoadOrderEditorSession Editor { get; }
+		/// <summary>Exact disk observation used for this view and any missing-entry cleanup preview.</summary>
+		public Witcher3ComponentDiskObservation Disk { get; }
 		/// <summary>Only populated for the Remastered game mode. Never authorizes game writes.</summary>
 		public Witcher3RemasteredHealthObservation RemasteredHealth { get; }
 		/// <summary>Pure, read-only diagnostics derived from this snapshot's native component index.</summary>
@@ -77,7 +80,7 @@ namespace Nexus.Client.ModManagement.Witcher3
 			Witcher3RemasteredComponentHealthReport components = health == null ? null
 				: Witcher3RemasteredComponentHealthInspector.Inspect(index);
 			return new Witcher3LoadOrderViewSnapshot(physicalRoot, state, projection, editor,
-				health, components);
+				health, components, disk);
 		}
 	}
 }

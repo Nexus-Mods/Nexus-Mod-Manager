@@ -304,11 +304,12 @@ namespace Nexus.Client.ModManagement
 					if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
 						StringComparison.OrdinalIgnoreCase))
 					{
-						if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Manual ||
-							InstallationRecipeInput != null || _collectionArchivePreparation != null)
-							throw new InvalidDataException("Witcher 3 Remastered currently supports only reviewed ordinary manual basic installations.");
+						if (OperationIdentity == null || (InstallationRecipeInput == null &&
+							(OperationIdentity.Origin != ModOperationOrigin.Manual || _collectionArchivePreparation != null)))
+							throw new InvalidDataException("Witcher 3 Remastered requires a reviewed basic mapping or an explicit Collection recipe.");
 						remasteredReview = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
-							ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, mutationLease);
+							ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, GetRootMutationAuthority(mutationLease));
+						if (InstallationRecipeInput != null) remasteredReview.AuthorizeCollectionRecipe(InstallationRecipeInput);
 					}
 					using (TransactionScope tsTransaction = new TransactionScope())
 					{
@@ -328,7 +329,7 @@ namespace Nexus.Client.ModManagement
 						// The archive is open read-only. Require exact source-to-target approval
 						// before script caches are touched, mod registration starts or native
 						// Direct/Virtual file writes become possible.
-						if (remasteredReview != null)
+						if (remasteredReview != null && InstallationRecipeInput == null)
 						{
 							var upgrade = this as ModUpgrader;
 							IReadOnlyList<KeyValuePair<string, string>> reviewed = upgrade == null
@@ -372,7 +373,10 @@ namespace Nexus.Client.ModManagement
 				reportedStatus = ModOperationReportedStatus.Failed;
 				strMessage = "The mod activation failed: " + e.Message;
 				TraceInstallException(e);
-				throw;
+				// The Collection coordinator records Unknown durability and stops for recovery.
+				// Let its terminal result reach that boundary instead of terminating NMM.
+				if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Collection || InstallationRecipeInput == null)
+					throw;
 			}
 			catch (SecurityException e)
 			{
@@ -678,11 +682,10 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunScript(TxFileManager p_tfmFileManager)
 		{
-			// No scripted/FOMOD or prebuilt collection native recipe is allowed to bypass
-			// the reviewed W3R BasicInstall mapping. This check precedes file installation.
-			if (String.Equals(GameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
-				(GameMode as IReviewedBasicInstallMappingProvider == null || Mod.HasInstallScript ||
-				 InstallationRecipeInput != null || InstallContext.InstallRoot != ModInstallRoot.Data))
+			// Recipe operations were reviewed under the live native lease. Ordinary manual
+			// packages continue to require the dedicated basic Mods/DLC mapping.
+			if (String.Equals(GameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) && InstallationRecipeInput == null &&
+				(GameMode as IReviewedBasicInstallMappingProvider == null || Mod.HasInstallScript || InstallContext.InstallRoot != ModInstallRoot.Data))
 				throw new InvalidDataException("Witcher 3 Remastered native writes require a reviewed ordinary basic Mods/DLC archive mapping.");
 
 			m_booUsedPromotedDeployment = false;

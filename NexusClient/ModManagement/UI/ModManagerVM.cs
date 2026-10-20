@@ -142,6 +142,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public event EventHandler SwitchingSkyrimDownloadMode = delegate { };
 
+		/// <summary>Raised when the persisted destination for a shared Nexus catalog changes.</summary>
+		public event EventHandler DownloadModeChanged = delegate { };
+
 		#endregion
 
 		#region Delegates
@@ -395,6 +398,30 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
+		/// <summary>Whether this game exposes an edition choice for a shared Nexus download catalog.</summary>
+		public bool HasDownloadModeChoice => IsSkyrimSEGameMode || NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId);
+
+		/// <summary>Short destination label shown on the existing Download Mode toolbar button.</summary>
+		public string DownloadModeLabel
+		{
+			get
+			{
+				if (NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId))
+					return NexusGameDomain.ResolveWitcher3DownloadMode(Settings.Witcher3DownloadOverride, ModManager.GameMode.ModeId) == "Witcher3Remastered"
+						? LanguageManager.Get("Mods.DownloadMode.Witcher3Remastered", "Witcher 3 Remastered")
+						: LanguageManager.Get("Mods.DownloadMode.Witcher3", "Witcher 3");
+				return String.Equals(SkyrimSEDownloadOverride, "SkyrimSE", StringComparison.OrdinalIgnoreCase) ? "Steam" :
+					String.Equals(SkyrimSEDownloadOverride, "SkyrimGOG", StringComparison.OrdinalIgnoreCase) ? "GOG" : SkyrimSEDownloadModeDescriptor;
+			}
+		}
+
+		/// <summary>Full local-edition description used by the toolbar hint and main-window status.</summary>
+		public string DownloadModeDescriptor => NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId)
+			? DownloadModeLabel : SkyrimSEDownloadModeDescriptor;
+
+		/// <summary>Explains which local game receives future Nexus links without changing the current game session.</summary>
+		public string DownloadModeFeedback => String.Format(_downloadModeFeedbackFormat, DownloadModeDescriptor);
+
 		public string SkyrimSEDownloadOverride
 		{
 			get
@@ -519,6 +546,11 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
 				SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
+			if (NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId) && String.IsNullOrEmpty(Settings.Witcher3DownloadOverride))
+			{
+				Settings.Witcher3DownloadOverride = ModManager.GameMode.ModeId;
+				Settings.Save();
+			}
 
 			// Run the same legacy custom-category migration *after* the native profile
 			// manager exists. Only XML loading/backup is prepared on the worker thread.
@@ -1905,10 +1937,32 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				SetSkyrimSEDownloadMode(newDownloadGameModeId);
 				SwitchingSkyrimDownloadMode?.Invoke(this, EventArgs.Empty);
+				DownloadModeChanged?.Invoke(this, EventArgs.Empty);
 				return true;
 			}
 
 			return false;
+		}
+
+		/// <summary>Switches only the shared-catalog download destination; it does not change game sessions or installed mods.</summary>
+		public bool ToggleDownloadMode()
+		{
+			if (!NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId))
+				return IsSkyrimSEGameMode && ToggleSkyrimSEDownloadMode();
+			string previous = Settings.Witcher3DownloadOverride;
+			string current = NexusGameDomain.ResolveWitcher3DownloadMode(previous, ModManager.GameMode.ModeId);
+			try
+			{
+				Settings.Witcher3DownloadOverride = current == "Witcher3Remastered" ? "Witcher3" : "Witcher3Remastered";
+				Settings.Save();
+			}
+			catch
+			{
+				Settings.Witcher3DownloadOverride = previous;
+				throw;
+			}
+			DownloadModeChanged?.Invoke(this, EventArgs.Empty);
+			return true;
 		}
 	}
 }

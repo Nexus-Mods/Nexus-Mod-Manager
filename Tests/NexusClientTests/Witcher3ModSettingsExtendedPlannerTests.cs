@@ -53,6 +53,57 @@ namespace NexusClientTests
 				Witcher3Edition.Legacy, rows, true, allowed);
 		}
 
+		[TestCase(Witcher3Edition.Legacy)]
+		[TestCase(Witcher3Edition.Remastered)]
+		public void Cleanup_RemovesMissingAndEmptySections_PreservesOtherBytesAndPriorities(Witcher3Edition edition)
+		{
+			string retained = "[modPresent]\nPriority=42\nEnabled=0\nVK=external\n" +
+				"[Tool]\r\nPriority=9\r\nKeep=a=b\r\n[modPartial]\nPriority=42\n";
+			var read = Observe("; keep header\r\n[modMissing]\r\nPriority=1\r\nVK=old\r\n" +
+				retained + "[modEmpty]\r\nEnabled=1", new UnicodeEncoding(false, true, true));
+			byte[] before = File.ReadAllBytes(_settings);
+			var disk = new Witcher3ComponentDiskObservation(_game,
+				new[] { @"Mods\MODPRESENT\content\present.bundle", @"Mods\modPartial\remaining.txt" },
+				new[] { @"Mods\MODPRESENT", @"Mods\modPartial", @"Mods\modEmpty" }, true);
+			var preview = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, edition, disk);
+			Assert.That(preview.Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.PreviewAvailable));
+			Assert.That(preview.Kind, Is.EqualTo(Witcher3ModSettingsChangeKind.RemoveMissingEntries));
+			Assert.That(preview.ProposedText, Is.EqualTo("; keep header\r\n" + retained));
+			Assert.That(preview.Changes.Select(change => change.FolderName), Is.EquivalentTo(new[] { "modMissing", "modEmpty" }));
+			Assert.That(preview.TextEncoding, Is.EqualTo(read.Encoding));
+			Assert.That(preview.ProposedByteLength, Is.EqualTo(2 + Encoding.Unicode.GetByteCount(preview.ProposedText)));
+			Assert.That(File.ReadAllBytes(_settings), Is.EqualTo(before));
+			var cleaned = Observe(preview.ProposedText);
+			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(cleaned, edition, disk).Status,
+				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Unchanged));
+		}
+
+		[Test]
+		public void Cleanup_CanRemoveEveryEntry_WithoutDeletingTheSettingsFile()
+		{
+			var read = Observe("[modGone]\r\nEnabled=1\r\nPriority=1\r\n");
+			var preview = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, Witcher3Edition.Remastered,
+				new Witcher3ComponentDiskObservation(_game, new string[0], new string[0], true));
+			Assert.That(preview.Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.PreviewAvailable));
+			Assert.That(preview.ProposedText, Is.Empty);
+			Assert.That(File.Exists(_settings), Is.True);
+		}
+
+		[Test]
+		public void Cleanup_RejectsIncompleteScanUnsupportedEditionAndAmbiguousSettings()
+		{
+			var read = Observe("[modGone]\nPriority=1\n");
+			var incomplete = new Witcher3ComponentDiskObservation(_game, new string[0], new string[0], false);
+			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, Witcher3Edition.Remastered, incomplete).Status,
+				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+			var complete = new Witcher3ComponentDiskObservation(_game, new string[0], new string[0], true);
+			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, Witcher3Edition.Ambiguous, complete).Status,
+				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+			read = Observe("[modGone]\nEnabled=maybe\n");
+			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, Witcher3Edition.Remastered, complete).Status,
+				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+		}
+
 		[Test]
 		public void SelectedPhysicalFoldersOnly_AreAppendedToExistingFile_WithoutChangingForeignContent()
 		{

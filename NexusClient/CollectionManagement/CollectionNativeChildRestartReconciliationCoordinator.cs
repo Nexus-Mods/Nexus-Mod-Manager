@@ -23,11 +23,13 @@ namespace Nexus.Client.CollectionManagement
 	/// Reconciles one Collection native child whose process-local C6.7/C6.8 execution context was lost across restart.
 	/// </summary>
 	/// <remarks>
-	/// C6.9 never resubmits native work. It first runs native deployment/VMA recovery through the C4 authority reload,
+	/// Automatic C6.9 reconciliation never resubmits native work. An explicit recovery action can finish an unregistered
+	/// Witcher activation through its retained recipe and normal native installer. Reconciliation first runs native
+	/// deployment/VMA recovery through the C4 authority reload,
 	/// then compares the exact persisted child/evidence with authoritative native reality. Unknown reality remains
 	/// RecoveryRequired for explicit later recovery rather than being guessed or replayed.
 	/// </remarks>
-	public sealed class CollectionNativeChildRestartReconciliationCoordinator
+	public sealed partial class CollectionNativeChildRestartReconciliationCoordinator
 	{
 		private readonly ServiceManager _services;
 		private readonly GameStorageService _gameStorageService;
@@ -96,7 +98,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private async Task<CollectionNativeChildRestartReconciliationResult> ReconcileCoreAsync(CollectionOperationIdentity operationIdentity,
-			GameStoragePathSet paths, CancellationToken cancellationToken, CollectionNativeChildWorkflowMode workflowMode)
+			GameStoragePathSet paths, CancellationToken cancellationToken, CollectionNativeChildWorkflowMode workflowMode,
+			PreparedCollectionNativeRecipe repairRecipe = null)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
@@ -131,6 +134,16 @@ namespace Nexus.Client.CollectionManagement
 					if (child.NativeResult != null && child.NativeResult.ReportedStatus == ModOperationReportedStatus.Succeeded)
 						ModManagerCollectionManagedArchiveSource.RestoreMissingNativeRepositoryIdentity(_services.ModManager, recovery, cancellationToken);
 					CollectionNativeStateIndex state = CaptureReloadedState(operation.Target);
+					if (repairRecipe != null && recovery.ExecutionEvidence == null &&
+						workflowMode == CollectionNativeChildWorkflowMode.Additive)
+					{
+						await RepairUnregisteredWitcherActivationAsync(operation, child, recovery, state, repairRecipe,
+							paths, lease, cancellationToken).ConfigureAwait(true);
+						operation = RequireRecoveringOperation(operationIdentity);
+						child = RequireRestartChild(operation);
+						recovery = RequireRecoveryManifest(operation, child, plan);
+						state = CaptureReloadedState(operation.Target);
+					}
 
 					ModOperationResult priorResult = child.NativeResult;
 					ModOperationReportedStatus reportedStatus = priorResult == null
@@ -225,16 +238,15 @@ namespace Nexus.Client.CollectionManagement
 						}
 					}
 					string verificationDiagnostics = evidence == null
-						? "C6.9 execution evidence is missing."
+						? (committed ? "The recorded native commit and retained terminal state were verified."
+							: "The interrupted install has no saved file evidence. Choose Check recovery and continue to complete an unchanged, unregistered Witcher installation from its saved recipe. Changed or owned files require manual recovery.")
 						: BuildVerificationDiagnostics(committed, committedFailure, rolledBack, rolledBackFailure,
 							rollbackResidueRepaired, rollbackRepairDetail);
 					if (!String.IsNullOrWhiteSpace(virtualRelinkDetail))
 						verificationDiagnostics += " Virtual upgrade relink recovery: " + virtualRelinkDetail;
 					if (!String.IsNullOrWhiteSpace(replayRepairDetail))
 						verificationDiagnostics += " Installation replay recovery: " + replayRepairDetail;
-					ModOperationDurability durability = evidence == null
-						? ModOperationDurability.Unknown
-						: DetermineRestartDurability(priorDurability, committed, rolledBack);
+					ModOperationDurability durability = DetermineRestartDurability(priorDurability, committed, rolledBack);
 
 					if (durability == ModOperationDurability.VerifiedCommitted)
 					{

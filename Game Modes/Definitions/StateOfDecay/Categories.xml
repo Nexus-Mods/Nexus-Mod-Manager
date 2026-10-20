@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="AI" ID="7">
+      <name>AI</name>
+    </category>
+    <category path="Bug fixes" ID="3">
+      <name>Bug fixes</name>
+    </category>
+    <category path="Buildings/Bases/Environment" ID="9">
+      <name>Buildings/Bases/Environment</name>
+    </category>
+    <category path="Character Replacement" ID="4">
+      <name>Character Replacement</name>
+    </category>
+    <category path="Cheats" ID="10">
+      <name>Cheats</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Realism" ID="11">
+      <name>Realism</name>
+    </category>
+    <category path="Skins" ID="12">
+      <name>Skins</name>
+    </category>
+    <category path="Tools" ID="6">
+      <name>Tools</name>
+    </category>
+    <category path="User Interface" ID="5">
+      <name>User Interface</name>
+    </category>
+    <category path="Weapon Mods" ID="8">
+      <name>Weapon Mods</name>
+    </category>
+  </categoryList>
+</categoryManager>

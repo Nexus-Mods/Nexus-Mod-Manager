@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "modeId": "DragonAge2",
+  "name": "Dragon Age 2",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "DragonAge2.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "launcher": {
+    "defaultExecutable": "DragonAge2.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Dragon Age 2",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Dragon Age 2",
+    "defaultCommandText": "Launch Dragon Age 2",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "dragonage_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{PersonalData}\\Bioware\\Dragon Age 2\\Packages\\Core\\Override"
+  },
+  "compatibilityNotes": [
+    "The DLL retains deterministic chargenmorphcfg.xml merging. The JSON-only baseline installs ordinary override files without merging character-morph configuration."
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "modeId": "TESO",
+  "name": "The Elder Scrolls Online",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "eso.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "launcher": {
+    "defaultExecutable": "eso.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch The Elder Scrolls Online",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom The Elder Scrolls Online",
+    "defaultCommandText": "Launch The Elder Scrolls Online",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "eso_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{PersonalData}\\Elder Scrolls Online\\live\\Addons"
+  },
+  "compatibilityNotes": [
+    "The DLL retains the regional live/liveeu Addons choice. The JSON-only baseline targets the live Addons folder; existing EU installations must keep the DLL behavior."
+  ]
+}

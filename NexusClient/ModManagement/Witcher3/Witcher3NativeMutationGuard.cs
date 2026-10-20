@@ -12,6 +12,9 @@ using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Localization;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 
 namespace Nexus.Client.ModManagement.Witcher3
 {
@@ -36,16 +39,8 @@ namespace Nexus.Client.ModManagement.Witcher3
     /// approval or replacement of native InstallLog authority. Created before the native transaction,
     /// since NativeStateCaptureReader deliberately refuses ambient transactions.
     /// </summary>
-    public sealed class Witcher3NativeMutationReview
+    public sealed partial class Witcher3NativeMutationReview
     {
-        /// <summary>Exposes the existing manual-only Remastered boundary before Collection acquisition or recipe preparation.</summary>
-        public static void RequireCollectionSupport(string modeId)
-        {
-            if (String.Equals(modeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
-                throw new NotSupportedException(LanguageManager.Get("Witcher3.Collections.Unsupported",
-                    "Witcher 3 Remastered Collection installation is not supported yet. Collection metadata can be inspected, but archives cannot be prepared or installed through this workflow. Supported basic packages require the reviewed manual installation path."));
-        }
-
         private readonly IEnvironmentInfo _environment;
         private readonly IGameMode _gameMode;
         private readonly IInstallLog _installLog;
@@ -53,6 +48,46 @@ namespace Nexus.Client.ModManagement.Witcher3
         private readonly Witcher3NativeComponentIndex _index;
         private readonly NativeStateCaptureSnapshot _native;
         private readonly string _gameRoot;
+
+        /// <summary>Admits only explicit, bounded Collection effects under this recovered root reservation.</summary>
+        public void AuthorizeCollectionRecipe(ModInstallationRecipeInput recipe)
+        {
+            AssertLease(_lease);
+            if (recipe == null || !recipe.HasNativePlan || recipe.NativeOperations.Count == 0 || recipe.NativeOperations.Count > 1000000 ||
+                recipe.InstallContext.InstallRoot != ModInstallRoot.Data ||
+                (recipe.InstallContext.Method != ModInstallMethod.Direct && recipe.InstallContext.Method != ModInstallMethod.Virtual) ||
+                !StringComparer.Ordinal.Equals(recipe.TargetFingerprint, _lease.TargetFingerprint) ||
+                (recipe.OperationIdentity.Origin != ModOperationOrigin.Collection && recipe.OperationIdentity.Origin != ModOperationOrigin.LocalRestore && recipe.OperationIdentity.Origin != ModOperationOrigin.Recovery))
+                throw new InvalidDataException("Witcher Collection recipe does not belong to this reviewed native reservation.");
+            if (recipe.OperationIdentity.Origin == ModOperationOrigin.Collection &&
+                (!StringComparer.Ordinal.Equals(recipe.Validation.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId) ||
+                recipe.Validation.AdapterVersion != ModInstallationSimpleFileRecipeAdapter.AdapterVersion ||
+                recipe.Validation.Capabilities.Count != 1 ||
+                !StringComparer.Ordinal.Equals(recipe.Validation.Capabilities[0].CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityId) ||
+                recipe.Validation.Capabilities[0].Version != ModInstallationSimpleFileRecipeAdapter.CapabilityVersion))
+                throw new InvalidDataException("Witcher Collection effects require the reviewed native file/value adapter contract.");
+            var records = ((DataDrivenWitcher3RemasteredGameMode)_gameMode).CreateCollectionRecordStore();
+            foreach (ScriptedInstallOperation operation in recipe.NativeOperations)
+            {
+                InstallModFileOperation file = operation as InstallModFileOperation;
+                GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+                EditGameSpecificValueOperation value = operation as EditGameSpecificValueOperation;
+                if (file != null || generated != null)
+                {
+                    string destination = CollectionWitcher3Data.ValidateDestination(file == null ? generated.DestinationPath : file.DestinationPath);
+                    Witcher3CollectionRecordStore.RequireRegularAncestors(Path.Combine(_gameRoot, destination));
+                }
+                else if (value != null)
+                {
+                    if (!value.HasResolvedOverwriteDecision) throw new InvalidDataException("Witcher Collection setting has no reviewed overwrite decision.");
+                    string profile, identity;
+                    records.ParseKey(value.Key, out profile, out identity); records.ValidatePayload(identity, value.Value);
+                    records.GetManifestPath(profile);
+                }
+                else if (!(operation is RestoreNativeRegistrationOperation) || recipe.NativeOperations.Count != 1 || recipe.OperationIdentity.Origin == ModOperationOrigin.Collection)
+                    throw new InvalidDataException("Witcher Collection recipe contains an unsupported native operation.");
+            }
+        }
 
         private Witcher3NativeMutationReview(IEnvironmentInfo environment, IGameMode gameMode,
             IInstallLog installLog, CollectionTargetMutationLease lease,
@@ -256,6 +291,7 @@ namespace Nexus.Client.ModManagement.Witcher3
                 throw new InvalidDataException("The game edition changed during a native Witcher 3 removal.");
             var after = new NativeStateCaptureReader(_installLog, virtualActivator,
                 deploymentManager, pluginManager, _gameMode).Capture();
+            if (VerifyCollectionUninstall(after)) { _completedRemovalVerified = true; return; }
             Witcher3NativeUninstallPostcondition.RequireReconciled(after,
                 _reviewedUninstallOwnerKey, _reviewedUninstallTargets, target =>
                 {
@@ -277,7 +313,8 @@ namespace Nexus.Client.ModManagement.Witcher3
             var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string target in _reviewedUninstallTargets)
             {
-                string[] parts = Witcher3BasicInstallMapping.ValidatePlannedPath(target).Split('\\');
+                string[] parts = CollectionWitcher3Data.ValidateDestination(target).Split('\\');
+                if (parts[0].Equals("bin", StringComparison.OrdinalIgnoreCase)) continue;
                 for (int count = 2; count < parts.Length; ++count)
                     directories.Add(String.Join("\\", parts.Take(count)));
             }

@@ -809,8 +809,15 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>
 		/// Runs target-scoped startup recovery first, reconciles any crossed native child through C6.9/C6.10, and classifies safe resumable work.
 		/// </summary>
-		public async Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(
+		public Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(
 			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+		{
+			return ReconcileIncompleteTargetAsync(targetPaths, cancellationToken, false);
+		}
+
+		/// <summary>Reconciles interrupted work, optionally performing an explicitly requested bounded activation repair.</summary>
+		internal async Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken, bool repairInterruptedActivation)
 		{
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
@@ -857,6 +864,13 @@ namespace Nexus.Client.CollectionManagement
 					reviewedPlan = _runtimeReconstructor.ReconstructPlan(snapshot);
 					CollectionNativeChildRestartReconciliationResult restart = await _restartCoordinator.ReconcileAsync(operation.Identity,
 						targetPaths, cancellationToken).ConfigureAwait(false);
+					if (restart.RequiresRecovery && repairInterruptedActivation)
+					{
+						PreparedCollectionNativeRecipe recipe = _runtimeReconstructor.ReconstructPreparedRecipes(reviewedPlan,
+							snapshot, restart.Child.Member.MemberKey).SingleOrDefault();
+						restart = await _restartCoordinator.RepairInterruptedActivationAsync(operation.Identity, targetPaths,
+							recipe, cancellationToken).ConfigureAwait(false);
+					}
 					if (restart.RequiresRecovery)
 					{
 						operation = RequireOperation(operation.Identity);

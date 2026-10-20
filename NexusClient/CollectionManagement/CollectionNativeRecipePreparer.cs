@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Newtonsoft.Json.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -168,11 +169,15 @@ namespace Nexus.Client.CollectionManagement
 				Source = source ?? throw new ArgumentNullException(nameof(source));
 				Normalized = normalized ?? throw new ArgumentNullException(nameof(normalized));
 				SourceRecord = sourceRecord ?? throw new ArgumentNullException(nameof(sourceRecord));
+				Root = JObject.Parse(Encoding.UTF8.GetString(normalized.GetRawManifestBytes()).TrimStart('\uFEFF'));
+				WitcherData = CollectionWitcher3Data.IsWitcherManifest(Root) ? CollectionWitcher3Data.Parse(Root) : null;
 			}
 
 			internal CollectionManifestSourceSnapshot Source { get; }
 			internal NexusCollectionManifestNormalizationResult Normalized { get; }
 			internal CollectionRevisionSourceRecord SourceRecord { get; }
+			internal JObject Root { get; }
+			internal CollectionWitcher3Data WitcherData { get; }
 		}
 
 		/// <summary>Creates the initial Collection-to-native recipe preparation service over the existing C4/C5/C6 seams.</summary>
@@ -280,6 +285,7 @@ namespace Nexus.Client.CollectionManagement
 				if (member == null)
 					throw new ArgumentNullException(nameof(member));
 				if (mod == null) throw new ArgumentNullException(nameof(mod));
+				RequireSupportedWitcherInstaller(member, mod, gameMode);
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
@@ -325,6 +331,7 @@ namespace Nexus.Client.CollectionManagement
 				if (member == null) throw new ArgumentNullException(nameof(member));
 				if (mod == null) throw new ArgumentNullException(nameof(mod));
 				if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
+				RequireSupportedWitcherInstaller(member, mod, gameMode);
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
@@ -388,6 +395,19 @@ namespace Nexus.Client.CollectionManagement
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
+			if (retainedManifest.WitcherData != null && !String.Equals(gameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+				(retainedManifest.Root["loadOrder"] != null || retainedManifest.Root["mergedData"] != null ||
+				!String.IsNullOrEmpty((string)(retainedManifest.Root["mods"]?[member.SourceOrdinal]?["details"]?["type"]))))
+				throw new NotSupportedException("This Collection's Witcher-specific order, merge data and package types require the Witcher 3 Remastered native adapter.");
+			if (String.Equals(gameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase))
+			{
+				if (member.HasVortexBinaryPatches || member.HasVortexFileOverrides)
+					throw new NotSupportedException("Witcher Collection binary patches and file-override recipes require their own selected-output preparation.");
+				if (replacement)
+					throw new NotSupportedException("Witcher Collection settings are not projected through the replacement environment; use the additive installation workflow.");
+				return PrepareWitcherExact(identityPlan ?? plan, member, verifiedArchive, mod, gameMode, installContext,
+					retainedManifest, skipReadmeFiles, pluginManager, cancellationToken);
+			}
 
 			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods, includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory);
 			if (!basicResult.IsSupported)
@@ -422,6 +442,67 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal), gameRootArchiveBaseDirectory);
+		}
+
+		/// <summary>Prepares bounded Witcher files and structured records through the native reviewed-effect adapter.</summary>
+		private PreparedCollectionNativeRecipe PrepareWitcherExact(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
+			CollectionVerifiedArchive archive, IMod mod, IGameMode gameMode, ModInstallContext context,
+			RetainedPreparationManifest retained, bool skipReadmeFiles, IPluginManager plugins, CancellationToken cancellationToken)
+		{
+			if (!(gameMode is Nexus.Client.Games.DataDriven.DataDrivenWitcher3RemasteredGameMode) || retained.WitcherData == null)
+				throw new InvalidDataException("Witcher Collection preparation requires the dedicated native adapter and retained Witcher source.");
+			IReadOnlyList<ScriptedInstallOperation> operations = CollectionWitcher3InstallPlanner.Build(plan, member, mod, context, retained.Root, retained.WitcherData, cancellationToken);
+			var paths = new List<ModInstallationRecipePath>(); var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var artifacts = new List<string> { retained.SourceRecord.RawManifestArtifactId, archive.Artifact.ArtifactId };
+			foreach (ScriptedInstallOperation operation in operations)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				if (file != null || generated != null)
+				{
+					AddValidationPath(paths, declared, ModInstallationRecipePathKind.ArchiveSource, file == null ? generated.PreparationSourcePath : file.SourcePath);
+					AddValidationPath(paths, declared, ModInstallationRecipePathKind.Destination, file == null ? generated.DestinationPath : file.DestinationPath);
+				}
+				if (generated != null)
+					using (var stream = new MemoryStream(generated.Data, false)) artifacts.Add(_artifactStore.Publish(stream, cancellationToken).ArtifactId);
+			}
+			var validation = new ModInstallationRecipeValidation(ModInstallationSimpleFileRecipeAdapter.AdapterId,
+				ModInstallationSimpleFileRecipeAdapter.AdapterVersion, context,
+				new ModInstallationRecipeExpectedContent(archive.Artifact.ContentHash.Value, archive.Artifact.ByteLength),
+				new[] { new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityVersion) }, paths);
+			var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, context, member.RecipeIdentity.Fingerprint);
+			var input = new ModInstallationRecipeInput(ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint), validation);
+			ModInstallationRecipeInput translated = _simpleFileAdapter.TranslatePreparedPlan(input, operations);
+			ValidateManagedModArchive(mod, archive, cancellationToken);
+			CollectionMemberEffectPreview preview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, plugins, cancellationToken);
+			if (!preview.IsComplete) throw new InvalidDataException("Witcher Collection effects could not be fully characterized.");
+			using (var stream = new MemoryStream())
+			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
+			{
+				writer.Write("nmm-ce.witcher3-prepared/1"); writer.Write(plan.Target.Fingerprint);
+				writer.Write(plan.ManifestSource.ContentHash.Value); writer.Write(plan.CurrentStateFingerprint.FormatVersion); writer.Write(plan.CurrentStateFingerprint.Value);
+				writer.Write(member.RecipeIdentity.Fingerprint); writer.Write((int)member.MemberKey.Kind); writer.Write(member.MemberKey.Value); writer.Write(member.SourceOrdinal);
+				writer.Write(member.ArtifactChoice.SelectedArtifact.Scheme); writer.Write(member.ArtifactChoice.SelectedArtifact.StableId);
+				writer.Write(archive.Artifact.ContentHash.Value); writer.Write(archive.Artifact.ByteLength);
+				writer.Write((int)context.Method); writer.Write((int)context.InstallRoot); writer.Write(skipReadmeFiles);
+				writer.Write(operations.OfType<InstallModFileOperation>().Count());
+				foreach (InstallModFileOperation file in operations.OfType<InstallModFileOperation>()) { writer.Write(file.SourcePath); writer.Write(file.DestinationPath); }
+				WriteBasicGameSpecificValueIdentity(writer, translated); WriteGeneratedPatchIdentity(writer, translated); WriteEffectPreview(writer, preview); writer.Flush();
+				using (SHA256 sha = SHA256.Create())
+				{
+					var identity = PreparedCollectionNativeRecipeIdentity.FromFingerprint("sha256:" + BitConverter.ToString(sha.ComputeHash(stream.ToArray())).Replace("-", String.Empty).ToLowerInvariant());
+					return new PreparedCollectionNativeRecipe(member, identity, translated, preview, skipReadmeFiles, artifacts.Distinct(StringComparer.Ordinal));
+				}
+			}
+		}
+
+		/// <summary>Prevents generic installer branches from bypassing Witcher folder-order and menu preparation.</summary>
+		private static void RequireSupportedWitcherInstaller(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode)
+		{
+			if (String.Equals(gameMode?.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+				(member.HasVortexFileList || member.HasVortexFomodSelection || mod.HasInstallScript))
+				throw new NotSupportedException("This Witcher Collection package requires scripted or selected-file installation; its folder order and menu effects cannot be reproduced by the basic Witcher adapter.");
 		}
 
 
@@ -712,7 +793,6 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(installContext));
 			if (currentState == null)
 				throw new ArgumentNullException(nameof(currentState));
-			Witcher3NativeMutationReview.RequireCollectionSupport(gameMode.ModeId);
 			if (replacement)
 			{
 				if (plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)

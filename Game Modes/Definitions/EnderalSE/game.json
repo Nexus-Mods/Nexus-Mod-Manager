@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 2,
+  "modeId": "enderalspecialedition",
+  "name": "Enderal Special Edition",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Enderal Launcher.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "CalienteTools",
+    "SKSE",
+    "MWSE",
+    "NVSE",
+    "F4SE",
+    "FOSE",
+    "OBSE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esl",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Skyrim.esm",
+    "Update.esm"
+  ],
+  "orderedOfficialPluginNames": [
+    "Enderal - Forgotten Stories.esm"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "976620",
+        "installFolderName": "Enderal Special Edition",
+        "executableName": "Enderal Launcher.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": false,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Enderal Launcher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Enderal Special Edition",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Enderal Special Edition",
+    "defaultCommandText": "Launch Enderal Special Edition",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "EnderalSE_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "EnderalSE_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": true,
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esl",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm"
+    ],
+    "realFileRequiredExtensions": [
+      ".dll",
+      ".exe"
+    ]
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "skse64_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Enderal Special Edition",
+    "iniFilePath": "{UserGameData}\\Enderal.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Enderal Special Edition\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\EnderalPrefs.ini"
+    },
+    "rendererFilePath": "{UserGameData}\\RendererInfo.txt",
+    "requiresOptionalFilesCheckOnProfileSwitch": true,
+    "optionalFileNamePrefixes": [
+      "Bashed Patch",
+      "PatchusMaximus",
+      "Dual Sheath Redux Patch"
+    ],
+    "postProfileSwitchToolPath": "{GamePath}\\Data\\tools\\GenerateFNIS_for_Users\\GenerateFNISforUsers.exe",
+    "postProfileSwitchToolMessage": "Switching profiles may require regenerating installed FNIS animations. Run FNIS now?"
+  },
+  "compatibilityNotes": [
+    "Reuses the existing Gamebryo profile for plugins, Data deployment, INI locations and script-extender launch parameters.",
+    "Preserves the persisted enderalspecialedition ModeId. Steam app 976620 is the Special Edition release; the classic Enderal definition uses app 933480."
+  ]
+}

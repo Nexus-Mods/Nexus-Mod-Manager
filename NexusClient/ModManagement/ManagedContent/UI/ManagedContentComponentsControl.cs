@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -25,11 +27,13 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		private readonly GridColumn _orderStateColumn;
 		private readonly GridColumn _priorityColumn;
 		private readonly GridColumn _enabledColumn;
-		private readonly MemoEdit _status;
+		private readonly DiagnosticTextBox _status;
 		private readonly MemoEdit _details;
 		private readonly SimpleButton _refresh;
 		private readonly SimpleButton _editOrder;
 		private readonly SimpleButton _recovery;
+		private readonly SimpleButton _autofix;
+		private Func<IWin32Window, Task> _cleanupMissingEntries;
 		private ManagedContentOrderService _orderService;
 		private IniOrderRecoveryInspection _pending;
 		private readonly System.Windows.Forms.Timer _refreshTimer;
@@ -42,6 +46,8 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		private volatile bool _refreshNeeded = true;
 		private bool _busy;
 		private bool _released;
+		private Color _errorColor;
+		private Color _warningColor;
 
 		/// <summary>Creates themed controls without capturing native state or scanning game folders.</summary>
 		public ManagedContentComponentsControl()
@@ -72,6 +78,26 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			_recovery.Click += (sender, args) => _ = ReviewRecoveryAsync();
 			commands.Controls.Add(_editOrder);
 			commands.Controls.Add(_recovery);
+			_autofix = new SimpleButton { AutoSize = true, Visible = false,
+				Text = L("Witcher3.Order.Actions.Autofix", "Autofix missing entries...") };
+			_autofix.Click += async (sender, args) =>
+			{
+				if (!_autofix.Enabled || _cleanupMissingEntries == null) return;
+				_busy = true;
+				_refresh.Enabled = false;
+				UpdateCommands();
+				try { await _cleanupMissingEntries(this).ConfigureAwait(true); }
+				finally
+				{
+					if (!_released && !IsDisposed && !Disposing)
+					{
+						_busy = false;
+						_refresh.Enabled = true;
+						await RefreshOnActivateAsync().ConfigureAwait(true);
+					}
+				}
+			};
+			commands.Controls.Add(_autofix);
 			_grid = new GridControl { Dock = DockStyle.Fill };
 			_view = new GridView(_grid);
 			_grid.MainView = _view;
@@ -92,23 +118,30 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			_enabledColumn = _view.Columns.AddVisible(nameof(ComponentRow.GameEnabled), L("ManagedContent.Order.Columns.Enabled", "Game enabled"));
 			_orderStateColumn.Visible = _priorityColumn.Visible = _enabledColumn.Visible = false;
 			_view.FocusedRowChanged += (sender, args) => UpdateDetails();
+			_view.RowCellStyle += (sender, args) =>
+			{
+				ComponentRow row = _view.GetRow(args.RowHandle) as ComponentRow;
+				if (row == null || row.Severity == 0) return;
+				args.Appearance.ForeColor = row.Severity == 2 ? _errorColor : _warningColor;
+				args.Appearance.Options.UseForeColor = true;
+			};
 			_details = new MemoEdit { Dock = DockStyle.Bottom, Height = 110 };
 			_details.Properties.ReadOnly = true;
-			_status = new MemoEdit { Dock = DockStyle.Bottom, Height = 110 };
-			_status.Properties.ReadOnly = true;
+			_status = new DiagnosticTextBox { Height = 110 };
 			_status.Text = L("ManagedContent.Components.Initial", "Open this tab to read the component inventory.");
 			Controls.Add(_grid);
 			Controls.Add(_details);
 			Controls.Add(_status);
 			Controls.Add(commands);
 			Controls.Add(description);
+			ApplyStatusPalette();
 		}
 
 		/// <summary>Uses the existing localization fallback for every static page caption.</summary>
 		private static string L(string key, string fallback) => LanguageManager.Get(key, fallback);
 
 		/// <summary>Binds to current native services without retaining an InstallLog across a native reload.</summary>
-		public void Initialize(MainFormVM main, Func<bool> isActiveDocument)
+		public void Initialize(MainFormVM main, Func<bool> isActiveDocument, Func<IWin32Window, Task> cleanupMissingEntries = null)
 		{
 			if (main == null) throw new ArgumentNullException(nameof(main));
 			if (_reader != null) throw new InvalidOperationException("The component page is already initialized.");
@@ -118,6 +151,8 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 					main.ModManager.VirtualModActivator, null, main.PluginManager, main.GameMode).CaptureForCollectionIndex(), () => main.EnvironmentInfo.PersonalDataFolderPath);
 			_orderStateColumn.Visible = _priorityColumn.Visible = _enabledColumn.Visible = _reader.HasOrderDocument;
 			_orderService = main.ManagedContentOrder;
+			_cleanupMissingEntries = main.Witcher3ModSettingsLifecycle == null ? null : cleanupMissingEntries;
+			_autofix.Visible = _cleanupMissingEntries != null;
 			_editOrder.Visible = _recovery.Visible = _orderService != null;
 			UpdateCommands();
 			_nativeChanges = new NativeComponentLifecycleObserver(main.ModActivationMonitor, main.ModManager);
@@ -219,6 +254,8 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			_editOrder.Enabled = current && _orderService != null && _pending?.Status == IniOrderRecoveryStatus.None &&
 				_snapshot?.Order?.IsLoaded == true && _snapshot.Order.Document?.IsUnambiguous == true;
 			_recovery.Enabled = current && _orderService != null && _pending != null && _pending.Status != IniOrderRecoveryStatus.None;
+			_autofix.Enabled = current && _cleanupMissingEntries != null && _snapshot?.Index.HasCompleteDiskInventory == true &&
+				_snapshot.Order?.IsLoaded == true && _snapshot.Order.Document?.IsUnambiguous == true;
 		}
 
 		/// <summary>Rejects modal review when the native inventory or exact source file changed.</summary>
@@ -326,7 +363,10 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		private void BindRows()
 		{
 			string selected = (_view.GetFocusedRow() as ComponentRow)?.Folder;
-			var rows = _snapshot.Rows.Select(row => new ComponentRow(row)).ToList();
+			var rows = _snapshot.Rows.Select(row => new ComponentRow(row, _snapshot.Index.HasCompleteDiskInventory,
+				_snapshot.Order?.Document?.Issues.Any(issue => issue.Kind == IniOrderIssueKind.DuplicatePriority &&
+					String.Equals(issue.Section, row.Component?.FolderName ?? row.RootRelativeFolderPath.Substring(row.RootRelativeFolderPath.LastIndexOf('\\') + 1),
+						StringComparison.OrdinalIgnoreCase)) == true)).ToList();
 			_grid.BeginUpdate();
 			try
 			{
@@ -342,12 +382,14 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		private void UpdateStatus()
 		{
 			var text = new StringBuilder();
+			var errors = new List<string>();
+			var warnings = new List<string>();
 			if (_pending != null && _pending.Status != IniOrderRecoveryStatus.None)
 				text.AppendLine(String.Format(L("ManagedContent.Order.Pending", "Pending order publication: {0}. Review recovery before editing."),
 					L("ManagedContent.Order.RecoveryStatus." + _pending.Status, _pending.Status.ToString())));
 			int totalFindings = _snapshot.Index.Issues.Count + _snapshot.Disk.Issues.Count +
 				(_snapshot.Order?.Document?.Issues.Count ?? 0) + (_snapshot.Order != null && !_snapshot.Order.IsLoaded ? 1 : 0);
-			text.AppendLine(String.Format(L("ManagedContent.Components.Summary", "Components: {0}; disk inventory: {1}; findings: {2}."),
+			text.AppendLine(String.Format(L("ManagedContent.Components.InventorySummary", "Indexed component folders: {0}; disk scan: {1}; findings: {2}."),
 				_snapshot.Index.Components.Count, _snapshot.Index.HasCompleteDiskInventory
 					? L("ManagedContent.Components.Complete", "complete") : L("ManagedContent.Components.Incomplete", "incomplete"), totalFindings));
 			text.AppendLine(_snapshot.PhysicalRoot);
@@ -362,19 +404,45 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 					_snapshot.Rows.Count(row => row.Component == null)));
 				if (!_snapshot.Order.IsLoaded) text.AppendLine(_snapshot.Order.Diagnostic);
 			}
-			var orderFindings = (_snapshot.Order?.Document?.Issues ?? Enumerable.Empty<IniOrderIssue>()).Select(issue => FormatFinding(
+			var orderFindings = (_snapshot.Order?.Document?.Issues ?? Enumerable.Empty<IniOrderIssue>()).Select(issue => Tuple.Create(FormatFinding(
 				String.Format(L("ManagedContent.Order.IssueLocation", "{0}, line {1}"), issue.Section ?? String.Empty, issue.LineNumber),
-				L("ManagedContent.Order.Issues." + issue.Kind, issue.Message)));
-			var findings = orderFindings.Concat(_snapshot.Index.Issues.Select(issue => FormatFinding(issue.Path,
-				L("ManagedContent.Components.Issues." + issue.Kind, issue.Message))))
-				.Concat(_snapshot.Disk.Issues.Select(issue => FormatFinding(issue.Path,
+				L("ManagedContent.Order.Issues." + issue.Kind, issue.Message)), issue.Kind != IniOrderIssueKind.DuplicatePriority));
+			var findings = orderFindings.Concat(_snapshot.Index.Issues.Select(issue => Tuple.Create(FormatFinding(issue.Path,
+				L("ManagedContent.Components.Issues." + issue.Kind, issue.Message)),
+				issue.Kind == ManagedContentComponentIssueKind.MissingObservedNativeFile ||
+				issue.Kind == ManagedContentComponentIssueKind.ConflictingNativeTarget ||
+				issue.Kind == ManagedContentComponentIssueKind.AmbiguousVirtualWinner ||
+				issue.Kind == ManagedContentComponentIssueKind.PhysicalRootUnavailable)))
+				.Concat(_snapshot.Disk.Issues.Select(issue => Tuple.Create(FormatFinding(issue.Path,
 					L("ManagedContent.Components.ScanIssues." + issue.Kind, issue.Message) +
-					(issue.Kind == ManagedContentComponentDiskIssueKind.EnumerationFailed ? " " + issue.Message : String.Empty)))).Take(20);
-			foreach (string finding in findings) text.AppendLine(finding);
+					(issue.Kind == ManagedContentComponentDiskIssueKind.EnumerationFailed ? " " + issue.Message : String.Empty)),
+					issue.Kind == ManagedContentComponentDiskIssueKind.RootMissing))).Take(20);
+			foreach (Tuple<string, bool> finding in findings)
+			{
+				text.AppendLine(finding.Item1);
+				if (finding.Item2) errors.Add(finding.Item1);
+				else warnings.Add(finding.Item1);
+			}
 			int textFindings = totalFindings - (_snapshot.Order != null && !_snapshot.Order.IsLoaded ? 1 : 0);
 			if (textFindings > 20)
 				text.AppendLine(String.Format(L("ManagedContent.Components.MoreFindings", "{0} additional findings."), textFindings - 20));
-			_status.Text = text.ToString();
+			int missing = _snapshot.Rows.Count(row => row.ObservedOnDisk == false ||
+				(_snapshot.Index.HasCompleteDiskInventory && row.Component?.ObservedOnDisk == true &&
+					row.Component.Files.All(file => file.ObservedOnDisk == false)));
+			if (missing > 0)
+			{
+				string message = String.Format(L("ManagedContent.Components.MissingSummary",
+					"Missing or empty component folders: {0}. Settings-only rows are not installed mods."), missing);
+				text.Insert(0, message + Environment.NewLine);
+				errors.Add(message);
+			}
+			if (_snapshot.Order?.Document?.IsUnambiguous == false)
+			{
+				string message = L("ManagedContent.Order.InvalidSettings", "The order file contains invalid or conflicting settings. Review it before editing.");
+				text.AppendLine(message);
+				errors.Add(message);
+			}
+			_status.SetDiagnosticText(text.ToString(), errors, warnings);
 		}
 
 		/// <summary>Formats a localized diagnostic and its observed path.</summary>
@@ -416,6 +484,19 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
 		{
 			if (settings != null) DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+			if (settings != null) _status.Font = settings.Font;
+			ApplyStatusPalette();
+			if (_snapshot != null) UpdateStatus();
+			_view.InvalidateRows();
+		}
+
+		/// <summary>Uses the same accessible severity palette as the plugin list and Witcher load-order view.</summary>
+		private void ApplyStatusPalette()
+		{
+			NmmColorPalette palette = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
+				DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
+			_errorColor = palette.PluginErrorColor;
+			_warningColor = palette.PluginWarningColor;
 		}
 
 		/// <summary>Releases timers and native subscriptions even if the page was never opened as an MDI document.</summary>
@@ -439,7 +520,7 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 		private sealed class ComponentRow
 		{
 			/// <summary>Converts one immutable component into display values once per accepted refresh.</summary>
-			internal ComponentRow(ManagedContentComponentViewRow row)
+			internal ComponentRow(ManagedContentComponentViewRow row, bool complete, bool orderWarning)
 			{
 				Observation = row;
 				ManagedContentNativeComponent component = row.Component;
@@ -451,6 +532,11 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 					component.Owners.Count > 0 ? L("ManagedContent.Components.Managed", "NMM contributors recorded") : L("ManagedContent.Components.Unconfirmed", "Unconfirmed");
 				Presence = row.ObservedOnDisk == true ? L("ManagedContent.Components.Present", "Observed") :
 					row.ObservedOnDisk == false ? L("ManagedContent.Components.Missing", "Missing") : L("ManagedContent.Components.Unknown", "Unknown");
+				bool empty = complete && component?.ObservedOnDisk == true && component.Files.All(file => file.ObservedOnDisk == false);
+				if (empty) Presence = L("Witcher3.Order.Presence.Empty", "Empty folder");
+				Severity = row.ObservedOnDisk == false || empty || row.OrderState == ManagedContentOrderState.Ambiguous ||
+					component?.Files.Any(file => file.ObservedOnDisk == false || file.WinnerAmbiguous) == true ? 2 :
+					!row.ObservedOnDisk.HasValue || !complete || orderWarning ? 1 : 0;
 				FileCount = component?.Files.Count ?? 0;
 				ContributorCount = component?.Owners.Count ?? 0;
 				OrderConfiguration = L("ManagedContent.Order.State." + row.OrderState, row.OrderState.ToString());
@@ -461,6 +547,7 @@ namespace Nexus.Client.ModManagement.ManagedContent.UI
 			}
 
 			internal ManagedContentComponentViewRow Observation { get; }
+			internal int Severity { get; }
 			public string Folder { get; }
 			public string Kind { get; }
 			public string Origin { get; }

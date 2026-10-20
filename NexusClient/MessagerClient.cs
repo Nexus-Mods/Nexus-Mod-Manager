@@ -30,17 +30,22 @@ namespace Nexus.Client
 		/// or <c>null</c> if no valid <see cref="Messager"/> could be created.</returns>
 		public static IMessager GetMessager(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo)
 		{
+			return GetMessager(p_gmdGameModeInfo.ModeId);
+		}
+
+		/// <summary>Connects to an existing mode endpoint without constructing game factories or a main window.</summary>
+		internal static IMessager GetMessager(string modeId)
+		{
 			if (m_cchMessagerChannel == null)
 			{
-				System.Collections.IDictionary properties = new System.Collections.Hashtable();
-				properties["exclusiveAddressUse"] = false;
-				m_cchMessagerChannel = new IpcClientChannel();
-				RegisterIpcChannel(m_cchMessagerChannel);
+				var channel = new IpcClientChannel();
+				RegisterIpcChannel(channel);
+				m_cchMessagerChannel = channel;
 			}
 			else
 				throw new InvalidOperationException("The IPC Channel has already been created as a CLIENT.");
 
-			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
+			string strMessagerUri = String.Format("ipc://{0}-{1}IpcServer/{1}Listener", CommonData.ModManagerName, modeId);
 			IMessager msgMessager = null;
 			try
 			{
@@ -56,7 +61,13 @@ namespace Nexus.Client
 			{
 				Trace.TraceError("Could not get Messager: {0}", strMessagerUri);
 				TraceUtil.TraceException(e);
+				ReleaseClientChannel();
 				return null;
+			}
+			catch
+			{
+				ReleaseClientChannel();
+				throw;
 			}
 			return new MessagerClient(msgMessager);
 		}
@@ -111,6 +122,12 @@ namespace Nexus.Client
 		/// This shuts down any open IPC channels.
 		/// </remarks>
 		public void Dispose()
+		{
+			ReleaseClientChannel();
+		}
+
+		/// <summary>Releases failed probes as well as completed handoffs so normal startup can create its own listener.</summary>
+		private static void ReleaseClientChannel()
 		{
 			if (m_cchMessagerChannel == null)
 				return;

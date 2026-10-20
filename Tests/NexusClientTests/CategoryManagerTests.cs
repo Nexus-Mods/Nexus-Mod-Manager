@@ -30,6 +30,67 @@
 		private string _categoryDirectory;
 		private string _categoryFile;
 
+		/// <summary>Reads the packaged Remastered categories through the same resource path used by the game mode.</summary>
+		private static string RemasteredDefaults()
+		{
+			string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "GameModes", "Definitions", "Witcher3Remastered", "game.json");
+			var definition = Newtonsoft.Json.JsonConvert.DeserializeObject<Nexus.Client.Games.DataDriven.GameModeDefinition>(File.ReadAllText(path));
+			definition.DefinitionDirectory = Path.GetDirectoryName(path);
+			Assert.That(definition.Resources?.CategoriesPath, Is.EqualTo("Categories.xml"));
+			Assert.That(new Nexus.Client.Games.DataDriven.GameModeDefinitionValidator().Validate(definition)
+				.Where(issue => issue.Severity == Nexus.Client.Games.DataDriven.GameModeDefinitionIssueSeverity.Error), Is.Empty);
+			string defaults = Nexus.Client.Games.DataDriven.DataDrivenGameModeHelpers.ReadResourceText(definition, definition.Resources.CategoriesPath);
+			Assert.That(defaults, Is.Not.Null.And.Not.Empty, "The shipped resource must be copied alongside the Remastered definition.");
+			return defaults;
+		}
+
+		/// <summary>Ensures the shipped Remastered definition provides valid shared-catalog IDs through the native category loader.</summary>
+		[Test]
+		public void RemasteredBundledCategories_ArePackagedAndLoadWithExistingWitcherIds()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(RemasteredDefaults());
+			Assert.That(manager.Categories.Select(category => category.Id), Is.EquivalentTo(new[] { 0, 2, 3, 4, 5, 6, 7, 8, 9 }));
+			Assert.That(manager.FindCategory(4).CategoryName, Is.EqualTo("Graphics and Visuals"));
+			Assert.That(manager.FindCategory(6).CategoryName, Is.EqualTo("User Interface"));
+			Assert.That(manager.IsValidPath, Is.True);
+		}
+
+		/// <summary>Recovers category files created while Remastered had no defaults, without removing custom definitions.</summary>
+		[Test]
+		public void RemasteredDefaults_RepairPreviouslyEmptyInventory_AndPreserveCustomCategories()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(null);
+			IModCategory custom = manager.AddCategory();
+			manager.RenameCategory(custom.Id, "My saved mods");
+			int customId = custom.Id;
+			manager = CreateManager();
+			string defaults = RemasteredDefaults();
+			manager.LoadCategories(defaults);
+			manager.RepairBundledRepositoryCategories(defaults, null);
+			Assert.That(manager.FindCategory(customId).CategoryName, Is.EqualTo("My saved mods"));
+			Assert.That(manager.Categories.Count, Is.EqualTo(10));
+			Assert.That(IsSavedAsCustom(customId), Is.True);
+			manager.RepairBundledRepositoryCategories(defaults, null);
+			Assert.That(manager.Categories.Count, Is.EqualTo(10));
+		}
+
+		/// <summary>Restoring bundled definitions must not resurrect categories deliberately removed by a user.</summary>
+		[Test]
+		public void RemasteredDefaults_RespectDeliberatelyRemovedRepositoryCategories()
+		{
+			string defaults = RemasteredDefaults();
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(defaults);
+			manager.RemoveCategory(manager.FindCategory(4));
+			manager = CreateManager();
+			manager.LoadCategories(defaults);
+			manager.RepairBundledRepositoryCategories(defaults, null);
+			Assert.That(manager.Categories.Any(category => category.Id == 4), Is.False);
+			Assert.That(IsSavedAsRemovedRepositoryCategory(4), Is.True);
+		}
+
 		/// <summary>
 		/// Creates an isolated category directory for each test.
 		/// </summary>

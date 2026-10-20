@@ -17,6 +17,60 @@ namespace NexusClientTests
 	[TestFixture]
 	public class NativeStorePersistenceTests
 	{
+		/// <summary>Retains missing originals, existing empty values and ordinary bytes across commit, restart, export and restore.</summary>
+		[Test]
+		public void InstallLog_AbsentAndEmptyGameValuesRemainDistinctAcrossPersistenceBoundaries()
+		{
+			using (var fixture = new StoreFixture())
+			{
+				InstallLogSqliteStore.CreateFromDocument(fixture.Database, CreateLog(0));
+				var store = new InstallLogSqliteStore(fixture.Database);
+				byte[] installed = new byte[] { 1, 2, 255 };
+				var entry = new XElement("edit", new XAttribute("key", "WitcherSetting"), new XElement("installingMods",
+					InstallLog.SerializeGameSpecificValueOwner("ORIGINAL_VALUE", null),
+					InstallLog.SerializeGameSpecificValueOwner("first", new byte[0]),
+					InstallLog.SerializeGameSpecificValueOwner("second", installed)));
+				store.Apply(new XElement[0], new string[0], new[] { new InstallLogSqliteStore.Entry(2, entry) }, 1);
+				Assert.AreEqual(1, Convert.ToInt32(fixture.Scalar("SELECT COUNT(*) FROM Owners o JOIN Items i ON i.ItemId=o.ItemId WHERE i.Path='WitcherSetting' AND o.BinaryValue IS NULL")));
+				Assert.AreEqual(1, Convert.ToInt32(fixture.Scalar("SELECT COUNT(*) FROM Owners o JOIN Items i ON i.ItemId=o.ItemId WHERE i.Path='WitcherSetting' AND typeof(o.BinaryValue)='blob' AND length(o.BinaryValue)=0")));
+				XElement[] owners = new InstallLogSqliteStore(fixture.Database).Read().Root.Element("gameSpecificEdits").Elements("edit")
+					.Single(item => (string)item.Attribute("key") == "WitcherSetting").Descendants("mod").ToArray();
+				CollectionAssert.AreEqual(new[] { "ORIGINAL_VALUE", "first", "second" }, owners.Select(item => (string)item.Attribute("key")));
+				Assert.IsNull(InstallLog.DeserializeGameSpecificValueOwner(owners[0]));
+				Assert.That(InstallLog.DeserializeGameSpecificValueOwner(owners[1]), Is.Empty);
+				Assert.IsNull(owners[1].Attribute("absent"));
+				CollectionAssert.AreEqual(installed, InstallLog.DeserializeGameSpecificValueOwner(owners[2]));
+
+				string export = Path.Combine(fixture.Root, "export.xml");
+				InstallLog.ExportSnapshot(fixture.Xml, export);
+				string restoredPath = Path.Combine(fixture.Root, "restored.sqlite");
+				InstallLogSqliteStore.CreateFromDocument(restoredPath, XDocument.Load(export));
+				Assert.IsTrue(XNode.DeepEquals(store.Read(), new InstallLogSqliteStore(restoredPath).Read()));
+
+				// Removing one winner retains the exact fallback, including the absent original sentinel.
+				entry.Element("installingMods").Elements("mod").Last().Remove();
+				store.Apply(new XElement[0], new string[0], new[] { new InstallLogSqliteStore.Entry(2, entry) }, 2);
+				owners = store.Read().Root.Element("gameSpecificEdits").Elements("edit").Single(item => (string)item.Attribute("key") == "WitcherSetting").Descendants("mod").ToArray();
+				Assert.IsNull(InstallLog.DeserializeGameSpecificValueOwner(owners[0]));
+				Assert.That(InstallLog.DeserializeGameSpecificValueOwner(owners[1]), Is.Empty);
+			}
+		}
+
+		/// <summary>Legacy empty Base64 still means an existing empty value, and invalid absence markers cannot discard bytes.</summary>
+		[Test]
+		public void InstallLog_GameValueCodecPreservesLegacyPayloadsAndRejectsConflictingAbsence()
+		{
+			var empty = new XElement("mod", new XAttribute("key", "first"));
+			Assert.That(InstallLog.DeserializeGameSpecificValueOwner(empty), Is.Empty);
+			var ordinary = InstallLog.SerializeGameSpecificValueOwner("first", new byte[] { 0, 255 });
+			Assert.IsNull(ordinary.Attribute("absent"));
+			Assert.AreEqual(Convert.ToBase64String(new byte[] { 0, 255 }), ordinary.Value);
+			var conflict = new XElement(ordinary); conflict.SetAttributeValue("absent", true);
+			Assert.Throws<InvalidDataException>(() => InstallLog.DeserializeGameSpecificValueOwner(conflict));
+			empty.SetAttributeValue("absent", "invalid");
+			Assert.Throws<InvalidDataException>(() => InstallLog.DeserializeGameSpecificValueOwner(empty));
+		}
+
 		/// <summary>Preserves legacy bytes, ownership order, INI text, binary edits and sparse root metadata through restart.</summary>
 		[Test]
 		public void InstallLog_MigrationPreservesLegacyValuesAndIsIdempotent()

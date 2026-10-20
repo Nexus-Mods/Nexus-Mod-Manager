@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "modeId": "MonsterHunterWorld",
+  "name": "Monster Hunter: World",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "MonsterHunterWorld.exe"
+  ],
+  "stopFolders": [
+    "nativePC"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "582010",
+        "installFolderName": "Monster Hunter World",
+        "executableName": "MonsterHunterWorld.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "MonsterHunterWorld.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Monster Hunter: World",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Monster Hunter: World",
+    "defaultCommandText": "Launch Monster Hunter: World",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "MonsterHunterWorld_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves game-root deployment and the nativePC stop folder. Stracker loader installation, compatibility checks and packed-resource merging are not performed."
+  ]
+}

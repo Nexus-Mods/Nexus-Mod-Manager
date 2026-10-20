@@ -377,7 +377,8 @@ namespace Nexus.Client.CollectionManagement
 			return persisted;
 		}
 
-		private static Task WaitForCompletionAsync(IBackgroundTaskSet task)
+		/// <summary>Waits for a native task without releasing its mutation reservation on caller cancellation.</summary>
+		internal static Task WaitForCompletionAsync(IBackgroundTaskSet task)
 		{
 			if (task == null) throw new ArgumentNullException(nameof(task));
 			if (task.IsCompleted) return Task.FromResult<object>(null);

@@ -54,7 +54,7 @@ namespace Nexus.Client.CollectionManagement.UI
 	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6/C8
 	/// persistence or mutation coordinators directly. Replacement is exposed as a separate explicitly reviewed product command.
 	/// </remarks>
-	public sealed class CollectionsPreviewControl : ManagedFontDockContent
+	public sealed partial class CollectionsPreviewControl : ManagedFontDockContent
 	{
 		private readonly SimpleButton _saveCurrentSetupButton;
 		private readonly ComboBoxEdit _localCaptureCombo;
@@ -315,6 +315,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			public string Artifact { get; private set; }
 			public string ManagedState { get; set; }
 			internal NormalizedCollectionMember Member { get; private set; }
+			internal CollectionManagementMemberPresentation ManagedMember { get; set; }
 		}
 
 		/// <summary>Bound review row; unfiltered action rows and filtered diagnostics retain their independent lists.</summary>
@@ -382,6 +383,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			// The status image is rasterized from NMM's semantic SVGs in the current accessibility palette.
 			// Refresh it after any icon-style, icon-size or color-profile change.
 			RenderWorkflowActivity();
+			UpdateCollectionPresentation();
 		}
 
 		public CollectionsPreviewControl()
@@ -669,15 +671,17 @@ namespace Nexus.Client.CollectionManagement.UI
 				_localCaptureCombo, _restoreLocalCaptureButton, _deleteLocalCaptureButton);
 			_localWorkingCopyGroup = CreateActionGroup(L("Collections.Context.LocalWorkingCopy", "Local working copies"),
 				_localWorkingCopyCombo, _editLocalWorkingCopyButton, _saveLocalWorkingCopyRevisionButton);
+			InitializeCollectionToolbar();
 			Control installedActions = CreateActionGroup(L("Collections.Library.Title", "Collections"),
-				_managedAssociationCombo, _compareUpdateButton, _verifyRepairButton, _manageAssociationRemovalButton, _cloneManagedAssociationButton);
+				_managedAssociationCombo, _compareUpdateButton, _verifyRepairButton, _moreCollectionActionsButton, _installationOptionsButton, _installationOptionsSummary);
 			installedActions.Controls[0].Visible = false;
-			_installedGroup = new CollectionSectionGroup(L("Collections.Library.Title", "Collections"), installedActions);
+			_installedGroup = new CollectionSectionGroup(L("Collections.Library.Title", "Collections"), installedActions) {
+				ShowCaption = false, BorderStyle = BorderStyles.NoBorder, Padding = new Padding(0, 0, 0, 6) };
 			LabelControl previewContextLabel;
 			CollectionActionPanel incomingActionsPanel;
 			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
 				out previewContextLabel, out incomingActionsPanel,
-				_primaryIncomingActionButton, _importButton, _clearButton, _exportTechnicalReportButton,
+				_primaryIncomingActionButton, _importButton, _clearButton,
 				_downloadPrepareButton, _resolveFileConflictsButton, _resumeButton, _openPendingButton, _installButton);
 			_previewContextLabel = previewContextLabel;
 			_incomingActionsPanel = incomingActionsPanel;
@@ -709,7 +713,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_skipExistingArchiveMd5CheckBox = new CheckEdit
 			{
 				AutoSize = true,
-				Text = L("Collections.Preferences.SkipExistingArchiveMd5", "Skip MD5 and repeat SHA-256 checks for existing archives"),
+				Text = L("Collections.Presentation.ReuseChecksums", "Reuse checksums for unchanged archives"),
 				Checked = Properties.Settings.Default.CollectionSkipExistingArchiveMd5,
 				Margin = Padding.Empty
 			};
@@ -719,7 +723,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_skipContentChecksCheckBox = new CheckEdit
 			{
 				AutoSize = true,
-				Text = L("Collections.Preferences.SkipContentChecks", "Skip content checks"),
+				Text = L("Collections.Presentation.SkipExtraAudits", "Skip additional file audits"),
 				Checked = Properties.Settings.Default.CollectionSkipContentChecks,
 				Margin = Padding.Empty
 			};
@@ -729,25 +733,28 @@ namespace Nexus.Client.CollectionManagement.UI
 			_enableUnspecifiedPluginsCheckBox = new CheckEdit
 			{
 				AutoSize = true,
-				Text = L("Collections.Preferences.EnableUnlistedPlugins", "Enable unlisted plugins when masters are available"),
+				Text = L("Collections.Presentation.EnableUnspecifiedPlugins", "Enable plugins without a recorded choice"),
 				Checked = Properties.Settings.Default.CollectionEnableUnspecifiedPlugins,
 				Margin = Padding.Empty
 			};
 			_enableUnspecifiedPluginsHint = CreateApprovalLabel(L("Collections.Preferences.EnableUnlistedPluginsHelp",
 				"Enable plugins supplied by this Collection when no explicit enabled/disabled choice is recorded. Plugins with missing, disabled or unreadable masters stay disabled. Applies to new installation reviews."));
 			_enableUnspecifiedPluginsHint.Padding = new Padding(0, 0, 0, 6);
-			TablePanel preferencesLayout = CreateCollectionTable(10);
+			TablePanel preferencesLayout = CreateCollectionTable(11);
 			preferencesLayout.AutoSize = true;
 			AddCollectionCell(preferencesLayout, _automaticInstallCheckBox, 0);
 			AddCollectionCell(preferencesLayout, _automaticInstallHint, 1);
 			AddCollectionCell(preferencesLayout, _overwriteInstalledFilesCheckBox, 2);
 			AddCollectionCell(preferencesLayout, _overwriteInstalledFilesHint, 3);
-			AddCollectionCell(preferencesLayout, _skipExistingArchiveMd5CheckBox, 4);
-			AddCollectionCell(preferencesLayout, _skipExistingArchiveMd5Hint, 5);
-			AddCollectionCell(preferencesLayout, _skipContentChecksCheckBox, 6);
-			AddCollectionCell(preferencesLayout, _skipContentChecksHint, 7);
-			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsCheckBox, 8);
-			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsHint, 9);
+			_advancedInstallOptionsButton = new SimpleButton { AutoSize = true, Text = L("Collections.Presentation.AdvancedOptions", "Advanced options...") };
+			_advancedInstallOptionsButton.Click += (sender, args) => ToggleAdvancedInstallOptions();
+			AddCollectionCell(preferencesLayout, _advancedInstallOptionsButton, 4);
+			AddCollectionCell(preferencesLayout, _skipExistingArchiveMd5CheckBox, 5);
+			AddCollectionCell(preferencesLayout, _skipExistingArchiveMd5Hint, 6);
+			AddCollectionCell(preferencesLayout, _skipContentChecksCheckBox, 7);
+			AddCollectionCell(preferencesLayout, _skipContentChecksHint, 8);
+			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsCheckBox, 9);
+			AddCollectionCell(preferencesLayout, _enableUnspecifiedPluginsHint, 10);
 			_installPreferencesSection = new CollectionSectionGroup(
 				L("Collections.Preferences.Title", "Collection Install Preferences"), preferencesLayout);
 			TablePanel emptyLayout = CreateCollectionTable(3);
@@ -777,7 +784,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_collectionHeaderLayout.Columns[1].Style = TablePanelEntityStyle.Absolute;
 			AddCollectionCell(_collectionHeaderLayout, _previewSection, 0);
 			AddCollectionCell(_collectionHeaderLayout, _emptyCollectionSection, 0);
-			AddCollectionCell(_collectionHeaderLayout, _installPreferencesSection, 0, 1);
+			AddCollectionCell(_collectionHeaderLayout, _installPreferencesSection, 1);
+			_installPreferencesSection.Visible = false;
 			_collectionHeaderLayout.SizeChanged += CollectionHeaderLayout_Changed;
 			_collectionHeaderLayout.FontChanged += CollectionHeaderLayout_Changed;
 			_automaticInstallHint.FontChanged += CollectionHeaderLayout_Changed;
@@ -790,18 +798,19 @@ namespace Nexus.Client.CollectionManagement.UI
 			_skipExistingArchiveMd5CheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			_skipContentChecksCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
 			_enableUnspecifiedPluginsCheckBox.CheckedChanged += InstallPreference_CheckedChanged;
-			root.Controls.Add(_collectionHeaderLayout, 0, 0);
-			root.Controls.Add(_installedGroup, 0, 1);
+			root.Controls.Add(_installedGroup, 0, 0);
+			root.Controls.Add(_collectionHeaderLayout, 0, 1);
 
-			// Keep identity, current status and the next action together; move reference information out of the working area.
-			TablePanel header = CreateCollectionTable(2, 4);
+			TablePanel header = CreateCollectionTable(3);
 			header.AutoSize = true;
-			header.Columns[0].Style = TablePanelEntityStyle.AutoSize;
-			header.Columns[2].Style = TablePanelEntityStyle.AutoSize;
-			_collectionValue = AddHeaderRow(header, 0, 0, L("Collections.Fields.Collection", "Collection:"));
-			_revisionValue = AddHeaderRow(header, 0, 2, L("Collections.Fields.Revision", "Revision:"));
-			_appliedValue = AddHeaderRow(header, 1, 0, L("Collections.Status.Applied", "Applied state:"));
-			_contentValue = AddHeaderRow(header, 1, 2, L("Collections.Status.Content", "Content readiness:"));
+			_collectionValue = CreateCollectionCaption("-");
+			_collectionValue.Appearance.FontStyleDelta = FontStyle.Bold;
+			_collectionValue.Appearance.FontSizeDelta = 2;
+			_collectionSubtitle = CreateCollectionCaption(String.Empty);
+			_appliedValue = CreateCollectionCaption("-");
+			AddCollectionCell(header, _collectionValue, 0);
+			AddCollectionCell(header, _collectionSubtitle, 1);
+			AddCollectionCell(header, _appliedValue, 2);
 			AddCollectionCell(previewLayout, header, 0);
 
 			TablePanel workflowStatusPanel = CreateCollectionTable(1, 2);
@@ -814,6 +823,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				IndentBetweenImageAndText = 7, Text = L("Collections.Workflow.Idle", "Workflow: idle")
 			};
 			_workflowStatusLabel.TextChanged += (sender, args) => QueueDocumentLayout();
+			_appliedValue.TextChanged += (sender, args) => QueueDocumentLayout();
 			_workflowStatusLabel.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 			_workflowStatusLabel.Appearance.Options.UseTextOptions = true;
 			_workflowEtaLabel = new LabelControl
@@ -833,13 +843,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			_aboutCollectionPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Details", "About this Collection"));
 			_localCollectionsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Local", "Backups and local Collections"));
 			_advancedOptionsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Advanced", "Advanced options"));
+			InitializeSetupPage(previewLayout);
 			TablePanel detailsLayout = CreateCollectionTable(3);
 			detailsLayout.Rows[2].Style = TablePanelEntityStyle.Relative;
-			TablePanel detailsHeader = CreateCollectionTable(3, 2);
+			TablePanel detailsHeader = CreateCollectionTable(5, 2);
 			detailsHeader.Columns[0].Style = TablePanelEntityStyle.AutoSize;
 			_curatorValue = AddHeaderRow(detailsHeader, 0, 0, L("Collections.Fields.Curator", "Curator:"));
 			_locatorValue = AddHeaderRow(detailsHeader, 1, 0, L("Collections.Fields.Locator", "Nexus locator:"));
 			_compatibilityValue = AddHeaderRow(detailsHeader, 2, 0, L("Collections.Status.Compatibility", "Compatibility:"));
+			_revisionValue = AddHeaderRow(detailsHeader, 3, 0, L("Collections.Presentation.TechnicalRevision", "Revision identity:"));
+			_contentValue = AddHeaderRow(detailsHeader, 4, 0, L("Collections.Presentation.ContentDetails", "Installation details:"));
 			_summaryBox = new MemoEdit
 			{
 				Dock = DockStyle.Fill, ReadOnly = true,
@@ -938,7 +951,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Text = L("Collections.Members.OptionalHint", "Required mods are included. Tick optional mods you want to use.")
 			};
 			membersHeaderPanel.Controls.Add(_memberSelectionHint);
-			TablePanel membersLayout = CreateCollectionTable(2);
+			TablePanel membersLayout = CreateCollectionTable(3);
 			membersLayout.Rows[1].Style = TablePanelEntityStyle.Relative;
 			AddCollectionCell(membersLayout, membersHeaderPanel, 0);
 			_membersPage.Controls.Add(membersLayout);
@@ -975,6 +988,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			_memberMenuManager = new BarManager { Form = this };
 			_memberActionsMenu = new PopupMenu(_memberMenuManager);
+			InitializeCollectionActionMenu();
 			_openMemberPageMenuItem = new BarButtonItem(_memberMenuManager, L("Collections.Member.OpenPage", "Go to mod page"));
 			_openMemberPageMenuItem.ItemClick += (sender, args) => OpenMemberPage_Click(sender, EventArgs.Empty);
 			_memberActionsMenu.AddItem(_openMemberPageMenuItem);
@@ -986,6 +1000,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			AddMemberActionMenuItem(_memberActionsMenu, _stopIgnoringMemberDifferenceButton, StopIgnoringMemberDifferenceButton_Click, false);
 			AddMemberActionMenuItem(_memberActionsMenu, _acceptMemberDriftButton, AcceptMemberDriftButton_Click, false);
 			AddMemberActionMenuItem(_memberActionsMenu, _clearMemberOverrideButton, ClearMemberOverrideButton_Click, false);
+			InitializeSelectedMemberDetails(membersLayout);
+			_membersView.CustomColumnDisplayText += MembersView_CustomColumnDisplayText;
+			_membersView.RowCellStyle += MembersView_RowCellStyle;
 			_membersGrid.ToolTipController = _toolTip;
 			_toolTip.GetActiveObjectInfo += (sender, args) =>
 			{
@@ -1133,8 +1150,8 @@ namespace Nexus.Client.CollectionManagement.UI
 					_documentLayout.SuspendLayout();
 					try
 					{
-						_documentLayout.RowStyles[0].Height = headerHeight;
-						_documentLayout.RowStyles[1].Height = installedHeight;
+						_documentLayout.RowStyles[0].Height = installedHeight;
+						_documentLayout.RowStyles[1].Height = headerHeight;
 					}
 					finally { _documentLayout.ResumeLayout(true); }
 				}
@@ -1244,6 +1261,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (_workflow != null) _workflow.ManagedArchivesChanged -= ManagedArchives_Changed;
 				_toolTip.Dispose();
 				_memberMenuManager.Dispose();
+				_cloneManagedAssociationButton.Dispose();
+				_manageAssociationRemovalButton.Dispose();
+				_exportTechnicalReportButton.Dispose();
 				DetachDispatcher();
 				CancelPreviewWork();
 				CancelWorkflowWork();
@@ -1827,6 +1847,7 @@ namespace Nexus.Client.CollectionManagement.UI
 						continue;
 					CollectionManagementMemberPresentation managedMember;
 					bool bound = managedMembers.TryGetValue(member.IdentityResolution.Key, out managedMember);
+					row.ManagedMember = managedMember;
 					row.Selected = bound;
 					if (applied && bound)
 						row.Compatibility = managedMember.HasDetectedDrift
@@ -2045,7 +2066,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_revisionValue.Text = presentation.Association.RevisionLabel;
 			_compatibilityValue.Text = L("Collections.Status.Compatibility.AppliedVerified", "Supported when applied - retained manifest unavailable");
 			_contentValue.Text = presentation.Association.State == CollectionAssociationState.Applied
-				? L("Collections.Status.Content.Applied", "Prepared content applied and verified")
+				? L("Collections.Presentation.InstallationRecorded", "Installation recorded by NMM; game startup has not been checked")
 				: L("Collections.Status.Content.NoSelection", "Retained installed association");
 			_summaryBox.Text = presentation.Definition == null || String.IsNullOrWhiteSpace(presentation.Definition.Summary)
 				? L("Collections.Preview.NoSummary", "No collection summary was returned. Decorative metadata is optional and does not establish identity or readiness.")
@@ -5246,7 +5267,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Recovering,
 						_workflowStatusLabel.Text));
 					IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovery = await Task.Run(() =>
-						_workflow.ReconcileIncompleteTargetAsync(reviewToken), reviewToken);
+						_workflow.ReconcileIncompleteTargetAsync(reviewToken, repairInterruptedActivation: true), reviewToken);
 					if (!IsWorkflowContextCurrent(context, reviewToken))
 						return;
 					_recoveryResults = recovery ?? new CollectionAdditiveWorkflowRecoveryResult[0];
@@ -6357,7 +6378,7 @@ namespace Nexus.Client.CollectionManagement.UI
 						member.IsRequired ? L("Collections.Member.Required", "Required") : L("Collections.Member.Optional", "Optional"),
 						managedMember != null && _managedAssociationPresentation.Association.State == CollectionAssociationState.Applied
 							? (managedMember.HasDetectedDrift ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Supported"))
-							: FormatCompatibility(memberReport.Status), artifactText, managedStateText));
+							: FormatCompatibility(memberReport.Status), artifactText, managedStateText) { ManagedMember = managedMember });
 					if (StringComparer.Ordinal.Equals(token, selectedToken))
 						focusedIndex = _memberRows.Count - 1;
 					visibleCount++;
@@ -6512,8 +6533,9 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			if (!String.IsNullOrWhiteSpace(guidance.InstallInstructions))
 			{
-				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.ManualAction,
-					L("Collections.Status.Information", "Information"), "manifest.guidance.install-instructions",
+				UpdateSetupUi();
+				AddReviewItem(_setupAcknowledged ? CollectionReviewSeverity.Info : CollectionReviewSeverity.Warning, CollectionReviewItemKind.ManualAction,
+					_setupAcknowledged ? L("Collections.Setup.Acknowledged", "Acknowledged") : L("Collections.Status.ActionRequired", "Action required"), "manifest.guidance.install-instructions",
 					L("Collections.Guidance.InstructionsSubject", "Curator installation instructions"), guidance.InstallInstructions);
 			}
 
@@ -6895,9 +6917,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			UpdateIssuesHeader();
 			if (result.IsCommitted)
 			{
-				_appliedValue.Text = L("Collections.Status.Applied.Applied", "Applied and verified");
-				_contentValue.Text = L("Collections.Status.Content.Applied", "Prepared content applied and verified");
-				_compatibilityValue.Text = L("Collections.Status.Compatibility.AppliedVerified", "Supported - applied revision verified");
+				_appliedValue.Text = L("Collections.Presentation.FilesInstalled", "Collection files installed");
+				_contentValue.Text = L("Collections.Presentation.InstallationRecorded", "Installation recorded by NMM; game startup has not been checked");
+				_compatibilityValue.Text = L("Collections.Presentation.InstalledRecipe", "Installed revision recorded");
 				_reviewedPlanIdentity = null;
 				_acquisitionBatch = null;
 				_preparation = null;
@@ -8389,6 +8411,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void UpdateActionButtons()
 		{
+			UpdateSetupUi();
 			_currentSetupActionContext = CollectionUiContext.CurrentSetup(_previewGeneration);
 			_saveCurrentSetupButton.Enabled = !_workflowBusy && _captureWorkflow != null;
 			CollectionManagementLocalCapture selectedCapture = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
@@ -8636,6 +8659,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_clearButton.Visible = _clearButton.Enabled && !installedAssociationView;
 			UpdatePrimaryIncomingAction(sameRevisionAlreadyApplied, hasConcreteRevision, installedAssociationView);
 			UpdateMemberActionMenuItems();
+			UpdateCollectionPresentation();
 
 			// Keep the member list navigable after apply/recovery. ItemCheck separately enforces read-only selection once
 			// native mutation has crossed the boundary, so disabling the entire grid only breaks scrolling and inspection.
@@ -8646,7 +8670,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				: canChooseMods ? L("Collections.Tabs.Mods", "Choose mods") : L("Collections.Tabs.CollectionMods", "Collection mods");
 			_memberSelectionHint.Text = canChooseMods
 				? L("Collections.Members.OptionalHint", "Required mods are included. Tick optional mods you want to use.")
-				: L("Collections.Members.InspectHint", "Right-click a mod for available actions.");
+				: L("Collections.Presentation.InspectHint", "Select a mod to see its details and available actions.");
 			UpdateEmptyCollectionView();
 			if (!_workflowBusy)
 			{
@@ -8970,16 +8994,16 @@ namespace Nexus.Client.CollectionManagement.UI
 				_instructionLabel.Text = requiresRecovery
 					? LanguageManager.Format("Collections.Management.InterruptedInstallationActionInstructions",
 						"Choose '{0}' to check the unfinished installation. To undo it, choose Uninstall Collection; NMM will check the interrupted step before showing which mods it can remove.", nextAction)
-					: LanguageManager.Format("Collections.Management.ContinueInstallationInstructions",
-						"Choose '{0}' to install the remaining mods using your saved selections. Unchecked boxes in Installed mods mean not installed yet; you do not need to select them again.", nextAction);
+					: LanguageManager.Format("Collections.Presentation.ContinueInstallationInstructions",
+						"Choose '{0}' to install the remaining mods using your saved selections. The Status column identifies remaining mods; your saved selections are kept.", nextAction);
 				return;
 			}
 			switch (association.State)
 			{
 				case CollectionAssociationState.Applied:
-					_appliedValue.Text = L("Collections.Status.Applied.Applied", "Applied and verified");
-					_contentValue.Text = L("Collections.Status.Content.Applied", "Prepared content applied and verified");
-					_compatibilityValue.Text = L("Collections.Status.Compatibility.AppliedVerified", "Supported - applied revision verified");
+					_appliedValue.Text = L("Collections.Presentation.FilesInstalled", "Collection files installed");
+					_contentValue.Text = L("Collections.Presentation.InstallationRecorded", "Installation recorded by NMM; game startup has not been checked");
+					_compatibilityValue.Text = L("Collections.Presentation.InstalledRecipe", "Installed revision recorded");
 					break;
 				case CollectionAssociationState.Modified:
 					_appliedValue.Text = L("Collections.Status.Applied.Modified", "Applied - modified from reviewed revision");
@@ -9072,6 +9096,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			bool empty = !_workflowBusy && _snapshot == null && _managedAssociationPresentation == null &&
 				_completedRemovalReport == null && _operationIdentity == null && _managedAssociationCombo.SelectedItem == null &&
 				(_displayContext == null || _displayContext.Kind == CollectionUiContextKind.None);
+			UpdateSetupUi();
 			bool wasEmpty = _isEmptyCollectionView;
 			_isEmptyCollectionView = empty;
 			if (!empty) _showEmptyLocalCollections = false;
@@ -9358,6 +9383,17 @@ namespace Nexus.Client.CollectionManagement.UI
 			_reviewActionsPage.Text = _snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null
 				? LanguageManager.Format("Collections.Tabs.UninstallCount", "Uninstall results ({0})", _reviewActionCount)
 				: LanguageManager.Format("Collections.Tabs.ChangesCount", "Changes to review ({0})", _reviewActionCount);
+			if (HasCompletedCollectionPresentation())
+			{
+				bool instructions = _reviewItems.Any(x => x.Kind == CollectionReviewItemKind.ManualAction);
+				bool records = _reviewItems.Any(x => x.Kind == CollectionReviewItemKind.PlannedEffect);
+				_reviewActionsHeader.Text = instructions
+					? L("Collections.Presentation.InstructionsRecordsHelp", "Curator instructions remain available after installation. Recorded changes describe the completed installation.")
+					: LanguageManager.Format("Collections.Presentation.RecordedChanges", "Recorded installation changes ({0})", _reviewActionCount);
+				_reviewActionsPage.Text = instructions
+					? (records ? LanguageManager.Format("Collections.Presentation.InstructionsHistory", "Instructions & history ({0})", _reviewActionCount) : LanguageManager.Format("Collections.Presentation.InstructionsCount", "Instructions ({0})", _reviewActionCount))
+					: LanguageManager.Format("Collections.Presentation.InstallationHistory", "Installation history ({0})", _reviewActionCount);
+			}
 			_reviewActionsPage.PageVisible = visible;
 			if (visible && _snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null)
 				_reviewTabs.SelectedTabPage = _reviewActionsPage;
@@ -9521,7 +9557,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Measures only visible header sections, without retaining a docked table's previous height.</summary>
 		private sealed class CollectionHeaderTable : TablePanel
 		{
-			/// <summary>Creates two content-sized rows with a responsive Collection and preferences column.</summary>
+			/// <summary>Creates content-sized rows for Collection details and the hidden preference controls.</summary>
 			internal CollectionHeaderTable()
 			{
 				Dock = DockStyle.Fill;
@@ -9647,47 +9683,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			QueueDocumentLayout();
 		}
 
-		/// <summary>Keeps preferences beside the incoming Collection, or below it when space is limited.</summary>
-		private void UpdateInstallPreferencesLayout()
-		{
-			if (_collectionHeaderLayout == null || _installPreferencesSection == null || _collectionHeaderLayout.ClientSize.Width <= 0) return;
-			int frameWidth = Math.Max(_installPreferencesSection.Padding.Horizontal,
-				_installPreferencesSection.Width - _installPreferencesSection.DisplayRectangle.Width);
-			int preferencesWidth = Math.Max(TextRenderer.MeasureText(_installPreferencesSection.Text, _installPreferencesSection.Font).Width,
-				Math.Max(_installPreferencesSection.Font.Height * 28,
-					Math.Max(_enableUnspecifiedPluginsCheckBox.MinimumSize.Width, Math.Max(Math.Max(_skipExistingArchiveMd5CheckBox.MinimumSize.Width, _skipContentChecksCheckBox.MinimumSize.Width),
-						Math.Max(_automaticInstallCheckBox.MinimumSize.Width, _overwriteInstalledFilesCheckBox.MinimumSize.Width))))) + frameWidth + _installPreferencesSection.Padding.Horizontal;
-			bool sideBySide = _collectionHeaderLayout.ClientSize.Width >= preferencesWidth * 3;
-			int row = sideBySide ? 0 : 1;
-			int column = sideBySide ? 1 : 0;
-			Padding margin = new Padding(sideBySide ? _installPreferencesSection.Font.Height / 2 : 0, 0, 0, 6);
-			float columnWidth = sideBySide ? preferencesWidth + margin.Left : 0;
-			int contentWidth = Math.Max(1, (sideBySide ? preferencesWidth : _collectionHeaderLayout.ClientSize.Width) - frameWidth -
-				_installPreferencesSection.Padding.Horizontal);
-			int contentHeight = 0;
-			foreach (Control control in new Control[] { _automaticInstallCheckBox, _automaticInstallHint, _overwriteInstalledFilesCheckBox, _overwriteInstalledFilesHint, _skipExistingArchiveMd5CheckBox, _skipExistingArchiveMd5Hint, _skipContentChecksCheckBox, _skipContentChecksHint, _enableUnspecifiedPluginsCheckBox, _enableUnspecifiedPluginsHint })
-				contentHeight += control.GetPreferredSize(new Size(Math.Max(1, contentWidth - control.Margin.Horizontal), 0)).Height + control.Margin.Vertical;
-			int frameHeight = Math.Max(_installPreferencesSection.Font.Height,
-				_installPreferencesSection.Height - _installPreferencesSection.DisplayRectangle.Height);
-			Size minimumSize = new Size(0, contentHeight + frameHeight + _installPreferencesSection.Padding.Vertical);
-			if (_installPreferencesSection.MinimumSize != minimumSize)
-				_installPreferencesSection.MinimumSize = minimumSize;
-			if (_collectionHeaderLayout.GetRow(_installPreferencesSection) == row &&
-				_collectionHeaderLayout.GetColumn(_installPreferencesSection) == column &&
-				_collectionHeaderLayout.Columns[1].Width == columnWidth && _installPreferencesSection.Margin == margin)
-				return;
-			_collectionHeaderLayout.SuspendLayout();
-			try
-			{
-				_collectionHeaderLayout.Columns[1].Width = columnWidth;
-				_installPreferencesSection.Margin = margin;
-				_collectionHeaderLayout.SetCell(_installPreferencesSection, row, column);
-			}
-			finally
-			{
-				_collectionHeaderLayout.ResumeLayout(true);
-			}
-		}
+		/// <summary>Updates the compact preference summary without reserving a permanent sidebar.</summary>
+		private void UpdateInstallPreferencesLayout() { UpdateInstallationOptionsSummary(); }
 
 		/// <summary>Creates an action group with the existing Collections heading and wrapping layout.</summary>
 		private static Control CreateActionGroup(string caption, params Control[] actions)

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "modeId": "HogwartsLegacy",
+  "name": "Hogwarts Legacy",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "HogwartsLegacy.exe"
+  ],
+  "stopFolders": [
+    "mods",
+    "~mods"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "990080",
+        "installFolderName": "Hogwarts Legacy",
+        "executableName": "HogwartsLegacy.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "HogwartsLegacy.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Hogwarts Legacy",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Hogwarts Legacy",
+    "defaultCommandText": "Launch Hogwarts Legacy",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "HogwartsLegacy_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#5198EA"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\Phoenix\\Content\\Paks"
+  },
+  "compatibilityNotes": [
+    "The managed root is Phoenix\\Content\\Paks. Archives must retain their mods or ~mods subfolder; loose PAK payloads need that folder in the selected archive layout. UE4SS and game-root loaders require a separate installation."
+  ]
+}

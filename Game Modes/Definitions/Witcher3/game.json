@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Witcher3",
+  "name": "The Witcher 3",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "bin\\x64\\Witcher3.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "292030",
+        "installFolderName": "The Witcher 3",
+        "executableName": "bin\\x64\\Witcher3.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1423049311",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1423049311",
+        "registryValueName": "PATH",
+        "executableName": "bin\\x64\\Witcher3.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "bin\\x64\\Witcher3.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch The Witcher 3",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom The Witcher 3",
+    "defaultCommandText": "Launch The Witcher 3",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "witcher3_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves the original Witcher3 ModeId, game-root deployment and explicit mod-folder archive layouts. It does not reuse the separate Witcher3Remastered edition adapter or implement Script Merger, mods.settings ordering or menu merging."
+  ]
+}

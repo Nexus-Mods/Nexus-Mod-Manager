@@ -46,7 +46,12 @@
 		internal bool HasBoundGameViewModel => ViewModel != null;
 		internal void EnableFirstSessionActions() => _gameDiscoveryDocument.EnableFirstSessionActions();
 		internal void SetGameSessionReady() => _gameDiscoveryDocument.SetSessionReady();
-		internal void SetActiveManagedGame(string modeId) => _gameDiscoveryDocument.SetActiveManagedGame(modeId);
+		/// <summary>Records a mode only after its native services and game interface have opened successfully.</summary>
+		internal void SetActiveManagedGame(string modeId)
+		{
+			_gameDiscoveryDocument.SetActiveManagedGame(modeId);
+			RecordGameActivity(modeId);
+		}
 		internal void SetGameSessionInactive() => _gameDiscoveryDocument.SetSessionInactive();
 
 		internal void SetGameLoadStatus(string name, bool loading)
@@ -62,6 +67,30 @@
 		internal void SetGameLoadMessage(string message)
 		{
 			_gameDiscoveryDocument.SetSessionMessage(message);
+		}
+
+		/// <summary>Persists successful mode entry or game launch; history failures must not interrupt either operation.</summary>
+		private void RecordGameActivity(string modeId)
+		{
+			if (String.IsNullOrWhiteSpace(modeId)) return;
+			var settings = _shellEnvironmentInfo.Settings;
+			try
+			{
+				lock (settings)
+				{
+					// Preserve the existing persisted key; recency also includes opening a game mode from the list.
+					var history = settings.LastGameLaunchUtc ?? new Nexus.Client.Settings.PerGameModeSettings<string>();
+					history[modeId] = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+					settings.LastGameLaunchUtc = history;
+					settings.Save();
+				}
+			}
+			catch (Exception error) when (error is System.Configuration.ConfigurationErrorsException ||
+				error is System.IO.IOException || error is UnauthorizedAccessException || error is System.Security.SecurityException)
+			{
+				Trace.TraceWarning("Could not save game activity history for {0}: {1}", modeId, error.Message);
+			}
+			ReprojectGameDiscoveryCatalog();
 		}
 
 		private void InitializeGameDiscoveryDocument()

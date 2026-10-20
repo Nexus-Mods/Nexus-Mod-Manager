@@ -33,6 +33,7 @@
 		private readonly TableLayoutPanel _statusLayout;
 		private readonly CompletionRing _loadingRing;
 		private readonly PictureEdit _activeArtwork;
+		private Image _activeArtworkSource;
 		private readonly LabelControl _activeGameName;
 		private readonly SimpleButton _changeArtwork;
 		private readonly SimpleButton _resetArtwork;
@@ -155,7 +156,7 @@
 			tools.Controls.Add(_refresh, 1, 0);
 			_scan = new SimpleButton { Dock = DockStyle.Top, Height = 36, Text = L("GameDiscovery.Scan", "Scan for games..."), Margin = Padding.Empty, Enabled = false };
 			NmmIconProvider.BindDialogButton(_scan, NmmIconAction.Browse);
-			_scan.ToolTip = L("GameDiscovery.ScanScope", "Full scan: all ready fixed drives (only when requested)");
+			_scan.ToolTip = L("GameDiscovery.ScanScope", "Search all fixed drives for games that weren’t detected.");
 			_scan.Click += (sender, args) => ScanRequested?.Invoke(this, EventArgs.Empty);
 			var scanContainer = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 2, 0, 0) };
 			tools.Controls.Add(scanContainer, 2, 0);
@@ -377,14 +378,12 @@
 			evidencePanel.Controls.Add(evidenceLayout);
 			card.Controls.Add(evidencePanel, 0, 12);
 
-			// The active game occupies its own left-side card. Its heading, 16:9
-			// artwork, and image controls form one vertical group, independent of
-			// whichever game is selected in the catalog on the right.
+			// Span the selectors and catalog together, with matching outside edges.
+			// The picture receives the remaining height beneath the active-game heading.
 			_activeCard = new PanelControl
 			{
-				Dock = DockStyle.Top,
-				Height = 338,
-				Margin = new Padding(0, 0, 16, 0),
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0, categories.Margin.Top + categories.Padding.Top, 16, mainArea.Margin.Bottom + detailCard.Margin.Bottom),
 				BorderStyle = BorderStyles.Simple,
 				Visible = false
 			};
@@ -398,7 +397,7 @@
 			};
 			_activeFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 162));
+			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 8));
 			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
 			_activeFooter.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
@@ -419,8 +418,9 @@
 			_activeArtwork = new PictureEdit { Dock = DockStyle.Fill, Margin = Padding.Empty, Cursor = Cursors.Hand };
 			_activeArtwork.Properties.ShowMenu = false;
 			_activeArtwork.Properties.BorderStyle = BorderStyles.NoBorder;
-			_activeArtwork.Properties.SizeMode = PictureSizeMode.Squeeze;
-			_activeArtwork.ToolTip = L("GameDiscovery.ImageHint", "Game cover, 16:9. Click to change; recommended 960 x 540 pixels.");
+			_activeArtwork.Properties.SizeMode = PictureSizeMode.Zoom;
+			_activeArtwork.SizeChanged += (sender, args) => RenderActiveArtwork(false);
+			_activeArtwork.ToolTip = L("GameDiscovery.PortraitImageHint", "Game cover. Click to change; portrait images around 640 x 960 pixels work best. Images are cropped to fill the panel without stretching.");
 			_activeArtwork.Click += (sender, args) => ChooseActiveArtwork();
 			_activeFooter.Controls.Add(_activeArtwork, 0, 1);
 
@@ -440,6 +440,13 @@
 			};
 			_resetArtwork.Click += (sender, args) => ResetActiveArtwork();
 			_activeFooter.Controls.Add(_resetArtwork, 0, 4);
+			// Match accumulated child insets again after DPI/font scaling changes their pixel sizes.
+			_canvas.Layout += (sender, args) =>
+			{
+				var inset = new Padding(_activeCard.Margin.Left, categories.Margin.Top + categories.Padding.Top,
+					_activeCard.Margin.Right, mainArea.Margin.Bottom + detailCard.Margin.Bottom);
+				if (_activeCard.Margin != inset) _activeCard.Margin = inset;
+			};
 
 			// Loading progress and operational messages remain below the catalog,
 			// but do not repeat the active-game heading.
@@ -480,7 +487,7 @@
 			Image artwork = null;
 			try { artwork = _artwork?.Load(_activeModeId); }
 			catch (ArgumentException) { /* A legacy mode with an invalid ID cannot own artwork. */ }
-			SetActiveArtwork(artwork ?? CreateDefaultArtwork());
+			SetActiveArtwork(artwork);
 		}
 
 		private void UpdateActiveBannerCaption()
@@ -501,7 +508,7 @@
 			if (String.IsNullOrWhiteSpace(_activeModeId) || _artwork == null) return;
 			using (var picker = new OpenFileDialog
 			{
-				Title = L("GameDiscovery.ChooseImage", "Choose a game cover (16:9, recommended 960 x 540)"),
+				Title = L("GameDiscovery.ChoosePortraitImage", "Choose a game cover (portrait recommended, 640 x 960)"),
 				Filter = L("GameDiscovery.ImageFilter", "Pictures (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"),
 				CheckFileExists = true,
 				Multiselect = false
@@ -533,32 +540,88 @@
 			}
 		}
 
+		/// <summary>Retains the source separately so resizing never repeatedly crops an already cropped display image.</summary>
 		private void SetActiveArtwork(Image artwork)
 		{
-			Image previous = _activeArtwork.Image;
-			_activeArtwork.Image = artwork;
+			Image previous = _activeArtworkSource;
+			_activeArtworkSource = artwork;
+			RenderActiveArtwork(true);
 			if (!Object.ReferenceEquals(previous, artwork)) previous?.Dispose();
 		}
 
-		private void ReleaseActiveArtwork() => SetActiveArtwork(null);
-
-		private static Image CreateDefaultArtwork()
+		/// <summary>Rebuilds a cover for the actual picture area, including when the optional Reset button changes its height.</summary>
+		private void RenderActiveArtwork(bool force)
 		{
-			var picture = new Bitmap(320, 180);
-			using (Graphics g = Graphics.FromImage(picture))
-			using (var background = new LinearGradientBrush(new Rectangle(0, 0, 320, 180),
-				Color.FromArgb(62, 72, 89), Color.FromArgb(32, 39, 54), LinearGradientMode.ForwardDiagonal))
+			if (IsDisposed || Disposing || _activeArtwork.IsDisposed || _activeArtwork.Disposing || String.IsNullOrWhiteSpace(_activeModeId)) return;
+			Size size = _activeArtwork.ClientSize;
+			if (size.Width < 1 || size.Height < 1 || (!force && _activeArtwork.Image != null && _activeArtwork.Image.Size == size)) return;
+			Image picture = _activeArtworkSource == null ? CreateDefaultArtwork(size) : CropArtwork(_activeArtworkSource, size);
+			Image previous = _activeArtwork.Image;
+			_activeArtwork.Image = picture;
+			previous?.Dispose();
+		}
+
+		/// <summary>Releases both the retained source and its independently rendered preview.</summary>
+		private void ReleaseActiveArtwork()
+		{
+			Image previous = _activeArtwork.Image;
+			_activeArtwork.Image = null;
+			previous?.Dispose();
+			_activeArtworkSource?.Dispose();
+			_activeArtworkSource = null;
+		}
+
+		/// <summary>Centre-crops a custom cover to fill its current bounds while preserving the source's proportions.</summary>
+		private static Image CropArtwork(Image source, Size size)
+		{
+			float ratio = size.Width / (float)size.Height;
+			float width = source.Width;
+			float height = source.Height;
+			if (width / height > ratio) width = height * ratio;
+			else height = width / ratio;
+			var picture = new Bitmap(size.Width, size.Height);
+			try
 			{
-				g.SmoothingMode = SmoothingMode.AntiAlias;
-				g.FillRectangle(background, 0, 0, 320, 180);
-				Image icon = NmmIconProvider.GetBitmap(NmmIconAction.ChangeGame, 96, false);
-				if (icon != null) g.DrawImage(icon, 120, 36, 80, 80);
-				using (var font = new Font(SystemFonts.MessageBoxFont.FontFamily, 11f, FontStyle.Bold))
-				using (var ink = new SolidBrush(Color.WhiteSmoke))
-				using (var format = new StringFormat { Alignment = StringAlignment.Center })
-					g.DrawString("NMM CE", font, ink, new RectangleF(0, 132, 320, 36), format);
+				using (Graphics graphics = Graphics.FromImage(picture))
+				{
+					graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+					graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+					graphics.DrawImage(source, new RectangleF(0, 0, size.Width, size.Height),
+						new RectangleF((source.Width - width) / 2f, (source.Height - height) / 2f, width, height), GraphicsUnit.Pixel);
+				}
+				return picture;
 			}
-			return picture;
+			catch { picture.Dispose(); throw; }
+		}
+
+		/// <summary>Fits the bundled default cover without cropping its instructions when the panel changes proportions.</summary>
+		private static Image CreateDefaultArtwork(Size size)
+		{
+			var picture = new Bitmap(size.Width, size.Height);
+			try
+			{
+				using (System.IO.Stream stream = typeof(GameDiscoveryDocument).Assembly.GetManifestResourceStream("Nexus.Client.GameDiscoveryDefault.png"))
+				using (Image source = Image.FromStream(stream))
+				using (Graphics graphics = Graphics.FromImage(picture))
+				{
+					graphics.Clear(Color.FromArgb(16, 22, 29));
+					graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+					graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+					float scale = Math.Min(size.Width / (float)source.Width, size.Height / (float)source.Height);
+					float width = source.Width * scale;
+					float height = source.Height * scale;
+					graphics.DrawImage(source, new RectangleF((size.Width - width) / 2f, (size.Height - height) / 2f, width, height));
+				}
+				return picture;
+			}
+			catch { picture.Dispose(); throw; }
+		}
+
+		/// <summary>Releases owned preview images when the discovery document is disposed.</summary>
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && _activeArtwork != null) ReleaseActiveArtwork();
+			base.Dispose(disposing);
 		}
 
 		private static LabelControl Caption(string text)
@@ -654,7 +717,7 @@
 			UpdateDiscoveryButtons();
 			UpdateActions();
 			SetStatus(busy ? L("GameDiscovery.Refreshing", "Checking launcher settings...") :
-				L("GameDiscovery.Ready", "Launcher check complete. A full drive scan is never automatic."));
+				L("GameDiscovery.Ready", "Launcher check complete."));
 		}
 
 		internal void SetScanning(bool scanning)

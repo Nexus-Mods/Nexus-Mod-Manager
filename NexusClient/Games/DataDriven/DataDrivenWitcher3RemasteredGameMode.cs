@@ -9,6 +9,9 @@ using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using ChinhDo.Transactions;
+using Nexus.Client.CollectionManagement;
+using Nexus.Client.ModManagement.InstallationLog;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -106,13 +109,40 @@ namespace Nexus.Client.Games.DataDriven
         // paths must accept only the EXACT same already-reviewed game-relative target.
         public override string GetModFormatAdjustedPath(IModFormat format, string path, bool ignoreIfPresent)
         {
-            return Witcher3BasicInstallMapping.ValidatePlannedPath(path);
+            return CollectionWitcher3Data.ValidateDestination(path);
         }
 
         public override string GetModFormatAdjustedPath(IModFormat format, string path,
             IMod mod, bool ignoreIfPresent)
         {
-            return Witcher3BasicInstallMapping.ValidatePlannedPath(path);
+            return CollectionWitcher3Data.ValidateDestination(path);
+        }
+
+        /// <summary>Uses the configured settings location for native Collection value ownership and physical verification.</summary>
+        internal Witcher3CollectionRecordStore CreateCollectionRecordStore()
+        {
+            return new Witcher3CollectionRecordStore(GameModeEnvironmentInfo.InstallationPath,
+                _orderDocument.ResolvePath(GameModeEnvironmentInfo.InstallationPath, EnvironmentInfo.PersonalDataFolderPath));
+        }
+
+        /// <summary>Identifies reversible Witcher records for native replay, upgrades and uninstall.</summary>
+        public override bool IsDeterministicSpecialFileGameValueKey(string key)
+        {
+            return CreateCollectionRecordStore().IsSupportedKey(key);
+        }
+
+        /// <summary>Creates a transactional installer for Witcher folder order and individual menu records.</summary>
+        public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod mod, IInstallLog log,
+            TxFileManager files, FileUtil utility, ConfirmItemOverwriteDelegate overwrite)
+        {
+            return new Witcher3CollectionValueInstaller(mod, log, files, overwrite, CreateCollectionRecordStore());
+        }
+
+        /// <summary>Retains and restores native value stacks when an installed Collection member is upgraded.</summary>
+        public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod mod, IInstallLog log,
+            TxFileManager files, FileUtil utility, ConfirmItemOverwriteDelegate overwrite)
+        {
+            return new Witcher3CollectionValueInstaller(mod, log, files, overwrite, CreateCollectionRecordStore(), true);
         }
     }
 }

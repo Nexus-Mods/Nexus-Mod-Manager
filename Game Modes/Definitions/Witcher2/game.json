@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Witcher2",
+  "name": "The Witcher 2",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "bin\\witcher2.exe",
+    "bin\\userContentManager.exe",
+    "witcher2.exe",
+    "userContentManager.exe"
+  ],
+  "stopFolders": [
+    "abilities",
+    "characters",
+    "combat",
+    "cutscenes",
+    "engine",
+    "environment",
+    "environment_levels",
+    "fx",
+    "game",
+    "globals",
+    "items",
+    "junk",
+    "levels",
+    "reactions",
+    "speedtree",
+    "templates",
+    "tests"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "20920",
+        "installFolderName": "the witcher 2",
+        "executableName": "bin\\witcher2.exe"
+      },
+      {
+        "store": "Custom",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\CD Projekt RED\\The Witcher 2",
+        "registryValueName": "InstallFolder",
+        "executableName": "bin\\witcher2.exe"
+      },
+      {
+        "store": "Custom",
+        "registryKey": "HKEY_LOCAL_MACHINE\\SOFTWARE\\CD Projekt RED\\The Witcher 2",
+        "registryValueName": "InstallFolder",
+        "executableName": "bin\\witcher2.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "bin\\witcher2.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch The Witcher 2",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom The Witcher 2",
+    "defaultCommandText": "Launch The Witcher 2",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "witcher2_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\CookedPC"
+  },
+  "compatibilityNotes": [
+    "Steam discovery resolves the game root, with bin\\witcher2.exe as its launch executable and CookedPC as the baseline payload destination.",
+    "The DLL retains cook.hash-based routing to Documents\\Witcher 2\\UserContent. The JSON-only baseline deploys ordinary CookedPC files."
+  ]
+}

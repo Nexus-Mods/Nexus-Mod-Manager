@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "modeId": "MountAndBlade2Bannerlord",
+  "name": "Mount & Blade II : Bannerlord",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "bin\\Win64_Shipping_Client\\Bannerlord.exe"
+  ],
+  "stopFolders": [
+    "Modules"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "261550",
+        "installFolderName": "Mount & Blade II Bannerlord",
+        "executableName": "bin\\Win64_Shipping_Client\\Bannerlord.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "bin\\Win64_Shipping_Client\\Bannerlord.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Mount & Blade II : Bannerlord",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Mount & Blade II : Bannerlord",
+    "defaultCommandText": "Launch Mount & Blade II : Bannerlord",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "MountAndBlade2Bannerlord_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#5B4933"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves game-root deployment and the Modules stop folder. Module dependency resolution, SubModule.xml validation, launcher activation and module ordering are not performed."
+  ]
+}

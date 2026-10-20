@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Starbound",
+  "name": "Starbound",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "win32\\starbound.exe",
+    "win32\\starbound_opengl.exe"
+  ],
+  "stopFolders": [
+    "mods"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "211820",
+        "installFolderName": "Starbound",
+        "executableName": "win32\\starbound.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "win32\\starbound.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Starbound",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Starbound",
+    "defaultCommandText": "Launch Starbound",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "starbound_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\mods"
+  },
+  "compatibilityNotes": [
+    "The managed root is the mods folder. Archive paths must be relative to that folder; dependency resolution and workshop synchronization are not performed."
+  ]
+}

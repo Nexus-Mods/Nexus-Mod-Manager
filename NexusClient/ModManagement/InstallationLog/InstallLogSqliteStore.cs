@@ -215,8 +215,10 @@ CREATE INDEX IX_Owners_Mod ON Owners(OwnerKey,ItemId);");
 					while (reader.Read())
 					{
 						int kind = reader.GetInt32(1);
-						string value = kind == 2 ? Convert.ToBase64String((byte[])reader.GetValue(4)) : Text(reader, 3);
-						byId[reader.GetInt64(0)].Element("installingMods").Add(new XElement("mod", new XAttribute("key", reader.GetString(2)), value));
+						XElement owner = kind == 2
+							? InstallLog.SerializeGameSpecificValueOwner(reader.GetString(2), reader.IsDBNull(4) ? null : (byte[])reader.GetValue(4))
+							: new XElement("mod", new XAttribute("key", reader.GetString(2)), Text(reader, 3));
+						byId[reader.GetInt64(0)].Element("installingMods").Add(owner);
 					}
 
 				for (int i = 0; i < containers.Length; i++)
@@ -322,7 +324,7 @@ CREATE INDEX IX_Owners_Mod ON Owners(OwnerKey,ItemId);");
 			foreach (XElement owner in element.Element("installingMods")?.Elements("mod") ?? Enumerable.Empty<XElement>())
 			{
 				string key = (string)owner.Attribute("key") ?? "";
-				Execute(connection, transaction, "INSERT INTO Owners(ItemId,Position,ModKey,OwnerKey,TextValue,BinaryValue) VALUES(@p0,@p1,@p2,@p3,@p4,@p5)", id, position++, key, Canonical(key), entry.Kind == 1 ? (object)owner.Value : null, entry.Kind == 2 ? (object)Convert.FromBase64String(owner.Value) : null);
+				Execute(connection, transaction, "INSERT INTO Owners(ItemId,Position,ModKey,OwnerKey,TextValue,BinaryValue) VALUES(@p0,@p1,@p2,@p3,@p4,@p5)", id, position++, key, Canonical(key), entry.Kind == 1 ? (object)owner.Value : null, entry.Kind == 2 ? (object)InstallLog.DeserializeGameSpecificValueOwner(owner) : null);
 			}
 		}
 
@@ -442,7 +444,11 @@ CREATE INDEX IX_Owners_Mod ON Owners(OwnerKey,ItemId);");
 						var owners = new XElement(item.Element("installingMods") ?? new XElement("installingMods"));
 						if (section == "gameSpecificEdits")
 							foreach (XElement owner in owners.Elements("mod"))
-								owner.Value = Convert.ToBase64String(Convert.FromBase64String(owner.Value));
+							{
+								byte[] value = InstallLog.DeserializeGameSpecificValueOwner(owner);
+								owner.Value = value == null ? String.Empty : Convert.ToBase64String(value);
+								owner.SetAttributeValue("absent", value == null ? (object)true : null);
+							}
 						copy.Add(owners);
 					}
 

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "modeId": "XRebirth",
+  "name": "X Rebirth",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "XRebirth.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "2870",
+        "installFolderName": "X Rebirth",
+        "executableName": "XRebirth.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "XRebirth.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch X Rebirth",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom X Rebirth",
+    "defaultCommandText": "Launch X Rebirth",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "wot_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\extensions"
+  },
+  "compatibilityNotes": [
+    "Preserves the extensions destination. Archives must retain an extension directory containing content.xml; dependency ordering, activation and save-compatibility uninstall prompts require specialized handling.",
+    "The DLL retains content.xml-based extension-folder selection and save-compatibility uninstall prompts. The JSON-only baseline requires complete extension-directory layouts."
+  ]
+}

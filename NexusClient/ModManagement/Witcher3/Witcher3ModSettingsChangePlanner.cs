@@ -33,7 +33,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 	public enum Witcher3ModSettingsChangeKind
 	{
 		ManagedOrder = 0,
-		RestoreGameDefaults = 1
+		RestoreGameDefaults = 1,
+		RemoveMissingEntries = 2
 	}
 
 	/// <summary>A semantic delta for one game mod folder, not an NMM archive or plugin.</summary>
@@ -152,6 +153,23 @@ namespace Nexus.Client.ModManagement.Witcher3
 			if (explicitlyRequestedRestore && edition != Witcher3Edition.Legacy &&
 				edition != Witcher3Edition.Remastered) return Blocked(observed);
 			return FromShared(IniOrderChangePlanner.PrepareRestoreGameDefaults(observed.ToShared(), explicitlyRequestedRestore), observed);
+		}
+
+		/// <summary>Removes stale sections only after a complete scan confirms that their folders contain no files.</summary>
+		public static Witcher3ModSettingsChangePreview PrepareRemoveMissingEntries(Witcher3ModSettingsFileReadResult observed,
+			Witcher3Edition edition, Witcher3ComponentDiskObservation disk)
+		{
+			if (observed == null) throw new ArgumentNullException(nameof(observed));
+			if ((edition != Witcher3Edition.Legacy && edition != Witcher3Edition.Remastered) || disk == null || !disk.IsComplete)
+				return new Witcher3ModSettingsChangePreview(Witcher3ModSettingsChangePlanStatus.Blocked,
+					"Cleanup requires a confirmed game edition and a complete disk scan. No entries were removed.",
+					observed, null, null, null, new Witcher3ModSettingsOrderChange[0]);
+			var populated = new HashSet<string>(disk.GameRelativeFiles.Select(file => file.Split('\\'))
+				.Where(parts => parts.Length >= 3 && String.Equals(parts[0], "Mods", StringComparison.OrdinalIgnoreCase))
+				.Select(parts => parts[1]), StringComparer.OrdinalIgnoreCase);
+			string[] missing = observed.Document?.ModSections.Where(section => !populated.Contains(section.Name))
+				.Select(section => section.Name).ToArray() ?? new string[0];
+			return FromShared(IniOrderChangePlanner.PrepareRemoveEntries(observed.ToShared(), missing), observed);
 		}
 
 		/// <summary>Retains public Witcher preview/status types for existing consumers.</summary>

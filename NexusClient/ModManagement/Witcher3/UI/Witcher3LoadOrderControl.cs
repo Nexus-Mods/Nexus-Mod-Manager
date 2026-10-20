@@ -30,8 +30,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 	{
 		private readonly GridControl _grid;
 		private readonly GridView _view;
-		private readonly MemoEdit _status;
-		private readonly MemoEdit _remasteredHealth;
+		private readonly DiagnosticTextBox _status;
+		private readonly DiagnosticTextBox _remasteredHealth;
 		private readonly MemoEdit _details;
 		private readonly SimpleButton _up;
 		private readonly SimpleButton _down;
@@ -46,6 +46,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		private readonly SimpleButton _apply;
 		private readonly SimpleButton _recovery;
 		private readonly SimpleButton _inspectMerger;
+		private readonly SimpleButton _autofix;
 		private readonly string _enabledText;
 		private readonly string _disabledText;
 		private readonly string _unconfiguredText;
@@ -59,6 +60,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		private int _nativeUiDispatchQueued;
 		private bool _nativeRefreshNeeded;
 		private bool _busy;
+		private Color _errorColor;
+		private Color _warningColor;
 		// A user-selected external tool is scoped to the observed physical game root.
 		// This is not a registered NMM tool or a persisted executable authorization.
 		private string _selectedMergerExecutable;
@@ -103,7 +106,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_reload = Button(commands, "Witcher3.Order.Actions.Import", "Import from game / Refresh", () => _ = RefreshFromGameAsync(true));
 			_apply = Button(commands, "Witcher3.Order.Actions.Apply", "Review and apply", () => _ = ReviewAndApplyAsync());
 			_recovery = Button(commands, "Witcher3.Order.Actions.Recovery", "Review pending recovery", () => _ = ReviewRecoveryAsync());
-			_inspectMerger = Button(commands, "Witcher3.Health.InspectMerger", "Inspect Script Merger executable...",
+			_autofix = Button(commands, "Witcher3.Order.Actions.Autofix", "Autofix missing entries...", () => _ = AutofixMissingEntriesAsync());
+			_inspectMerger = Button(commands, "Witcher3.Health.SelectMerger", "Select Script Merger executable...",
 				() => _ = InspectMergerAsync());
 			_inspectMerger.Visible = false;
 
@@ -125,13 +129,18 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_view.Columns.AddVisible(nameof(DisplayRow.Presence), L("Witcher3.Order.Columns.Presence", "Folder status"));
 			_view.Columns.AddVisible(nameof(DisplayRow.Owners), L("Witcher3.Order.Columns.Owners", "NMM archive contributors"));
 			_view.FocusedRowChanged += (sender, args) => UpdateSelectedDetails();
+			_view.RowCellStyle += (sender, args) =>
+			{
+				DisplayRow row = _view.GetRow(args.RowHandle) as DisplayRow;
+				if (row == null || row.Severity == 0) return;
+				args.Appearance.ForeColor = row.Severity == 2 ? _errorColor : _warningColor;
+				args.Appearance.Options.UseForeColor = true;
+			};
 
 			_details = new MemoEdit { Dock = DockStyle.Bottom, Height = 82 };
 			_details.Properties.ReadOnly = true;
-			_status = new MemoEdit { Dock = DockStyle.Bottom, Height = 105 };
-			_status.Properties.ReadOnly = true;
-			_remasteredHealth = new MemoEdit { Dock = DockStyle.Bottom, Height = 220, Visible = false };
-			_remasteredHealth.Properties.ReadOnly = true;
+			_status = new DiagnosticTextBox { Height = 105 };
+			_remasteredHealth = new DiagnosticTextBox { Height = 220, Visible = false };
 			Controls.Add(_grid);
 			Controls.Add(_details);
 			Controls.Add(_status);
@@ -139,6 +148,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			Controls.Add(commands);
 			Controls.Add(description);
 			_status.Text = L("Witcher3.Order.Initial", "Open this tab to read the game's current mod-folder order.");
+			ApplyStatusPalette();
 			UpdateCommands();
 		}
 
@@ -219,6 +229,19 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 		{
 			if (settings == null) return;
 			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+			_status.Font = _remasteredHealth.Font = settings.Font;
+			ApplyStatusPalette();
+			if (_snapshot != null) UpdateStatus();
+			_view.InvalidateRows();
+		}
+
+		/// <summary>Uses the plugin list's accessible severity colours for the current skin.</summary>
+		private void ApplyStatusPalette()
+		{
+			NmmColorPalette palette = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
+				DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
+			_errorColor = palette.PluginErrorColor;
+			_warningColor = palette.PluginWarningColor;
 		}
 
 		/// <summary>Called on tab activation. Unsaved edits are never discarded automatically.</summary>
@@ -309,7 +332,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (_snapshot == null) return;
 			string focused = select ?? SelectedFolder();
 			var data = _snapshot.Editor.Rows.Select(row => new DisplayRow(row,
-				_enabledText, _disabledText, _unconfiguredText)).ToList();
+				_enabledText, _disabledText, _unconfiguredText, _snapshot.Disk.IsComplete,
+				_snapshot.Lifecycle.Settings.Document?.Issues.Any(issue => issue.Kind == Witcher3ModSettingsIssueKind.DuplicatePriority &&
+					String.Equals(issue.Section, row.FolderName, StringComparison.OrdinalIgnoreCase)) == true)).ToList();
 			_grid.BeginUpdate();
 			try
 			{
@@ -386,6 +411,68 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			_snapshot.Editor.ResetDraft();
 			BindRows(focused);
 			UpdateStatus();
+		}
+
+		/// <summary>Shared cleanup action for both Witcher views, using fresh absence evidence and the existing reviewed publisher.</summary>
+		public async Task AutofixMissingEntriesAsync(IWin32Window owner = null)
+		{
+			if (_busy || _readService == null || NativeOperationRunning) return;
+			owner = owner ?? this;
+			if (_snapshot?.Editor.IsDirty == true)
+			{
+				XtraMessageBox.Show(owner, L("Witcher3.Order.Cleanup.Draft",
+					"Apply or discard the unsaved changes in Witcher Load Order before removing missing entries."),
+					Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+			_busy = true;
+			UpdateCommands();
+			try
+			{
+				int revision = _nativeChanges.Revision;
+				Witcher3LoadOrderViewSnapshot fresh = await Task.Run(() => _readService.Read()).ConfigureAwait(true);
+				if (IsDisposed || Disposing) return;
+				if (!Witcher3NativeRefreshPolicy.CanApprove(revision, _nativeChanges.Revision, NativeOperationRunning) ||
+					!fresh.Editor.CanEdit || !fresh.Disk.IsComplete)
+				{
+					XtraMessageBox.Show(owner, L("Witcher3.Order.Cleanup.Unavailable",
+						"Cleanup needs a complete disk scan, readable settings, a confirmed game edition and no pending recovery. Refresh and resolve the reported issues first."),
+						Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+				Witcher3ModSettingsChangePreview preview = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(
+					fresh.Lifecycle.Settings, fresh.Lifecycle.Edition, fresh.Disk);
+				if (preview.Status != Witcher3ModSettingsChangePlanStatus.PreviewAvailable)
+				{
+					XtraMessageBox.Show(owner, preview.Diagnostic ?? L("Witcher3.Order.Cleanup.None",
+						"No settings entries refer to missing or empty mod folders."), Text, MessageBoxButtons.OK,
+						preview.Status == Witcher3ModSettingsChangePlanStatus.Blocked ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+					return;
+				}
+				using (var dialog = new Witcher3LoadOrderReviewDialog(preview))
+					if (dialog.ShowDialog(owner) != DialogResult.OK) return;
+				if (!Witcher3NativeRefreshPolicy.CanApprove(revision, _nativeChanges.Revision, NativeOperationRunning)) return;
+				Witcher3ModSettingsPublishResult result = await Task.Run(() =>
+					_lifecycle.Publish(preview, true, fresh.PhysicalGameRoot)).ConfigureAwait(true);
+				if (IsDisposed || Disposing) return;
+				XtraMessageBox.Show(owner, String.Format(L("Witcher3.Order.Cleanup.Result", "Settings cleanup: {0}. {1}"),
+					L("ManagedContent.Order.PublishStatus." + result.Status, result.Status.ToString()), result.Diagnostic ?? String.Empty) +
+					(String.IsNullOrEmpty(result.BackupPath) ? String.Empty : Environment.NewLine +
+						String.Format(L("ManagedContent.Order.RecoveryBackup", "Original backup: {0}"), result.BackupPath)),
+					Text, MessageBoxButtons.OK, result.Status == Witcher3ModSettingsPublishStatus.Published ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+			}
+			catch (Exception error)
+			{
+				if (!IsDisposed && !Disposing) XtraMessageBox.Show(owner, error.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				if (!IsDisposed && !Disposing)
+				{
+					_busy = false;
+					await RefreshFromGameAsync(false).ConfigureAwait(true);
+				}
+			}
 		}
 
 		private async Task ReviewAndApplyAsync(bool restoreDefaults = false)
@@ -547,6 +634,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			Witcher3LoadOrderEditorSession editor = _snapshot?.Editor;
 			Witcher3LoadOrderEditorRow selected = editor?.Find(SelectedFolder());
 			bool editable = !_busy && editor?.CanEdit == true && !NativeInventoryStale && !NativeOperationRunning;
+			_autofix.Enabled = editable && !editor.IsDirty && _snapshot.Disk.IsComplete && _snapshot.Lifecycle.Settings.IsLoaded;
 			bool inDraft = editable && selected?.DraftPosition.HasValue == true;
 			int draftCount = editor?.DraftCount ?? 0;
 			_up.Enabled = inDraft && selected.DraftPosition > 1;
@@ -576,7 +664,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			var sb = new StringBuilder();
 			sb.AppendLine(row.Source.GameRelativeFolderPath);
 			sb.AppendLine(String.Format(L("Witcher3.Order.Details.Origin", "Origin: {0}; folder status: {1}"),
-				row.Source.Origin, row.Source.Presence));
+				OriginText(row.Source.Origin), PresenceText(row.Source, _snapshot.Disk.IsComplete)));
 			if (row.Source.NativeContributors.Count == 0)
 				sb.AppendLine(L("Witcher3.Order.Details.External", "No recorded NMM owner (manual/external or unknown)."));
 			else
@@ -592,6 +680,8 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (_snapshot == null) return;
 			Witcher3LoadOrderEditorSession editor = _snapshot.Editor;
 			var sb = new StringBuilder();
+			var errors = new List<string>();
+			var warnings = new List<string>();
 			sb.AppendLine(String.Format(L("Witcher3.Order.Status.Summary",
 				"Edition: {0}; mods.settings: {1}; configured folders: {2}; unconfigured folders: {3}."),
 				_snapshot.Lifecycle.Edition, _snapshot.Lifecycle.Settings.Status,
@@ -630,7 +720,28 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (!editor.CanEdit && _snapshot.Lifecycle.Settings.Status != Witcher3ModSettingsReadStatus.Missing)
 				sb.AppendLine(L("Witcher3.Order.Status.NoEdit",
 					"Changes require an unambiguous mods.settings observation, matching game edition, and no pending publication."));
-			_status.Text = sb.ToString();
+			int missing = _snapshot.Projection.Rows.Count(row =>
+				row.Presence == Witcher3LoadOrderPresence.MissingFromCompleteInventory || IsEmpty(row, _snapshot.Disk.IsComplete));
+			if (missing > 0)
+			{
+				string message = String.Format(L("Witcher3.Order.Status.MissingEntries",
+					"{0} mod folders are missing or empty. Autofix missing entries can remove their stale settings after review."), missing);
+				sb.Insert(0, message + Environment.NewLine);
+				errors.Add(message);
+			}
+			foreach (string message in _snapshot.Projection.Issues.Select(issue => issue.Message)
+				.Concat(_snapshot.Projection.NativeIndex.Issues.Select(issue => issue.Message))) warnings.Add(message);
+			foreach (Witcher3ComponentIssue issue in _snapshot.Projection.NativeIndex.Issues.Where(issue =>
+				issue.Kind == Witcher3ComponentIssueKind.MissingObservedNativeFile || issue.Kind == Witcher3ComponentIssueKind.ConflictingNativeTarget ||
+				issue.Kind == Witcher3ComponentIssueKind.AmbiguousVirtualWinner || issue.Kind == Witcher3ComponentIssueKind.PhysicalRootUnavailable))
+				errors.Add(issue.Message);
+			if (_snapshot.Lifecycle.Settings.Document?.IsUnambiguous == false)
+			{
+				string message = L("Witcher3.Order.Status.InvalidSettings", "mods.settings contains invalid or conflicting settings. Review the file before changing the load order.");
+				sb.AppendLine(message);
+				errors.Add(message);
+			}
+			_status.SetDiagnosticText(sb.ToString(), errors, warnings);
 			UpdateRemasteredHealth();
 			UpdateCommands();
 		}
@@ -643,18 +754,27 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			if (health == null) { _remasteredHealth.Text = String.Empty; return; }
 
 			var text = new StringBuilder();
-			text.AppendLine(L("Witcher3.Health.Header", "Remastered health checks (read-only; no automatic fixes):"));
-			text.AppendLine(String.Format(L("Witcher3.Health.Observed",
-				"DX12 executable: {0}; dx12user.settings: {1}; Enabled: {2}; EnabledLocal: {3}"),
+			var errors = new List<string>();
+			var warnings = new List<string>();
+			text.AppendLine(L("Witcher3.Health.SummaryHeading", "Remastered mod support:"));
+			text.AppendLine(String.Format(L("Witcher3.Health.GameFiles",
+				"DirectX 12 game executable: {0}. Mod support settings (dx12user.settings): {1}."),
 				health.Dx12ExecutableObserved
 					? L("Witcher3.Health.Present", "found") : L("Witcher3.Health.Absent", "not found"),
-				health.SettingsStatus, health.GlobalMods, health.LocalMods));
+				L("Witcher3.Health.SettingsStatus." + health.SettingsStatus, health.SettingsStatus.ToString())));
+			text.AppendLine(String.Format(L("Witcher3.Health.ModSupportSwitches",
+				"Game mod support: {0}. Local mod support: {1}."), ModSwitchText(health.GlobalMods), ModSwitchText(health.LocalMods)));
 			foreach (Witcher3RemasteredHealthIssue issue in health.Issues)
 			{
-				text.Append(issue.Severity == Witcher3RemasteredHealthSeverity.Warning
-					? L("Witcher3.Health.WarningPrefix", "Warning: ")
-					: L("Witcher3.Health.InfoPrefix", "Info: "));
-				text.AppendLine(HealthMessage(issue.Code));
+				bool error = issue.Code == Witcher3RemasteredHealthIssueCode.Dx12ExecutableMissing ||
+					issue.Code == Witcher3RemasteredHealthIssueCode.GlobalModsDisabled ||
+					issue.Code == Witcher3RemasteredHealthIssueCode.LocalModsDisabled ||
+					issue.Code == Witcher3RemasteredHealthIssueCode.SettingsAmbiguous;
+				string message = (error ? L("Witcher3.Health.ErrorPrefix", "Error: ") :
+					L("Witcher3.Health.WarningPrefix", "Warning: ")) + HealthMessage(issue.Code);
+				text.AppendLine(message);
+				if (error) errors.Add(message);
+				else warnings.Add(message);
 			}
 			if (health.Issues.Count == 0)
 				text.AppendLine(L("Witcher3.Health.SwitchesEnabled",
@@ -671,7 +791,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 						: L("Witcher3.Health.InventoryIncomplete", "incomplete")));
 				foreach (Witcher3RemasteredComponentHealthIssue issue in components.Issues.Take(40))
 				{
-					text.Append(issue.Severity == Witcher3RemasteredHealthSeverity.Warning
+					int start = text.Length;
+					bool error = issue.Code == Witcher3RemasteredComponentHealthCode.FolderNameExceedsLimit;
+					text.Append(error ? L("Witcher3.Health.ErrorPrefix", "Error: ") : issue.Severity == Witcher3RemasteredHealthSeverity.Warning
 						? L("Witcher3.Health.WarningPrefix", "Warning: ")
 						: L("Witcher3.Health.InfoPrefix", "Info: "));
 					if (issue.GameRelativeFolderPath != null)
@@ -679,6 +801,9 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 							"{0} [{1}; NMM contributors: {2}]: "), issue.GameRelativeFolderPath,
 							ComponentOriginText(issue.Origin), issue.NativeContributorCount));
 					text.AppendLine(ComponentHealthMessage(issue));
+					string message = text.ToString(start, text.Length - start).TrimEnd('\r', '\n');
+					if (error) errors.Add(message);
+					else if (issue.Severity == Witcher3RemasteredHealthSeverity.Warning) warnings.Add(message);
 				}
 				if (components.Issues.Count > 40)
 					text.AppendLine(String.Format(L("Witcher3.Health.ComponentMore",
@@ -689,12 +814,11 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 						"No long mod-folder names or observed legacy merged output found in this inventory."));
 			}
 			text.AppendLine();
-			text.AppendLine(L("Witcher3.Health.MergerHeader",
-				"External Script Merger (manual, read-only file-version inspection):"));
+			text.AppendLine(L("Witcher3.Health.ScriptMergerHeading", "Script Merger:"));
 			if (_mergerObservation == null || !String.Equals(_selectedMergerGameRoot,
 				_snapshot.PhysicalGameRoot, StringComparison.OrdinalIgnoreCase))
-				text.AppendLine(L("Witcher3.Health.MergerNotSelected",
-					"No external tool selected. NMM does not search for or automatically run Script Merger."));
+				text.AppendLine(L("Witcher3.Health.SelectMergerHint",
+					"No executable selected. Use Select Script Merger executable to check its version. This does not run the tool."));
 			else
 			{
 				Witcher3ScriptMergerToolObservation tool = _mergerObservation;
@@ -702,12 +826,52 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 					"{0}: {1}; declared family: {2}; declared version: {3}."),
 					System.IO.Path.GetFileName(tool.ExecutablePath), tool.Status, tool.Family,
 					String.IsNullOrEmpty(tool.VersionLabel) ? "-" : tool.VersionLabel));
-				text.AppendLine(MergerAssessmentMessage(tool));
+				string assessment = MergerAssessmentMessage(tool);
+				text.AppendLine(assessment);
+				if (tool.Compatibility == Witcher3ScriptMergerCompatibility.LegacyReleaseWarning) errors.Add(assessment);
+				else if (tool.Status != Witcher3ScriptMergerReadStatus.Observed ||
+					tool.Compatibility != Witcher3ScriptMergerCompatibility.RemasteredSupportClaimed) warnings.Add(assessment);
 			}
-			text.AppendLine(L("Witcher3.Health.MergerDisclaimer",
-				"Executable metadata cannot prove compatibility, game targeting or the origin/encoding of existing merged output. No tool was run."));
-			_remasteredHealth.Text = text.ToString();
+			text.AppendLine(L("Witcher3.Health.MergerVersionLimit", "A version check cannot confirm that existing merged files are compatible with this game."));
+			_remasteredHealth.SetDiagnosticText(text.ToString(), errors, warnings);
 		}
+
+		/// <summary>Describes the observed mod support switch without exposing internal enum names as instructions.</summary>
+		private static string ModSwitchText(Witcher3RemasteredModSwitchState state)
+		{
+			switch (state)
+			{
+				case Witcher3RemasteredModSwitchState.Enabled: return L("Witcher3.Health.Switch.On", "on");
+				case Witcher3RemasteredModSwitchState.Disabled: return L("Witcher3.Health.Switch.Off", "off");
+				case Witcher3RemasteredModSwitchState.Ambiguous: return L("Witcher3.Health.Switch.Invalid", "conflicting settings");
+				default: return L("Witcher3.Health.Switch.Unknown", "not confirmed (setting absent or unrecognized)");
+			}
+		}
+
+		/// <summary>Recognizes an empty folder only when every file was observed by a complete inventory.</summary>
+		private static bool IsEmpty(Witcher3LoadOrderRow row, bool complete) => complete && row.Component?.ObservedOnDisk == true &&
+			row.Component.Files.All(file => file.ObservedOnDisk == false);
+
+		/// <summary>Distinguishes broken/missing content from incomplete observations and ordering warnings.</summary>
+		private static int RowSeverity(Witcher3LoadOrderRow row, bool complete)
+		{
+			if (row.Presence == Witcher3LoadOrderPresence.MissingFromCompleteInventory || IsEmpty(row, complete) ||
+				row.Component?.Files.Any(file => file.ObservedOnDisk == false || file.WinnerAmbiguous) == true ||
+				row.FolderName.Length > 63) return 2;
+			return row.Presence == Witcher3LoadOrderPresence.NotObservedOrInventoryIncomplete ||
+				row.ValueSource == Witcher3LoadOrderValueSource.ConfiguredButAmbiguous ? 1 : 0;
+		}
+
+		/// <summary>Localizes folder provenance rather than displaying internal enum identifiers.</summary>
+		private static string OriginText(Witcher3LoadOrderOrigin origin) => L("Witcher3.Order.Origin." + origin,
+			origin == Witcher3LoadOrderOrigin.NativeManaged ? "NMM" : origin == Witcher3LoadOrderOrigin.ExternalObserved ? "Manual / external" :
+			origin == Witcher3LoadOrderOrigin.MixedNativeAndExternal ? "NMM and external files" :
+			origin == Witcher3LoadOrderOrigin.GeneratedMergeCandidate ? "Merged output" : "Unknown");
+
+		/// <summary>Translates confirmed absence and incomplete observation into separate user-facing states.</summary>
+		private static string PresenceText(Witcher3LoadOrderRow row, bool complete) => IsEmpty(row, complete) ? L("Witcher3.Order.Presence.Empty", "Empty folder") :
+			L("Witcher3.Order.Presence." + row.Presence, row.Presence == Witcher3LoadOrderPresence.Observed ? "Present" :
+				row.Presence == Witcher3LoadOrderPresence.MissingFromCompleteInventory ? "Missing" : "Unknown (incomplete scan)");
 
 		private static string MergerAssessmentMessage(Witcher3ScriptMergerToolObservation tool)
 		{
@@ -791,7 +955,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 				case Witcher3RemasteredHealthIssueCode.Dx12ExecutableMissing:
 					return L("Witcher3.Health.Dx12Missing", "No DX12 game executable was found at bin/x64_dx12/witcher3.exe.");
 				case Witcher3RemasteredHealthIssueCode.SettingsMissing:
-					return L("Witcher3.Health.SettingsMissing", "dx12user.settings is absent (possible before first launch); local-mod switches cannot be inferred.");
+					return L("Witcher3.Health.SettingsMissing", "Mod support settings have not been created yet. Launch the game once, then refresh this view.");
 				case Witcher3RemasteredHealthIssueCode.SettingsReadFailed:
 					return L("Witcher3.Health.SettingsReadFailed", "The game's dx12user.settings could not be read; local-mod switches are unknown.");
 				case Witcher3RemasteredHealthIssueCode.SettingsTooLarge:
@@ -801,15 +965,15 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 				case Witcher3RemasteredHealthIssueCode.SettingsChangedDuringRead:
 					return L("Witcher3.Health.SettingsChanged", "dx12user.settings changed during the read. Refresh to observe the latest state.");
 				case Witcher3RemasteredHealthIssueCode.SettingsAmbiguous:
-					return L("Witcher3.Health.SettingsAmbiguous", "The content-manager section or keys are duplicated/ambiguous; game switch state was not guessed.");
+					return L("Witcher3.Health.SettingsAmbiguous", "dx12user.settings contains conflicting mod support settings. Their effective values cannot be determined.");
 				case Witcher3RemasteredHealthIssueCode.GlobalModsDisabled:
-					return L("Witcher3.Health.GlobalDisabled", "[ContentManager/Mods] Enabled is explicitly false/0. The game can suppress mods despite successful NMM deployment.");
+					return L("Witcher3.Health.GlobalDisabled", "Game mod support is turned off in dx12user.settings ([ContentManager/Mods], Enabled). Installed mods may not load.");
 				case Witcher3RemasteredHealthIssueCode.LocalModsDisabled:
-					return L("Witcher3.Health.LocalDisabled", "[ContentManager/Mods] EnabledLocal is explicitly false/0. Local installed mods may not load.");
+					return L("Witcher3.Health.LocalDisabled", "Local mod support is turned off in dx12user.settings ([ContentManager/Mods], EnabledLocal). Installed local mods may not load.");
 				case Witcher3RemasteredHealthIssueCode.GlobalModsNotConfirmed:
-					return L("Witcher3.Health.GlobalUnknown", "The global Enabled switch is absent or unrecognized; do not infer enabled or disabled.");
+					return L("Witcher3.Health.GlobalUnknown", "Game mod support could not be confirmed: its setting is missing or unrecognized. This does not mean it is turned off.");
 				case Witcher3RemasteredHealthIssueCode.LocalModsNotConfirmed:
-					return L("Witcher3.Health.LocalUnknown", "The EnabledLocal switch is absent or unrecognized; do not infer enabled or disabled.");
+					return L("Witcher3.Health.LocalUnknown", "Local mod support could not be confirmed: its setting is missing or unrecognized. This does not mean it is turned off.");
 				default:
 					return L("Witcher3.Health.Unknown", "Unrecognized Remastered health finding.");
 			}
@@ -817,15 +981,16 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 
 		private sealed class DisplayRow
 		{
-			internal DisplayRow(Witcher3LoadOrderEditorRow row, string enabled, string disabled, string unconfigured)
+			internal DisplayRow(Witcher3LoadOrderEditorRow row, string enabled, string disabled, string unconfigured, bool complete, bool orderWarning)
 			{
 				FolderName = row.FolderName;
 				DraftPosition = row.DraftPosition?.ToString() ?? "-";
 				GamePriority = row.GamePriority?.ToString() ?? "-";
 				GameEnabled = !row.DraftPosition.HasValue ? unconfigured : !row.DraftEnabled.HasValue ? unconfigured
 					: row.DraftEnabled.Value ? enabled : disabled;
-				Origin = row.Source.Origin.ToString();
-				Presence = row.Source.Presence.ToString();
+				Origin = OriginText(row.Source.Origin);
+				Presence = PresenceText(row.Source, complete);
+				Severity = Math.Max(RowSeverity(row.Source, complete), orderWarning ? 1 : 0);
 				Owners = row.OwnerNames;
 			}
 			public string DraftPosition { get; }
@@ -835,6 +1000,7 @@ namespace Nexus.Client.ModManagement.Witcher3.UI
 			public string Origin { get; }
 			public string Presence { get; }
 			public string Owners { get; }
+			internal int Severity { get; }
 		}
 	}
 }

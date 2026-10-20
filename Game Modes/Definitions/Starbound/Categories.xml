@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Biomes and Subbiomes" ID="18">
+      <name>Biomes and Subbiomes</name>
+    </category>
+    <category path="Crafting" ID="17">
+      <name>Crafting</name>
+    </category>
+    <category path="Custom Ships" ID="14">
+      <name>Custom Ships</name>
+    </category>
+    <category path="External Utilities" ID="15">
+      <name>External Utilities</name>
+    </category>
+    <category path="Gameplay Tweaks &amp; Additions" ID="8">
+      <name>Gameplay Tweaks &amp; Additions</name>
+    </category>
+    <category path="Materials and Placeables" ID="6">
+      <name>Materials and Placeables</name>
+    </category>
+    <category path="Misc Visual" ID="11">
+      <name>Misc Visual</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Modders Resources" ID="19">
+      <name>Modders Resources</name>
+    </category>
+    <category path="New Items/Objects" ID="22">
+      <name>New Items/Objects</name>
+    </category>
+    <category path="NPCs and Creatures" ID="7">
+      <name>NPCs and Creatures</name>
+    </category>
+    <category path="Playable Race" ID="20">
+      <name>Playable Race</name>
+    </category>
+    <category path="Procedurally Generated Structure Mods" ID="13">
+      <name>Procedurally Generated Structure Mods</name>
+    </category>
+    <category path="Replacements" ID="21">
+      <name>Replacements</name>
+    </category>
+    <category path="Sound" ID="16">
+      <name>Sound</name>
+    </category>
+    <category path="Texture Replacements" ID="9">
+      <name>Texture Replacements</name>
+    </category>
+    <category path="Tool Mods" ID="4">
+      <name>Tool Mods</name>
+    </category>
+    <category path="User Interface" ID="10">
+      <name>User Interface</name>
+    </category>
+    <category path="Weapon Mods" ID="3">
+      <name>Weapon Mods</name>
+    </category>
+    <category path="Worlds and Builds" ID="12">
+      <name>Worlds and Builds</name>
+    </category>
+    <category path="Worn Equipment Mods" ID="5">
+      <name>Worn Equipment Mods</name>
+    </category>
+  </categoryList>
+</categoryManager>

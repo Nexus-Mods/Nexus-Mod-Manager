@@ -512,7 +512,7 @@
 					
                     foreach (var mod in gameSpecificValueEdit.Descendants("mod"))
                     {
-                        _gameSpecificValueEdits[key].Push(mod.Attribute("key").Value, Convert.FromBase64String(mod.Value));
+                        _gameSpecificValueEdits[key].Push(mod.Attribute("key").Value, DeserializeGameSpecificValueOwner(mod));
                     }
                 }
 			}

@@ -37,6 +37,7 @@
 		private bool _startupSelectionAttempted;
 		private bool _disposed;
 		private bool _teardownFailed;
+		private bool _startupLinkForwarded;
 		private Mutex _modeMutex;
 		private bool _ownsModeMutex;
 		private ServiceManager _services;
@@ -103,9 +104,10 @@
 			if (_pendingNxm != null)
 			{
 				// Resolve through the same Nexus-game domain map used by the live listener.
-				// Multiple editions are deliberately not resolved by silently changing a default.
+				// Witcher uses its separate download preference; other shared catalogs retain explicit destination selection.
 				var destinations = NexusGameDomain.GetDestinations(_pendingNxm.Host,
 					_shell.GameDiscoveryRegistry.RegisteredGameModes);
+				bool witcherDestination = NexusGameDomain.IsWitcher3DownloadDomain(_pendingNxm.Host) && NexusGameDomain.IsWitcher3Mode(selected);
 				// Legacy game modes do not opt into explicit Nexus-domain routing.
 				// Preserve their existing -game/NXM alias selection in that case.
 				if (destinations.Count == 0 && String.IsNullOrWhiteSpace(selected))
@@ -114,9 +116,9 @@
 						"No supported game corresponds to this Nexus link."));
 					return;
 				}
-				if (destinations.Count == 1)
+				if (destinations.Count == 1 && !witcherDestination)
 					selected = destinations[0].ModeId;
-				else if (destinations.Count > 1 && !destinations.Any(d => String.Equals(d.ModeId, selected, StringComparison.OrdinalIgnoreCase)))
+				else if (destinations.Count > 1 && !witcherDestination && !destinations.Any(d => String.Equals(d.ModeId, selected, StringComparison.OrdinalIgnoreCase)))
 				{
 					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.ChooseLinkDestination",
 						"Select a compatible game for the incoming Nexus link. The link has not been downloaded."));
@@ -136,7 +138,11 @@
 			}
 			_shell.SelectGameInDiscovery(entry.ModeId);
 			if (GameSessionEntryGate.CanManage(entry))
+			{
 				await LoadFirstGameAsync(entry.ModeId);
+				// Another process may have finished startup after the pre-window handoff probe.
+				if (_startupLinkForwarded && !_disposed && !_shell.IsDisposed) _shell.Close();
+			}
 			else
 				_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.StartupNeedsSetup",
 					"{0} needs configuration or review before it can be managed.", entry.Name));
@@ -482,7 +488,13 @@
 						if (_pendingNxm != null && String.Equals(descriptor.ModeId,
 								_gate.ModeId, StringComparison.OrdinalIgnoreCase))
 						{
-							try { NexusGameDomain.RequireMatchingLink(descriptor, _pendingNxm); existing.AddMod(_pendingNxm.ToString()); _pendingNxm = null; }
+							try
+							{
+								NexusGameDomain.RequireMatchingLink(descriptor, _pendingNxm);
+								existing.AddMod(_pendingNxm.OriginalString);
+								_pendingNxm = null;
+								_startupLinkForwarded = true;
+							}
 							catch (ArgumentException) { existing.BringToFront(); }
 						}
 						else existing.BringToFront();

@@ -176,7 +176,8 @@
 				if (_viewModel.Witcher3ModSettingsLifecycle != null)
 					_witcher3LoadOrderControl.Initialize(_viewModel, () => IsMainDocumentActive(_witcher3LoadOrderControl));
 				if (_viewModel.GameMode is IManagedContentComponentProvider)
-					_managedContentComponentsControl.Initialize(_viewModel, () => IsMainDocumentActive(_managedContentComponentsControl));
+					_managedContentComponentsControl.Initialize(_viewModel, () => IsMainDocumentActive(_managedContentComponentsControl),
+						owner => _witcher3LoadOrderControl.AutofixMissingEntriesAsync(owner));
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
 					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
 					_viewModel.CollectionRevisionUpdateWorkflow);
@@ -206,12 +207,12 @@
 				}
 
 
-				SetBarItemVisible(tsbSkyrimDownloads, _viewModel.ModManagerVM.IsSkyrimSEGameMode);
+				SetBarItemVisible(tsbSkyrimDownloads, _viewModel.ModManagerVM.HasDownloadModeChoice);
 
-				if (_viewModel.ModManagerVM.IsSkyrimSEGameMode)
+				if (_viewModel.ModManagerVM.HasDownloadModeChoice)
 				{
-					tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
-					_modManagerControl.ViewModel.SwitchingSkyrimDownloadMode += ViewModel_SwitchingSkyrimDownloadMode;
+					tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.DownloadModeFeedback;
+					_modManagerControl.ViewModel.DownloadModeChanged += ViewModel_SwitchingSkyrimDownloadMode;
 				}
 
 				BindCommands();
@@ -236,7 +237,7 @@
 
 		private void ViewModel_SwitchingSkyrimDownloadMode(object sender, EventArgs e)
 		{
-			tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
+			tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.DownloadModeFeedback;
 		}
 
 		private void ModManagerVM_ProfileSwitchSettingUp(object sender, EventArgs<IBackgroundTask> e)
@@ -3341,9 +3342,11 @@
 			{
 				XtraMessageBox.Show(this, e.Message, L("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
-			else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
+			else
 			{
-				Close();
+				RecordGameActivity(ViewModel?.GameMode?.ModeId);
+				if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
+					Close();
 			}
 		}
 

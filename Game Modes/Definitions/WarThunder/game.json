@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "modeId": "WarThunder",
+  "name": "War Thunder",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "win64\\aces.exe",
+    "win32\\aces.exe",
+    "aces.exe",
+    "Launcher.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "236390",
+        "installFolderName": "War Thunder",
+        "executableName": "Launcher.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "Launcher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch War Thunder",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom War Thunder",
+    "defaultCommandText": "Launch War Thunder",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "warthunder_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{ExecutablePath}\\UserSkins"
+  },
+  "compatibilityNotes": [
+    "Uses Steam app 236390 and the UserSkins destination. Source: https://store.steampowered.com/app/236390/War_Thunder/",
+    "The launcher stays at the game root; legacy root-level and win32/win64 game executables are accepted. Skins must contain their own game-ready directory layout."
+  ]
+}

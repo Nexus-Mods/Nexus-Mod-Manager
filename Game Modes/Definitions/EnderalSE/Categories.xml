@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Animations" ID="18">
+      <name>Animations</name>
+    </category>
+    <category path="Apparel" ID="7">
+      <name>Apparel</name>
+    </category>
+    <category path="Audio" ID="4">
+      <name>Audio</name>
+    </category>
+    <category path="Characters" ID="12">
+      <name>Characters</name>
+    </category>
+    <category path="Creatures" ID="9">
+      <name>Creatures</name>
+    </category>
+    <category path="Dungeons" ID="16">
+      <name>Dungeons</name>
+    </category>
+    <category path="Environment" ID="19">
+      <name>Environment</name>
+    </category>
+    <category path="Gameplay" ID="3">
+      <name>Gameplay</name>
+    </category>
+    <category path="Items" ID="8">
+      <name>Items</name>
+    </category>
+    <category path="Locations" ID="17">
+      <name>Locations</name>
+    </category>
+    <category path="Magic" ID="11">
+      <name>Magic</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Quests" ID="14">
+      <name>Quests</name>
+    </category>
+    <category path="User interface" ID="13">
+      <name>User interface</name>
+    </category>
+    <category path="Utilities" ID="10">
+      <name>Utilities</name>
+    </category>
+    <category path="Visuals and graphics" ID="5">
+      <name>Visuals and graphics</name>
+    </category>
+    <category path="Weapons" ID="6">
+      <name>Weapons</name>
+    </category>
+  </categoryList>
+</categoryManager>

@@ -87,6 +87,48 @@ namespace NexusClientTests
 					new Witcher3ModSettingsOrderEntry("modFirst") }, true);
 		}
 
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Cleanup_RechecksRestoredFoldersBeforePublication_AndRetainsOriginalBackup(bool restoreFolder)
+		{
+			Preview();
+			var read = Witcher3ModSettingsFileReader.Read(_file);
+			byte[] before = File.ReadAllBytes(_file);
+			var preview = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(read, Witcher3Edition.Legacy,
+				Witcher3ComponentDiskScan.Scan(_gameRoot));
+			if (restoreFolder)
+			{
+				string folder = Path.Combine(_gameRoot, "Mods", "modFirst", "content");
+				Directory.CreateDirectory(folder);
+				File.WriteAllText(Path.Combine(folder, "restored.bundle"), "restored");
+			}
+			var lifecycle = Service();
+			Assert.That(lifecycle.Publish(preview, false, _gameRoot).Status, Is.EqualTo(Witcher3ModSettingsPublishStatus.Blocked));
+			var result = lifecycle.Publish(preview, true, _gameRoot);
+			Assert.That(_validations, Is.EqualTo(1));
+			Assert.That(result.Status, Is.EqualTo(restoreFolder ? Witcher3ModSettingsPublishStatus.StaleReview : Witcher3ModSettingsPublishStatus.Published));
+			if (restoreFolder)
+				Assert.That(File.ReadAllBytes(_file), Is.EqualTo(before));
+			else
+			{
+				Assert.That(File.ReadAllText(_file), Is.Empty);
+				Assert.That(File.ReadAllBytes(result.BackupPath), Is.EqualTo(before));
+				Assert.That(File.Exists(_file), Is.True);
+			}
+		}
+
+		[Test]
+		public void Cleanup_RejectsExternalSettingsEditsAfterReview()
+		{
+			Preview();
+			var preview = Witcher3ModSettingsChangePlanner.PrepareRemoveMissingEntries(
+				Witcher3ModSettingsFileReader.Read(_file), Witcher3Edition.Legacy, Witcher3ComponentDiskScan.Scan(_gameRoot));
+			File.AppendAllText(_file, "; edited elsewhere\n");
+			byte[] before = File.ReadAllBytes(_file);
+			Assert.That(Service().Publish(preview, true, _gameRoot).Status, Is.EqualTo(Witcher3ModSettingsPublishStatus.StaleReview));
+			Assert.That(File.ReadAllBytes(_file), Is.EqualTo(before));
+		}
+
 		[Test]
 		public void MissingSettings_StartReadOnlyAndNeverCreatesDocumentsOrNativeAuthority()
 		{

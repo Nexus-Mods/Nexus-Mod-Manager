@@ -192,7 +192,7 @@
 			vm.PurgingLooseFiles -= ViewModel_PurgingLooseFiles;
 			vm.ConfigFilesFixing -= ViewModel_ConfigFilesFixing;
 			vm.ModManagerVM.ProfileSwitchSettingUp -= ModManagerVM_ProfileSwitchSettingUp;
-			vm.ModManagerVM.SwitchingSkyrimDownloadMode -= ViewModel_SwitchingSkyrimDownloadMode;
+			vm.ModManagerVM.DownloadModeChanged -= ViewModel_SwitchingSkyrimDownloadMode;
 			vm.ModManager.LoginTask.PropertyChanged -= LoginTask_PropertyChanged;
 			vm.ModRepository.RateLimitExceeded -= ModRepository_RateLimitExceeded;
 			vm.ModRepository.UserStatusUpdate -= ModRepository_UserStatusUpdate;

@@ -16,6 +16,21 @@ namespace Nexus.Client.Games
 	/// <summary>Resolves configured catalog identities while preserving legacy game-domain aliases.</summary>
 	public static class NexusGameDomain
 	{
+		/// <summary>Recognizes only the two local Witcher 3 identities, without changing their storage or catalog IDs.</summary>
+		internal static bool IsWitcher3Mode(string modeId) => String.Equals(modeId, "Witcher3", StringComparison.OrdinalIgnoreCase) ||
+			String.Equals(modeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>Restricts the edition preference to links from the shared Witcher 3 catalog.</summary>
+		internal static bool IsWitcher3DownloadDomain(string domain) => !String.IsNullOrEmpty(domain) &&
+			String.Equals(GameDomainTranslator.DetermineGameDomain(domain), "witcher3", StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>Uses a valid saved edition, then the active/remembered Witcher edition, preserving the legacy default otherwise.</summary>
+		internal static string ResolveWitcher3DownloadMode(string preference, string fallbackMode)
+		{
+			string selected = IsWitcher3Mode(preference) ? preference : IsWitcher3Mode(fallbackMode) ? fallbackMode : "Witcher3";
+			return String.Equals(selected, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) ? "Witcher3Remastered" : "Witcher3";
+		}
+
 		/// <summary>Accepts a literal canonical slug, excluding URLs, paths and local-mode aliases.</summary>
 		public static bool IsValid(string value) => !String.IsNullOrEmpty(value) && value.Length <= 64 &&
 			(value[0] >= 'a' && value[0] <= 'z' || value[0] >= '0' && value[0] <= '9') && value.All(c => c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') &&

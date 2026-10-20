@@ -657,6 +657,18 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Witcher3DownloadOverride {
+            get {
+                return ((string)(this["Witcher3DownloadOverride"]));
+            }
+            set {
+                this["Witcher3DownloadOverride"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool AssociateWithUrl {
             get {
@@ -802,6 +814,19 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfString /" +
+            ">\r\n\t\t\t")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> LastGameLaunchUtc {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["LastGameLaunchUtc"]));
+            }
+            set {
+                this["LastGameLaunchUtc"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfBoolean " +

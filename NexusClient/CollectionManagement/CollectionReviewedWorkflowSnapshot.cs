@@ -535,7 +535,7 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionReviewedGameSpecificValueSnapshot(string key, byte[] value)
 		{
 			if (String.IsNullOrWhiteSpace(key)) throw new ArgumentException("Reviewed game-specific value key is required.", nameof(key));
-			if (value == null || value.Length == 0) throw new ArgumentException("Reviewed game-specific value bytes are required.", nameof(value));
+			if (value == null) throw new ArgumentException("Reviewed game-specific value bytes are required.", nameof(value));
 			Key = key;
 			_value = (byte[])value.Clone();
 		}
@@ -636,8 +636,8 @@ namespace Nexus.Client.CollectionManagement
 				}
 				throw new NotSupportedException("A reviewed simple-file recipe can persist only unresolved exact file operations, retained generated files, or resolved exact game-specific values.");
 			}
-			if (mappings.Count + generated.Count == 0)
-				throw new InvalidDataException("A reviewed simple-file recipe requires at least one reproducible native file operation.");
+			if (mappings.Count + generated.Count + gameValues.Count == 0)
+				throw new InvalidDataException("A reviewed recipe requires at least one reproducible native file or configuration operation.");
 
 			return new CollectionReviewedPreparedRecipeSnapshot(recipe.Member.MemberKey, recipe.Member.SourceOrdinal,
 				recipe.ProviderRecipeIdentity.Fingerprint, recipe.PreparedNativeIdentity.Fingerprint, recipe.SkipReadmeFiles,
@@ -905,7 +905,7 @@ namespace Nexus.Client.CollectionManagement
 					{
 						string valueKey = ReadRequiredString(reader);
 						int length = reader.ReadInt32();
-						if (length <= 0 || length > MaxPayloadLength) throw new InvalidDataException("Reviewed game-specific value length is invalid.");
+						if (length < 0 || length > MaxPayloadLength) throw new InvalidDataException("Reviewed game-specific value length is invalid.");
 						byte[] value = reader.ReadBytes(length);
 						if (value.Length != length) throw new EndOfStreamException();
 						gameValues.Add(new CollectionReviewedGameSpecificValueSnapshot(valueKey, value));
@@ -1265,7 +1265,7 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.Ordinal.Equals(recipe.Validation.Capabilities[0].CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityId) ||
 					recipe.Validation.Capabilities[0].Version != ModInstallationSimpleFileRecipeAdapter.CapabilityVersion)
 					throw new NotSupportedException("The reviewed native recipe capability contract changed and must be re-prepared.");
-				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count == 0)
+				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count + recipe.GameSpecificValues.Count == 0)
 					throw new NotSupportedException("The reviewed native recipe predates executable file-operation persistence and must be re-prepared.");
 				if (!verifyRetainedInputs) continue;
 				bool foundExpectedArchive = false;

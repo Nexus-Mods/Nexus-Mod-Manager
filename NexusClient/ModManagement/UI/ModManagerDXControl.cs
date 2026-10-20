@@ -274,7 +274,7 @@
 			_categoryNodeCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0}/{1} Mods");
 			_modCountFormat = LanguageManager.GetFormat("Mods.Status.Count", "Mods: {0}");
 			_downloadModeCaptionFormat = LanguageManager.GetFormat("Mods.DownloadMode.Caption", "Download Mode: {0}");
-			_downloadModeHintFormat = LanguageManager.GetFormat("Mods.DownloadMode.Tooltip", "Skyrim SE current download mode: {0}");
+			_downloadModeHintFormat = LanguageManager.GetFormat("Mods.DownloadMode.DestinationTooltip", "Nexus downloads will go to: {0}. Click to switch edition.");
 			_installedActiveStatusText = LanguageManager.Get("Mods.Values.InstalledActive", "Installed/Active");
 			_installedUnlinkedStatusText = LanguageManager.Get("Mods.Values.InstalledUnlinked", "Installed/Unlinked");
 			_uninstalledStatusText = LanguageManager.Get("Mods.Values.Uninstalled", "Uninstalled");
@@ -505,12 +505,12 @@
 		/// <inheritdoc/>
 		public void SetSkyrimDownloadModeFeedback()
 		{
-			if (_viewModel == null || !_viewModel.IsSkyrimSEGameMode) return;
-			if (tsbSkyrimDownloads.ImageOptions.SvgImage == null)
+			if (_viewModel == null || !_viewModel.HasDownloadModeChoice) return;
+			if (tsbSkyrimDownloads.ImageOptions.SvgImage == null && _viewModel.IsSkyrimSEGameMode)
 				tsbSkyrimDownloads.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
 					_viewModel.SkyrimDownloadImage, new Size(16, 16));
-			tsbSkyrimDownloads.Caption = String.Format(_downloadModeCaptionFormat, GetSkyrimDownloadModeLabel());
-			tsbSkyrimDownloads.Hint = String.Format(_downloadModeHintFormat, _viewModel.SkyrimSEDownloadModeDescriptor);
+			tsbSkyrimDownloads.Caption = String.Format(_downloadModeCaptionFormat, _viewModel.DownloadModeLabel);
+			tsbSkyrimDownloads.Hint = String.Format(_downloadModeHintFormat, _viewModel.DownloadModeDescriptor);
 		}
 
 		// ── public helpers ───────────────────────────────────────────────────
@@ -581,7 +581,7 @@
 			_viewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 			_viewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 
-			tsbSkyrimDownloads.Visibility = _viewModel.IsSkyrimSEGameMode ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsbSkyrimDownloads.Visibility = _viewModel.HasDownloadModeChoice ? BarItemVisibility.Always : BarItemVisibility.Never;
 			SetSkyrimDownloadModeFeedback();
 
 			bool usesLoadOrder = _viewModel.ModManager.GameMode.UsesModLoadOrder;
@@ -1987,15 +1987,6 @@
 		{
 			if (font != null)
 				font.Dispose();
-		}
-
-		private string GetSkyrimDownloadModeLabel()
-		{
-			if (_viewModel == null) return string.Empty;
-			string mode = _viewModel.SkyrimSEDownloadOverride;
-			if (string.Equals(mode, "SkyrimSE", StringComparison.OrdinalIgnoreCase)) return "Steam";
-			if (string.Equals(mode, "SkyrimGOG", StringComparison.OrdinalIgnoreCase)) return "GOG";
-			return _viewModel.SkyrimSEDownloadModeDescriptor;
 		}
 
 		private void SetupGrid()
@@ -5568,7 +5559,12 @@
 
 		private void tsbSkyrimDownloads_Click(object sender, ItemClickEventArgs e)
 		{
-			_viewModel?.ToggleSkyrimSEDownloadMode();
+			try { _viewModel?.ToggleDownloadMode(); }
+			catch (Exception error)
+			{
+				XtraMessageBox.Show(this, LanguageManager.Format("Mods.DownloadMode.SaveFailed", "Could not save the download destination: {0}", error.Message),
+					LanguageManager.Get("Mods.DownloadMode.Name", "Download Mode"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 			SetSkyrimDownloadModeFeedback();
 		}
 

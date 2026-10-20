@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
@@ -221,13 +222,16 @@ namespace Nexus.Client.ModManagement
                     if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
                         StringComparison.OrdinalIgnoreCase))
                     {
-                        if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Manual ||
-                            DisableVirtualFilesOnly)
+                        if (OperationIdentity == null || DisableVirtualFilesOnly)
                             throw new InvalidDataException(
-                                "Witcher 3 Remastered removal supports only reviewed ordinary manual deactivation, not Collections or files-only removal.");
+                                "Witcher 3 Remastered removal requires a complete reviewed native operation.");
                         var review = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
-                            ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, mutationLease);
-                        review.AuthorizeBasicUninstall(Mod);
+                            ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, GetRootMutationAuthority(mutationLease));
+                        bool collectionMember = OperationIdentity.Origin != ModOperationOrigin.Manual ||
+                            File.Exists(new ScriptedFileSelectionCache(Mod, GameMode).FilePath) ||
+                            ModInstallLog.GetInstalledGameSpecificValueEdits(Mod).Any(key => key.StartsWith(Witcher3CollectionRecordStore.Prefix, StringComparison.Ordinal));
+                        if (collectionMember) review.AuthorizeCollectionUninstall(Mod, VirtualModActivator);
+                        else review.AuthorizeBasicUninstall(Mod);
                         remasteredRemovalReview = review;
                         m_booRemasteredRemovalVerificationPending = true;
                     }

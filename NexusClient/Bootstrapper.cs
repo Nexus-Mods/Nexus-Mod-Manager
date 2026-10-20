@@ -56,6 +56,10 @@
 	    /// <returns>The appropriate game mode.</returns>
 	    private string DetermineRequestedGameMode(string gameModeFromUri)
 	    {
+			if (NexusGameDomain.IsWitcher3DownloadDomain(gameModeFromUri))
+				return NexusGameDomain.ResolveWitcher3DownloadMode(_environmentInfo.Settings.Witcher3DownloadOverride,
+					_environmentInfo.Settings.RememberedGameMode);
+
 	        // Hack to allow Skyrim VR to use NMM links from the website.
 	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
 	        if ((gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) || gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase)) 
@@ -103,6 +107,10 @@
         /// <c>false</c> otherwise.</returns>
         public bool RunMainForm(string[] args)
 		{
+			var startupIntent = GameDiscoveryStartupIntent.Parse(args, DetermineRequestedGameMode);
+			if (NexusLinkHandoff.TryForward(startupIntent, _environmentInfo.Settings.InstalledGames,
+				modeId => MessagerClient.GetMessager(modeId))) return true;
+
 			if (!SandboxCheck(_environmentInfo))
             {
                 return false;
@@ -120,10 +128,9 @@
 				var fonts = SetUpFonts();
 				try
 				{
-					var intent = GameDiscoveryStartupIntent.Parse(args, DetermineRequestedGameMode);
 					using (var shell = new MainForm(_environmentInfo))
 					using (var controller = new FirstGameSessionController(this, shell, _environmentInfo,
-						fonts, deletedDll, intent))
+						fonts, deletedDll, startupIntent))
 						Application.Run(shell);
 					return true;
 				}
@@ -179,6 +186,9 @@
 			    CheckIfDefaultGameModeIsInstalled(installedGames);
 
 				var selector = new GameModeSelector(supportedGames, installedGames, _environmentInfo);
+				// A saved Witcher edition must reach its own setup/IPC path, even if only the other edition is configured.
+				if (modToAdd != null && NexusGameDomain.IsWitcher3DownloadDomain(modToAdd.Host) &&
+					NexusGameDomain.IsWitcher3Mode(requestedGameMode)) downloadDestinationSelected = true;
 				if (!downloadDestinationSelected && modToAdd != null && modToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
 				{
 					IReadOnlyList<IGameModeDescriptor> destinations = NexusGameDomain.GetDestinations(modToAdd.Host, installedGames.RegisteredGameModes);

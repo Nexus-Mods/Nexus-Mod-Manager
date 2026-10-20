@@ -328,11 +328,13 @@ namespace Nexus.Client.CollectionManagement
 				new CollectionConflictImpactIssue[0]);
 		}
 
-		private List<PreparedCollectionNativeRecipe> ReconstructPreparedRecipes(ResolvedCollectionPlan plan,
-			CollectionReviewedWorkflowSnapshot snapshot)
+		/// <summary>Reproduces retained recipes, optionally limiting recovery to one interrupted member.</summary>
+		internal List<PreparedCollectionNativeRecipe> ReconstructPreparedRecipes(ResolvedCollectionPlan plan,
+			CollectionReviewedWorkflowSnapshot snapshot, CollectionMemberKey recoveryMember = null)
 		{
 			var result = new List<PreparedCollectionNativeRecipe>();
-			foreach (CollectionReviewedPreparedRecipeSnapshot persisted in snapshot.PreparedRecipes)
+			foreach (CollectionReviewedPreparedRecipeSnapshot persisted in snapshot.PreparedRecipes.Where(x =>
+				recoveryMember == null || x.MemberKey.Equals(recoveryMember)))
 			{
 				ResolvedCollectionMemberPlan member = plan.SelectedMembers.Single(x => x.MemberKey.Equals(persisted.MemberKey));
 				if (persisted.SourceOrdinal != member.SourceOrdinal ||
@@ -340,7 +342,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("A reviewed prepared recipe no longer matches its reconstructed selected member.");
 				if (!StringComparer.Ordinal.Equals(persisted.Validation.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId) ||
 					persisted.Validation.AdapterVersion != ModInstallationSimpleFileRecipeAdapter.AdapterVersion ||
-					persisted.SimpleFileMappings.Count + persisted.GeneratedFiles.Count == 0)
+					persisted.SimpleFileMappings.Count + persisted.GeneratedFiles.Count + persisted.GameSpecificValues.Count == 0)
 					throw new NotSupportedException("The reviewed native recipe cannot be reproduced by the current characterized simple-file/generated-file contract.");
 
 				foreach (string artifactId in persisted.RetainedArtifactIds)
@@ -353,33 +355,14 @@ namespace Nexus.Client.CollectionManagement
 				var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, persisted.Validation.InstallContext,
 					member.RecipeIdentity.Fingerprint);
 				var input = new ModInstallationRecipeInput(ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint), persisted.Validation);
-				var generatedByDestination = persisted.GeneratedFiles.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
-				var allMappings = new List<ModInstallationSimpleFileMapping>();
-				allMappings.AddRange(persisted.SimpleFileMappings.Select(x => new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)));
-				allMappings.AddRange(persisted.GeneratedFiles.Select(x => new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)));
-				bool hasSourceReplication = allMappings.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1);
-				var recipe = new ModInstallationSimpleFileRecipe(allMappings, hasSourceReplication);
-				ModInstallationRecipeInput translatedBase = _simpleFileAdapter.Translate(input, recipe);
 				var nativeOperations = new List<ScriptedInstallOperation>();
-				foreach (ScriptedInstallOperation operation in translatedBase.NativeOperations)
-				{
-					InstallModFileOperation file = operation as InstallModFileOperation;
-					CollectionReviewedGeneratedFileSnapshot generated;
-					if (file != null && generatedByDestination.TryGetValue(file.DestinationPath, out generated))
-						nativeOperations.Add(new GenerateDataFileOperation(generated.DestinationPath, LoadGeneratedBytes(persisted, generated), generated.SourcePath));
-					else
-						nativeOperations.Add(operation);
-				}
-				ModInstallationRecipeInput translated = persisted.GeneratedFiles.Count == 0
-					? translatedBase
-					: translatedBase.WithTransformedNativePlan(nativeOperations);
-				if (persisted.GameSpecificValues.Count > 0)
-				{
-					var withGameValues = new List<ScriptedInstallOperation>(translated.NativeOperations);
-					foreach (CollectionReviewedGameSpecificValueSnapshot gameValue in persisted.GameSpecificValues)
-						withGameValues.Add(new EditGameSpecificValueOperation(gameValue.Key, gameValue.Value, true));
-					translated = translated.WithTransformedNativePlan(withGameValues);
-				}
+				foreach (CollectionReviewedSimpleFileMappingSnapshot file in persisted.SimpleFileMappings)
+					nativeOperations.Add(new InstallModFileOperation(file.SourcePath, file.DestinationPath));
+				foreach (CollectionReviewedGeneratedFileSnapshot generated in persisted.GeneratedFiles)
+					nativeOperations.Add(new GenerateDataFileOperation(generated.DestinationPath, LoadGeneratedBytes(persisted, generated), generated.SourcePath));
+				foreach (CollectionReviewedGameSpecificValueSnapshot value in persisted.GameSpecificValues)
+					nativeOperations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+				ModInstallationRecipeInput translated = _simpleFileAdapter.TranslatePreparedPlan(input, nativeOperations);
 				result.Add(new PreparedCollectionNativeRecipe(member,
 					PreparedCollectionNativeRecipeIdentity.FromFingerprint(persisted.PreparedNativeFingerprint), translated,
 					persisted.EffectPreview, persisted.SkipReadmeFiles, persisted.RetainedArtifactIds));

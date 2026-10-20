@@ -23,6 +23,9 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionAdditiveApplicationService
 	{
+		/// <summary>Reviews explicit, reversible post-install setup overlays for the active Collection target.</summary>
+		public CollectionSetupPackageService SetupPackages { get; private set; }
+
 		private readonly ServiceManager _services;
 		private readonly IProfileManager _profileManager;
 		private readonly GameStorageService _gameStorageService;
@@ -59,6 +62,7 @@ namespace Nexus.Client.CollectionManagement
 			_selectionBuilder = new CollectionEffectiveSelectionBuilder();
 			_bundleImporter = new NexusCollectionBundleImporter();
 			_conflictResolutionCoordinator = new CollectionConflictResolutionCoordinator(new CollectionsConflictResolutionStore(_store));
+			SetupPackages = new CollectionSetupPackageService(_services, _gameStorageService, _store);
 			_workflow = BuildWorkflow(paths);
 		}
 
@@ -392,9 +396,16 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reconciles incomplete additive operations for the active target before resume.</summary>
 		public Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(CancellationToken cancellationToken)
 		{
+			return ReconcileIncompleteTargetAsync(cancellationToken, false);
+		}
+
+		/// <summary>Allows an explicit recovery action to finish an unchanged, unregistered Witcher activation.</summary>
+		internal Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(CancellationToken cancellationToken,
+			bool repairInterruptedActivation)
+		{
 			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
 				return Task.FromResult((IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>)new CollectionAdditiveWorkflowRecoveryResult[0]);
-			return _workflow.ReconcileIncompleteTargetAsync(GetTargetPaths(), cancellationToken);
+			return _workflow.ReconcileIncompleteTargetAsync(GetTargetPaths(), cancellationToken, repairInterruptedActivation);
 		}
 
 		/// <summary>Loads a stopped partial installation's saved selections on a worker for an explicit continuation review.</summary>

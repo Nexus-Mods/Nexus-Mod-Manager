@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 2,
+  "modeId": "DragonAge",
+  "name": "Dragon Age",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "daorigins.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "17450",
+        "installFolderName": "dragon age origins",
+        "executableName": "daorigins.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "daorigins.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Dragon Age",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Dragon Age",
+    "defaultCommandText": "Launch Dragon Age",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "dragonage_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "managedInstallationPath": "{PersonalData}\\Bioware\\Dragon Age\\Packages\\Core\\Override"
+  },
+  "compatibilityNotes": [
+    "The DLL retains DAZIP manifest registration, addins deployment and chargenmorphcfg.xml merging. The JSON-only baseline deploys ordinary override files and does not implement those operations."
+  ]
+}

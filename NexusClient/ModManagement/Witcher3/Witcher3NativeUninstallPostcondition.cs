@@ -38,6 +38,19 @@ namespace Nexus.Client.ModManagement.Witcher3
             if (targets.Count == 0)
                 throw new InvalidDataException("A removal cannot be reconciled without its original reviewed file set.");
 
+            RequireOwnerAbsent(committedAfter, removedOwnerKey);
+
+            foreach (string target in targets.OrderBy(path => path, Names))
+                if (isStillPresent(target))
+                    throw new InvalidDataException("A reviewed removal target still exists on disk: " + target);
+        }
+
+        /// <summary>Checks native owner removal independently of whether files are absent or restored to previous owners.</summary>
+        internal static void RequireOwnerAbsent(NativeStateCaptureSnapshot committedAfter, string removedOwnerKey)
+        {
+            if (committedAfter == null || String.IsNullOrWhiteSpace(removedOwnerKey) || committedAfter.Issues.Count != 0 ||
+                committedAfter.DeploymentCoverage == NativeStateCaptureCoverage.Unavailable || committedAfter.DeploymentCoverage == NativeStateCaptureCoverage.Partial)
+                throw new InvalidDataException("Post-removal native authority is incomplete.");
             if (committedAfter.InstallLog.Mods.Any(mod => Names.Equals(mod.ModKey, removedOwnerKey)) ||
                 committedAfter.InstallLog.Files.Any(file => file.OwnerKeys.Contains(removedOwnerKey, Names)) ||
                 committedAfter.InstallLog.DeploymentTargets.Any(target => target.OwnerKeys.Contains(removedOwnerKey, Names)) ||
@@ -47,10 +60,6 @@ namespace Nexus.Client.ModManagement.Witcher3
                 committedAfter.InstallLog.GameValues.Any(value => value.Values.Any(entry => Names.Equals(entry.OwnerKey, removedOwnerKey))) ||
                 committedAfter.ReplayReferences.Any(reference => Names.Equals(reference.ModKey, removedOwnerKey)))
                 throw new InvalidDataException("The removed native owner still appears in committed InstallLog or deployment state.");
-
-            foreach (string target in targets.OrderBy(path => path, Names))
-                if (isStillPresent(target))
-                    throw new InvalidDataException("A reviewed removal target still exists on disk: " + target);
         }
     }
 }

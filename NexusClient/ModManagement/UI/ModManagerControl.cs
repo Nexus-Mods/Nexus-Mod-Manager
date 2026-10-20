@@ -18,6 +18,7 @@ namespace Nexus.Client.ModManagement.UI
 	using Mods;
 	using Nexus.Client.UI;
 	using Nexus.Client.UI.Controls;
+	using Nexus.Client.Util.Localization;
 	using Util;
 	using Util.Collections;
 	using Nexus.UI.Controls;
@@ -110,13 +111,8 @@ namespace Nexus.Client.ModManagement.UI
 				ViewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 				ViewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 
-				tsbSkyrimDownloads.Visible = ViewModel.IsSkyrimSEGameMode;
-
-				if (ViewModel.IsSkyrimSEGameMode)
-				{
-					tsbSkyrimDownloads.Image = ViewModel.SkyrimDownloadImage;
-					tsbSkyrimDownloads.Text = tsbSkyrimDownloads.ToolTipText = $"Skyrim SE current download mode: {ViewModel.SkyrimSEDownloadModeDescriptor}";
-				}
+				tsbSkyrimDownloads.Visible = ViewModel.HasDownloadModeChoice;
+				SetSkyrimDownloadModeFeedback();
 
 				LoadMetrics();
 				HidePanels();
@@ -235,10 +231,12 @@ namespace Nexus.Client.ModManagement.UI
 
 		public void SetSkyrimDownloadModeFeedback()
 		{
-			if (ViewModel.IsSkyrimSEGameMode)
+			if (ViewModel.HasDownloadModeChoice)
 			{
 				tsbSkyrimDownloads.Image = ViewModel.SkyrimDownloadImage;
-				tsbSkyrimDownloads.Text = tsbSkyrimDownloads.ToolTipText = $"Skyrim SE current download mode: {ViewModel.SkyrimSEDownloadModeDescriptor}";
+				tsbSkyrimDownloads.Text = LanguageManager.Format("Mods.DownloadMode.Caption", "Download Mode: {0}", ViewModel.DownloadModeLabel);
+				tsbSkyrimDownloads.ToolTipText = LanguageManager.Format("Mods.DownloadMode.DestinationTooltip",
+					"Nexus downloads will go to: {0}. Click to switch edition.", ViewModel.DownloadModeDescriptor);
 			}
 		}
 
@@ -2734,7 +2732,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void tsbSkyrimDownloads_Click(object sender, EventArgs e)
 		{
-			if (_viewModel.ToggleSkyrimSEDownloadMode())
+			if (_viewModel.ToggleDownloadMode())
 			{
 				SetSkyrimDownloadModeFeedback();
 			}

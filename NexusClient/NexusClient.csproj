@@ -212,6 +212,8 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
+    <Compile Include="CollectionManagement\CollectionWitcher3Data.cs" />
+    <Compile Include="CollectionManagement\CollectionWitcher3InstallPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerSelectionStore.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerConditionEnvironment.cs" />
     <Compile Include="CollectionManagement\CollectionVortexBinaryPatch.cs" />
@@ -236,7 +238,19 @@
     <Compile Include="CollectionManagement\CollectionNativeChildRecoveryManifest.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildExecutionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildExecutionEvidence.cs" />
+    <Compile Include="CollectionManagement\CollectionSetupPackage.cs" />
+    <Compile Include="CollectionManagement\CollectionSetupPackageService.cs" />
+    <Compile Include="CollectionManagement\UI\CollectionSetupPackageReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Setup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Presentation.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="CollectionManagement\CollectionNativeChildRestartReconciliationCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeChildRestartReconciliationCoordinator.WitcherRecovery.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildVerificationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildPreparationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionResolvedArtifactChoice.cs" />
@@ -477,6 +491,9 @@
     <Compile Include="UI\DevExpressBarItemCommandBinding.cs" />
     <Compile Include="UI\DevExpressDisplaySettings.cs" />
     <Compile Include="UI\DevExpressLocalization.cs" />
+    <Compile Include="UI\DiagnosticTextBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="UI\NmmIconProvider.cs" />
     <Compile Include="UI\ManagedFontXtraForm.cs">
       <SubType>Form</SubType>
@@ -609,6 +626,9 @@
     </Compile>
     <Compile Include="ModManagement\Witcher3\Witcher3NativeDestinationPreflight.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.Collection.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3CollectionRecordStore.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3CollectionValueInstaller.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeWritePolicy.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeUpgradePolicy.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeUninstallPolicy.cs" />
@@ -697,6 +717,9 @@
     <Compile Include="PluginManagement\ManageMultiplePluginsTask.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Resources\GameDiscoveryDefault.png">
+      <LogicalName>Nexus.Client.GameDiscoveryDefault.png</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="ActivityMonitoring\UI\ActivityMonitorControl.resx">
       <DependentUpon>ActivityMonitorControl.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -888,9 +911,6 @@
     <Content Include="Languages\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="GameModes\Definitions\Enderal\Categories.xml" />
-    <Content Include="GameModes\Definitions\Enderal\enderal_base.txt" />
-    <Content Include="GameModes\Definitions\Enderal\enderal_logo.ico" />
     <Content Include="GameModes\schema\supported-tools.schema.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -903,8 +923,6 @@
     <Content Include="GameModes\Templates\SupportedTools.template.jsonc">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Include="GameModes\Definitions\Enderal\game.json" />
-    <None Include="GameModes\Definitions\Enderal\supportedTools.json" />
     <None Include="GameModes\Definitions\XCOM2\supportedTools.json" />
     <Content Include="Languages\French.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -1351,6 +1369,7 @@
     <Compile Include="Games\GameDiscoveryCatalog.cs" />
     <Compile Include="Games\GameDiscoveryArtwork.cs" />
     <Compile Include="Games\GameDiscoveryStartupIntent.cs" />
+    <Compile Include="NexusLinkHandoff.cs" />
     <Compile Include="Games\GameDiscoveryConfigurationService.cs" />
     <Compile Include="Games\GameSessionEntryGate.cs" />
     <Compile Include="Games\UI\GameDiscoveryGameRequestedEventArgs.cs" />

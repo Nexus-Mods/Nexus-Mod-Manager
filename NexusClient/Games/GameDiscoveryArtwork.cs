@@ -15,8 +15,8 @@
 	/// </summary>
 	internal sealed class GameDiscoveryArtwork
 	{
-		internal const int BannerWidth = 960;
-		internal const int BannerHeight = 540;
+		internal const int BannerWidth = 640;
+		internal const int BannerHeight = 960;
 		private const long MaximumImageBytes = 16L * 1024 * 1024;
 		private readonly string _overrideDirectory;
 		private readonly Func<string, string> _definitionPath;
@@ -83,12 +83,14 @@
 			return Path.Combine(_overrideDirectory, modeId + ".png");
 		}
 
+		/// <summary>Normalizes new imports and read-only previews to the portrait cover ratio; existing files are never rewritten on load.</summary>
 		private static Bitmap CropToBanner(Image original)
 		{
 			float width = original.Width;
 			float height = original.Height;
-			if (width / height > 16f / 9f) width = height * 16f / 9f;
-			else height = width * 9f / 16f;
+			float ratio = BannerWidth / (float)BannerHeight;
+			if (width / height > ratio) width = height * ratio;
+			else height = width / ratio;
 			var source = new RectangleF((original.Width - width) / 2f,
 				(original.Height - height) / 2f, width, height);
 			var banner = new Bitmap(BannerWidth, BannerHeight, PixelFormat.Format24bppRgb);

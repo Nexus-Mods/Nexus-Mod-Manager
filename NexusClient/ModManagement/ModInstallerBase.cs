@@ -143,14 +143,20 @@ namespace Nexus.Client.ModManagement
 			m_ctlParentMutationLease = p_ctlParentLease;
 		}
 
-		/// <summary>
-		/// Acquires the shared native mutation reservation for this operation.
-		/// </summary>
-		/// <remarks>
-		/// Collection children inherit their reviewed canonical parent reservation. Ordinary root operations use the configured
-		/// manual-native boundary, which adds the same physical-target cross-process reservation and authoritative reload used by
-		/// Collections. Early/test contexts without that production boundary retain the legacy process-only fallback.
-		/// </remarks>
+		/// <summary>Returns the live root authority of this exact native reservation, including an assigned Collection parent.</summary>
+		protected CollectionTargetMutationLease GetRootMutationAuthority(CollectionTargetMutationLease lease)
+		{
+			if (lease == null || lease.IsDisposed) throw new InvalidOperationException("The native mutation lease is no longer live.");
+			if (lease.IsRoot) return lease;
+			CollectionTargetMutationLease parent = m_ctlParentMutationLease;
+			if (parent == null || parent.IsDisposed || !parent.IsRoot || parent.ReservationId != lease.ReservationId ||
+				!StringComparer.Ordinal.Equals(parent.TargetFingerprint, lease.TargetFingerprint))
+				throw new InvalidOperationException("The native child has no live root authority for its reservation.");
+			return parent;
+		}
+
+		/// <summary>Acquires the native mutation reservation, inheriting the assigned Collection root when present.</summary>
+		/// <remarks>Ordinary operations retain the configured manual native reload and legacy process-only fallback.</remarks>
 		protected CollectionTargetMutationLease AcquireMutationLease()
 		{
 			ModOperationIdentity identity = OperationIdentity;

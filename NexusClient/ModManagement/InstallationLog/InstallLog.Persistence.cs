@@ -13,6 +13,29 @@ namespace Nexus.Client.ModManagement.InstallationLog
 	public partial class InstallLog
 	{
 		private InstallLogSqliteStore _store;
+
+		/// <summary>Preserves absent originals separately from existing empty binary values at XML boundaries.</summary>
+		internal static XElement SerializeGameSpecificValueOwner(string ownerKey, byte[] value)
+		{
+			return new XElement("mod", new XAttribute("key", ownerKey),
+				value == null ? (object)new XAttribute("absent", true) : Convert.ToBase64String(value));
+		}
+
+		/// <summary>Reads legacy Base64 values and the explicit absence marker without collapsing empty values.</summary>
+		internal static byte[] DeserializeGameSpecificValueOwner(XElement owner)
+		{
+			if (owner == null) throw new ArgumentNullException(nameof(owner));
+			XAttribute marker = owner.Attribute("absent");
+			if (marker != null)
+			{
+				bool absent;
+				if (!Boolean.TryParse(marker.Value, out absent) || (absent && owner.Value.Length != 0))
+					throw new InvalidDataException("The game-specific value has an invalid absence marker or conflicting payload.");
+				if (absent) return null;
+			}
+			return Convert.FromBase64String(owner.Value);
+		}
+
 		/// <summary>Detects either legacy input or an authoritative SQLite store, including a missing-store recovery marker.</summary>
 		public static bool HasPersistedLog(string logPath)
 		{
@@ -169,7 +192,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				foreach (IniEdit ini in _affectedIni)
 					entries.Add(new InstallLogSqliteStore.Entry(1, new XElement("ini", new XAttribute("file", ini.File), new XAttribute("section", ini.Section), new XAttribute("key", ini.Key), log._installedIniEdits.ContainsItem(ini) ? new XElement("installingMods", log._installedIniEdits[ini].Select(x => new XElement("mod", new XAttribute("key", x.InstallerKey), x.Value))) : null), !log._installedIniEdits.ContainsItem(ini)));
 				foreach (string key in _affectedValues)
-					entries.Add(new InstallLogSqliteStore.Entry(2, new XElement("edit", new XAttribute("key", key), log._gameSpecificValueEdits.ContainsItem(key) ? new XElement("installingMods", log._gameSpecificValueEdits[key].Select(x => new XElement("mod", new XAttribute("key", x.InstallerKey), Convert.ToBase64String(x.Value)))) : null), !log._gameSpecificValueEdits.ContainsItem(key)));
+					entries.Add(new InstallLogSqliteStore.Entry(2, new XElement("edit", new XAttribute("key", key), log._gameSpecificValueEdits.ContainsItem(key) ? new XElement("installingMods", log._gameSpecificValueEdits[key].Select(x => SerializeGameSpecificValueOwner(x.InstallerKey, x.Value))) : null), !log._gameSpecificValueEdits.ContainsItem(key)));
 				foreach (ModDeploymentTarget target in _affectedTargets)
 					entries.Add(new InstallLogSqliteStore.Entry(3, new XElement("file", new XAttribute("root", target.Root), new XAttribute("path", target.RelativePath), new XElement("installingMods", log.GetDeploymentOwnerKeysCore(target).Select(x => new XElement("mod", new XAttribute("key", x))))), !log._deploymentByTarget.ContainsKey(target)));
 				log._store.Apply(AffectedModKeys().Where(x => !_removedModKeys.Contains(x)).Select(x => new { Key = x, Mod = log._activeModRegistry.GetMod(x) }).Where(x => x.Mod != null).Select(x => log.SerializeMod(x.Mod, x.Key)), _removedModKeys, entries, sequence);

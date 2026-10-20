@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Fallout4VR",
+  "name": "Fallout 4 VR",
+  "behaviorProfile": "gamebryo",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Fallout4VR.exe"
+  ],
+  "stopFolders": [
+    "textures",
+    "scripts",
+    "meshes",
+    "music",
+    "shaders",
+    "video",
+    "interface",
+    "facegen",
+    "menus",
+    "lodsettings",
+    "lsdata",
+    "sound",
+    "CalienteTools",
+    "SKSE",
+    "MWSE",
+    "NVSE",
+    "F4SE",
+    "FOSE",
+    "OBSE"
+  ],
+  "pluginExtensions": [
+    ".esm",
+    ".esp"
+  ],
+  "orderedCriticalPluginNames": [
+    "Fallout4.esm",
+    "Fallout4_VR.esm"
+  ],
+  "orderedOfficialPluginNames": [],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "611660",
+        "installFolderName": "Fallout4VR",
+        "executableName": "Fallout4VR.exe"
+      }
+    ]
+  },
+  "plugin": {
+    "usesPlugins": true,
+    "pluginDirectorySuffix": "Data",
+    "supportsPluginAutoSorting": true,
+    "maxAllowedActivePluginsCount": 255
+  },
+  "launcher": {
+    "defaultExecutable": "Fallout4VR.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Fallout 4 VR",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Fallout 4 VR",
+    "defaultCommandText": "Launch Fallout 4 VR",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "fallout4vr_logo.ico",
+    "categoriesPath": "Categories.xml",
+    "baseFilesPath": "fallout4vr_base.txt"
+  },
+  "theme": {
+    "primaryColor": "#32689E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": true,
+    "hardlinkRequiredExtensions": [
+      ".esp",
+      ".esm",
+      ".bsa",
+      ".mp3",
+      ".wav",
+      ".ogg",
+      ".xwm",
+      ".ba2",
+      ".bgsm",
+      ".bgem"
+    ]
+  },
+  "gamebryo": {
+    "scriptExtenderExecutables": [
+      "f4sevr_loader.exe"
+    ],
+    "userGameDataPath": "{PersonalData}\\My Games\\Fallout4VR",
+    "iniFilePath": "{UserGameData}\\Fallout4Custom.ini",
+    "pluginsFilePath": "{LocalApplicationData}\\Fallout4VR\\plugins.txt",
+    "additionalSettingsFiles": {
+      "FOPrefsIniPath": "{UserGameData}\\Fallout4Prefs.ini"
+    },
+    "requiresOptionalFilesCheckOnProfileSwitch": true
+  },
+  "compatibilityNotes": [
+    "Reuses the existing Gamebryo profile for plugins, Data deployment and VR-specific INI locations.",
+    "Uses the VR-specific f4sevr_loader.exe rather than the flat-game F4SE executable. Runtime-version compatibility checks are outside this baseline definition."
+  ]
+}

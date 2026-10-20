@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Modder resources" ID="10">
+      <name>Modder resources</name>
+    </category>
+    <category path="Britain" ID="7">
+      <name>Britain</name>
+    </category>
+    <category path="Japan" ID="8">
+      <name>Japan</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Luftwaffe" ID="6">
+      <name>Luftwaffe</name>
+    </category>
+    <category path="Soviet" ID="5">
+      <name>Soviet</name>
+    </category>
+    <category path="USA" ID="4">
+      <name>USA</name>
+    </category>
+    <category path="Utilities" ID="9">
+      <name>Utilities</name>
+    </category>
+  </categoryList>
+</categoryManager>

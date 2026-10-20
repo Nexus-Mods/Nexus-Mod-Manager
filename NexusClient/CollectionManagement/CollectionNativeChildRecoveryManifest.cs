@@ -152,7 +152,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeModState PreviousNativeMod { get; }
 		public CollectionRecoveryArtifact PreviousArchive { get; }
 		public CollectionScriptedReplayRecoverySnapshot ScriptedReplay { get; }
-		/// <summary>Gets the durable content-verification evidence, or <c>null</c> when no extra content audit was requested.</summary>
+		/// <summary>Gets durable pre-mutation recovery evidence, or <c>null</c> for older content-check-free installs or before archive preparation.</summary>
 		public CollectionNativeChildExecutionEvidence ExecutionEvidence { get; }
 		/// <summary>Gets the exact authoritative native-state fingerprint observed when this child was verified committed.</summary>
 		public CollectionCurrentStateFingerprint TerminalStateFingerprint { get; }

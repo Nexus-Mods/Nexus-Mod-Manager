@@ -180,6 +180,7 @@
     <Compile Include="Witcher3ModSettingsChangePlannerTests.cs" />
     <Compile Include="Witcher3ModSettingsPublisherTests.cs" />
     <Compile Include="Witcher3ModSettingsLifecycleTests.cs" />
+    <Compile Include="Witcher3CollectionSupportTests.cs" />
     <Compile Include="Witcher3LoadOrderEditorSessionTests.cs" />
     <Compile Include="Witcher3LoadOrderExtendedEditorTests.cs" />
     <Compile Include="Witcher3ModSettingsExtendedPlannerTests.cs" />
@@ -306,6 +307,7 @@
     <Compile Include="ModInstallationReplicatedLayoutRecipeAdapterTests.cs" />
     <Compile Include="ModInstallationRestoreRegistrationRecipeAdapterTests.cs" />
     <Compile Include="ModDeploymentRestoreOwnerTests.cs" />
+    <Compile Include="CollectionSetupPackageTests.cs" />
     <Compile Include="ModInstallationFomodRecipeAdapterTests.cs" />
     <Compile Include="ModInstallationRecipeExecutionTests.cs" />
     <Compile Include="ModInstallationRecipeThreadingTests.cs" />
@@ -323,6 +325,8 @@
     <Compile Include="GameDiscoveryRecursiveScannerTests.cs" />
     <Compile Include="GameDiscoveryCatalogTests.cs" />
     <Compile Include="GameDiscoveryStartupIntentTests.cs" />
+    <Compile Include="NexusLinkHandoffTests.cs" />
+    <Compile Include="Witcher3DownloadModeTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />

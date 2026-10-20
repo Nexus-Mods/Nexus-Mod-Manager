@@ -174,7 +174,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			List<CollectionCapabilityIssue> manifestIssues = new List<CollectionCapabilityIssue>();
-			AddUnknownManifestFields(root, RootFields, "$", manifestIssues);
+			ValidateRootFields(root, manifestIssues);
 			ValidateInfo(root["info"], manifestIssues);
 			ValidateTopLevelBehavior(root, manifestIssues);
 			CollectionSetupGuidance setupGuidance = NormalizeSetupGuidance(root);
@@ -707,11 +707,18 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						{
 							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.VortexEnbGameRoot;
 						}
+						else if (String.Equals(ReadString(memberObject, "domainName"), "witcher3", StringComparison.OrdinalIgnoreCase) &&
+							new[] { "witcher3tl", "witcher3dlc", "witcher3menumodroot" }.Contains(modType, StringComparer.Ordinal))
+						{
+							// Witcher's ordinary Data root is the physical game root. The exact retained
+							// type remains recipe identity and is consumed by the Witcher native planner.
+							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
+						}
 						else
 						{
 							issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
 								"member.mod-type-unsupported",
-								"This Vortex member type has no characterized NMM native install-root mapping.",
+								GetUnsupportedModTypeReason(modType),
 								memberPath + ".details.type"));
 						}
 					}
@@ -2878,6 +2885,35 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			foreach (byte value in bytes)
 				builder.Append(value.ToString("x2", CultureInfo.InvariantCulture));
 			return builder.ToString();
+		}
+
+		/// <summary>Validates game extension data before accepting its additional root fields.</summary>
+		private static void ValidateRootFields(JObject root, List<CollectionCapabilityIssue> issues)
+		{
+			bool witcher = CollectionWitcher3Data.IsWitcherManifest(root);
+			if (witcher)
+			{
+				try { CollectionWitcher3Data.Parse(root); }
+				catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is OverflowException)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.witcher3-data-invalid", ex.Message, "$"));
+				}
+			}
+			foreach (JProperty property in root.Properties())
+			{
+				if (RootFields.Contains(property.Name) || (witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
+					continue;
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.unknown-field", "The manifest contains an uncharacterized field; NMM will not assume it is cosmetic.", "$." + property.Name));
+			}
+		}
+
+		/// <summary>Includes the bounded actual type value when a future Vortex type has no native mapping.</summary>
+		private static string GetUnsupportedModTypeReason(string modType)
+		{
+			string displayType = modType.Length > 96 ? modType.Substring(0, 96) + "..." : modType;
+			return "Vortex member type '" + displayType + "' has no supported NMM Collection install-root mapping.";
 		}
 
 		private static void AddUnknownManifestFields(JObject value, HashSet<string> allowed, string path, List<CollectionCapabilityIssue> issues)

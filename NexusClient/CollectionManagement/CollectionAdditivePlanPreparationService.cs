@@ -51,7 +51,6 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionAdditivePlanBuildResult Refresh(CollectionOperation operation, ResolvedCollectionPlan previous,
 			GameStoragePathSet targetPaths)
 		{
-			Witcher3NativeMutationReview.RequireCollectionSupport(targetPaths?.GameId);
 			CollectionTargetAuthority authority = _targetIdentityResolver.Resolve(targetPaths);
 			if (!authority.Target.Equals(previous.Target))
 				throw new InvalidOperationException("The Collection target changed. Open the Collection for the intended game again.");
@@ -74,7 +73,6 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(effectiveSelection));
 			if (targetPaths == null)
 				throw new ArgumentNullException(nameof(targetPaths));
-			Witcher3NativeMutationReview.RequireCollectionSupport(targetPaths.GameId);
 
 			// Selecting a different EXTERNAL archive creates a new immutable review, but the user's
 			// unchanged manifest has already had its Nexus prefer files resolved. Replaying those

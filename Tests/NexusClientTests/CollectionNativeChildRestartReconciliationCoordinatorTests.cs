@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -20,6 +20,34 @@ namespace NexusClientTests
 	public class CollectionNativeChildRestartReconciliationCoordinatorTests
 	{
 		private const string ShaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+		/// <summary>Forward recovery preserves matching files and rejects ownership, changed bytes and unknown output identities.</summary>
+		[TestCase("matching", false, true)]
+		[TestCase("matching", true, false)]
+		[TestCase("missing", false, true)]
+		[TestCase("changed", false, false)]
+		[TestCase("directory", false, false)]
+		[TestCase("unknown", false, false)]
+		public void ForwardWitcherRecovery_RequiresExactUnownedOutputs(string scenario, bool owned, bool expected)
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				string reference = Path.Combine(tmp.Path, "reference.ws");
+				File.WriteAllBytes(reference, new byte[] { 1, 2, 3 });
+				string path = Path.Combine(tmp.Path, "output.ws");
+				if (scenario == "directory") Directory.CreateDirectory(path);
+				else if (scenario != "missing") File.WriteAllBytes(path,
+					scenario == "changed" ? new byte[] { 3, 2, 1 } : new byte[] { 1, 2, 3 });
+				byte[] before = File.Exists(path) ? File.ReadAllBytes(path) : null;
+				var target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "Mods\\modExample\\output.ws");
+				var effect = scenario == "unknown" ? new CollectionPlannedFileEffect(target) :
+					new CollectionPlannedFileEffect(target, CollectionContentHash.FromSha256(ComputeSha256(reference)), 3);
+				Assert.AreEqual(expected, CollectionNativeChildRestartReconciliationCoordinator.CanRecoverUnownedWitcherOutput(
+					effect, owned, path));
+				if (before != null) CollectionAssert.AreEqual(before, File.ReadAllBytes(path));
+				else Assert.AreEqual(scenario == "directory", Directory.Exists(path));
+			}
+		}
 
 		/// <summary>Recovery can reuse a recorded commit without content evidence only while its exact terminal state and archive still match.</summary>
 		[TestCase("committed", true)]
@@ -93,6 +121,14 @@ namespace NexusClientTests
 					}
 				}
 			}
+		}
+
+		/// <summary>A sealed content-check-free commit must not be forced back into Unknown during restart reconciliation.</summary>
+		[Test]
+		public void DetermineRestartDurability_PreservesVerifiedRecordedCommit()
+		{
+			Assert.AreEqual(ModOperationDurability.VerifiedCommitted,
+				InvokeDurability(ModOperationDurability.VerifiedCommitted, true, false));
 		}
 
 		[Test]

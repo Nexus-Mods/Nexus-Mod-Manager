@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 2,
+  "modeId": "BreakingWheel",
+  "name": "Breaking Wheel",
+  "behaviorProfile": "generic",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Main Game\\Ellie_Ball_Project.exe"
+  ],
+  "stopFolders": [
+    "Content"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "545890",
+        "installFolderName": "Breaking Wheel",
+        "executableName": "Main Game\\Ellie_Ball_Project.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "Main Game\\Ellie_Ball_Project.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Breaking Wheel",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Breaking Wheel",
+    "defaultCommandText": "Launch Breaking Wheel",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "breakingwheel_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Preserves the game-root deployment target. Archives must contain Main Game\\Ellie_Ball_Project\\Content in their game-relative layout; the generic baseline does not insert that legacy prefix automatically."
+  ]
+}

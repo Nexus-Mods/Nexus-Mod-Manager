@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 2,
+  "modeId": "WorldOfTanks",
+  "name": "World of Tanks",
+  "behaviorProfile": "generic",
+  "legacyFallback": true,
+  "gameExecutables": [
+    "WorldOfTanks.exe"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "launcher": {
+    "defaultExecutable": "WorldOfTanks.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch World of Tanks",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom World of Tanks",
+    "defaultCommandText": "Launch World of Tanks",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "wot_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#502D17"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Automatic discovery remains manual, matching the legacy factory.",
+    "The DLL retains version.xml-based res_mods version selection. The JSON-only baseline accepts complete game-relative archive layouts and does not guess a version directory."
+  ]
+}
