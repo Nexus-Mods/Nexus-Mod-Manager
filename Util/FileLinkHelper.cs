@@ -12,7 +12,7 @@ namespace Nexus.Client.Util
 	{
 		public static FileLinkType GetFileLinkType(string path)
 		{
-			using (SafeFileHandle handle = CreateFile(path, 0, FileShare.ReadWrite | FileShare.Delete,
+			using (SafeFileHandle handle = CreateFile(FileUtil.GetIoPath(path), 0, FileShare.ReadWrite | FileShare.Delete,
 					   IntPtr.Zero, FileMode.Open,
 					   FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, IntPtr.Zero))
 			{

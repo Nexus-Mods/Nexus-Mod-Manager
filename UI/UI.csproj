@@ -311,6 +311,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\info.png" />
+    <EmbeddedResource Include="Resources\Information.svg" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\error.png" />

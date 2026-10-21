@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -213,6 +214,8 @@ namespace Nexus.UI.Controls
 		protected ExtendedMessageBox()
 		{
 			InitializeComponent();
+			pbxIcon.Properties.Appearance.BackColor = Color.Transparent;
+			pbxIcon.Properties.Appearance.Options.UseBackColor = true;
 			m_strSeeDetailsText = LanguageManager.Get("Common.MessageBox.SeeDetails.Name", "See details");
 			m_strHideDetailsText = LanguageManager.Get("Common.MessageBox.HideDetails.Name", "Hide details");
 			cbxRemember.Properties.Caption = LanguageManager.Get("Common.MessageBox.RememberSelection.Option", "Remember my selection");
@@ -289,7 +292,9 @@ namespace Nexus.UI.Controls
 			switch (p_mbiIcon)
 			{
 				case MessageBoxIcon.Information:
-					pbxIcon.Image = Bitmap.FromHicon(SystemIcons.Information.Handle);
+					using (Stream stream = typeof(ExtendedMessageBox).Assembly.GetManifestResourceStream("Nexus.UI.Resources.Information.svg"))
+						pbxIcon.SvgImage = DevExpress.Utils.Svg.SvgImage.FromStream(stream);
+					pbxIcon.SvgImageSize = new Size(32, 32);
 					break;
 				case MessageBoxIcon.Error:
 					pbxIcon.Image = Bitmap.FromHicon(SystemIcons.Error.Handle);
@@ -306,8 +311,9 @@ namespace Nexus.UI.Controls
 			}
 			if (booShowIcon)
 			{
-				pbxIcon.MinimumSize = new Size(pbxIcon.Padding.Left + pbxIcon.Padding.Right + pbxIcon.Image.Width, pbxIcon.Padding.Top + pbxIcon.Padding.Bottom + pbxIcon.Image.Height);
-				pbxIcon.MaximumSize = new Size(pbxIcon.Padding.Left + pbxIcon.Padding.Right + pbxIcon.Image.Width, pbxIcon.Padding.Top + pbxIcon.Padding.Bottom + pbxIcon.Image.Height);
+				Size iconSize = pbxIcon.SvgImage != null ? pbxIcon.SvgImageSize : pbxIcon.Image.Size;
+				pbxIcon.MinimumSize = new Size(pbxIcon.Padding.Left + pbxIcon.Padding.Right + iconSize.Width, pbxIcon.Padding.Top + pbxIcon.Padding.Bottom + iconSize.Height);
+				pbxIcon.MaximumSize = pbxIcon.MinimumSize;
 				pnlMessage.MinimumSize = new Size(0, pbxIcon.MinimumSize.Height);
 			}
 			pbxIcon.Visible = booShowIcon;

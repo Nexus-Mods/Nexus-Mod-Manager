@@ -527,6 +527,66 @@
             }
         }
 
+        /// <summary>Long deployment paths remain discoverable, owned and correctly classified after scanning and activation refresh.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Scan_LongPathsPreserveOwnershipAndResolveLinkTypes(bool longDeploymentRoot)
+        {
+            string temporaryRoot = Path.Combine(Path.GetTempPath(), "NmmFileManager_" + Guid.NewGuid().ToString("N"));
+            string deploymentRoot = Path.Combine(temporaryRoot, "Data");
+            string relativeDirectory = String.Empty;
+            while (relativeDirectory.Length < 300)
+                relativeDirectory = Path.Combine(relativeDirectory, new string('d', 24));
+            if (longDeploymentRoot)
+            {
+                deploymentRoot = Path.Combine(deploymentRoot, relativeDirectory);
+                relativeDirectory = "textures";
+            }
+            string directory = Path.Combine(deploymentRoot, relativeDirectory);
+            Directory.CreateDirectory(Nexus.Client.Util.FileUtil.GetIoPath(directory));
+            try
+            {
+                string source = Path.Combine(temporaryRoot, "source.bin");
+                File.WriteAllText(source, "linked content");
+                string linkedRelativePath = Path.Combine(relativeDirectory, "linked.dds");
+                string linkedPath = Path.Combine(deploymentRoot, linkedRelativePath);
+                string regularPath = Path.Combine(directory, "regular.dds");
+                File.WriteAllText(Nexus.Client.Util.FileUtil.GetIoPath(regularPath), "regular content");
+                Assert.IsTrue(new ChinhDo.Transactions.TxFileManager().CreateHardLink(linkedPath, source));
+                var links = new ThreadSafeObservableList<IVirtualModLink>
+                {
+                    new TestVirtualModLink(linkedRelativePath, true, 0, new TestVirtualModInfo("nested.7z", "Nested Mod"))
+                };
+                IGameMode game = CreateScanGame(deploymentRoot);
+                IVirtualModActivator activator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+                    method.Name == "get_VirtualLinks" ? links : null);
+                var service = new FileManagerQueryService();
+                FileManagerScanResult result = service.Scan(game, activator, CancellationToken.None);
+                Assert.AreEqual(2, result.TotalFiles);
+                Assert.AreEqual(0, result.Diagnostics.SkippedDirectoryCount);
+                Assert.AreEqual(0, result.Diagnostics.SkippedFileCount);
+                FileManagerRow row = result.RowsByNormalizedPath[linkedRelativePath];
+                Assert.AreEqual(linkedPath, row.FullPath);
+                Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
+                Assert.IsFalse(row.FullPath.StartsWith(@"\\?\", StringComparison.Ordinal));
+                FileManagerLinkTypeResolutionDiagnostics resolution = FileManagerLinkTypeResolver.Resolve(
+                    result.Rows, result.Rows.Count, (batch, completed, total) => { }, CancellationToken.None);
+                Assert.AreEqual(1, resolution.HardLinkCount);
+                Assert.AreEqual(1, resolution.RealFileCount);
+                Assert.AreEqual(0, resolution.UnavailableCount);
+                Assert.AreEqual(0, resolution.NotFoundCount);
+                Assert.AreEqual(1, service.SynchronizeRowsAfterActivation(
+                    result.Rows, result.RowsByNormalizedPath, game, activator).InstalledByNmm);
+                var refreshedRows = new List<FileManagerRow>();
+                var refreshedIndex = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
+                Assert.AreEqual(1, service.SynchronizeRowsAfterActivation(refreshedRows, refreshedIndex, game, activator).InstalledByNmm);
+                Assert.AreEqual(linkedPath, refreshedRows.Single().FullPath);
+            }
+            finally
+            {
+                Directory.Delete(Nexus.Client.Util.FileUtil.GetIoPath(temporaryRoot), true);
+            }
+        }
         /// <summary>Cancellation after the initial progress event does not publish a completed scan.</summary>
         [Test]
         public void Scan_ProgressHonorsCancellation()

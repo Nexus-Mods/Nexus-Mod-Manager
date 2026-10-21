@@ -6,6 +6,8 @@
     using System.Runtime.InteropServices;
     using System.Threading;
 
+    using Nexus.Client.Util;
+
     /// <summary>
     /// Enumerates deployment files and returns the metadata supplied by the native directory scan.
     /// </summary>
@@ -40,7 +42,12 @@
                 cancellationToken.ThrowIfCancellationRequested();
                 PendingDirectory directory = pendingDirectories.Pop();
                 string searchPattern;
-                if (!TryCombinePath(directory.FullPath, "*", out searchPattern))
+                try
+                {
+                    // Convert only the native I/O path; row paths and ownership keys retain their existing format.
+                    searchPattern = Path.Combine(FileUtil.GetIoPath(directory.FullPath), "*");
+                }
+                catch
                 {
                     stats.SkippedDirectories++;
                     continue;

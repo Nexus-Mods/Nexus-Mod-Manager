@@ -48,7 +48,7 @@
             Stopwatch totalWatch = Stopwatch.StartNew();
             FileManagerScanDiagnostics diagnostics = new FileManagerScanDiagnostics();
             string deploymentRoot = GetDeploymentRoot(gameMode);
-            if (string.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(deploymentRoot))
+            if (string.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(FileUtil.GetIoPath(deploymentRoot)))
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
             Stopwatch stageWatch = Stopwatch.StartNew();
@@ -213,7 +213,7 @@
             if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
 
             string deploymentRoot = GetDeploymentRoot(gameMode);
-            if (String.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(deploymentRoot))
+            if (String.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(FileUtil.GetIoPath(deploymentRoot)))
                 return ReclassifyRows(rows, gameMode, virtualModActivator, deploymentManager);
 
             Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildOwnershipLookup(virtualModActivator, deploymentManager, gameMode, deploymentRoot);
@@ -240,7 +240,7 @@
                 }
                 else if (FileManagerSourceDisplay.IsNmmSource(row.Source))
                 {
-                    if (String.IsNullOrWhiteSpace(row.FullPath) || !File.Exists(row.FullPath))
+                    if (String.IsNullOrWhiteSpace(row.FullPath) || !File.Exists(FileUtil.GetIoPath(row.FullPath)))
                     {
                         rows.RemoveAt(index);
                         continue;
@@ -260,7 +260,7 @@
                     continue;
 
                 string fullPath = GetSafeDeploymentFilePath(deploymentRoot, rootPrefix, pair.Key);
-                if (String.IsNullOrWhiteSpace(fullPath) || !File.Exists(fullPath))
+                if (String.IsNullOrWhiteSpace(fullPath) || !File.Exists(FileUtil.GetIoPath(fullPath)))
                     continue;
 
                 FileManagerRow row = CreateRow(fullPath, rootPrefix);
@@ -971,7 +971,7 @@
         {
             try
             {
-                FileInfo fileInfo = new FileInfo(filePath);
+                FileInfo fileInfo = new FileInfo(FileUtil.GetIoPath(filePath));
                 if (!fileInfo.Exists)
                     return null;
 
