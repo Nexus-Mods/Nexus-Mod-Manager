@@ -1,7 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.Serialization.Json;
 using System.Text;
+using System.Text.RegularExpressions;
 using Nexus.Client.Util.Localization;
 using NUnit.Framework;
 
@@ -174,6 +177,50 @@ namespace UtilTests.Localization
 
 			Assert.IsTrue(LanguageManager.EnsureLanguagesDirectory(nestedDirectory));
 			Assert.IsTrue(Directory.Exists(nestedDirectory));
+		}
+
+		/// <summary>Every shipped catalog must match the English template and retain valid composite-format placeholders.</summary>
+		[TestCase("English.json", "en-US")]
+		[TestCase("French.json", "fr-FR")]
+		[TestCase("German.json", "de-DE")]
+		[TestCase("Spanish.json", "es-ES")]
+		[TestCase("Turkish.json", "tr-TR")]
+		[TestCase("SimplifiedChinese.json", "zh-CN")]
+		public void ShippedCatalogsMatchEnglishAndPreserveFormats(string fileName, string languageId)
+		{
+			string directory = Path.Combine(TestContext.CurrentContext.TestDirectory, "Languages");
+			LanguagePack english = ReadShippedCatalog(Path.Combine(directory, "English.json"));
+			LanguagePack translated = ReadShippedCatalog(Path.Combine(directory, fileName));
+			Assert.AreEqual(LanguageManager.CurrentPackFormatVersion, translated.FormatVersion);
+			Assert.AreEqual(languageId, translated.Id);
+			Assert.DoesNotThrow(() => CultureInfo.GetCultureInfo(translated.Culture));
+			CollectionAssert.AreEquivalent(english.Strings.Keys, translated.Strings.Keys, fileName);
+			LanguageManager.Initialize(languageId, directory);
+			Assert.AreEqual(languageId, LanguageManager.CurrentLanguage.Id);
+
+			Regex formatItem = new Regex(@"(?<!\{)\{(?<index>\d+)(?:,[^}:]+)?(?::[^{}]*)?\}(?!\})");
+			foreach (string key in english.Strings.Keys)
+			{
+				string value = translated.Strings[key];
+				Assert.IsFalse(String.IsNullOrWhiteSpace(value), fileName + ": " + key);
+				Assert.AreEqual(value, LanguageManager.Get(key, english.Strings[key]), fileName + ": " + key);
+				string[] expectedItems = formatItem.Matches(english.Strings[key]).Cast<Match>().Select(match => match.Value).ToArray();
+				string[] translatedItems = formatItem.Matches(value).Cast<Match>().Select(match => match.Value).ToArray();
+				CollectionAssert.AreEquivalent(expectedItems, translatedItems, fileName + ": " + key);
+				if (expectedItems.Length == 0)
+					continue;
+				int count = formatItem.Matches(value).Cast<Match>().Max(match => Int32.Parse(match.Groups["index"].Value)) + 1;
+				Assert.DoesNotThrow(() => String.Format(CultureInfo.InvariantCulture, value, new object[count]), fileName + ": " + key);
+			}
+		}
+
+		/// <summary>Reads the shipped JSON format while accepting the same optional UTF-8 BOM as the runtime loader.</summary>
+		private static LanguagePack ReadShippedCatalog(string path)
+		{
+			DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(LanguagePack),
+				new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
+			using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(File.ReadAllText(path))))
+				return (LanguagePack)serializer.ReadObject(stream);
 		}
 
 		private void WritePack(string fileName, string json, bool includeByteOrderMark = false)

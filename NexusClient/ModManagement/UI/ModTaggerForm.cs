@@ -96,6 +96,7 @@
 		/// </summary>
 		private void ApplyLocalization()
 		{
+			picScreenshot.Properties.NullText = LanguageManager.Get("Mods.ModTagger.NoScreenshot", "No screenshot");
 			Text = LanguageManager.Get("Mods.ModTagger.Window.Title", "Get Mod Info");
 			grpCandidates.Text = LanguageManager.Get("Mods.ModTagger.Candidates.Title", "Nexus matches");
 			lblCandidateHint.Text = LanguageManager.Get("Mods.ModTagger.Candidates.DefaultHint", "Select the exact Nexus file when one is available, or edit the metadata manually.");

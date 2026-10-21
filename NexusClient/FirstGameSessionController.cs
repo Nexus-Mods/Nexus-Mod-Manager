@@ -372,7 +372,7 @@
 			CollectionTargetMutationLease lease;
 			if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out lease))
 			{
-				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SwitchNativeBusy",
+				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SwitchOperationBusy",
 					"A native mod or Collection operation is still active. Try again after it finishes."));
 				return false;
 			}

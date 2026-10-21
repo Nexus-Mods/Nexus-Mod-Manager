@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -174,6 +175,7 @@ namespace Nexus.Client.UI.Controls
 			: base()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			tlcProfileName.Name = "ProfileName";
 			tlcActiveMods.Name = "ActiveMods";
 			tlcLastBackedUp.Name = "LastBackedUp";
@@ -695,5 +697,16 @@ namespace Nexus.Client.UI.Controls
 			this.SecondarySortColumn = tlcProfileName;
 			this.SecondarySortOrder = SortOrder.Ascending;
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tlcProfileName.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcProfileName.Text", "Profile Name");
+			tlcActiveMods.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcActiveMods.Text", "Active Mods");
+			tlcWorksWithSaves.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcWorksWithSaves.Text", "Works With Saves");
+			tlcLastBackedUp.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcLastBackedUp.Text", "Last backed up");
+			tlcShared.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcShared.Text", "Shared");
+			tlcVersion.Text = LanguageManager.Get("Legacy.BackedProfilesListView.tlcVersion.Text", "Version");
+		}
+
 	}
 }

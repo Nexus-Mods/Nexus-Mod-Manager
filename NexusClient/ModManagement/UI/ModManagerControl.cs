@@ -130,6 +130,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			Load += ModManagerControl_Load;
 			InitializeComponent();
+			ApplyLocalization();
 			Disposed += ModManagerControl_Disposed;
 
 			clwCategoryView.BeforeSorting += clwCategoryView_BeforeSorting;
@@ -635,7 +636,7 @@ namespace Nexus.Client.ModManagement.UI
 					var strResult = e.Argument.ReturnValue.ToString();
 					if (strResult.Length > 2)
 					{
-						ExtendedMessageBox.Show(this, strResult, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						ExtendedMessageBox.Show(this, strResult, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 				}
 			}
@@ -655,7 +656,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (e.Argument.ReturnValue != null)
 			{
-				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use the base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this, LanguageManager.Format("Mods.Categories.OnlineUpdateFailed", "Unable to update the category list online, it will use the base categories: {0}{1}", Environment.NewLine, e.Argument.ReturnValue), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			CategoriesUpdateCheckTask categoryUpdateTask = e.Argument as CategoriesUpdateCheckTask;
@@ -964,7 +965,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">A <see cref="BrightIdeasSoftware.ToolTipShowingEventArgs"/> describing the event arguments.</param>
 		private void CategoryListView_CellToolTipShowing(object sender, BrightIdeasSoftware.ToolTipShowingEventArgs e)
 		{
-			if (e.Column.Text == "Mod Version")
+			if (e.Column.Name == "WebVersion")
 			{
 				if (e.Item.RowObject.GetType() != typeof(ModCategory))
 				{
@@ -972,17 +973,17 @@ namespace Nexus.Client.ModManagement.UI
 					if (!modMod.IsMatchingVersion())
 					{
 						e.AutoPopDelay = 10000;
-						e.Title = $"Online Version: {modMod.LastKnownVersion}";
+						e.Title = LanguageManager.Format("Mods.Tooltip.OnlineVersionTitle", "Online Version: {0}", modMod.LastKnownVersion);
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
-						e.Text = "It seems there's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.";
+						e.Text = LanguageManager.Get("Mods.Tooltip.UpdateAvailable", "It seems there's a new mod version available on the Nexus,\r\nclick on the version number to access the mod page in your default browser.");
 						e.IsBalloon = true;
 					}
 					else if (!modMod.UpdateChecksEnabled)
 					{
 						e.AutoPopDelay = 10000;
-						e.Title = "Mod Update Checks and Automatic Rename";
+						e.Title = LanguageManager.Get("Mods.Tooltip.UpdateChecksTitle", "Mod Update Checks and Automatic Rename");
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
-						e.Text = "Mod update checks and automatic mod renames are disabled for this mod.";
+						e.Text = LanguageManager.Get("Mods.Tooltip.UpdateChecksDisabled", "Mod update checks and automatic mod renames are disabled for this mod.");
 						e.IsBalloon = true;
 					}
 				}
@@ -994,7 +995,7 @@ namespace Nexus.Client.ModManagement.UI
 					if (lstOutdatedMods.Count > 0)
 					{
 						e.AutoPopDelay = 10000;
-						e.Title = "Some mods in this category could require an update";
+						e.Title = LanguageManager.Get("Mods.Tooltip.OutdatedCategoryTitle", "Some mods in this category could require an update");
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
 
 						var strModlist = String.Empty;
@@ -1010,7 +1011,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 
-			if (e.Column.Text == "Download Id")
+			if (e.Column.Name == "DownloadId")
 			{
 				if (e.Item.RowObject.GetType() != typeof(ModCategory))
 				{
@@ -1019,9 +1020,9 @@ namespace Nexus.Client.ModManagement.UI
 					if ((modMod.DownloadId == "0") || (modMod.DownloadId == "-1") || (string.IsNullOrEmpty(modMod.DownloadId)))
 					{
 						e.AutoPopDelay = 10000;
-						e.Title = String.Format("Nexus file ID:");
+						e.Title = LanguageManager.Get("Mods.Tooltip.NexusFileIdTitle", "Nexus file ID:");
 						e.StandardIcon = BrightIdeasSoftware.ToolTipControl.StandardIcons.Info;
-						e.Text = "Either this mod is not present on the Nexus or you need to \r\nuse the 'Check for missing/outdated download IDs' function to retrieve the correct ID.";
+						e.Text = LanguageManager.Get("Mods.Tooltip.MissingDownloadId", "Either this mod is not present on the Nexus or you need to \r\nuse the 'Check for missing/outdated download IDs' function to retrieve the correct ID.");
 						e.IsBalloon = true;
 					}
 				}
@@ -2737,6 +2738,43 @@ namespace Nexus.Client.ModManagement.UI
 				SetSkyrimDownloadModeFeedback();
 			}
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tsbAddMod.Text = LanguageManager.Get("Mods.Actions.Add.Name", "Add Mod");
+			addModToolStripMenuItem.Text = LanguageManager.Get("Mods.Actions.AddFromFile.Name", "Add Mod from File");
+			addModFromURLToolStripMenuItem.Text = LanguageManager.Get("Mods.Actions.AddFromUrl.Name", "Add Mod from URL");
+			tsb_SaveModLoadOrder.Text = LanguageManager.Get("Mods.Actions.SaveLoadOrder.Name", "Save mod load order");
+			tsb_ModUpLoadOrder.ToolTipText = LanguageManager.Get("Mods.Actions.MoveUp.Tooltip", "Moves mod up in the load order");
+			tsb_ModDownLoadOrder.ToolTipText = LanguageManager.Get("Mods.Actions.MoveDown.Tooltip", "Moves mod down in the load order");
+			tsbModOnlineChecks.Text = LanguageManager.Get("Mods.Actions.Updates.Tooltip", "Check for mod updates");
+			checkForModUpdateWithinTheLastDayToolStripMenuItem.Text = LanguageManager.Get("Mods.UpdateChecks.Interval.Name", "Check for Mod Updates Interval ...");
+			withinTheLastDayToolStripMenuItem.Text = LanguageManager.Get("Mods.UpdateChecks.LastDay.Name", "...within the last day");
+			withinTheLastWeekToolStripMenuItem.Text = LanguageManager.Get("Mods.UpdateChecks.LastWeek.Name", "...within the last week");
+			withinTheLastMonthToolStripMenuItem.Text = LanguageManager.Get("Mods.UpdateChecks.LastMonth.Name", "...within the last month");
+			checkFileDownloadId.Text = LanguageManager.Get("Mods.UpdateChecks.FixDownloadIds.Name", "Fix download IDs and Check for mod updates");
+			checkMissingDownloadId.Text = LanguageManager.Get("Mods.UpdateChecks.MissingDownloadIds.Name", "Just check for missing download IDs");
+			tsbResetCategories.Text = LanguageManager.Get("Legacy.ModManagerControl.tsbResetCategories.Text", "Categories: add new category - Click the small arrow for more options");
+			addNewCategory.Text = LanguageManager.Get("Mods.Categories.Add.Name", "Categories: add new category");
+			collapseAllCategories.Text = LanguageManager.Get("Mods.Categories.CollapseAll.FullName", "Categories: collapse all categories");
+			expandAllCategories.Text = LanguageManager.Get("Mods.Categories.ExpandAll.FullName", "Categories: expand all categories");
+			updateNexusAndCustomCategories.Text = LanguageManager.Get("Mods.Categories.UpdateNexusCustom.FullName", "Categories: Update Nexus and custom categories");
+			resetDefaultCategories.Text = LanguageManager.Get("Mods.Categories.ResetNexusDefaults.FullName", "Categories: Update and reset to Nexus site defaults");
+			resetUnassignedToDefaultCategories.Text = LanguageManager.Get("Mods.Categories.ResetUnassigned.FullName", "Categories: reset Unassigned mods to Nexus site defaults");
+			resetModsCategory.Text = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.FullName", "Categories: reset all mods to unassigned");
+			removeAllCategories.Text = LanguageManager.Get("Mods.Categories.RemoveAll.FullName", "Categories: remove all categories");
+			toggleHiddenCategories.Text = LanguageManager.Get("Legacy.ModManagerControl.toggleHiddenCategories.Text", "Categories: toggle hidden categories");
+			tsbSwitchView.Text = LanguageManager.Get("Mods.CategoryView.Switch.Tooltip", "Switches the Mod Manager views");
+			tsbExportModList.Text = LanguageManager.Get("Mods.Actions.Export.Tooltip", "Export the current mod list");
+			exportToTextFile.Text = LanguageManager.Get("Common.Action.TextFile", "Text file");
+			exportToClipboard.Text = LanguageManager.Get("Common.Action.CopyToClipboard", "Copy to clipboard");
+			tsbShowUpdatesOnly.Text = LanguageManager.Get("Legacy.ModManagerControl.tsbShowUpdatesOnly.Text", "Filters the mod list showing only mods requiring an update");
+			tsbShowUpdatesOnly.ToolTipText = LanguageManager.Get("Mods.Actions.UpdatesOnly.Tooltip", "Toggles filtering the mod list showing only mods requiring an update");
+			checkModUpdates.Text = LanguageManager.Get("Mods.Actions.Updates.Tooltip", "Check for mod updates");
+			sfdChooseExport.Filter = LanguageManager.Get("Legacy.ModManagerControl.sfdChooseExport.Filter.Description0", "Text files (*.txt)") + "|" + "*.txt";
+			sfdChooseExport.Title = LanguageManager.Get("Legacy.ModManagerControl.sfdChooseExport.Title", "Save current mod list to:");
+		}
+
 	}
 
 	#endregion

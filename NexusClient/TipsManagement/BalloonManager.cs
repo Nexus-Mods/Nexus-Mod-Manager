@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -95,7 +96,7 @@ namespace Nexus.Client.TipsManagement
 					RecreateBalloon(this, EventArgs.Empty);
 
 					m_bmBalloonHelp.Caption = "";
-					m_bmBalloonHelp.Content = "There are new Tips";
+					m_bmBalloonHelp.Content = LanguageManager.Get("Tips.NewAvailable", "There are new Tips");
 					m_bmBalloonHelp.previousButton.Visible = false;
 					m_bmBalloonHelp.Icon = SystemIcons.Exclamation;
 					m_intCurrentTip = 1;
@@ -124,8 +125,8 @@ namespace Nexus.Client.TipsManagement
 				{
 					RecreateBalloon(this, EventArgs.Empty);
 
-					m_bmBalloonHelp.Caption = "Tips";
-					m_bmBalloonHelp.Content = "No Tips for this version";
+					m_bmBalloonHelp.Caption = LanguageManager.Get("Tips.Title", "Tips");
+					m_bmBalloonHelp.Content = LanguageManager.Get("Tips.NoneAvailable", "No Tips for this version");
 					m_bmBalloonHelp.previousButton.Visible = false;
 					m_bmBalloonHelp.nextButton.Visible = false;
 					IntPtr Hicon = Nexus.Client.Properties.Resources.dialog_ok_4.GetHicon();

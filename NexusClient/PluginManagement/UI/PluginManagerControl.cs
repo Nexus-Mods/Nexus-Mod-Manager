@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -104,6 +105,7 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			this.Load += new EventHandler(PluginManagerControl_Load);
 			InitializeComponent();
+			ApplyLocalization();
 			clmName.Name = "PluginName";
 			clmIndexHex.Name = "IndexHex";
 			clmIndex.Name = "Index";
@@ -175,7 +177,7 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			DialogResult Result = DialogResult.None;
 
-			Result = MessageBox.Show("Do you want to disable all the active plugins?", "Disable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			Result = MessageBox.Show(LanguageManager.Get("Plugins.DisableAll.Confirm.Message", "Do you want to disable all the active plugins?"), LanguageManager.Get("Plugins.DisableAll.Confirm.Title", "Disable Plugins"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 			if (Result == System.Windows.Forms.DialogResult.Yes)
 				ViewModel.PluginsDisableAll();
@@ -188,7 +190,7 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			DialogResult Result = DialogResult.None;
 
-			Result = MessageBox.Show("Do you want to enable all the managed plugins?", "Enable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			Result = MessageBox.Show(LanguageManager.Get("Plugins.EnableAll.Confirm.ManagedMessage", "Do you want to enable all the managed plugins?"), LanguageManager.Get("Plugins.EnableAll.Confirm.Title", "Enable Plugins"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 			if (Result == System.Windows.Forms.DialogResult.Yes)
 				ViewModel.PluginsEnableAll();
@@ -574,9 +576,8 @@ namespace Nexus.Client.PluginManagement.UI
 
 			if (e.Argument.ReturnValue == null)
 			{
-				MessageBox.Show("Nexus Mod Manager was unable to perform the automatic plugin sorting." +
-					Environment.NewLine + Environment.NewLine + "Restart the mod manager and retry.",
-					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Plugins.Sorting.LegacyFailed", "Nexus Mod Manager was unable to perform the automatic plugin sorting.\r\n\r\nRestart the mod manager and retry."),
+					LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -1072,5 +1073,27 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tsbMoveUp.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbMoveUp.Text", "Move Up");
+			tsbMoveDown.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbMoveDown.Text", "Move Down");
+			tsbDisableAll.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbDisableAll.Text", "Disable All Plugins");
+			tsbEnableAll.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbEnableAll.Text", "Enable All Plugins");
+			tsbExport.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbExport.Text", "Export the current load order");
+			tsmiExportToTextFile.Text = LanguageManager.Get("Common.Action.TextFile", "Text file");
+			tsmiExportToClipboard.Text = LanguageManager.Get("Common.Action.CopyToClipboard", "Copy to clipboard");
+			tsbImport.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsbImport.Text", "Imports a load order");
+			tsmiImportFromTextFile.Text = LanguageManager.Get("Common.Action.TextFile", "Text file");
+			tsmiImportFromClipboard.Text = LanguageManager.Get("Legacy.PluginManagerControl.tsmiImportFromClipboard.Text", "Clipboard");
+			clmName.Text = LanguageManager.Get("Plugins.Columns.Plugin.Header", "Plugin");
+			clmIndexHex.Text = LanguageManager.Get("Legacy.PluginManagerControl.clmIndexHex.Text", "Load Order");
+			clmIndex.Text = LanguageManager.Get("Legacy.PluginManagerControl.clmIndex.Text", "Index");
+			sfdChooseExport.Filter = LanguageManager.Get("Legacy.PluginManagerControl.sfdChooseExport.Filter.Description0", "Text files (*.txt)") + "|" + "*.txt";
+			sfdChooseExport.Title = LanguageManager.Get("Legacy.PluginManagerControl.sfdChooseExport.Title", "Save current load order to:");
+			ofdChooseImport.Filter = LanguageManager.Get("Legacy.PluginManagerControl.ofdChooseImport.Filter.Description0", "Text files (*.txt)") + "|" + "(.txt)";
+			ofdChooseImport.Title = LanguageManager.Get("Legacy.PluginManagerControl.ofdChooseImport.Title", "Import the load order from:");
+		}
+
 	}
 }

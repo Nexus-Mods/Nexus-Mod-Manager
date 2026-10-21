@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
@@ -39,7 +40,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = ObjectHelper.GetPropertyName(() => p_tskTask.OverallProgress);
 			if (p_tskTask.ShowOverallProgressAsMarquee)
-				lsiSubItem.Text = "Working...";
+				lsiSubItem.Text = LanguageManager.Get("Common.Status.Working", "Working...");
 			else
 			{
 				Int64 intDenominator = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
@@ -57,7 +58,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 			if (p_tskTask.ShowItemProgress)
 			{
 				if (p_tskTask.ShowItemProgressAsMarquee)
-					lsiSubItem.Text = "Working...";
+					lsiSubItem.Text = LanguageManager.Get("Common.Status.Working", "Working...");
 				else
 				{
 					Int64 intDenominator = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;
@@ -111,7 +112,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 					|| p_strPropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ShowOverallProgressAsMarquee)))
 			{
 				if (p_tskTask.ShowOverallProgressAsMarquee)
-					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = "Working...";
+					SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallProgress)].Text = LanguageManager.Get("Common.Status.Working", "Working...");
 				else
 				{
 					Int64 intDivisor = p_tskTask.OverallProgressMaximum - p_tskTask.OverallProgressMinimum;
@@ -130,7 +131,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 				if (p_tskTask.ShowItemProgress)
 				{
 					if (p_tskTask.ShowItemProgressAsMarquee)
-						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = "Working...";
+						SubItems[ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.ItemProgress)].Text = LanguageManager.Get("Common.Status.Working", "Working...");
 					else
 					{
 						Int64 intDivisor = p_tskTask.ItemProgressMaximum - p_tskTask.ItemProgressMinimum;

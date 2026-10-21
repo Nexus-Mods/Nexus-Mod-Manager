@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -160,6 +161,7 @@ namespace Nexus.Client.UI.Controls
 			: base()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			tlcModName.Name = "ModName";
 			tlcFileName.Name = "FileName";
 			tlcModId.Name = "ModId";
@@ -678,5 +680,14 @@ namespace Nexus.Client.UI.Controls
 			this.SecondarySortColumn = tlcModName;
 			this.SecondarySortOrder = SortOrder.Ascending;
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tlcModName.Text = LanguageManager.Get("Legacy.ProfileListView.tlcModName.Text", "Mod Name");
+			tlcFileName.Text = LanguageManager.Get("Legacy.ProfileListView.tlcFileName.Text", "Mod File");
+			tlcModId.Text = LanguageManager.Get("Legacy.ProfileListView.tlcModId.Text", "Mod Id");
+			tlcFileCount.Text = LanguageManager.Get("MainForm.Status.FilePlural", "Files");
+		}
+
 	}
 }

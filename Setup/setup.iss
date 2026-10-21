@@ -45,9 +45,8 @@ InternalCompressLevel=Ultra64
 SolidCompression=true
 Compression=lzma2/Max
 ChangesAssociations=true
-LicenseFile=..\Stage\Release\data\License.rtf
-InfoBeforeFile=..\Stage\Release\data\NewVersionDisclaimer.rtf
-InfoAfterFile=..\Stage\Release\data\releasenotes.rtf
+LicenseFile=..\Stage\Release\data\License.txt
+InfoBeforeFile=..\Stage\Release\data\releasenotes.rtf
 MinVersion=0,6.1
 PrivilegesRequired=admin
 ArchitecturesAllowed=x86 x64 
@@ -69,6 +68,10 @@ Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetup
 #define RetiredGameModeDlls "Fallout3.dll,Fallout4.dll,FalloutNV.dll,Oblivion.dll,OblivionRemastered.dll,Skyrim.dll,SkyrimGOG.dll,SkyrimSE.dll,Starfield.dll,Enderal.dll,EnderalSE.dll,Fallout4VR.dll,SkyrimVR.dll"
 
 [InstallDelete]
+; Remove documentation replaced by plain-text licenses and generated release notes.
+Type: files; Name: "{app}\data\License.rtf"
+Type: files; Name: "{app}\data\NMM License.rtf"
+Type: files; Name: "{app}\data\NewVersionDisclaimer.rtf"
 ; Remove NMM-owned Script Type assemblies left in legacy/non-canonical locations.
 Type: files; Name: "{app}\CSharpScript.dll"
 Type: files; Name: "{app}\ModScript.dll"

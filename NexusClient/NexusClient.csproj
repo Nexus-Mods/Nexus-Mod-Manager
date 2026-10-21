@@ -935,13 +935,12 @@
     </Content>
     <None Include="Resources\token_info.png" />
     <None Include="Resources\update_check_flat.png" />
-    <None Include="data\NMM License.rtf" />
+    <None Include="data\NMM License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
     <None Include="Resources\text168.png" />
     <None Include="Resources\View Profile.png" />
-    <None Include="data\NewVersionDisclaimer.rtf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="Resources\thumbsup.png" />
     <None Include="Resources\thumb_up.png" />
     <None Include="Resources\thumb_no.png" />
@@ -949,10 +948,10 @@
     <None Include="Resources\tipsClose.png" />
     <None Include="Resources\tips.png" />
     <None Include="Resources\uac-icon.png" />
-    <None Include="data\releasenotes.rtf">
+    <None Include="data\releasenotes.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="data\License.rtf">
+    <None Include="data\License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Resources\down.png" />
@@ -1810,6 +1809,7 @@
     <Folder Include="ModManagement\ProfileManager\UI\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="..\Support\BuildTasks\ReleaseDocumentation.targets" />
   <Import Project="..\Stage\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('..\Stage\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
@@ -1841,8 +1841,7 @@
     <ItemGroup>
       <RetiredGameMode Include="Fallout3;Fallout4;FalloutNV;Oblivion;OblivionRemastered;Skyrim;SkyrimGOG;SkyrimSE;Starfield;Enderal;EnderalSE;Fallout4VR;SkyrimVR" />
     </ItemGroup>
-    <Error Condition="!Exists('$(TargetDir)GameModes\Definitions\%(RetiredGameMode.Identity)\game.json')"
-           Text="Cannot retire %(RetiredGameMode.Identity).dll: its replacement game definition is missing from the build output." />
+    <Error Condition="!Exists('$(TargetDir)GameModes\Definitions\%(RetiredGameMode.Identity)\game.json')" Text="Cannot retire %(RetiredGameMode.Identity).dll: its replacement game definition is missing from the build output." />
     <ItemGroup>
       <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)%(Identity).dll')" />
       <RetiredGameModeOutput Include="@(RetiredGameMode->'$(TargetDir)GameModes\%(Identity).dll')" />

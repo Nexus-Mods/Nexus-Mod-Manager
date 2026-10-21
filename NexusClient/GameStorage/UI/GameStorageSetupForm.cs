@@ -286,7 +286,7 @@ namespace Nexus.Client.GameStorage.UI
                     generation == _control.DraftGeneration)
                     _control.SetRows(new[] { new GameStorageSetupRow
                     {
-                        Status = LanguageManager.Get("GameStorage.Setup.ValidationFailed", "Validation unavailable"),
+                        Status = LanguageManager.Get("GameStorage.Setup.ValidationUnavailable", "Validation unavailable"),
                         Message = ex.Message
                     } });
             }

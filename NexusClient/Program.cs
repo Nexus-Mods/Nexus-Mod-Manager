@@ -141,9 +141,7 @@
 			catch (ConfigurationErrorsException e)
 			{
 				WriteBootstrapException("The application settings configuration could not be loaded.", e);
-			    var userChoice = MessageBox.Show("It seems your Nexus Mod Manager application settings file has been corrupted, we can reset this file for you.\n\n" + 
-				    "Yes: Will reset your NMM related settings (scanned game locations, mod storage path, etc.) but will not remove your installed mods.\n\n" + 
-				    "No: Your settings will remain corrupted and NMM will crash when trying to start.", "Settings file corrupted", 
+			    var userChoice = MessageBox.Show(LanguageManager.Get("Startup.Settings.CorruptedMessage", "It seems your Nexus Mod Manager application settings file has been corrupted, we can reset this file for you.\n\nYes: Will reset your NMM related settings (scanned game locations, mod storage path, etc.) but will not remove your installed mods.\n\nNo: Your settings will remain corrupted and NMM will crash when trying to start."), LanguageManager.Get("Startup.Settings.CorruptedTitle", "Settings file corrupted"),
 				    MessageBoxButtons.YesNo, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 
 			    if (userChoice == DialogResult.Yes)
@@ -162,17 +160,17 @@
 							throw new FileNotFoundException("The corrupted settings file path could not be determined.");
 
 					    File.Delete(filename);
-					    MessageBox.Show("We've deleted your corrupted settings file, please restart Nexus Mod Manager.", "Settings reset", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+					    MessageBox.Show(LanguageManager.Get("Startup.Settings.ResetMessage", "We've deleted your corrupted settings file, please restart Nexus Mod Manager."), LanguageManager.Get("Startup.Settings.ResetTitle", "Settings reset"), MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
 				    }
 				    catch (Exception deleteException)
 				    {
 						WriteBootstrapException("The corrupted application settings file could not be deleted.", deleteException);
-					    MessageBox.Show("Something went wrong when trying to delete the settings file \"" + filename + "\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+					    MessageBox.Show(LanguageManager.Format("Startup.Settings.DeleteFailed", "Something went wrong when trying to delete the settings file \"{0}\".", filename), LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 				    }
 			    }
 			    else
 			    {
-				    MessageBox.Show("Nothing has been done, Nexus Mod Manager will now shut down.", "Settings unchanged", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+				    MessageBox.Show(LanguageManager.Get("Startup.Settings.UnchangedMessage", "Nothing has been done, Nexus Mod Manager will now shut down."), LanguageManager.Get("Startup.Settings.UnchangedTitle", "Settings unchanged"), MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
 			    }
 			}
 			catch (Exception e)

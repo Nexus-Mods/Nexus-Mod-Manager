@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="GenerateReleaseNotes" AfterTargets="CopyFilesToOutputDirectory"
+          Condition="'$(TargetDir)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)GenerateReleaseNotes.ps1&quot; -SourcePath &quot;$(MSBuildProjectDirectory)\data\releasenotes.md&quot; -OutputPath &quot;$(TargetDir)data\releasenotes.rtf&quot;" />
+    <ItemGroup>
+      <FileWrites Include="$(TargetDir)data\releasenotes.rtf" />
+    </ItemGroup>
+    <Delete Files="$(TargetDir)data\License.rtf;$(TargetDir)data\NMM License.rtf;$(TargetDir)data\NewVersionDisclaimer.rtf" />
+  </Target>
+</Project>

@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
@@ -40,7 +41,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = ObjectHelper.GetPropertyName(() => p_tskTask.OverallProgress);
 			if (p_tskTask.ShowOverallProgressAsMarquee)
-				lsiSubItem.Text = "Working...";
+				lsiSubItem.Text = LanguageManager.Get("Common.Status.Working", "Working...");
 			else
 			{
 				lsiSubItem.Text = "";
@@ -51,9 +52,9 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (p_tskTask.Status == TaskStatus.Running)
 			{
 				if (p_tskTask.IsRemote)
-					lsiSubItem.Text = "Downloading";
+					lsiSubItem.Text = LanguageManager.Get("Collections.Update.MemberDownloading", "Downloading");
 				else
-					lsiSubItem.Text = "Moving";
+					lsiSubItem.Text = LanguageManager.Get("Downloads.Status.Moving", "Moving");
 			}
 			else
 				lsiSubItem.Text = p_tskTask.Status.ToString();
@@ -78,7 +79,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			if (p_tskTask.ShowItemProgress)
 			{
 				if (p_tskTask.ShowItemProgressAsMarquee)
-					lsiSubItem.Text = "Working...";
+					lsiSubItem.Text = LanguageManager.Get("Common.Status.Working", "Working...");
 				else
 				{
 					lsiSubItem.Text = "";
@@ -170,7 +171,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				if (p_tskTask.ShowItemProgress)
 				{
 					if (p_tskTask.ShowItemProgressAsMarquee)
-						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = "Working...";
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress)].Text = LanguageManager.Get("Common.Status.Working", "Working...");
 				}
 				else
 				{
@@ -183,9 +184,9 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				if (p_tskTask.Status == TaskStatus.Running)
 				{
 					if (p_tskTask.IsRemote)
-						SubItems[p_strPropertyName].Text = "Downloading";
+						SubItems[p_strPropertyName].Text = LanguageManager.Get("Collections.Update.MemberDownloading", "Downloading");
 					else
-						SubItems[p_strPropertyName].Text = "Moving";
+						SubItems[p_strPropertyName].Text = LanguageManager.Get("Downloads.Status.Moving", "Moving");
 				}
 				else
 				{
@@ -204,9 +205,9 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				else if (p_tskTask.InnerTaskStatus.ToString() == "Running")
 				{
 					if (p_tskTask.IsRemote)
-						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Downloading";
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = LanguageManager.Get("Collections.Update.MemberDownloading", "Downloading");
 					else
-						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = "Moving";
+						SubItems[ObjectHelper.GetPropertyName<AddModTask>(x => x.Status)].Text = LanguageManager.Get("Downloads.Status.Moving", "Moving");
 				}
 				else
 				{

@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Windows.Forms;
 using System.Collections.Generic;
 using System.IO;
@@ -32,9 +33,9 @@ namespace Nexus.Client.ModAuthoring.Controls
 		public ModFilesTreeView()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			m_ffbFileChooser.ShowNewFolderButton = false;
-			m_ffbFileChooser.Description = "Select the folder containing the files you would like to select. Then, specify a filter that will match the files you wish to select." + Environment.NewLine +
-											"For example, a  filter of mymod*.dds will select alltexture files whose name start with mymod.";
+			m_ffbFileChooser.Description = LanguageManager.Get("ModAuthoring.Files.FilteredFolder.Description", "Select the folder containing the files you would like to select. Then, specify a filter that will match the files you wish to select.\r\nFor example, a  filter of mymod*.dds will select alltexture files whose name start with mymod.");
 			m_ffbFileChooser.RootFolder = Environment.SpecialFolder.MyComputer;
 			m_ffbFileChooser.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 		}
@@ -86,5 +87,14 @@ namespace Nexus.Client.ModAuthoring.Controls
 			if (tndRoot != null)
 				tndRoot.Expand();
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			label1.Text = LanguageManager.Get("Legacy.ModFilesTreeView.label1.Text", "Source Files");
+			tspAddFiles.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFiles", "Add Files...");
+			tspAddFilteredFiles.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFilteredFiles", "Add Filtered Files...");
+			tsbAddFolder.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFolder", "Add Folder...");
+		}
+
 	}
 }

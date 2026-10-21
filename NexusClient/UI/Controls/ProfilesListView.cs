@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -161,6 +162,7 @@ namespace Nexus.Client.UI.Controls
 			: base()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			tlcProfileName.Name = "ProfileName";
 			tlcActiveMods.Name = "ActiveMods";
 			tlcLastBackedUp.Name = "LastBackedUp";
@@ -232,7 +234,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		public void SetupContextMenu()
 		{
-			m_mniProfileFolder = new ToolStripMenuItem("Open Profile Folder", new Bitmap(Properties.Resources.folders_open, 16, 16));
+			m_mniProfileFolder = new ToolStripMenuItem(LanguageManager.Get("Legacy.ProfilesListView.Context.m_mniProfileFolder", "Open Profile Folder"), new Bitmap(Properties.Resources.folders_open, 16, 16));
 		}
 
 		/// <summary>
@@ -788,5 +790,18 @@ namespace Nexus.Client.UI.Controls
 			this.SecondarySortColumn = tlcProfileName;
 			this.SecondarySortOrder = SortOrder.Ascending;
 		}
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tlcProfileName.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcProfileName.Text", "Profile Name");
+			tlcActiveMods.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcActiveMods.Text", "Active Mods");
+			tlcLastBackedUp.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcLastBackedUp.Text", "Last backed up");
+			tlcVersion.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcVersion.Text", "Version");
+			tlcAuthor.Text = LanguageManager.Get("Common.Field.Author", "Author");
+			tlcShared.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcShared.Text", "Shared");
+			tlcEdited.Text = LanguageManager.Get("Legacy.ProfilesListView.tlcEdited.Text", "Edited");
+			tlcRevert.ToolTipText = LanguageManager.Get("Legacy.ProfilesListView.tlcRevert.ToolTipText", "Revert Profile");
+		}
+
 	}
 }

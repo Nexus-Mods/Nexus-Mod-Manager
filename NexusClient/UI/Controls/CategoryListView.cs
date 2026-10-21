@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Drawing;
@@ -262,6 +263,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			ShowHiddenCategories = false;
 			InitializeComponent();
+			ApplyLocalization();
 			tlcModName.Name = "ModName";
 			tlcInstallDate.Name = "InstallDate";
 			tlcDownloadDate.Name = "DownloadDate";
@@ -1252,21 +1254,21 @@ namespace Nexus.Client.UI.Controls
 		private void SetupContextMenu()
 		{
 			// menu items with sub-items, sub-items will be populated at the run-time
-			m_mniCategoryMoveTo = new ToolStripMenuItem("Move to");
+			m_mniCategoryMoveTo = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.MoveTo.Name", "Move to"));
 			m_mniCategoryMoveTo.DropDownOpening += m_mniCategoryMoveTo_DropDownOpening;
-			m_mniCategories = new ToolStripMenuItem("Category", new Bitmap(Properties.Resources.format_line_spacing_triple, 16, 16));
-			m_mniModWarnings = new ToolStripMenuItem("Mod Update Warnings", new Bitmap(Properties.Resources.update_warning, 16, 16));
-			m_mniModChecks = new ToolStripMenuItem("Mod Update Checks and Automatic Mod Rename", new Bitmap(Properties.Resources.edit_find_and_replace, 16, 16));
-			m_mniModUninstall = new ToolStripMenuItem("Uninstall or Delete", new Bitmap(Properties.Resources.dialog_block, 16, 16));
+			m_mniCategories = new ToolStripMenuItem(LanguageManager.Get("Common.Field.Category", "Category"), new Bitmap(Properties.Resources.format_line_spacing_triple, 16, 16));
+			m_mniModWarnings = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.UpdateWarnings.Name", "Mod Update Warnings"), new Bitmap(Properties.Resources.update_warning, 16, 16));
+			m_mniModChecks = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.UpdateChecksRename.Name", "Mod Update Checks and Automatic Mod Rename"), new Bitmap(Properties.Resources.edit_find_and_replace, 16, 16));
+			m_mniModUninstall = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.UninstallDelete.Name", "Uninstall or Delete"), new Bitmap(Properties.Resources.dialog_block, 16, 16));
 
 			// menu items without any sub-items
-			m_mniModActivate = new ToolStripMenuItem("Activate", new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16),
+			m_mniModActivate = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.Activate.Name", "Activate"), new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16),
 				(s, e) => this.OnModActionRequested(ModAction.Activate));
-			m_mniModDeactivate = new ToolStripMenuItem("Deactivate", ToolStripRenderer.CreateDisabledImage(new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16)),
+			m_mniModDeactivate = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.Deactivate.Name", "Deactivate"), ToolStripRenderer.CreateDisabledImage(new Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16)),
 				(s, e) => this.OnModActionRequested(ModAction.Deactivate));
-			m_mniModReinstall = new ToolStripMenuItem("Reinstall Mod/s", new Bitmap(Properties.Resources.change_game_mode, 16, 16),
+			m_mniModReinstall = new ToolStripMenuItem(LanguageManager.Get("Mods.Context.ReinstallMultiple.Name", "Reinstall Mod/s"), new Bitmap(Properties.Resources.change_game_mode, 16, 16),
 				(s, e) => this.OnModActionRequested(ModAction.Reinstall));
-			m_mniModReadme = new ToolStripMenuItem("Open readme", new Bitmap(Properties.Resources.text_x_generic, 16, 16));
+			m_mniModReadme = new ToolStripMenuItem(LanguageManager.Get("Legacy.CategoryListView.Context.m_mniModReadme", "Open readme"), new Bitmap(Properties.Resources.text_x_generic, 16, 16));
 		}
 
 		/// <summary>
@@ -1301,7 +1303,7 @@ namespace Nexus.Client.UI.Controls
 				// if mod is active - then allow its deactivation, else - activation
 				if (!IsModInstalled(SelectedMod))
 				{
-					m_mniModActivate.Text = @"Install and activate";
+					m_mniModActivate.Text = @LanguageManager.Get("Mods.Context.InstallActivate.Name", "Install and activate");
 					cmsContextMenu.Items.Add(m_mniModActivate);
 				}
 				else if (IsInstalledDirectMod(SelectedMod))
@@ -1310,7 +1312,7 @@ namespace Nexus.Client.UI.Controls
 				}
 				else if (!IsModActive(SelectedMod))
 				{
-					m_mniModActivate.Text = @"Activate";
+					m_mniModActivate.Text = @LanguageManager.Get("Mods.Context.Activate.Name", "Activate");
 					cmsContextMenu.Items.Add(m_mniModActivate);
 				}
 				else
@@ -1823,6 +1825,20 @@ namespace Nexus.Client.UI.Controls
 		{
 			this.SecondarySortColumn = tlcModName;
 			this.SecondarySortOrder = SortOrder.Ascending;
+		}
+
+		/// <summary>Localizes captions while retaining control names, column identifiers and saved layouts.</summary>
+		private void ApplyLocalization()
+		{
+			tlcModName.Text = LanguageManager.Get("Common.Column.Name", "Name");
+			tlcLoadOrder.Text = LanguageManager.Get("Legacy.CategoryListView.tlcLoadOrder.Text", "Load Order");
+			tlcInstallDate.Text = LanguageManager.Get("Legacy.CategoryListView.tlcInstallDate.Text", "Install Date");
+			tlcDownloadDate.Text = LanguageManager.Get("Legacy.CategoryListView.tlcDownloadDate.Text", "Download Date");
+			tlcEndorsement.Text = LanguageManager.Get("Legacy.CategoryListView.tlcEndorsement.Text", "Endorsement");
+			tlcDownloadId.Text = LanguageManager.Get("Legacy.CategoryListView.tlcDownloadId.Text", "Download Id");
+			tlcWebVersion.Text = LanguageManager.Get("Legacy.CategoryListView.tlcWebVersion.Text", "Mod Version");
+			tlcAuthor.Text = LanguageManager.Get("Common.Field.Author", "Author");
+			tlcCategory.Text = LanguageManager.Get("Common.Field.Category", "Category");
 		}
 
 	}

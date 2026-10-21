@@ -9,6 +9,8 @@ namespace Nexus.Client.ModManagement
     using System.Threading;
     using System.Threading.Tasks;
 
+    using Nexus.Client.Util.Localization;
+
     using Pfim;
 
     public sealed class FilePreviewOwnerOption
@@ -111,7 +113,7 @@ namespace Nexus.Client.ModManagement
         public Task<FilePreviewResult> LoadPreviewAsync(FilePreviewRequest request, CancellationToken cancellationToken)
         {
             if (request == null || String.IsNullOrWhiteSpace(request.FilePath))
-                return Task.FromResult(FilePreviewResult.Empty("Select a file to preview."));
+                return Task.FromResult(FilePreviewResult.Empty(LanguageManager.Get("FileManager.Preview.SelectFilePrompt", "Select a file to preview.")));
 
             return Task.Run(() => LoadPreview(request, cancellationToken), cancellationToken);
         }
@@ -132,7 +134,7 @@ namespace Nexus.Client.ModManagement
             cancellationToken.ThrowIfCancellationRequested();
 
             if (!File.Exists(request.FilePath))
-                return FilePreviewResult.Error("The selected file does not exist.");
+                return FilePreviewResult.Error(LanguageManager.Get("FileManager.Preview.SelectedFileMissing", "The selected file does not exist."));
 
             foreach (IFilePreviewProvider provider in _providers)
             {
@@ -153,7 +155,7 @@ namespace Nexus.Client.ModManagement
                 }
             }
 
-            return FilePreviewResult.Unsupported("Preview is not available for this file type.");
+            return FilePreviewResult.Unsupported(LanguageManager.Get("FileManager.Preview.UnsupportedFileType", "Preview is not available for this file type."));
         }
     }
 
@@ -244,17 +246,17 @@ namespace Nexus.Client.ModManagement
                 throw new ArgumentNullException("image");
 
             if (image.Width <= 0 || image.Height <= 0)
-                throw new InvalidDataException("The DDS image has invalid dimensions.");
+                throw new InvalidDataException(LanguageManager.Get("FileManager.Preview.InvalidDdsDimensions", "The DDS image has invalid dimensions."));
 
             if (image.Stride < image.Width)
-                throw new InvalidDataException("The DDS image has an invalid row stride.");
+                throw new InvalidDataException(LanguageManager.Get("FileManager.Preview.InvalidDdsStride", "The DDS image has an invalid row stride."));
 
             if (image.Data == null)
-                throw new InvalidDataException("The DDS image contains no pixel data.");
+                throw new InvalidDataException(LanguageManager.Get("FileManager.Preview.EmptyDdsPixels", "The DDS image contains no pixel data."));
 
             long requiredSourceLength = (long)(image.Height - 1) * image.Stride + image.Width;
             if (requiredSourceLength > image.Data.LongLength)
-                throw new InvalidDataException("The DDS pixel buffer is incomplete.");
+                throw new InvalidDataException(LanguageManager.Get("FileManager.Preview.IncompleteDdsPixels", "The DDS pixel buffer is incomplete."));
 
             Bitmap bitmap = null;
             BitmapData bitmapData = null;
@@ -309,7 +311,7 @@ namespace Nexus.Client.ModManagement
                 case Pfim.ImageFormat.R5g6b5:
                     return PixelFormat.Format16bppRgb565;
                 default:
-                    throw new NotSupportedException("DDS image format is not supported: " + format);
+                    throw new NotSupportedException(LanguageManager.Format("FileManager.Preview.UnsupportedDdsFormat", "DDS image format is not supported: {0}", format));
             }
         }
 
@@ -330,11 +332,11 @@ namespace Nexus.Client.ModManagement
         private static void ValidateDimensions(int width, int height, int bytesPerPixel)
         {
             if (width <= 0 || height <= 0 || width > MaxDimension || height > MaxDimension)
-                throw new InvalidOperationException("The selected image dimensions are too large to preview safely.");
+                throw new InvalidOperationException(LanguageManager.Get("FileManager.Preview.DimensionsTooLarge", "The selected image dimensions are too large to preview safely."));
 
             long decodedBytes = (long)width * height * bytesPerPixel;
             if (decodedBytes > MaxDecodedBytes)
-                throw new InvalidOperationException("The selected image is too large to preview safely.");
+                throw new InvalidOperationException(LanguageManager.Get("FileManager.Preview.ImageTooLarge", "The selected image is too large to preview safely."));
         }
     }
 }

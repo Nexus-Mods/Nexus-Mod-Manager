@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Util.Localization;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
@@ -59,7 +60,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
 			lsiSubItem.Name = "Status";
-			lsiSubItem.Text = "Queued";
+			lsiSubItem.Text = LanguageManager.Get("Common.Status.Queued", "Queued");
 			p_btsTask.IsQueued = true;
 
 			lsiSubItem = SubItems.Add(new ListViewSubItem());
@@ -90,23 +91,23 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			e.Argument.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
 
 			m_booRemovable = false;
-			SubItems["Status"].Text = "Running";
+			SubItems["Status"].Text = LanguageManager.Get("Common.Status.Running", "Running");
 
 			if (sender != null)
 			{
 				if (((IBackgroundTaskSet)sender).GetType() == typeof(ModInstaller))
 				{
-					SubItems["Operation"].Text = "Install";
+					SubItems["Operation"].Text = LanguageManager.Get("Common.Action.Install", "Install");
 					m_strModName = (((ModInstaller)sender).ModName);
 				}
 				else if (((IBackgroundTaskSet)sender).GetType() == typeof(ModUninstaller))
 				{
-					SubItems["Operation"].Text = "Uninstall";
+					SubItems["Operation"].Text = LanguageManager.Get("Common.Action.Uninstall", "Uninstall");
 					m_strModName = (((ModUninstaller)sender).ModName);
 				}
 				else if (((IBackgroundTaskSet)sender).GetType() == typeof(ModUpgrader))
 				{
-					SubItems["Operation"].Text = "Upgrading";
+					SubItems["Operation"].Text = LanguageManager.Get("ActivationQueue.Operation.Upgrading", "Upgrading");
 					m_strModName = (((ModUpgrader)sender).ModName);
 				}
 			}
@@ -164,7 +165,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				}
 				else
 				{
-					SubItems["Status"].Text = "Complete";
+					SubItems["Status"].Text = LanguageManager.Get("Common.Status.Complete", "Complete");
 					SubItems["Progress"].Text = "100%";
 				}
 			}
