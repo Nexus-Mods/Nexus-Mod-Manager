@@ -19,11 +19,15 @@
 	public class EnglishLanguageCatalogTests
 	{
 		private static readonly Regex LanguageManagerKeyRegex = new Regex(
-			@"LanguageManager\.(?:Get|GetFormat|Format)\s*\(\s*""(?<key>[^""]+)""",
+			@"LanguageManager\.(?:Get|GetFormat|Format)\s*\(\s*""(?<key>[^""]+)""(?<dynamic>\s*\+)?",
 			RegexOptions.CultureInvariant);
 
 		private static readonly Regex LocalHelperKeyRegex = new Regex(
-			@"\bL\s*\(\s*""(?<key>[^""]+)""",
+			@"\bL\s*\(\s*""(?<key>[^""]+)""(?<dynamic>\s*\+)?",
+			RegexOptions.CultureInvariant);
+
+		private static readonly Regex LocalHelperPrefixRegex = new Regex(
+			@"\bstring\s+L\s*\([^)]*\)\s*(?:=>|\{\s*return)\s*LanguageManager\.Get\s*\(\s*""(?<prefix>[^""]+)""\s*\+\s*key\b",
 			RegexOptions.CultureInvariant);
 
 		private static readonly Regex FormatItemRegex = new Regex(
@@ -52,7 +56,7 @@
 		{
 			string repositoryRoot = FindRepositoryRoot();
 			LanguagePack pack = LoadEnglishTemplate(repositoryRoot);
-			HashSet<string> sourceKeys = CollectStaticSourceKeys(repositoryRoot);
+			HashSet<string> sourceKeys = CollectStaticSourceKeys(repositoryRoot, pack.Strings.Keys);
 			HashSet<string> catalogKeys = new HashSet<string>(pack.Strings.Keys, StringComparer.Ordinal);
 
 			string[] missing = sourceKeys.Except(catalogKeys, StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal).ToArray();
@@ -145,9 +149,10 @@
 				return (LanguagePack)serializer.ReadObject(stream);
 		}
 
-		private static HashSet<string> CollectStaticSourceKeys(string repositoryRoot)
+		private static HashSet<string> CollectStaticSourceKeys(string repositoryRoot, IEnumerable<string> catalogKeys)
 		{
 			HashSet<string> keys = new HashSet<string>(StringComparer.Ordinal);
+			HashSet<string> dynamicPrefixes = new HashSet<string>(StringComparer.Ordinal);
 
 			foreach (string directoryName in LocalizedSourceDirectories)
 			{
@@ -158,21 +163,29 @@
 				foreach (string file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
 				{
 					string source = File.ReadAllText(file);
-					AddMatches(keys, LanguageManagerKeyRegex, source);
+					AddMatches(keys, dynamicPrefixes, LanguageManagerKeyRegex, source);
 
-					AddMatches(keys, LocalHelperKeyRegex, source);
+					Match helper = LocalHelperPrefixRegex.Match(source);
+					AddMatches(keys, dynamicPrefixes, LocalHelperKeyRegex, source, helper.Success ? helper.Groups["prefix"].Value : String.Empty);
 					// Collection messages also pass keys through presentation helpers and conditional expressions.
-					AddMatches(keys, CollectionKeyRegex, source);
+					AddMatches(keys, dynamicPrefixes, CollectionKeyRegex, source);
 				}
 			}
 
+			// Enum-derived families are composed at runtime; a prefix is not itself a missing key.
+			keys.UnionWith(catalogKeys.Where(key => dynamicPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.Ordinal))));
 			return keys;
 		}
 
-		private static void AddMatches(ISet<string> keys, Regex regex, string source)
+		private static void AddMatches(ISet<string> keys, ISet<string> dynamicPrefixes, Regex regex, string source, string prefix = "")
 		{
 			foreach (Match match in regex.Matches(source))
-				keys.Add(match.Groups["key"].Value);
+			{
+				string key = prefix + match.Groups["key"].Value;
+				if (match.Groups["dynamic"].Success || key.EndsWith(".", StringComparison.Ordinal))
+					dynamicPrefixes.Add(key);
+				else keys.Add(key);
+			}
 		}
 
 		private static string FindRepositoryRoot()

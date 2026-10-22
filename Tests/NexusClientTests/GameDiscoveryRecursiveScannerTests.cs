@@ -113,7 +113,7 @@ namespace NexusClientTests
 		public void CancelledBeforeStart_DoesNotVisitDrives()
 		{
 			var scanner = new GameDiscoveryRecursiveScanner();
-			Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            Assert.CatchAsync<OperationCanceledException>(async () =>
 			{
 				await scanner.ScanAsync(new[] { new Descriptor("Test", "game.exe") }, null, new CancellationToken(true));
 			});

@@ -84,8 +84,11 @@ namespace NexusClientTests
 		[Test]
 		public void DuplicateTarget_RejectsWholeInstall()
 		{
-			Assert.Throws<Witcher3InstallException>(() => Map(DirectData,
-				"Mods/modA/content/same.ws", "mods/moda/content/SAME.ws"));
+			Assert.Throws<Witcher3InstallException>(() => Witcher3BasicInstallMapping.Map(new[]
+			{
+				new KeyValuePair<string, string>("first.ws", "Mods/modA/content/same.ws"),
+				new KeyValuePair<string, string>("second.ws", "mods/moda/content/SAME.ws")
+			}, "stable", "Mod", Witcher3Edition.Remastered, DirectData));
 		}
 
 		[Test]

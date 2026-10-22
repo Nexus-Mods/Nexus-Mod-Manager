@@ -29,7 +29,12 @@ namespace NexusClientTests
 			return InterfaceStub<IMod>.Create((method, args) =>
 			{
 				if (method.Name == "GetFileList") return files.Keys.ToList();
-				if (method.Name == "GetFileStream") return new MemoryStream(files[(string)args[0]], false);
+				if (method.Name == "GetFileStream")
+				{
+					string path = Path.Combine(Path.GetTempPath(), "nmm-menu-stream-" + Guid.NewGuid().ToString("N"));
+					File.WriteAllBytes(path, files[(string)args[0]]);
+					return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
+				}
 				if (method.Name == "get_Filename") return "ModSettingsMenuFix.zip";
 				if (method.Name == "get_ModName") return "Mod Settings Menu Fix";
 				return null;

@@ -470,5 +470,9 @@
       <Link>Fixtures\Witcher3Remastered.game.json</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Game Modes\Definitions\Witcher3Remastered\Categories.xml">
+      <Link>Fixtures\Categories.xml</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

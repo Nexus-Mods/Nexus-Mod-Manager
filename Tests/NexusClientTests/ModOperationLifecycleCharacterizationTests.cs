@@ -422,7 +422,7 @@ namespace NexusClientTests
 
             public LifecycleCharacterizationUninstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
                 ReadOnlyObservableList<IMod> p_rolActiveMods, IVirtualModActivator p_ivaVirtualModActivator)
-                : base(p_modMod, null, null, p_ivaVirtualModActivator, null, p_ilgInstallLog, null, p_rolActiveMods)
+                : base(p_modMod, CreateGameMode(Path.GetDirectoryName(p_modMod.Filename)), null, p_ivaVirtualModActivator, null, p_ilgInstallLog, null, p_rolActiveMods)
             {
             }
 

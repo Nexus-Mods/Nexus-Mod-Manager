@@ -141,7 +141,9 @@ namespace NexusClientTests
 			string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
 				"Fixtures", "Witcher3Remastered.game.json");
 			Assert.That(File.Exists(path), Is.True, "The test project must copy the real Remastered game definition.");
-			return JsonConvert.DeserializeObject<GameModeDefinition>(File.ReadAllText(path));
+			GameModeDefinitionLoadResult loaded = new GameModeDefinitionLoader().LoadFromPath(path);
+			Assert.That(loaded.Issues.Where(issue => issue.Severity == GameModeDefinitionIssueSeverity.Error), Is.Empty);
+			return loaded.Definitions.Single();
 		}
 	}
 }

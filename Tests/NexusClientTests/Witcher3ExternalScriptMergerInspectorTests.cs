@@ -98,10 +98,16 @@ namespace NexusClientTests
 			Assert.That(report.Compatibility, Is.EqualTo(Witcher3ScriptMergerCompatibility.Unconfirmed));
 		}
 
-		[Test]
-		public void DescriptionMentioningRemasteredButDenyingCompatibility_IsNotPositiveEvidence()
+		[TestCase("Not compatible with Remastered")]
+		[TestCase("Incompatible with The Witcher 3 Remastered")]
+		[TestCase("Does not support Remastered")]
+		[TestCase("Doesn't support Remastered")]
+		[TestCase("Without support for Remastered")]
+		[TestCase("Remastered is not supported")]
+		[TestCase("Remastered unsupported")]
+		public void DescriptionMentioningRemasteredButDenyingCompatibility_IsNotPositiveEvidence(string description)
 		{
-			var report = Assess("WitcherScriptMerger", "1.5.1", description: "Not compatible with Remastered");
+			var report = Assess("WitcherScriptMerger", "1.5.1", description: description);
 			Assert.That(report.Family, Is.EqualTo(Witcher3ScriptMergerFamily.Unknown));
 			Assert.That(report.Compatibility, Is.EqualTo(Witcher3ScriptMergerCompatibility.Unconfirmed));
 		}

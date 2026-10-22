@@ -629,7 +629,8 @@ namespace NexusClientTests
             }
 
             public SubmissionTestInstaller(IMod p_modMod, bool p_booAssignIdentity, ModOperationOrigin p_mooOrigin)
-                : base(p_modMod, null, null, null, null, null, null, null, null, null, null)
+                : base(p_modMod, InterfaceStub<Nexus.Client.Games.IGameMode>.Create((method, args) =>
+                    method.Name == "get_ModeId" ? "SubmissionTest" : null), null, null, null, null, null, null, null, null, null)
             {
                 if (p_booAssignIdentity)
                     AssignOperationIdentity(ModOperationIdentity.CreateNew(p_mooOrigin, CreateTestFingerprint()));

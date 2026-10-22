@@ -104,6 +104,9 @@ namespace Nexus.Client.ModManagement.Witcher3
 		private static readonly Regex VersionPattern = new Regex(
 			@"(?<!\d)(\d{1,4})\.(\d{1,3})(?:\.(\d{1,3}))?(?:[-._\s]*rc[-._\s]*(\d{1,3}))?(?!\d)",
 			RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+		private static readonly Regex RemasteredDenialPattern = new Regex(
+			@"\b(?:(?:not\s+(?:compatible\s+with|for)|incompatible\s+with|(?:does\s+not|doesn't)\s+support|without\s+support\s+for)\s+(?:the\s+)?(?:witcher\s*3\s+)?remastered|remastered\s+(?:is\s+)?(?:not\s+supported|unsupported))\b",
+			RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
 		public static Witcher3ScriptMergerToolObservation Inspect(string executablePath)
 		{
@@ -204,6 +207,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 			// markers and produce an *advisory*, not proof that the tool is genuine.
 			string markers = (metadata.ProductName + " " + metadata.FileDescription + " " +
 				metadata.CompanyName).ToLowerInvariant();
+			// A compatibility warning may mention the edition without identifying this release family.
+			if (RemasteredDenialPattern.IsMatch(markers)) return Witcher3ScriptMergerFamily.Unknown;
 			if (markers.Contains("fresh and automated") || markers.Contains("fresh & automated") ||
 				markers.Contains("sm-fae") || markers.Contains("phaz42"))
 				return Witcher3ScriptMergerFamily.FreshAutomated;
