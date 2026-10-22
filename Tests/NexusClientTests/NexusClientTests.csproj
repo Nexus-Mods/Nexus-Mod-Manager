@@ -372,6 +372,7 @@
     <Compile Include="NexusV3ClientTests.cs" />
     <Compile Include="NexusSessionLifecycleTests.cs" />
     <Compile Include="AuthenticationFormTaskTests.cs" />
+    <Compile Include="PluginStartupStateTests.cs" />
     <Compile Include="NexusV1ClientTests.cs" />
     <Compile Include="OnlineServicesInfrastructureTests.cs" />
     <Compile Include="EnglishLanguageCatalogTests.cs" />

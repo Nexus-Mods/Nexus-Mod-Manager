@@ -82,8 +82,7 @@
             if (TokenLogin())
                 return true;
 
-            // Reset() is used by logout to invalidate the in-flight background attempt.
-            // Do not turn that reset into a fresh interactive login prompt.
+            // Logout and transient validation failures must not open a fresh authorization prompt.
             if (Status == TaskStatus.Error)
                 return false;
 
@@ -198,11 +197,12 @@
                     OverallMessage = LanguageManager.Get("Authentication.Task.InvalidApiKey", "Not logged in: API key invalid.");
                     return false;
                 case AuthenticationStatus.NetworkError:
-                    Status = TaskStatus.Incomplete;
+                    // Preserve the key and allow a later login retry without reauthorization.
+                    Status = TaskStatus.Error;
                     OverallMessage = LanguageManager.Get("Authentication.Task.NetworkError", "Not logged in: Network error.");
                     return false;
                 default:
-                    Status = TaskStatus.Incomplete;
+                    Status = TaskStatus.Error;
                     OverallMessage = LanguageManager.Format("Authentication.Task.StatusError", "Not logged in: Status \"{0}\".", authenticationResult);
                     return false;
             }

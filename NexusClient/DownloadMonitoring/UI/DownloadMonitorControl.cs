@@ -100,7 +100,58 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;
+			ConfigureProgressPresentation();
 			UpdateTitle();
+		}
+
+		/// <summary>
+		/// Adds native Excel-style data bars without changing persisted column field names.
+		/// </summary>
+		private void ConfigureProgressPresentation()
+		{
+			gridView.OptionsView.ColumnAutoWidth = false;
+			gridView.Columns.ColumnByFieldName("OverallMessage").Width = 420;
+			gridView.Columns.ColumnByFieldName("OverallMessage").MinWidth = 180;
+			gridView.Columns.ColumnByFieldName("Status").Width = 100;
+			gridView.Columns.ColumnByFieldName("ItemMessage").Width = 100;
+			gridView.Columns.ColumnByFieldName("FileServer").Width = 100;
+			gridView.Columns.ColumnByFieldName("ETA").Width = 75;
+			gridView.Columns.ColumnByFieldName("ItemProgress").Width = 90;
+			DevExpress.XtraGrid.Columns.GridColumn progress = gridView.Columns.ColumnByFieldName("OverallProgress");
+			progress.MinWidth = 150;
+			progress.Width = 190;
+			progress.AppearanceCell.TextOptions.HAlignment = DevExpress.Utils.HorzAlignment.Center;
+			gridView.Columns.ColumnByFieldName("Status").MinWidth = 85;
+			gridView.Columns.ColumnByFieldName("ETA").MinWidth = 65;
+			gridView.RowHeight = Font.Height + 12;
+			gridView.OptionsView.ShowVerticalLines = DevExpress.Utils.DefaultBoolean.False;
+			gridView.OptionsView.ColumnAutoWidth = true;
+			gridView.FormatRules.Add(new DevExpress.XtraGrid.GridFormatRule
+			{
+				Column = progress,
+				Rule = new FormatConditionRuleDataBar
+				{
+					MinimumType = FormatConditionValueType.Number,
+					MaximumType = FormatConditionValueType.Number,
+					Minimum = 0,
+					Maximum = 100,
+					PredefinedName = "Green",
+					ShowBarOnly = false
+				}
+			});
+			gridView.CustomColumnDisplayText += GridView_CustomColumnDisplayText;
+		}
+
+		/// <summary>
+		/// Keeps transferred sizes and task state readable over the numeric progress bar.
+		/// </summary>
+		private void GridView_CustomColumnDisplayText(object sender, DevExpress.XtraGrid.Views.Base.CustomColumnDisplayTextEventArgs e)
+		{
+			if (e.Column.FieldName != "OverallProgress" || e.ListSourceRowIndex < 0)
+				return;
+			DownloadTaskRow row = gridView.GetRow(gridView.GetRowHandle(e.ListSourceRowIndex)) as DownloadTaskRow;
+			if (row != null)
+				e.DisplayText = row.ProgressText;
 		}
 
 
@@ -451,19 +502,36 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 			public AddModTask Task { get; private set; }
 			public string OverallMessage { get { return Task.OverallMessage; } }
-			public string OverallProgress
+			/// <summary>Gets a bounded percentage, leaving unknown totals without a misleading bar.</summary>
+			public double? OverallProgress
 			{
 				get
 				{
+					if (Task.Status == TaskStatus.Complete)
+						return 100;
+					if (Task.ShowOverallProgressAsMarquee || Task.DownloadMaximum <= 0)
+						return null;
+					return Math.Max(0, Math.Min(100, 100.0 * Task.DownloadProgress / Task.DownloadMaximum));
+				}
+			}
+
+			/// <summary>Gets the localized status or transferred sizes displayed over the bar.</summary>
+			public string ProgressText
+			{
+				get
+				{
+					if (Task.Status == TaskStatus.Complete)
+						return CompleteText;
 					if (Task.ShowOverallProgressAsMarquee)
 						return WorkingText;
 					if (Task.DownloadMaximum <= 0)
 						return string.Empty;
 					if (Task.Status != TaskStatus.Running && Task.Status != TaskStatus.Paused)
 						return string.Empty;
-					return Task.DownloadMaximum < 1024
+					string transferred = Task.DownloadMaximum < 1024
 						? string.Format("{0}KB / {1}KB", Task.DownloadProgress, Task.DownloadMaximum)
 						: string.Format("{0}MB / {1}MB", Task.DownloadProgress / 1024, Task.DownloadMaximum / 1024);
+					return string.Format("{0:0}%  {1}", OverallProgress, transferred);
 				}
 			}
 			public string Status

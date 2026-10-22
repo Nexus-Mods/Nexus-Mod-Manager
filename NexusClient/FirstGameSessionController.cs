@@ -320,8 +320,8 @@
 				_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.GameReady", "Managing {0}", entry.Name));
 				_shell.SetActiveManagedGame(entry.ModeId);
 				_shell.SetGameSessionReady();
-				DeliverPendingNxmIfMatching();
 				await _shell.NotifyFirstGameReadyAsync();
+				DeliverPendingNxmIfMatching();
 			}
 			catch (Exception exception) when (!(exception is OutOfMemoryException))
 			{

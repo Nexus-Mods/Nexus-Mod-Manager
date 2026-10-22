@@ -1157,27 +1157,39 @@
 					Trace.TraceInformation("Not required.");
 				else
 				{
+					Stopwatch pluginTimer = Stopwatch.StartNew();
+					OverallMessage = LanguageManager.Get("GameDiscovery.Phase.PluginDiscovery", "Discovering plugins and reading headers");
 					Trace.TraceInformation("Initializing Plugin Registry...");
 					Trace.Indent();
 					prgPluginRegistry = PluginRegistry.DiscoverManagedPlugins(p_gmdGameMode.GetPluginFactory(), p_gmdGameMode.GetPluginDiscoverer());
 					Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
+					Trace.TraceInformation("Plugin discovery and headers: {0} ms.", pluginTimer.ElapsedMilliseconds);
 					Trace.Unindent();
 
+					pluginTimer.Restart();
+					OverallMessage = LanguageManager.Get("GameDiscovery.Phase.PluginOrder", "Reading plugin load order");
 					Trace.TraceInformation("Initializing Plugin Order Log...");
 					Trace.Indent();
 					polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+					Trace.TraceInformation("Plugin order log: {0} ms.", pluginTimer.ElapsedMilliseconds);
 					Trace.Unindent();
 
+					pluginTimer.Restart();
+					OverallMessage = LanguageManager.Get("GameDiscovery.Phase.ActivePlugins", "Reading active plugin state");
 					Trace.TraceInformation("Initializing Active Plugin Log...");
 					Trace.Indent();
 					aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
+					Trace.TraceInformation("Active plugin log: {0} ms.", pluginTimer.ElapsedMilliseconds);
 					Trace.Unindent();
 
+					pluginTimer.Restart();
+					OverallMessage = LanguageManager.Get("GameDiscovery.Phase.PluginManager", "Initializing plugin management");
 					Trace.TraceInformation("Initializing Plugin Manager...");
 					Trace.Indent();
 
 					bool booPluginRestrictionsDisabled = EnvironmentInfo.Settings.PluginRestrictionsDisabled[p_gmdGameMode.ModeId];
 					pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator(), booPluginRestrictionsDisabled);
+					Trace.TraceInformation("Plugin manager: {0} ms.", pluginTimer.ElapsedMilliseconds);
 
 					Trace.Unindent();
 				}

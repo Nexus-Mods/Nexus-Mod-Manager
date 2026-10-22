@@ -1075,7 +1075,7 @@
 				_startupValue.Text = String.Empty;
 				_candidateHint.Text = String.Empty;
 				_details.Text = _catalog != null && _catalog.UnavailableSavedModeIds.Count > 0
-					? L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds)
+					? L("GameDiscovery.UnavailableSaved", "Saved game modes unavailable in this build:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds)
 					: L("GameDiscovery.DetailsHint", "Select a game to see its discovery details.");
 				return;
 			}
@@ -1121,11 +1121,6 @@
 				lines.Add(L("GameDiscovery.FoundLocations", "Verified installation locations:"));
 				foreach (var candidate in entry.Candidates)
 					lines.Add(candidate.Source + ": " + candidate.GameRoot);
-			}
-			if (_catalog.UnavailableSavedModeIds.Count > 0)
-			{
-				lines.Add(String.Empty);
-				lines.Add(L("GameDiscovery.UnavailableSaved", "Unsupported saved game IDs:") + " " + String.Join(", ", _catalog.UnavailableSavedModeIds));
 			}
 			_details.Text = String.Join(Environment.NewLine, lines);
 		}

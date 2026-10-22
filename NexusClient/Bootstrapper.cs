@@ -348,8 +348,13 @@
 					{
 						if (modToAdd != null)
 						{
-							Trace.TraceInformation("Adding mod: " + modToAdd);
-							msgMessager.AddMod(modToAdd.ToString());
+							Uri startupMod = modToAdd;
+							// Run after OnShown has validated the saved API key on the UI thread.
+							mainForm.Shown += (sender, eventArgs) => mainForm.BeginInvoke((MethodInvoker)(() =>
+							{
+								if (!mainForm.IsDisposed)
+									msgMessager.AddMod(startupMod.ToString());
+							}));
 							modToAdd = null;
 						}
 

@@ -930,7 +930,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intPlugins = 0;
 			int intDisabled = 0;
 
-			while (booReady == false)
+			while (booReady == false && File.Exists(PluginsFilePath))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
@@ -1035,7 +1035,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intRepeat = 0;
 			bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
 
-			while (booReady == false)
+			while (booReady == false && File.Exists(PluginsFilePath))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
@@ -1226,7 +1226,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			int intRepeat = 0;
 			bool? booReady = IsFileReady(LoadOrderFilePath, ForcedReadOnly, true);
 
-			while (booReady == false)
+			while (booReady == false && File.Exists(LoadOrderFilePath))
 			{
 				Thread.Sleep(500);
 				if (intRepeat++ >= 20)
@@ -1487,6 +1487,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		public bool IsPluginActive(string p_strPlugin)
 		{
 			string strPlugin = StripPluginDirectory(p_strPlugin);
+
+			// Most master references are already in the active-state snapshot. Check it before
+			// resolving and relativizing all of the game's implicitly active official plugins.
+			lock (m_objActivePluginCacheLock)
+			{
+				if (m_booActivePluginCacheInitialized && m_hstActivePluginNames.Contains(strPlugin))
+					return true;
+			}
 
 			if (Fallout4PluginManagement)
 			{
@@ -1755,6 +1763,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					else if (inputStream.Length == 0)
 						return null;
 				}
+			}
+			catch (FileNotFoundException)
+			{
+				// Missing state uses the existing last-valid/default fallback, without a lock retry.
+				return false;
+			}
+			catch (DirectoryNotFoundException)
+			{
+				return false;
 			}
 			catch
 			{

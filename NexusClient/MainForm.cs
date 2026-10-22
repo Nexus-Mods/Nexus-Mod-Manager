@@ -3445,7 +3445,7 @@
 				return;
 			ViewModel.ViewIsShown();
 
-			if (ViewModel.ModRepository.IsOffline)
+			if (ViewModel.ModRepository.IsOffline && !ViewModel.ModManager.LoginTask.LoggingIn)
 			{
 				ViewModel.ModManager.LoginTask.TokenLogin();
 			}

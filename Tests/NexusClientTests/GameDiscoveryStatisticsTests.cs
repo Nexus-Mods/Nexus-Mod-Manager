@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using DevExpress.XtraGrid;
 using DevExpress.XtraGrid.Views.Grid;
 using DevExpress.XtraGrid.Views.Grid.ViewInfo;
@@ -150,6 +151,32 @@ namespace NexusClientTests
 				Assert.That(view.GetRelationCount(0), Is.EqualTo(0));
 				Assert.That(view.GetMasterRowExpanded(0), Is.False);
 				document.Close();
+			}
+		}
+
+		/// <summary>Catalog-wide missing-mode diagnostics must not appear as problems with each selected game.</summary>
+		[Test]
+		[Apartment(ApartmentState.STA)]
+		public void UnavailableSavedModes_AreNotAppendedToUnrelatedGameDetails()
+		{
+			using (GameDiscoveryDocument document = new GameDiscoveryDocument())
+			{
+				string[] unavailable = { "Witcher3Remastered" };
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { Entry(),
+					new GameDiscoveryEntry("Configure", "Configure", GameDiscoveryCollection.ToConfigure,
+						"game", "executable", false, false, false, false, new GameDiscoveryInstallationCandidate[0]),
+					new GameDiscoveryEntry("Supported", "Supported", GameDiscoveryCollection.Supported,
+						null, null, false, false, false, false, new GameDiscoveryInstallationCandidate[0]) }, unavailable));
+				MemoEdit details = (MemoEdit)typeof(GameDiscoveryDocument).GetField("_details", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				foreach (string modeId in new[] { "FalloutNV", "Configure", "Supported" })
+				{
+					document.SelectMode(modeId);
+					LabelControl title = (LabelControl)typeof(GameDiscoveryDocument).GetField("_gameTitle", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+					Assert.That(title.Text, Is.EqualTo(modeId));
+					Assert.That(details.Text, Does.Not.Contain("Witcher3Remastered"), modeId);
+				}
+				document.SetCatalog(new GameDiscoveryCatalog(new GameDiscoveryEntry[0], unavailable));
+				Assert.That(details.Text, Does.Contain("Witcher3Remastered"), "Keep catalog diagnostics available when no game is selected.");
 			}
 		}
 

@@ -148,12 +148,16 @@ namespace Nexus.Client.Games.DataDriven
             if (string.IsNullOrWhiteSpace(path))
                 return;
 
+            // Plugin metadata repeatedly resolves this path while checking active masters.
+            // Existing directories do not require enumerating every drive on each lookup.
+            if (Directory.Exists(path))
+                return;
+
             string root = Path.GetPathRoot(path);
             if (!string.IsNullOrWhiteSpace(root) && !DriveInfo.GetDrives().Any(x => x.Name.Equals(root, StringComparison.CurrentCultureIgnoreCase)))
                 throw new DirectoryNotFoundException("The selected drive is no longer present on the system.");
 
-            if (!Directory.Exists(path))
-                Directory.CreateDirectory(path);
+            Directory.CreateDirectory(path);
         }
     }
 }
