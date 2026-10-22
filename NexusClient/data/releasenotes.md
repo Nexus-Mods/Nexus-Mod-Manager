@@ -1,9 +1,11 @@
 # NMM Community Edition release notes
 
-## Version 0.93.3
+## Version 0.93.4 hotfix
 
+- Bugfix: Fixed CSharp scripts mainly preventing Fallout NV mods from being installed.
 - Bugfix: Fixed issue preventing W3R mods containing XML files from being installed through normal install methods (it worked through collections).
 - Bugfix: Fixed mod installs failing with an unrelated Collections message.
+- Bugfix: Tweaked the new Game Discovery window for clarity.
 
 ## Version 0.93.2
 
