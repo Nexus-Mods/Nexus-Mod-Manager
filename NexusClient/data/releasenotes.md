@@ -1,5 +1,10 @@
 # NMM Community Edition release notes
 
+## Version 0.93.3
+
+- Bugfix: Fixed issue preventing W3R mods containing XML files from being installed through normal install methods (it worked through collections).
+- Bugfix: Fixed mod installs failing with an unrelated Collections message.
+
 ## Version 0.93.2
 
 - New Feature: Added Nexus Collections support.
