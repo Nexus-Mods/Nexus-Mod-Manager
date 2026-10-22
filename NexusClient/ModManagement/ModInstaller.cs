@@ -428,7 +428,9 @@ namespace Nexus.Client.ModManagement
 							stbError.AppendLine(erm.Exception.InnerException.Message);
 					}
 				string detail = stbError.ToString();
-				if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+				if (e is Nexus.Client.CollectionManagement.CollectionTargetAuthorityException)
+					detail = e.Message;
+				else if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
 					detail = e is Witcher3InstallException ? e.Message : LanguageManager.Get("Witcher3.Install.UnexpectedFailure",
 						"NMM could not complete this installation. Close the game and any tools using its files, then try again. If it still fails, include NMM's trace log in your bug report.");
 				strMessage = LanguageManager.Format("ModInstaller.InstallFailed", "The mod could not be installed.\n\n{0}", detail);

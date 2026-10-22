@@ -3096,6 +3096,9 @@
     "Witcher3.Install.MenuExists": "The settings menu file already exists: {0}. Remove the mod that installed it, or back up and remove a manually installed copy, then try again.",
     "Witcher3.Install.UnexpectedFailure": "NMM could not complete this installation. Close the game and any tools using its files, then try again. If it still fails, include NMM's trace log in your bug report.",
     "ModInstaller.InstallFailed": "The mod could not be installed.\n\n{0}",
-    "Witcher3.Install.ReplaceSetting": "Another mod has already changed a setting in {0}. Use this mod's setting instead?"
+    "Witcher3.Install.ReplaceSetting": "Another mod has already changed a setting in {0}. Use this mod's setting instead?",
+    "GameStorage.Identity.ConflictingFolders": "NMM could not confirm which mod folders belong to this game. Open Game Storage Manager and select your existing folders.",
+    "GameStorage.Identity.Unavailable": "NMM could not prepare this game's storage folders. Check that the drive is connected and the folders are writable, then try again.",
+    "GameStorage.Identity.GameFolderUnavailable": "NMM could not access this game's installation folder. Check that the drive is connected and the game folder still exists, then restart NMM."
   }
 }

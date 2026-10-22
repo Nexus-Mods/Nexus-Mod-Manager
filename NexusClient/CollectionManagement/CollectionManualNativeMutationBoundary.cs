@@ -40,7 +40,7 @@ namespace Nexus.Client.CollectionManagement
 				() =>
 				{
 					GameStoragePathSet paths = gameStorageService.FromGameMode(services.ModManager.GameMode);
-					return Tuple.Create(targetResolver.Resolve(paths), paths);
+					return Tuple.Create(targetResolver.ResolveForMutation(paths), paths);
 				},
 				CollectionTargetMutationLeaseManager.Shared,
 				(lease, authority, paths) => authorityValidator.ValidateAndReload(lease, authority, paths),

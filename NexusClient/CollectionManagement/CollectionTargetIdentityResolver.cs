@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Nexus.Client.GameStorage;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -25,6 +26,25 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
+		/// Resolves a native operation's target, attempting safe metadata setup once before
+		/// reporting a storage error. Read-only callers continue to use Resolve.
+		/// </summary>
+		internal CollectionTargetAuthority ResolveForMutation(GameStoragePathSet paths)
+		{
+			try
+			{
+				return Resolve(paths);
+			}
+			catch (CollectionTargetAuthorityException exception) when (
+				exception.FailureKind == CollectionTargetAuthorityFailureKind.StorageIdentityUnavailable ||
+				exception.FailureKind == CollectionTargetAuthorityFailureKind.UnsafeStorageMetadata)
+			{
+				_gameStorageService.PrepareMetadataForMutation(paths);
+				return Resolve(paths);
+			}
+		}
+
+		/// <summary>
 		/// Resolves one canonical target authority without modifying Game Storage metadata.
 		/// </summary>
 		public CollectionTargetAuthority Resolve(GameStoragePathSet paths)
@@ -37,14 +57,14 @@ namespace Nexus.Client.CollectionManagement
 			if (HasUnsafeIdentityMetadata(health))
 			{
 				throw new CollectionTargetAuthorityException(CollectionTargetAuthorityFailureKind.UnsafeStorageMetadata,
-					"Game Storage metadata is inconsistent and cannot be used as Collection target authority.");
+					LanguageManager.Get("GameStorage.Identity.ConflictingFolders", "NMM could not confirm which mod folders belong to this game. Open Game Storage Manager and select your existing folders."));
 			}
 
 			string storageId;
 			if (!_gameStorageService.TryResolveExistingStorageId(paths, out storageId))
 			{
 				throw new CollectionTargetAuthorityException(CollectionTargetAuthorityFailureKind.StorageIdentityUnavailable,
-					"The selected Game Storage has no single persisted identity. Initialize or repair Game Storage before Collection mutation.");
+					LanguageManager.Get("GameStorage.Identity.Unavailable", "NMM could not prepare this game's storage folders. Check that the drive is connected and the folders are writable, then try again."));
 			}
 
 			CollectionPhysicalDirectoryIdentity physicalDirectory;
@@ -56,7 +76,7 @@ namespace Nexus.Client.CollectionManagement
 				exception is System.Security.SecurityException || exception is System.ComponentModel.Win32Exception)
 			{
 				throw new CollectionTargetAuthorityException(CollectionTargetAuthorityFailureKind.PhysicalTargetUnavailable,
-					"The physical game installation directory could not be resolved safely.", exception);
+					LanguageManager.Get("GameStorage.Identity.GameFolderUnavailable", "NMM could not access this game's installation folder. Check that the drive is connected and the game folder still exists, then restart NMM."), exception);
 			}
 
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromCanonicalAuthority(physicalDirectory.StableKey, storageId);

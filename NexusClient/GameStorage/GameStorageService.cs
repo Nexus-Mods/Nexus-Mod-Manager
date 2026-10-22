@@ -514,6 +514,53 @@ namespace Nexus.Client.GameStorage
             InitializeMetadataForStorage(FromGameMode(gameMode));
         }
 
+        /// <summary>
+        /// Prepares the selected storage automatically before native operations: repairs the
+        /// known legacy manifest layout and initializes missing metadata without changing paths.
+        /// Ambiguous, unreadable or newer records remain untouched.
+        /// </summary>
+        internal GameStorageHealthCheck PrepareMetadataForMutation(GameStoragePathSet paths)
+        {
+            GameStorageHealthCheck health = ValidateStorage(paths);
+            if (!health.IsHealthy && ShouldAttemptKnownLegacyStorageMetadataRepair(health) &&
+                RepairKnownLegacyStorageMetadata(paths))
+                health = ValidateStorage(paths);
+
+            return health.IsHealthy && health.NeedsInitialization
+                ? InitializeLegacyMetadataForStorage(paths)
+                : health;
+        }
+
+        /// <summary>
+        /// Initializes missing metadata for validated legacy folders during startup, preserving
+        /// their existing identity without borrowing the active identity of another storage.
+        /// Conflicting or invalid metadata is left for explicit recovery.
+        /// </summary>
+        internal GameStorageHealthCheck InitializeLegacyMetadataForStorage(GameStoragePathSet paths)
+        {
+            if (paths == null)
+                throw new ArgumentNullException(nameof(paths));
+
+            using (Witcher3StorageMutationReservation.Acquire(paths.GameId))
+            {
+                GameStorageRegistry registry = LoadRegistry();
+                List<string> storageIds = GetExistingStorageIds(paths, registry);
+                string storageId = storageIds.FirstOrDefault() ?? Guid.NewGuid().ToString("D");
+                GameStorageHealthCheck health = Validate(paths, storageId, registry);
+                if (storageIds.Count > 1)
+                    Add(health, null, null, GameStorageHealthStatus.MismatchedStorageId, true, true,
+                        LanguageManager.Get("GameStorage.Identity.ConflictingFolders", "NMM could not confirm which mod folders belong to this game. Open Game Storage Manager and select your existing folders."));
+
+                if (!health.IsHealthy || !health.NeedsInitialization)
+                    return health;
+
+                // Use the normal metadata writer and ownership guard; mod files and folder settings stay intact.
+                return TryInitializeMetadata(paths, storageId, registry, health)
+                    ? Validate(paths, storageId, LoadRegistry())
+                    : health;
+            }
+        }
+
 		public void InitializeMetadataForStorage(GameStoragePathSet paths)
 		{
 			using (Witcher3StorageMutationReservation.Acquire(paths == null ? null : paths.GameId))
@@ -1158,6 +1205,19 @@ namespace Nexus.Client.GameStorage
 			if (paths == null || registry == null)
 				return false;
 
+			List<string> candidates = GetExistingStorageIds(paths, registry);
+			if (candidates.Count != 1)
+				return false;
+
+			storageId = candidates[0];
+			return true;
+		}
+
+		/// <summary>
+		/// Collects distinct persisted identities for the selected folders without using another active storage.
+		/// </summary>
+		private List<string> GetExistingStorageIds(GameStoragePathSet paths, GameStorageRegistry registry)
+		{
 			var candidates = new List<string>();
 			var folderStorageIds = new List<string>();
 			AddFolderManifestStorageId(folderStorageIds, paths, paths.InstallInfoPath, GameStorageFolderRole.InstallInfo);
@@ -1170,10 +1230,7 @@ namespace Nexus.Client.GameStorage
 				.Where(x => !string.IsNullOrWhiteSpace(x))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToList();
-			if (distinctFolderStorageIds.Count > 1)
-				return false;
-			if (distinctFolderStorageIds.Count == 1)
-				candidates.Add(distinctFolderStorageIds[0]);
+			candidates.AddRange(distinctFolderStorageIds);
 
 			string registryStorageId = FindExactRegistryStorageId(paths, registry);
 			if (!string.IsNullOrWhiteSpace(registryStorageId))
@@ -1183,15 +1240,10 @@ namespace Nexus.Client.GameStorage
 			if (!string.IsNullOrWhiteSpace(rootManifestStorageId))
 				candidates.Add(rootManifestStorageId);
 
-			List<string> distinctCandidates = candidates
+			return candidates
 				.Where(x => !string.IsNullOrWhiteSpace(x))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.ToList();
-			if (distinctCandidates.Count != 1)
-				return false;
-
-			storageId = distinctCandidates[0];
-			return true;
 		}
 
         private string ResolveStorageId(GameStoragePathSet paths, GameStorageRegistry registry)

@@ -484,13 +484,9 @@
             OverallMessage = LanguageManager.Get("GameDiscovery.Phase.StorageHealth", "Validating Game Storage and recovery");
             if (hadCompletedSetup && !completedGameStorageSetupThisRun)
             {
-                var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
-                if (!storageHealth.IsHealthy &&
-                    gameStorageService.ShouldAttemptKnownLegacyStorageMetadataRepair(storageHealth) &&
-                    gameStorageService.RepairKnownLegacyStorageMetadata(gameMode))
-                {
-                    storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
-                }
+                // Completed setup predates Game Storage metadata for some upgraded installations.
+                // Adopt only validated legacy folders before native operations require their identity.
+                var storageHealth = gameStorageService.PrepareMetadataForMutation(gameStorageService.FromGameMode(gameMode));
 
                 if (!storageHealth.IsHealthy)
                 {

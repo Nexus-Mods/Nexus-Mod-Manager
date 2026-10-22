@@ -3096,6 +3096,9 @@
     "Witcher3.Install.MenuExists": "Le fichier du menu de paramètres existe déjà : {0}. Supprimez le mod qui l'a installé ou sauvegardez puis supprimez la copie installée manuellement, et réessayez.",
     "Witcher3.Install.UnexpectedFailure": "NMM n'a pas pu terminer cette installation. Fermez le jeu et les outils utilisant ses fichiers, puis réessayez. Si le problème persiste, joignez le journal de diagnostic de NMM à votre rapport de bug.",
     "ModInstaller.InstallFailed": "Le mod n'a pas pu être installé.\n\n{0}",
-    "Witcher3.Install.ReplaceSetting": "Un autre mod a déjà modifié un paramètre dans {0}. Utiliser le paramètre de ce mod à la place ?"
+    "Witcher3.Install.ReplaceSetting": "Un autre mod a déjà modifié un paramètre dans {0}. Utiliser le paramètre de ce mod à la place ?",
+    "GameStorage.Identity.ConflictingFolders": "NMM ne parvient pas à déterminer quels dossiers de mods appartiennent à ce jeu. Ouvrez le gestionnaire de stockage et sélectionnez vos dossiers existants.",
+    "GameStorage.Identity.Unavailable": "NMM ne parvient pas à préparer les dossiers de stockage de ce jeu. Vérifiez que le lecteur est connecté et que les dossiers sont accessibles en écriture, puis réessayez.",
+    "GameStorage.Identity.GameFolderUnavailable": "NMM ne parvient pas à accéder au dossier d’installation de ce jeu. Vérifiez que le lecteur est connecté et que le dossier du jeu existe toujours, puis redémarrez NMM."
   }
 }

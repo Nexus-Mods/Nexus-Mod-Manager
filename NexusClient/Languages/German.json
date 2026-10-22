@@ -3096,6 +3096,9 @@
     "Witcher3.Install.MenuExists": "Die Datei des Einstellungsmenüs ist bereits vorhanden: {0}. Entfernen Sie den Mod, der sie installiert hat, oder sichern und entfernen Sie eine manuell installierte Kopie. Versuchen Sie es dann erneut.",
     "Witcher3.Install.UnexpectedFailure": "NMM konnte diese Installation nicht abschließen. Schließen Sie das Spiel und alle Werkzeuge, die seine Dateien verwenden, und versuchen Sie es erneut. Falls das Problem weiterhin besteht, fügen Sie Ihrem Fehlerbericht das Diagnoseprotokoll von NMM bei.",
     "ModInstaller.InstallFailed": "Der Mod konnte nicht installiert werden.\n\n{0}",
-    "Witcher3.Install.ReplaceSetting": "Ein anderer Mod hat bereits eine Einstellung in {0} geändert. Stattdessen die Einstellung dieses Mods verwenden?"
+    "Witcher3.Install.ReplaceSetting": "Ein anderer Mod hat bereits eine Einstellung in {0} geändert. Stattdessen die Einstellung dieses Mods verwenden?",
+    "GameStorage.Identity.ConflictingFolders": "NMM konnte nicht feststellen, welche Mod-Ordner zu diesem Spiel gehören. Öffnen Sie den Spielspeicher-Manager und wählen Sie Ihre vorhandenen Ordner aus.",
+    "GameStorage.Identity.Unavailable": "NMM konnte die Speicherordner dieses Spiels nicht vorbereiten. Prüfen Sie, ob das Laufwerk verbunden ist und Sie in die Ordner schreiben können. Versuchen Sie es anschließend erneut.",
+    "GameStorage.Identity.GameFolderUnavailable": "NMM konnte nicht auf den Installationsordner dieses Spiels zugreifen. Prüfen Sie, ob das Laufwerk verbunden ist und der Spielordner noch existiert. Starten Sie NMM anschließend neu."
   }
 }

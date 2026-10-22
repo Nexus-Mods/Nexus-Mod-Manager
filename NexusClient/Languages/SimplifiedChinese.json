@@ -3096,6 +3096,9 @@
     "Witcher3.Install.MenuExists": "设置菜单文件已存在：{0}。请移除安装该文件的模组，或先备份并移除手动安装的副本，然后重试。",
     "Witcher3.Install.UnexpectedFailure": "NMM 未能完成安装。请关闭游戏以及正在使用游戏文件的工具，然后重试。如果问题仍然存在，请在报告错误时附上 NMM 的诊断日志。",
     "ModInstaller.InstallFailed": "无法安装此模组。\n\n{0}",
-    "Witcher3.Install.ReplaceSetting": "其他模组已修改 {0} 中的某项设置。是否改用此模组的设置？"
+    "Witcher3.Install.ReplaceSetting": "其他模组已修改 {0} 中的某项设置。是否改用此模组的设置？",
+    "GameStorage.Identity.ConflictingFolders": "NMM 无法确认哪些模组文件夹属于此游戏。请打开游戏存储管理器并选择您现有的文件夹。",
+    "GameStorage.Identity.Unavailable": "NMM 无法准备此游戏的存储文件夹。请检查驱动器是否已连接，以及文件夹是否允许写入，然后重试。",
+    "GameStorage.Identity.GameFolderUnavailable": "NMM 无法访问此游戏的安装文件夹。请检查驱动器是否已连接、游戏文件夹是否仍然存在，然后重启 NMM。"
   }
 }

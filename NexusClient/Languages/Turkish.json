@@ -3096,6 +3096,9 @@
     "Witcher3.Install.MenuExists": "Ayar menüsü dosyası zaten var: {0}. Dosyayı kuran modu kaldırın veya elle kurulmuş kopyayı yedekleyip kaldırın, ardından yeniden deneyin.",
     "Witcher3.Install.UnexpectedFailure": "NMM bu kurulumu tamamlayamadı. Oyunu ve dosyalarını kullanan araçları kapatıp yeniden deneyin. Sorun sürerse hata raporunuza NMM'nin tanılama günlüğünü ekleyin.",
     "ModInstaller.InstallFailed": "Mod kurulamadı.\n\n{0}",
-    "Witcher3.Install.ReplaceSetting": "Başka bir mod {0} dosyasında bir ayarı zaten değiştirmiş. Bunun yerine bu modun ayarı kullanılsın mı?"
+    "Witcher3.Install.ReplaceSetting": "Başka bir mod {0} dosyasında bir ayarı zaten değiştirmiş. Bunun yerine bu modun ayarı kullanılsın mı?",
+    "GameStorage.Identity.ConflictingFolders": "NMM hangi mod klasörlerinin bu oyuna ait olduğunu doğrulayamadı. Oyun Depolama Yöneticisi’ni açıp mevcut klasörlerinizi seçin.",
+    "GameStorage.Identity.Unavailable": "NMM bu oyunun depolama klasörlerini hazırlayamadı. Sürücünün bağlı olduğunu ve klasörlere yazma izniniz olduğunu kontrol edip yeniden deneyin.",
+    "GameStorage.Identity.GameFolderUnavailable": "NMM bu oyunun kurulum klasörüne erişemedi. Sürücünün bağlı olduğunu ve oyun klasörünün hâlâ mevcut olduğunu kontrol edip NMM’yi yeniden başlatın."
   }
 }

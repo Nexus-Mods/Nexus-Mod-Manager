@@ -64,6 +64,87 @@ namespace NexusClientTests
         }
 
         [Test]
+        public void InitializeLegacyMetadataForStorage_ValidLegacyFolders_PersistsStableIdentityWithoutChangingPayload()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA", withArchive: true, withVirtualFile: true);
+            string storageId;
+            Assert.IsFalse(_service.TryResolveExistingStorageId(paths, out storageId));
+
+            GameStorageHealthCheck result = _service.InitializeLegacyMetadataForStorage(paths);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsFalse(result.NeedsInitialization);
+            Assert.IsTrue(_service.TryResolveExistingStorageId(paths, out storageId));
+            Assert.AreEqual(result.StorageId, storageId);
+            string registryPath = Path.Combine(_tempRoot, "Registry", "storages.json");
+            string registryBefore = File.ReadAllText(registryPath);
+            string manifestPath = Path.Combine(paths.InstallInfoPath, ".nmm-folder.json");
+            string manifestBefore = File.ReadAllText(manifestPath);
+
+            Assert.AreEqual(storageId, _service.InitializeLegacyMetadataForStorage(paths).StorageId);
+            Assert.AreEqual(registryBefore, File.ReadAllText(registryPath));
+            Assert.AreEqual(manifestBefore, File.ReadAllText(manifestPath));
+            Assert.AreEqual("<installLog />", File.ReadAllText(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")));
+            Assert.AreEqual("archive", File.ReadAllText(Path.Combine(paths.ModsPath, "ExampleMod.7z")));
+            Assert.AreEqual("plugin", File.ReadAllText(Path.Combine(paths.VirtualInstallPath, "Data", "Example.esp")));
+        }
+
+        [Test]
+        public void InitializeLegacyMetadataForStorage_AnotherActiveStorage_DoesNotBorrowItsIdentity()
+        {
+            var active = CreateStorage("SkyrimSE", "ActiveStorage");
+            _service.InitializeMetadataForStorage(active);
+            string activeId = _service.ValidateStorage(active).StorageId;
+            var legacy = CreateStorage("SkyrimSE", "LegacyStorage");
+
+            GameStorageHealthCheck result = _service.InitializeLegacyMetadataForStorage(legacy);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.AreNotEqual(activeId, result.StorageId);
+            Assert.AreEqual(activeId, _service.ValidateStorage(active).StorageId);
+        }
+
+        [Test]
+        public void InitializeLegacyMetadataForStorage_PartialMetadata_PreservesExistingIdentity()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA");
+            WriteFolderManifest(paths.InstallInfoPath, paths.GameId, "existing-storage", "InstallInfo");
+
+            GameStorageHealthCheck result = _service.InitializeLegacyMetadataForStorage(paths);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsFalse(result.NeedsInitialization);
+            Assert.AreEqual("existing-storage", result.StorageId);
+        }
+
+        [TestCase("conflicting-folder")]
+        [TestCase("conflicting-root")]
+        [TestCase("invalid")]
+        [TestCase("future")]
+        public void InitializeLegacyMetadataForStorage_UnsafeMetadata_IsNotOverwritten(string problem)
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA");
+            WriteFolderManifest(paths.InstallInfoPath, paths.GameId, "existing-storage", "InstallInfo");
+            string rootManifestPath = Path.Combine(_tempRoot, "StorageA", "NMMStorage.json");
+            string modsManifestPath = Path.Combine(paths.ModsPath, ".nmm-folder.json");
+            if (problem == "conflicting-root")
+                WriteRootManifest(Path.GetDirectoryName(rootManifestPath), paths.GameId, "other-storage");
+            else if (problem == "conflicting-folder")
+                WriteFolderManifest(paths.ModsPath, paths.GameId, "other-storage", "Mods");
+            else
+                File.WriteAllText(modsManifestPath, problem == "invalid" ? "invalid json" : "{\"SchemaVersion\":999}");
+            string existingPath = problem == "conflicting-root" ? rootManifestPath : modsManifestPath;
+            string before = File.ReadAllText(existingPath);
+
+            GameStorageHealthCheck result = _service.InitializeLegacyMetadataForStorage(paths);
+
+            Assert.IsFalse(result.IsHealthy);
+            Assert.AreEqual(before, File.ReadAllText(existingPath));
+            Assert.IsFalse(File.Exists(Path.Combine(paths.VirtualInstallPath, ".nmm-folder.json")));
+            Assert.IsFalse(File.Exists(Path.Combine(_tempRoot, "Registry", "storages.json")));
+        }
+
+        [Test]
         public void InitializeMetadataForStorage_EmptyVirtualInstallMetadataIsNotTreatedAsPayload()
         {
             var paths = CreateStorage("SkyrimSE", "StorageA");
@@ -75,8 +156,9 @@ namespace NexusClientTests
             Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.VirtualInstall && x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.False);
         }
 
-        [Test]
-        public void ValidateStorage_LegacyVirtualInstallCollision_IsNotRepairedUntilExplicitInitialization()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ValidateStorage_LegacyVirtualInstallCollision_IsNotRepairedUntilPreparation(bool prepareForMutation)
         {
             string root = Path.Combine(_tempRoot, "LegacyCollision");
             string installInfo = Path.Combine(root, "InstallInfo");
@@ -106,7 +188,10 @@ namespace NexusClientTests
             Assert.That(validation.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.PartialMatch), Is.True);
             Assert.That(File.Exists(Path.Combine(virtualInstall, ".nmm-folder.json")), Is.False);
 
-            Assert.IsTrue(_service.RepairKnownLegacyStorageMetadata(paths));
+            if (prepareForMutation)
+                Assert.IsTrue(_service.PrepareMetadataForMutation(paths).IsHealthy);
+            else
+                Assert.IsTrue(_service.RepairKnownLegacyStorageMetadata(paths));
 
             Assert.IsTrue(_service.ValidateStorage(paths).IsHealthy);
             Assert.That(File.Exists(Path.Combine(virtualInstall, ".nmm-folder.json")), Is.True);

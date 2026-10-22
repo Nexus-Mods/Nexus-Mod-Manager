@@ -100,6 +100,33 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Resolve_StartupMigrationMakesLegacyStorageAvailableForNativeOperations()
+		{
+			GameStoragePathSet legacy = CreateStorage("Fallout4", "LegacyStorage", "GameA");
+
+			GameStorageHealthCheck migrated = _storageService.InitializeLegacyMetadataForStorage(legacy);
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_storageService).Resolve(legacy);
+
+			Assert.That(migrated.IsHealthy, Is.True);
+			Assert.That(authority.StorageId, Is.EqualTo(migrated.StorageId));
+		}
+
+		[Test]
+		public void ResolveForMutation_MetadataFreeLegacyStorage_PreparesWithoutRestartOrBorrowingActiveIdentity()
+		{
+			GameStoragePathSet active = CreateStorage("Fallout4", "ActiveStorage", "GameA");
+			_storageService.InitializeMetadataForStorage(active);
+			string activeId = _storageService.ValidateStorage(active).StorageId;
+			GameStoragePathSet legacy = CreateStorage("Fallout4", "LegacyStorage", "GameB");
+
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_storageService).ResolveForMutation(legacy);
+
+			Assert.That(authority.StorageId, Is.Not.EqualTo(activeId));
+			Assert.That(_storageService.ValidateStorage(legacy).NeedsInitialization, Is.False);
+			Assert.That(_storageService.ValidateStorage(active).StorageId, Is.EqualTo(activeId));
+		}
+
+		[Test]
 		public void Resolve_MetadataFreeLegacyStorageFailsInsteadOfUsingTransientOrActiveIdentity()
 		{
 			GameStoragePathSet active = CreateStorage("Fallout4", "ActiveStorage", "GameA");
@@ -114,8 +141,9 @@ namespace NexusClientTests
 			Assert.That(File.Exists(Path.Combine(legacy.InstallInfoPath, ".nmm-folder.json")), Is.False);
 		}
 
-		[Test]
-		public void Resolve_ConflictingPersistedStorageMetadataFailsClosed()
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Resolve_ConflictingPersistedStorageMetadataFailsClosed(bool prepareForMutation)
 		{
 			GameStoragePathSet paths = CreateStorage("Fallout4", "StorageA", "GameA");
 			_storageService.InitializeMetadataForStorage(paths);
@@ -125,10 +153,15 @@ namespace NexusClientTests
 			File.SetAttributes(modsManifest, File.GetAttributes(modsManifest) & ~FileAttributes.Hidden & ~FileAttributes.ReadOnly);
 			File.WriteAllText(modsManifest, json.Replace(currentStorageId, "conflicting-storage-id"));
 
+			var resolver = new CollectionTargetIdentityResolver(_storageService);
 			CollectionTargetAuthorityException error = Assert.Throws<CollectionTargetAuthorityException>(() =>
-				new CollectionTargetIdentityResolver(_storageService).Resolve(paths));
+			{
+				if (prepareForMutation) resolver.ResolveForMutation(paths);
+				else resolver.Resolve(paths);
+			});
 
 			Assert.That(error.FailureKind, Is.EqualTo(CollectionTargetAuthorityFailureKind.UnsafeStorageMetadata));
+			Assert.That(File.ReadAllText(modsManifest), Is.EqualTo(json.Replace(currentStorageId, "conflicting-storage-id")));
 		}
 
 		[Test]
