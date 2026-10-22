@@ -179,9 +179,9 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void DuplicatePriorities_InvalidateEffectiveOrderClaimsEvenWhenTheNumbersAreReadable()
+		public void DuplicateSections_InvalidateEffectiveOrderClaimsEvenWhenTheNumbersAreReadable()
 		{
-			var result = Project(Index(), "[modA]\nPriority=1\n[modB]\nPriority=1\n");
+			var result = Project(Index(), "[modA]\nPriority=1\n[modA]\nPriority=2\n");
 			Assert.That(result.Rows.All(x => x.ValueSource == Witcher3LoadOrderValueSource.ConfiguredButAmbiguous), Is.True);
 			Assert.That(result.Issues.Select(x => x.Kind), Does.Contain(Witcher3LoadOrderIssueKind.SettingsHaveIssues));
 			Assert.That(result.IsGameEffectiveOrderRuntimeVerified, Is.False);

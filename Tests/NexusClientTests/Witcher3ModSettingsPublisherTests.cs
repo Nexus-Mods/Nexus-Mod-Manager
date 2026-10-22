@@ -235,8 +235,7 @@ namespace NexusClientTests
 			using (var lease = Lease())
 			{
 				Assert.That(Publish(preview, lease, approved: false).Status, Is.EqualTo(Witcher3ModSettingsPublishStatus.Blocked));
-				Assert.That(Publish(preview, lease, expected: Witcher3Edition.Remastered).Status,
-					Is.EqualTo(Witcher3ModSettingsPublishStatus.Blocked));
+				Assert.Throws<InvalidOperationException>(() => Publish(preview, lease, expected: Witcher3Edition.Remastered));
 				Assert.That(Publish(preview, lease, live: _ => Witcher3Edition.Remastered).Status,
 					Is.EqualTo(Witcher3ModSettingsPublishStatus.Blocked));
 				Assert.That(File.ReadAllBytes(_file), Is.EqualTo(original));

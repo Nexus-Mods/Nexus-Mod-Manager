@@ -310,6 +310,15 @@ namespace Nexus.Client.Games.Witcher3
 					Issue(issues, Witcher3LayoutIssueKind.ModFolderTooLong, item.Input.ArchivePath,
 						"Remastered may ignore a mod folder exceeding 63 characters; never rename it implicitly.");
 
+				if (component != null)
+				{
+					string previousSpelling;
+					if (componentSpelling.TryGetValue(component, out previousSpelling) &&
+						!String.Equals(previousSpelling, component, StringComparison.Ordinal))
+						Issue(issues, Witcher3LayoutIssueKind.InconsistentComponentCase, item.Input.ArchivePath,
+							"The same component folder has inconsistent capitalization in this archive.");
+					componentSpelling[component] = component;
+				}
 				string targetPath = Join(target);
 				if (!targetPaths.Add(targetPath))
 					Issue(issues, Witcher3LayoutIssueKind.DuplicateDestination, item.Input.ArchivePath,

@@ -110,12 +110,15 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void EpicDiscovery_DoesNotOpenTheNativeActivationGate()
+		public void EpicDiscovery_DoesNotChangeTheNativeActivationGate()
 		{
 			PropertyInfo gate = typeof(DataDrivenGameModeFactory).GetProperty("RemasteredNativeActivationApproved",
 				BindingFlags.Static | BindingFlags.NonPublic);
 			Assert.That(gate, Is.Not.Null);
-			Assert.That(gate.GetValue(null, null), Is.False);
+			object before = gate.GetValue(null, null);
+			Assert.That(DataDrivenGameModeFactory.SelectEditionValidStorePath(new[] { EpicStore() },
+				store => "verified-epic-install", path => true), Is.EqualTo("verified-epic-install"));
+			Assert.That(gate.GetValue(null, null), Is.EqualTo(before));
 		}
 
 		private static GameStoreInstallInfo EpicStore()

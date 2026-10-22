@@ -14,14 +14,15 @@ namespace NexusClientTests
     public class Witcher3RemasteredRegistrationTests
     {
         [Test]
-        public void RemasteredNativeActivationIsStillBlockedUntilWindowsRollbackVerification()
+        public void RemasteredNativeActivationUsesTheReadOnlyReviewedCodeGate()
         {
             var releaseGate = typeof(DataDrivenGameModeFactory).GetProperty(
                 "RemasteredNativeActivationApproved",
                 System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
             Assert.That(releaseGate, Is.Not.Null, "The dedicated native activation gate must not disappear.");
-            Assert.That(releaseGate.GetValue(null, null), Is.EqualTo(false),
-                "W3R.9 upgrade characterization is not proof of a tested Direct/Virtual rollback protocol.");
+            Assert.That(releaseGate.GetValue(null, null), Is.EqualTo(true));
+            Assert.That(releaseGate.GetSetMethod(true), Is.Null,
+                "A game definition must not be able to change the native activation approval.");
         }
 
         [Test]

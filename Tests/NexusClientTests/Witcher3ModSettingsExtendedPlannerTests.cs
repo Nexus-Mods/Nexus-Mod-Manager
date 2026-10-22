@@ -157,7 +157,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void NewFolderCanBeFirstConfiguredSection_OnlyIfSettingsAlreadyExists()
+		public void ExplicitNewFolderCanBePreviewed_WithoutCreatingSettings()
 		{
 			var read = Observe("[Tool]\nKeep=1");
 			var preview = Add(read, new[] { new Witcher3ModSettingsOrderEntry("modNew") }, "modNew");
@@ -166,7 +166,7 @@ namespace NexusClientTests
 			File.Delete(_settings);
 			var missing = Witcher3ModSettingsFileReader.Read(_settings);
 			Assert.That(Add(missing, new[] { new Witcher3ModSettingsOrderEntry("modNew") }, "modNew").Status,
-				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+				Is.EqualTo(Witcher3ModSettingsChangePlanStatus.PreviewAvailable));
 			Assert.That(File.Exists(_settings), Is.False);
 		}
 
@@ -225,10 +225,10 @@ namespace NexusClientTests
 			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRestoreGameDefaults(read,
 				Witcher3Edition.Legacy, true).Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Unchanged));
 			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRestoreGameDefaults(read,
-				Witcher3Edition.Remastered, true).Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+				Witcher3Edition.Ambiguous, true).Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
 			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRestoreGameDefaults(read,
 				Witcher3Edition.Legacy, false).Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
-			var malformed = Observe("[modA]\nPriority=1\n[modB]\nPriority=1\n");
+			var malformed = Observe("[modA]\nPriority=1\n[modA]\nPriority=2\n");
 			Assert.That(Witcher3ModSettingsChangePlanner.PrepareRestoreGameDefaults(malformed,
 				Witcher3Edition.Legacy, true).Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
 		}

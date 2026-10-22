@@ -84,13 +84,14 @@ namespace NexusClientTests
         [TestCase("new")]
         [TestCase("deleted")]
         [TestCase("moved")]
-        public void AdditionRemovalOrMove_IsRejected(string change)
+        public void AdditionRemovalOrMove_RequiresReviewedFootprintChange(string change)
         {
             var proposed = change == "new" ? ModFiles.Concat(new[] { @"Mods\modA\content\three.ws" }).ToArray() :
                 change == "deleted" ? new[] { ModFiles[0] } :
                 new[] { ModFiles[0], @"Mods\modA\content\renamed.ws" };
-            Assert.That(Assess(Native(ModFiles), ModFiles, proposed).Status,
-                Is.EqualTo(Witcher3NativeUpgradeStatus.FileFootprintChanged));
+            var decision = Assess(Native(ModFiles), ModFiles, proposed);
+            Assert.That(decision.Status, Is.EqualTo(Witcher3NativeUpgradeStatus.ReviewedFootprintChangeCandidate));
+            Assert.That(decision.IsExactFootprintCandidate, Is.False);
         }
 
         [Test]

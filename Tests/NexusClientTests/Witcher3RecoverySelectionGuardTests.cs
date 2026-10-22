@@ -51,7 +51,7 @@ namespace NexusClientTests
             // another Witcher mode has no physical game-root ownership.
             var result = _storage.ValidateRecoverySelection(Paths(modeId), Candidate(modeId));
             Assert.That(result.IsUsable, Is.False);
-            Assert.That(result.ToUserMessage(), Does.Contain("duplicate game-root ownership"));
+            Assert.That(result.ToUserMessage(), Does.Contain("without the active game settings"));
             Assert.That(_storage.ApplySelectedCandidatePaths(Paths(modeId), Candidate(modeId)), Is.False);
             Assert.That(Directory.Exists(Path.Combine(_root, "InstallInfo")), Is.False);
         }

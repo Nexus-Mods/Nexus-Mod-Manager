@@ -145,7 +145,9 @@ namespace NexusClientTests
 			Assert.That(File.Exists(_settings), Is.False);
 		}
 
-		[TestCase("Witcher3Remastered", Witcher3Edition.Remastered, false)]
+		[TestCase("Witcher3Remastered", Witcher3Edition.Ambiguous, false)]
+		[TestCase("Witcher3Remastered", Witcher3Edition.Legacy, false)]
+		[TestCase("Witcher3", Witcher3Edition.Remastered, false)]
 		[TestCase("Witcher3", Witcher3Edition.Ambiguous, false)]
 		[TestCase("Witcher3", Witcher3Edition.Legacy, true)]
 		public void UnknownEditionAndPendingRecovery_DisableAllWrites(string mode,
@@ -177,7 +179,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void RemasteredViewIncludesCurrentDx12AndLocalModHealthWithoutEnablingOrderWrites()
+		public void RemasteredViewIncludesCurrentDx12AndLocalModHealthWithoutWritingFiles()
 		{
 			Observe(ThreeSections);
 			string executable = Path.Combine(_game, "bin", "x64_dx12", "witcher3.exe");
@@ -203,7 +205,8 @@ namespace NexusClientTests
 			Assert.That(result.RemasteredHealth.Dx12ExecutableObserved, Is.True);
 			Assert.That(result.RemasteredHealth.SettingsStatus, Is.EqualTo(Witcher3RemasteredSettingsReadStatus.Loaded));
 			Assert.That(result.RemasteredHealth.LocalMods, Is.EqualTo(Witcher3RemasteredModSwitchState.Disabled));
-			Assert.That(result.Editor.CanEdit, Is.False);
+			Assert.That(result.Editor.CanEdit, Is.True);
+			Assert.That(result.Editor.IsDirty, Is.False);
 			Assert.That(File.ReadAllText(dx12Settings), Does.Contain("EnabledLocal=0"));
 		}
 

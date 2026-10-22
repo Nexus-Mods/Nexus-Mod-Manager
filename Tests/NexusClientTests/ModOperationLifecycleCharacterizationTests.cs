@@ -340,6 +340,8 @@ namespace NexusClientTests
                         hasActiveLinks = false;
                         return null;
                     }
+                    if (method.Name == "PublishPendingDeploymentChanges")
+                        throw new IOException("Synthetic cleanup failure after native removal.");
                     return null;
                 });
                 var uninstaller = new LifecycleCharacterizationUninstaller(mod, installLog, readOnlyActiveMods, virtualModActivator);

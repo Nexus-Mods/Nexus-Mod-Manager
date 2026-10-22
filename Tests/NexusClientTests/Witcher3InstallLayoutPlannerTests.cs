@@ -191,6 +191,7 @@ namespace NexusClientTests
 			Witcher3InstallLayoutPlan duplicate = Plan("Mods/modA/content/A.ws", "mods/moda/content/a.ws");
 			Assert.That(duplicate.Issues.Select(issue => issue.Kind),
 				Does.Contain(Witcher3LayoutIssueKind.DuplicateDestination));
+			Assert.That(duplicate.IsUnambiguous, Is.False);
 			Assert.That(duplicate.Issues.Select(issue => issue.Kind),
 				Does.Contain(Witcher3LayoutIssueKind.InconsistentComponentCase));
 			Witcher3InstallLayoutPlan componentCase = Plan("Mods/modA/content/A.ws", "Mods/moda/content/B.ws");

@@ -83,6 +83,7 @@ namespace Nexus.Client.Games.Witcher3
 					message = LanguageManager.Get("Witcher3.Install.SharedSettings", "This mod changes shared game settings that NMM cannot safely combine yet. Use the mod author's manual installation instructions."); break;
 				case Witcher3LayoutIssueKind.InvalidPath:
 				case Witcher3LayoutIssueKind.DuplicateDestination:
+				case Witcher3LayoutIssueKind.InconsistentComponentCase:
 				case Witcher3LayoutIssueKind.FileDirectoryCollision:
 					message = LanguageManager.Get("Witcher3.Install.InvalidPaths", "This archive contains invalid or conflicting file paths. Download a corrected archive from the mod author."); break;
 				case Witcher3LayoutIssueKind.InconsistentWrapper:

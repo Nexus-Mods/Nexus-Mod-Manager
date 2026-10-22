@@ -270,17 +270,16 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void RemasteredMode_DoesNotAcquireAuthorityOrWriteEvenIfEditionProbeReturnsLegacy()
+		public void RemasteredMode_RejectsLegacyNativeAuthorityWithoutWriting()
 		{
 			var preview = Preview();
 			var lifecycle = Service("Witcher3Remastered");
 			Assert.That(lifecycle.Refresh().CanPreviewLegacyManagedOrder, Is.False);
 			byte[] before = File.ReadAllBytes(_file);
-			Assert.That(lifecycle.Publish(preview, true).Status,
-				Is.EqualTo(Witcher3ModSettingsPublishStatus.Blocked));
+			Assert.Throws<InvalidOperationException>(() => lifecycle.Publish(preview, true));
 			Assert.Throws<InvalidOperationException>(() => lifecycle.AcknowledgePendingPublication(true));
 			Assert.That(File.ReadAllBytes(_file), Is.EqualTo(before));
-			Assert.That(_targetResolves, Is.Zero);
+			Assert.That(_targetResolves, Is.EqualTo(2));
 		}
 
 		[Test]

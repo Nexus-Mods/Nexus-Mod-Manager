@@ -3,10 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Nexus.Client;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.Settings;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -24,7 +26,21 @@ namespace NexusClientTests
 		{
 			_tempRoot = Path.Combine(Path.GetTempPath(), "NMM_CollectionOwnershipAuthority_" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(_tempRoot);
-			_storageService = new GameStorageService(Path.Combine(_tempRoot, "Registry"), new Version(9, 3));
+			ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				if (method.Name == "get_CompletedSetup") return new PerGameModeSettings<bool>();
+				if (method.Name == "get_InstallationPaths" || method.Name == "get_InstallInfoFolder" ||
+					method.Name == "get_VirtualFolder") return new PerGameModeSettings<string>();
+				return null;
+			});
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+			{
+				if (method.Name == "get_Settings") return settings;
+				if (method.Name == "get_ApplicationPersonalDataFolderPath") return _tempRoot;
+				if (method.Name == "get_ApplicationVersion") return new Version(9, 3);
+				return null;
+			});
+			_storageService = new GameStorageService(environment);
 			_authorityStore = new CollectionTargetOwnershipAuthorityStore(Path.Combine(_tempRoot, "MachineAuthority"));
 		}
 

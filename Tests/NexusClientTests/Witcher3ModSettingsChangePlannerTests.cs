@@ -151,7 +151,7 @@ namespace NexusClientTests
 		[Test]
 		public void AmbiguousCurrentConfiguration_MustBeFixedSeparatelyRatherThanPartiallyRewritten()
 		{
-			var read = Observe("[modFirst]\nPriority=1\n[modSecond]\nPriority=1\n");
+			var read = Observe("[modFirst]\nPriority=1\n[modFirst]\nPriority=2\n");
 			Assert.That(read.Document.IsUnambiguous, Is.False);
 			Assert.That(Preview(read, new Witcher3ModSettingsOrderEntry("modSecond"),
 				new Witcher3ModSettingsOrderEntry("modFirst")).Status,
@@ -173,14 +173,16 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void RemasteredAndUnknownEdition_DoNotBorrowLegacyOrderSemantics()
+		public void ConfirmedEditionsAllowReadOnlyPreview_UnknownEditionIsBlocked()
 		{
 			var loaded = Observe("[modFirst]\nPriority=1\n");
 			foreach (var edition in new[] { Witcher3Edition.Remastered, Witcher3Edition.Ambiguous })
 			{
 				var preview = Witcher3ModSettingsChangePlanner.Prepare(loaded, edition,
 					new[] { new Witcher3ModSettingsOrderEntry("modFirst") }, true);
-				Assert.That(preview.Status, Is.EqualTo(Witcher3ModSettingsChangePlanStatus.Blocked));
+				Assert.That(preview.Status, Is.EqualTo(edition == Witcher3Edition.Remastered
+					? Witcher3ModSettingsChangePlanStatus.Unchanged : Witcher3ModSettingsChangePlanStatus.Blocked));
+				Assert.That(preview.AuthorizesFileWrite, Is.False);
 			}
 		}
 	}

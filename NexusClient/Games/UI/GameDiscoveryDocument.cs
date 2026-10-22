@@ -109,7 +109,7 @@
 			// Reserve its column only when a game is actually loaded.
 			_canvas.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0));
 			_canvas.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+			_canvas.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
 			_canvas.RowStyles.Add(new RowStyle(SizeType.Absolute, 94));
 			_canvas.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -117,9 +117,10 @@
 			_viewport.Controls.Add(_canvas);
 			_viewport.Resize += (sender, args) => ResizeCanvas();
 
-			var heading = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+			var heading = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 2 };
+			heading.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			heading.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-			heading.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			heading.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			var headingTitle = new LabelControl
 			{
 				Text = L("GameDiscovery.Title", "Game Discovery"),
@@ -129,9 +130,11 @@
 			};
 			var introduction = new LabelControl
 			{
-				Text = L("GameDiscovery.Introduction", "Find your games, complete setup, and choose one to manage."),
-				Dock = DockStyle.Fill,
-				UseMnemonic = false
+				Text = L("GameDiscovery.Introduction", "Managed: Double-click a game or click Manage to open its game mode.\nTo configure: Select a game and configure its NMM folders to start managing it.\nSupported: Select a game and set its installation path, or use Scan for games to find more games on your system."),
+				Dock = DockStyle.Top,
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
+				UseMnemonic = false,
+				Appearance = { TextOptions = { WordWrap = DevExpress.Utils.WordWrap.Wrap, VAlignment = DevExpress.Utils.VertAlignment.Top } }
 			};
 			heading.Controls.Add(headingTitle, 0, 0);
 			heading.Controls.Add(introduction, 0, 1);
@@ -716,8 +719,7 @@
 			_refreshing = busy;
 			UpdateDiscoveryButtons();
 			UpdateActions();
-			SetStatus(busy ? L("GameDiscovery.Refreshing", "Checking launcher settings...") :
-				L("GameDiscovery.Ready", "Launcher check complete."));
+			SetStatus(busy ? L("GameDiscovery.Refreshing", "Refreshing detected games...") : String.Empty);
 		}
 
 		internal void SetScanning(bool scanning)
