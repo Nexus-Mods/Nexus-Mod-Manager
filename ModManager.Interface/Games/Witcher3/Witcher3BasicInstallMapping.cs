@@ -5,9 +5,17 @@ using System.IO;
 using System.Linq;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Games.ManagedContent;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Witcher3
 {
+	/// <summary>An installation problem with localized guidance suitable for the failure dialog.</summary>
+	public sealed class Witcher3InstallException : IOException
+	{
+		/// <summary>Retains diagnostic details separately from the message shown to the user.</summary>
+		public Witcher3InstallException(string message, Exception innerException = null) : base(message, innerException) { }
+	}
+
 	/// <summary>
 	/// Bridges the W3R.2 read-only planner to the native basic installer WITHOUT writing files.
 	/// The existing native installer still owns the transaction, target history, backups, and
@@ -53,9 +61,7 @@ namespace Nexus.Client.Games.Witcher3
 				stablePackageIdentity, suggestedModName, edition);
 			if (!plan.IsUnambiguous || plan.Files.Count == 0)
 			{
-				string reason = String.Join("; ", plan.Issues.Take(4)
-					.Select(issue => issue.Kind + ": " + issue.Explanation));
-				throw new InvalidDataException("Witcher 3 archive layout needs review before native installation: " + reason);
+				throw DescribeLayoutFailure(plan);
 			}
 
 			// Vortex's folder-level identity has no relationship to the native file owner:
@@ -63,6 +69,34 @@ namespace Nexus.Client.Games.Witcher3
 			// may have multiple native file owners. The native installer handles the latter.
 			return new ReadOnlyCollection<KeyValuePair<string, string>>(plan.Files.Select(file =>
 				new KeyValuePair<string, string>(file.ArchivePath, file.GameRelativeTargetPath)).ToList());
+		}
+
+		/// <summary>Explains a rejected archive without exposing internal policy names or adapter terminology.</summary>
+		public static Witcher3InstallException DescribeLayoutFailure(Witcher3InstallLayoutPlan plan,
+			IEnumerable<Witcher3LayoutIssue> blockingIssues = null)
+		{
+			Witcher3LayoutIssue issue = (blockingIssues ?? plan.Issues).FirstOrDefault();
+			string message;
+			switch (issue?.Kind)
+			{
+				case Witcher3LayoutIssueKind.ConfigurationMergeRequired:
+					message = LanguageManager.Get("Witcher3.Install.SharedSettings", "This mod changes shared game settings that NMM cannot safely combine yet. Use the mod author's manual installation instructions."); break;
+				case Witcher3LayoutIssueKind.InvalidPath:
+				case Witcher3LayoutIssueKind.DuplicateDestination:
+				case Witcher3LayoutIssueKind.FileDirectoryCollision:
+					message = LanguageManager.Get("Witcher3.Install.InvalidPaths", "This archive contains invalid or conflicting file paths. Download a corrected archive from the mod author."); break;
+				case Witcher3LayoutIssueKind.InconsistentWrapper:
+				case Witcher3LayoutIssueKind.UnresolvedInstallerSelection:
+					message = LanguageManager.Get("Witcher3.Install.AmbiguousLayout", "NMM cannot determine which files to install from this archive. Choose a version with a standard Mods or DLC folder, or follow the mod author's manual installation instructions."); break;
+				case Witcher3LayoutIssueKind.ModFolderTooLong:
+					message = LanguageManager.Get("Witcher3.Install.FolderTooLong", "This mod's folder name exceeds the game's 63-character limit. Ask the mod author for a compatible archive."); break;
+				default:
+					message = LanguageManager.Get("Witcher3.Install.UnsupportedFiles", "This archive contains files that NMM cannot install automatically for this game. Check that you downloaded the Remastered version and follow the mod author's installation instructions."); break;
+			}
+			if (!String.IsNullOrEmpty(issue?.SourcePath))
+				message += Environment.NewLine + LanguageManager.Format("Witcher3.Install.File", "File: {0}", issue.SourcePath);
+			string details = String.Join("; ", plan.Issues.Select(item => item.Kind + ": " + item.SourcePath + ": " + item.Explanation));
+			return new Witcher3InstallException(message, new InvalidDataException(details));
 		}
 
 		/// <summary>

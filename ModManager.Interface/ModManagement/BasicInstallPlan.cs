@@ -488,7 +488,7 @@ namespace Nexus.Client.ModManagement
 				{
 					files = mappingProvider.MapBasicInstallFiles(mod, installContext, files).ToList();
 				}
-				catch (InvalidDataException error)
+				catch (Exception error) when (error is InvalidDataException || error is Nexus.Client.Games.Witcher3.Witcher3InstallException)
 				{
 					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ReviewedGameLayoutRejected,
 						 error.Message);

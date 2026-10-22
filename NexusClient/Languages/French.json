@@ -3084,6 +3084,18 @@
     "Startup.Settings.ResetMessage": "Nous avons supprimé votre fichier de paramètres corrompu, veuillez redémarrer Nexus Mod Manager.",
     "Startup.Settings.ResetTitle": "Réinitialisation des paramètres",
     "Startup.Settings.UnchangedMessage": "Rien n'a été fait, Nexus Mod Manager va maintenant s'arrêter.",
-    "Startup.Settings.UnchangedTitle": "Paramètres inchangés"
+    "Startup.Settings.UnchangedTitle": "Paramètres inchangés",
+    "Witcher3.Install.SharedSettings": "Ce mod modifie des paramètres partagés du jeu que NMM ne peut pas encore combiner sans risque. Suivez les instructions d'installation manuelle de l'auteur du mod.",
+    "Witcher3.Install.InvalidPaths": "Cette archive contient des chemins de fichiers invalides ou contradictoires. Téléchargez une archive corrigée auprès de l'auteur du mod.",
+    "Witcher3.Install.AmbiguousLayout": "NMM ne peut pas déterminer quels fichiers installer depuis cette archive. Choisissez une version contenant un dossier Mods ou DLC standard, ou suivez les instructions d'installation manuelle de l'auteur.",
+    "Witcher3.Install.FolderTooLong": "Le nom du dossier de ce mod dépasse la limite de 63 caractères du jeu. Demandez une archive compatible à l'auteur du mod.",
+    "Witcher3.Install.UnsupportedFiles": "Cette archive contient des fichiers que NMM ne peut pas installer automatiquement pour ce jeu. Vérifiez que vous avez téléchargé la version Remastered et suivez les instructions de l'auteur du mod.",
+    "Witcher3.Install.File": "Fichier : {0}",
+    "Witcher3.Install.InvalidMenu": "NMM n'a pas pu lire le menu de paramètres du mod : {0}. Téléchargez à nouveau le mod ou demandez un fichier de menu corrigé à son auteur.",
+    "Witcher3.Install.MenuUpgrade": "NMM ne peut pas encore mettre à jour directement le menu de paramètres de ce mod. Supprimez la version installée dans NMM, puis installez la nouvelle version. Vos sauvegardes de jeu ne sont pas supprimées.",
+    "Witcher3.Install.MenuExists": "Le fichier du menu de paramètres existe déjà : {0}. Supprimez le mod qui l'a installé ou sauvegardez puis supprimez la copie installée manuellement, et réessayez.",
+    "Witcher3.Install.UnexpectedFailure": "NMM n'a pas pu terminer cette installation. Fermez le jeu et les outils utilisant ses fichiers, puis réessayez. Si le problème persiste, joignez le journal de diagnostic de NMM à votre rapport de bug.",
+    "ModInstaller.InstallFailed": "Le mod n'a pas pu être installé.\n\n{0}",
+    "Witcher3.Install.ReplaceSetting": "Un autre mod a déjà modifié un paramètre dans {0}. Utiliser le paramètre de ce mod à la place ?"
   }
 }

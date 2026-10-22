@@ -3084,6 +3084,18 @@
     "Startup.Settings.ResetMessage": "我们已删除您损坏的设置文件，请重新启动 Nexus Mod Manager。",
     "Startup.Settings.ResetTitle": "设置重置",
     "Startup.Settings.UnchangedMessage": "尚未执行任何操作，Nexus Mod Manager 现在将关闭。",
-    "Startup.Settings.UnchangedTitle": "设置不变"
+    "Startup.Settings.UnchangedTitle": "设置不变",
+    "Witcher3.Install.SharedSettings": "此模组会修改游戏的共享设置，NMM 目前还无法安全合并这些设置。请按照模组作者的说明手动安装。",
+    "Witcher3.Install.InvalidPaths": "此压缩包包含无效或相互冲突的文件路径。请向模组作者获取修正后的压缩包。",
+    "Witcher3.Install.AmbiguousLayout": "NMM 无法确定应从此压缩包中安装哪些文件。请选择包含标准 Mods 或 DLC 文件夹的版本，或按照模组作者的说明手动安装。",
+    "Witcher3.Install.FolderTooLong": "此模组的文件夹名称超过了游戏的 63 个字符限制。请向模组作者获取兼容的压缩包。",
+    "Witcher3.Install.UnsupportedFiles": "此压缩包包含 NMM 无法为该游戏自动安装的文件。请确认下载的是 Remastered 版本，并按照模组作者的说明安装。",
+    "Witcher3.Install.File": "文件：{0}",
+    "Witcher3.Install.InvalidMenu": "NMM 无法读取模组的设置菜单：{0}。请重新下载模组，或向作者获取修正后的菜单文件。",
+    "Witcher3.Install.MenuUpgrade": "NMM 目前还无法直接更新此模组的设置菜单。请先在 NMM 中移除已安装的版本，再安装新版本。此操作不会删除您的游戏存档。",
+    "Witcher3.Install.MenuExists": "设置菜单文件已存在：{0}。请移除安装该文件的模组，或先备份并移除手动安装的副本，然后重试。",
+    "Witcher3.Install.UnexpectedFailure": "NMM 未能完成安装。请关闭游戏以及正在使用游戏文件的工具，然后重试。如果问题仍然存在，请在报告错误时附上 NMM 的诊断日志。",
+    "ModInstaller.InstallFailed": "无法安装此模组。\n\n{0}",
+    "Witcher3.Install.ReplaceSetting": "其他模组已修改 {0} 中的某项设置。是否改用此模组的设置？"
   }
 }

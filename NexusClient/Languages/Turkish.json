@@ -3084,6 +3084,18 @@
     "Startup.Settings.ResetMessage": "Bozuk ayarlar dosyanızı sildik, lütfen Nexus Mod Manager'ı yeniden başlatın.",
     "Startup.Settings.ResetTitle": "Ayarlar sıfırlandı",
     "Startup.Settings.UnchangedMessage": "Hiçbir şey yapılmadı, Nexus Mod Yöneticisi şimdi kapatılacak.",
-    "Startup.Settings.UnchangedTitle": "Ayarlar değişmedi"
+    "Startup.Settings.UnchangedTitle": "Ayarlar değişmedi",
+    "Witcher3.Install.SharedSettings": "Bu mod, NMM'nin henüz güvenle birleştiremediği ortak oyun ayarlarını değiştiriyor. Mod yazarının elle kurulum yönergelerini izleyin.",
+    "Witcher3.Install.InvalidPaths": "Bu arşiv geçersiz veya birbiriyle çakışan dosya yolları içeriyor. Mod yazarından düzeltilmiş bir arşiv indirin.",
+    "Witcher3.Install.AmbiguousLayout": "NMM bu arşivden hangi dosyaların kurulacağını belirleyemiyor. Standart bir Mods veya DLC klasörü içeren sürümü seçin ya da yazarın elle kurulum yönergelerini izleyin.",
+    "Witcher3.Install.FolderTooLong": "Bu modun klasör adı, oyunun 63 karakter sınırını aşıyor. Mod yazarından uyumlu bir arşiv isteyin.",
+    "Witcher3.Install.UnsupportedFiles": "Bu arşiv, NMM'nin bu oyun için otomatik kuramadığı dosyalar içeriyor. Remastered sürümünü indirdiğinizden emin olun ve mod yazarının kurulum yönergelerini izleyin.",
+    "Witcher3.Install.File": "Dosya: {0}",
+    "Witcher3.Install.InvalidMenu": "NMM modun ayar menüsünü okuyamadı: {0}. Modu yeniden indirin veya yazarından düzeltilmiş bir menü dosyası isteyin.",
+    "Witcher3.Install.MenuUpgrade": "NMM bu modun ayar menüsünü henüz doğrudan güncelleyemiyor. NMM'de kurulu sürümü kaldırıp yeni sürümü kurun. Oyun kayıtlarınız silinmez.",
+    "Witcher3.Install.MenuExists": "Ayar menüsü dosyası zaten var: {0}. Dosyayı kuran modu kaldırın veya elle kurulmuş kopyayı yedekleyip kaldırın, ardından yeniden deneyin.",
+    "Witcher3.Install.UnexpectedFailure": "NMM bu kurulumu tamamlayamadı. Oyunu ve dosyalarını kullanan araçları kapatıp yeniden deneyin. Sorun sürerse hata raporunuza NMM'nin tanılama günlüğünü ekleyin.",
+    "ModInstaller.InstallFailed": "Mod kurulamadı.\n\n{0}",
+    "Witcher3.Install.ReplaceSetting": "Başka bir mod {0} dosyasında bir ayarı zaten değiştirmiş. Bunun yerine bu modun ayarı kullanılsın mı?"
   }
 }

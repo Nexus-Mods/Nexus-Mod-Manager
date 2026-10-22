@@ -179,7 +179,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Reads bounded menu input through the archive's stream API instead of allocating an unbounded XML member.</summary>
-		private static byte[] ReadMenuFile(IMod mod, string source, CancellationToken cancellationToken)
+		internal static byte[] ReadMenuFile(IMod mod, string source, CancellationToken cancellationToken)
 		{
 			using (Stream input = mod.GetFileStream(source))
 			using (var output = new MemoryStream())

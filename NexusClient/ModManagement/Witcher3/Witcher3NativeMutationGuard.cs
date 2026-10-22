@@ -160,6 +160,13 @@ namespace Nexus.Client.ModManagement.Witcher3
         public IReadOnlyList<KeyValuePair<string, string>> AuthorizeBasicInstall(IMod mod,
             ModInstallContext installContext)
         {
+            return AuthorizeComponentFiles(mod, installContext, null);
+        }
+
+        /// <summary>Reviews all ordinary files, or the component portion of an independently reviewed menu plan.</summary>
+        private IReadOnlyList<KeyValuePair<string, string>> AuthorizeComponentFiles(IMod mod,
+            ModInstallContext installContext, IEnumerable<KeyValuePair<string, string>> selectedFiles)
+        {
             if (mod == null) throw new ArgumentNullException(nameof(mod));
             if (installContext == null) throw new ArgumentNullException(nameof(installContext));
             AssertLease(_lease);
@@ -177,7 +184,7 @@ namespace Nexus.Client.ModManagement.Witcher3
             List<string> sources = mod.GetFileList();
             if (sources == null)
                 throw new InvalidDataException("The Witcher 3 archive inventory is unavailable.");
-            var selected = sources.Where(file => !ModInstallFileFilter.IsIgnored(file))
+            var selected = selectedFiles ?? sources.Where(file => !ModInstallFileFilter.IsIgnored(file))
                 .Select(file => new KeyValuePair<string, string>(file, null)).ToList();
             var mapped = adapter.MapBasicInstallFiles(mod, installContext, selected);
             Witcher3NativeWriteDecision decision = Witcher3NativeWritePolicy.Assess(_index,
@@ -189,6 +196,36 @@ namespace Nexus.Client.ModManagement.Witcher3
             // holding this exact lease immediately after the native/index reconciliation.
             Witcher3NativeDestinationPreflight.RequireNewComponents(_gameRoot, mapped.Select(file => file.Value));
             return new ReadOnlyCollection<KeyValuePair<string, string>>(mapped.ToList());
+        }
+
+        /// <summary>Retains component ownership review and admits only previously absent custom menu files.</summary>
+        internal IReadOnlyList<KeyValuePair<string, string>> AuthorizeMenuInstall(IMod mod,
+            ModInstallContext context, Witcher3StandaloneMenuInstallPlan plan)
+        {
+            AssertLease(_lease);
+            var records = ((DataDrivenWitcher3RemasteredGameMode)_gameMode).CreateCollectionRecordStore();
+            foreach (string menu in plan.MenuPaths)
+            {
+                string path = records.GetManifestPath(menu);
+                ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, menu);
+                if (File.Exists(path) || Directory.Exists(path) ||
+                    _native.InstallLog.Files.Any(file => file.Target.Equals(target)) ||
+                    _native.InstallLog.DeploymentTargets.Any(file => file.Target.Equals(target)) ||
+                    _native.VirtualState.Links.Any(link => link.Target.Equals(target)))
+                    throw new Witcher3InstallException(LanguageManager.Format("Witcher3.Install.MenuExists",
+                        "The settings menu file already exists: {0}. Remove the mod that installed it, or back up and remove a manually installed copy, then try again.", menu));
+            }
+            foreach (EditGameSpecificValueOperation value in plan.Operations.OfType<EditGameSpecificValueOperation>())
+            {
+                string profile, identity;
+                records.ParseKey(value.Key, out profile, out identity);
+                records.ValidatePayload(identity, value.Value);
+                records.GetManifestPath(profile);
+            }
+            IReadOnlyList<KeyValuePair<string, string>> mapped = AuthorizeComponentFiles(mod, context, plan.ComponentFiles);
+            if (!mapped.SequenceEqual(plan.ComponentFiles))
+                throw new InvalidDataException("Standalone menu components changed during native review.");
+            return mapped;
         }
 
         /// <summary>
@@ -212,6 +249,8 @@ namespace Nexus.Client.ModManagement.Witcher3
             string oldKey = _installLog.GetModKey(oldMod);
             if (String.IsNullOrWhiteSpace(oldKey))
                 throw new InvalidDataException("The replaced Witcher 3 archive has no active native InstallLog owner.");
+            if (_installLog.GetInstalledGameSpecificValueEdits(oldMod).Any(key => key.StartsWith(Witcher3CollectionRecordStore.Prefix, StringComparison.Ordinal)))
+                throw Witcher3StandaloneMenuInstallPlan.UpgradeRequiresRemoval();
             // A different already-active new mod must never be adopted as the replacement.
             // Self-upgrades (reinstall/reactivate) reuse the same IMod instance.
             string newKey = _installLog.GetModKey(newMod);

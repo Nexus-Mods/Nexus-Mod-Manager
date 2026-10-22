@@ -22,6 +22,8 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.Transactions;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Games.Witcher3;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -42,6 +44,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booVirtualStorePersisted;
 		private Action _collectionArchivePreparation;
 		private PreparedBasicInstallMapping m_preparedBasicMapping;
+		private Witcher3StandaloneMenuInstallPlan _standaloneWitcherMenuPlan;
 
 		#region Properties
 
@@ -300,6 +303,7 @@ namespace Nexus.Client.ModManagement
 					// native transaction has begun. Capture committed Witcher owners HERE:
 					// the generic snapshot reader rejects any ambient native transaction.
 					m_preparedBasicMapping = null;
+					_standaloneWitcherMenuPlan = null;
 					Witcher3NativeMutationReview remasteredReview = null;
 					if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
 						StringComparison.OrdinalIgnoreCase))
@@ -332,7 +336,12 @@ namespace Nexus.Client.ModManagement
 						if (remasteredReview != null && InstallationRecipeInput == null)
 						{
 							var upgrade = this as ModUpgrader;
-							IReadOnlyList<KeyValuePair<string, string>> reviewed = upgrade == null
+							_standaloneWitcherMenuPlan = Witcher3StandaloneMenuInstallPlan.TryCreate(Mod, InstallContext);
+							if (upgrade != null && _standaloneWitcherMenuPlan != null)
+								throw Witcher3StandaloneMenuInstallPlan.UpgradeRequiresRemoval();
+							IReadOnlyList<KeyValuePair<string, string>> reviewed = _standaloneWitcherMenuPlan != null
+								? remasteredReview.AuthorizeMenuInstall(Mod, InstallContext, _standaloneWitcherMenuPlan)
+								: upgrade == null
 								? remasteredReview.AuthorizeBasicInstall(Mod, InstallContext)
 								: remasteredReview.AuthorizeBasicUpgrade(upgrade.ReplacedMod, Mod, InstallContext);
 							m_preparedBasicMapping = PreparedBasicInstallMapping.Capture(Mod, GameMode, InstallContext, reviewed);
@@ -418,8 +427,11 @@ namespace Nexus.Client.ModManagement
 						if (erm.Exception.InnerException != null)
 							stbError.AppendLine(erm.Exception.InnerException.Message);
 					}
-				string strExceptionMessageFormat = "A problem occurred during install: " + Environment.NewLine + "{0}" + Environment.NewLine + "The mod was not installed."; ;
-				strMessage = String.Format(strExceptionMessageFormat, stbError.ToString());
+				string detail = stbError.ToString();
+				if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+					detail = e is Witcher3InstallException ? e.Message : LanguageManager.Get("Witcher3.Install.UnexpectedFailure",
+						"NMM could not complete this installation. Close the game and any tools using its files, then try again. If it still fails, include NMM's trace log in your bug report.");
+				strMessage = LanguageManager.Format("ModInstaller.InstallFailed", "The mod could not be installed.\n\n{0}", detail);
 				PopupErrorMessage = strMessage;
 				PopupErrorMessageType = "Error";
 			}
@@ -712,6 +724,10 @@ namespace Nexus.Client.ModManagement
 				}
 				(mfiFileInstaller as ModFileUpgradeInstaller)?.RetainPreparedStagingFiles(InstallationRecipeInput.NativeOperations);
 				booResult = RunInstallationRecipe(mfiFileInstaller, InstallationRecipeInput.NativeOperations, p_tfmFileManager);
+			}
+			else if (_standaloneWitcherMenuPlan != null)
+			{
+				booResult = RunInstallationRecipe(mfiFileInstaller, _standaloneWitcherMenuPlan.Operations, p_tfmFileManager);
 			}
 			else if (Mod.HasInstallScript)
 			{

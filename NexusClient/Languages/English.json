@@ -3084,6 +3084,18 @@
     "Startup.Settings.ResetMessage": "We've deleted your corrupted settings file, please restart Nexus Mod Manager.",
     "Startup.Settings.ResetTitle": "Settings reset",
     "Startup.Settings.UnchangedMessage": "Nothing has been done, Nexus Mod Manager will now shut down.",
-    "Startup.Settings.UnchangedTitle": "Settings unchanged"
+    "Startup.Settings.UnchangedTitle": "Settings unchanged",
+    "Witcher3.Install.SharedSettings": "This mod changes shared game settings that NMM cannot safely combine yet. Use the mod author's manual installation instructions.",
+    "Witcher3.Install.InvalidPaths": "This archive contains invalid or conflicting file paths. Download a corrected archive from the mod author.",
+    "Witcher3.Install.AmbiguousLayout": "NMM cannot determine which files to install from this archive. Choose a version with a standard Mods or DLC folder, or follow the mod author's manual installation instructions.",
+    "Witcher3.Install.FolderTooLong": "This mod's folder name exceeds the game's 63-character limit. Ask the mod author for a compatible archive.",
+    "Witcher3.Install.UnsupportedFiles": "This archive contains files that NMM cannot install automatically for this game. Check that you downloaded the Remastered version and follow the mod author's installation instructions.",
+    "Witcher3.Install.File": "File: {0}",
+    "Witcher3.Install.InvalidMenu": "NMM could not read the mod's settings menu: {0}. Download the mod again or ask its author for a corrected menu file.",
+    "Witcher3.Install.MenuUpgrade": "NMM cannot update this mod's settings menu in place yet. Remove the installed version in NMM, then install the new version. Your game saves are not removed.",
+    "Witcher3.Install.MenuExists": "The settings menu file already exists: {0}. Remove the mod that installed it, or back up and remove a manually installed copy, then try again.",
+    "Witcher3.Install.UnexpectedFailure": "NMM could not complete this installation. Close the game and any tools using its files, then try again. If it still fails, include NMM's trace log in your bug report.",
+    "ModInstaller.InstallFailed": "The mod could not be installed.\n\n{0}",
+    "Witcher3.Install.ReplaceSetting": "Another mod has already changed a setting in {0}. Use this mod's setting instead?"
   }
 }

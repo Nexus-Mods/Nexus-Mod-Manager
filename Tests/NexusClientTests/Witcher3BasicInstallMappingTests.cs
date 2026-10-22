@@ -68,7 +68,7 @@ namespace NexusClientTests
 		[TestCase("Mods/modA/content/a.ws/../../escape")]
 		public void UnsupportedOrUnsafeFile_RejectsWholeInstall(string other)
 		{
-			Assert.Throws<InvalidDataException>(() => Map(DirectData, "Mods/modGood/content/ok.ws", other));
+			Assert.Throws<Witcher3InstallException>(() => Map(DirectData, "Mods/modGood/content/ok.ws", other));
 		}
 
 		[Test]
@@ -84,7 +84,7 @@ namespace NexusClientTests
 		[Test]
 		public void DuplicateTarget_RejectsWholeInstall()
 		{
-			Assert.Throws<InvalidDataException>(() => Map(DirectData,
+			Assert.Throws<Witcher3InstallException>(() => Map(DirectData,
 				"Mods/modA/content/same.ws", "mods/moda/content/SAME.ws"));
 		}
 

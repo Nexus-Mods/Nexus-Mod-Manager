@@ -629,6 +629,7 @@
     <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.Collection.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3CollectionRecordStore.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3CollectionValueInstaller.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3StandaloneMenuInstallPlan.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeWritePolicy.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeUpgradePolicy.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3NativeUninstallPolicy.cs" />
