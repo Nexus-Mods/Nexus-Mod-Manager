@@ -569,6 +569,11 @@
 		/// </summary>
 		private async void MainTabbedView_DocumentSelected(object sender, DocumentEventArgs e)
 		{
+			if (e?.Document?.Control == _gameDiscoveryDocument)
+			{
+				_collectionStatisticsDirty = true;
+				CaptureGameStatistics();
+			}
 			if (_mainDocumentStartupUpdatePending || ViewModel == null)
 				return;
 			SetBarItemVisible(toolStripTextBoxFind, false);

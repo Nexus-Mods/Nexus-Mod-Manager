@@ -772,6 +772,7 @@ namespace Nexus.Client.ModManagement
 					}
 					catch (Exception ex)
 					{
+						TraceInstallException(ex);
 						PopupErrorMessage = ex.Message;
 						PopupErrorMessageType = "Error";
 					}

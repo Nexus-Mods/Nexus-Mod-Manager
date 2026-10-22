@@ -23,7 +23,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\Stage\Debug\GameModes\</OutputPath>
+    <OutputPath>..\..\Stage\Debug\</OutputPath>
     <IntermediateOutputPath>..\..\Stage\obj\Debug\</IntermediateOutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -33,7 +33,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>..\..\Stage\Release\GameModes\</OutputPath>
+    <OutputPath>..\..\Stage\Release\</OutputPath>
     <IntermediateOutputPath>..\..\Stage\obj\Release\</IntermediateOutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -192,6 +192,15 @@
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- The host and game-specific installers must share one Gamebryo type identity. -->
+  <Target Name="CleanMirroredGamebryoBase" AfterTargets="Build" Condition="'$(TargetDir)' != '' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <MirroredGamebryoBase Include="$(TargetDir)GameModes\$(TargetFileName)" />
+      <MirroredGamebryoBase Include="$(TargetDir)GameModes\$(TargetFileName).config" />
+      <MirroredGamebryoBase Include="$(TargetDir)GameModes\$(TargetName).pdb" />
+    </ItemGroup>
+    <Delete Files="@(MirroredGamebryoBase)" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

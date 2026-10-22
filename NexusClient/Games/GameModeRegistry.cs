@@ -26,6 +26,10 @@ namespace Nexus.Client.Games
 			Trace.TraceInformation("Discovering Game Mode Factories...");
 			Trace.Indent();
 
+            // Bind the host's shared runtime before loading legacy modes or installers.
+            // Archive upgrades can leave a second copy in GameModes with a distinct CLR type identity.
+            Trace.TraceInformation("Using shared Gamebryo runtime: {0}", typeof(Gamebryo.GamebryoGameModeBase).Assembly.Location);
+
             var appDirectory = Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty;
 			var gameModesPath = Path.Combine(appDirectory, "GameModes");
             var definitionsPath = Path.Combine(gameModesPath, "Definitions");
@@ -113,6 +117,9 @@ namespace Nexus.Client.Games
         {
             var fileName = Path.GetFileName(assembly);
             if (String.IsNullOrEmpty(fileName))
+                return false;
+
+            if (String.Equals(fileName, "GamebryoBase.dll", StringComparison.OrdinalIgnoreCase))
                 return false;
 
             if (IsScriptTypeAssembly(fileName))

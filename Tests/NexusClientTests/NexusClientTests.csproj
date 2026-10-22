@@ -325,6 +325,7 @@
     <Compile Include="ScriptedInstallerTestDoubles.cs" />
     <Compile Include="GameDiscoveryRecursiveScannerTests.cs" />
     <Compile Include="GameDiscoveryCatalogTests.cs" />
+    <Compile Include="GameDiscoveryStatisticsTests.cs" />
     <Compile Include="GameDiscoveryStartupIntentTests.cs" />
     <Compile Include="NexusLinkHandoffTests.cs" />
     <Compile Include="Witcher3DownloadModeTests.cs" />

@@ -2,12 +2,14 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.ComponentModel;
 	using System.Drawing;
 	using System.Drawing.Drawing2D;
 	using System.Linq;
 	using System.Windows.Forms;
 	using DevExpress.XtraEditors;
 	using DevExpress.XtraEditors.Controls;
+	using DevExpress.XtraEditors.Repository;
 	using DevExpress.XtraGrid;
 	using DevExpress.XtraGrid.Views.Grid;
 	using Nexus.Client.Games;
@@ -56,6 +58,9 @@
 		private readonly GroupControl _listCard;
 		private readonly GridControl _grid;
 		private readonly GridView _view;
+		private readonly Dictionary<string, Image> _logos = new Dictionary<string, Image>(StringComparer.OrdinalIgnoreCase);
+		private Func<string, Icon> _logoProvider;
+		private Func<GameDiscoveryEntry, GameDiscoveryStatistics> _statisticsProvider;
 		private readonly PanelControl[] _collectionCards = new PanelControl[3];
 		private readonly LabelControl[] _collectionTitles = new LabelControl[3];
 		private readonly LabelControl[] _collectionCounts = new LabelControl[3];
@@ -80,6 +85,7 @@
 		private bool _scanning;
 
 		internal event EventHandler RefreshRequested;
+		internal event EventHandler StatisticsRequested;
 		internal event EventHandler ScanRequested;
 		internal event EventHandler StopScanRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ManageRequested;
@@ -222,9 +228,9 @@
 			_canvas.Controls.Add(categories, 1, 2);
 
 			var mainArea = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
-			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 43));
+			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
 			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 16));
-			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 57));
+			mainArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
 			_canvas.Controls.Add(mainArea, 1, 3);
 
 			_listCard = new GroupControl { Dock = DockStyle.Fill, Text = L("GameDiscovery.ManagedGames", "Managed games") };
@@ -237,8 +243,9 @@
 			_grid.ViewCollection.Add(_view);
 			_view.OptionsBehavior.Editable = false;
 			_view.OptionsBehavior.ReadOnly = true;
+			_view.OptionsBehavior.AllowPixelScrolling = DevExpress.Utils.DefaultBoolean.False;
 			_view.OptionsView.ShowGroupPanel = false;
-			_view.OptionsView.ShowColumnHeaders = false;
+			_view.OptionsView.ShowColumnHeaders = true;
 			_view.OptionsView.ShowIndicator = false;
 			_view.OptionsView.ColumnAutoWidth = true;
 			_view.OptionsView.ShowHorizontalLines = DevExpress.Utils.DefaultBoolean.False;
@@ -247,14 +254,60 @@
 			_view.OptionsCustomization.AllowColumnMoving = false;
 			_view.OptionsCustomization.AllowSort = false;
 			_view.OptionsCustomization.AllowFilter = false;
-			_view.RowHeight = 42;
-			var nameColumn = _view.Columns.AddVisible(nameof(GameRow.Name));
-			nameColumn.VisibleIndex = 0;
+			_view.RowHeight = 124;
+			_view.OptionsDetail.EnableMasterViewMode = true;
+			_view.OptionsDetail.DetailMode = DetailMode.Embedded;
+			_view.OptionsDetail.ShowDetailTabs = false;
+			_view.OptionsDetail.ShowEmbeddedDetailIndent = DevExpress.Utils.DefaultBoolean.True;
+			_view.OptionsView.ShowDetailButtons = true;
+			var logoEditor = new RepositoryItemPictureEdit { SizeMode = PictureSizeMode.Zoom, NullText = String.Empty, ShowMenu = false };
+			_grid.RepositoryItems.Add(logoEditor);
+			var logoColumn = _view.Columns.AddVisible(nameof(GameRow.Logo), String.Empty);
+			logoColumn.ColumnEdit = logoEditor;
+			logoColumn.Caption = " ";
+			logoColumn.OptionsColumn.FixedWidth = true;
+			logoColumn.Width = 144;
+			var nameColumn = _view.Columns.AddVisible(nameof(GameRow.Name), L("GameDiscovery.GameColumn", "Game"));
+			nameColumn.MinWidth = 140;
+			nameColumn.AppearanceCell.FontStyleDelta = FontStyle.Bold;
+			var activityColumn = _view.Columns.AddVisible(nameof(GameRow.LastManaged), L("GameDiscovery.LastManaged", "Last managed"));
+			activityColumn.OptionsColumn.FixedWidth = true;
+			activityColumn.Width = 145;
+			activityColumn.ToolTip = L("GameDiscovery.LastManagedHint", "Last successful game-mode entry or game launch through NMM.");
+			// DevExpress also asks with InvalidRowHandle to decide whether detail buttons exist at all.
+			_view.MasterRowGetRelationCount += (sender, args) => args.RelationCount = args.RowHandle == GridControl.InvalidRowHandle
+				? (_visibleCollection == GameDiscoveryCollection.Managed ? 1 : 0)
+				: ((_view.GetRow(args.RowHandle) as GameRow)?.Entry.Collection == GameDiscoveryCollection.Managed ? 1 : 0);
+			_view.MasterRowEmpty += (sender, args) => args.IsEmpty = false;
+			_view.MasterRowGetRelationName += (sender, args) => args.RelationName = "Overview";
+			_view.MasterRowGetChildList += (sender, args) => args.ChildList = (_view.GetRow(args.RowHandle) as GameRow)?.Details;
+			_view.MasterRowExpanded += (sender, args) => StatisticsRequested?.Invoke(this, EventArgs.Empty);
+			var statisticsView = new GridView(_grid);
+			_grid.ViewCollection.Add(statisticsView);
+			_grid.LevelTree.Nodes.Add("Overview", statisticsView);
+			statisticsView.OptionsBehavior.Editable = false;
+			statisticsView.OptionsBehavior.ReadOnly = true;
+			statisticsView.OptionsView.ShowGroupPanel = false;
+			statisticsView.OptionsView.ShowIndicator = false;
+			statisticsView.OptionsSelection.EnableAppearanceFocusedCell = false;
+			statisticsView.OptionsCustomization.AllowSort = false;
+			statisticsView.OptionsCustomization.AllowFilter = false;
+			statisticsView.OptionsCustomization.AllowColumnMoving = false;
+			statisticsView.OptionsView.ShowVerticalLines = DevExpress.Utils.DefaultBoolean.False;
+			statisticsView.OptionsView.RowAutoHeight = true;
+			var detailText = new RepositoryItemMemoEdit();
+			_grid.RepositoryItems.Add(detailText);
+			statisticsView.Columns.AddVisible(nameof(StatisticRow.Content), L("GameDiscovery.Content", "Content")).ColumnEdit = detailText;
+			var activeColumn = statisticsView.Columns.AddVisible(nameof(StatisticRow.Active), L("GameDiscovery.ActiveApplied", "Active / applied"));
+			activeColumn.ColumnEdit = detailText;
+			activeColumn.ToolTip = L("GameDiscovery.AppliedCollectionsHint", "Collections show verified applied associations; modified or incomplete associations remain in the managed total.");
+			statisticsView.Columns.AddVisible(nameof(StatisticRow.Managed), L("GameDiscovery.Managed", "Managed"));
 			_view.FocusedRowChanged += (sender, args) => SelectGridRow();
 			_view.DoubleClick += (sender, args) =>
 			{
 				var position = _grid.PointToClient(Control.MousePosition);
-				if (_view.CalcHitInfo(position).InRow) InvokePrimaryAction();
+				var hit = _view.CalcHitInfo(position);
+				if (hit.InRowCell) InvokePrimaryAction();
 			};
 			listBody.Controls.Add(_grid);
 			_emptyList = new LabelControl
@@ -624,6 +677,8 @@
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing && _activeArtwork != null) ReleaseActiveArtwork();
+			if (disposing)
+				foreach (Image image in _logos.Values) image?.Dispose();
 			base.Dispose(disposing);
 		}
 
@@ -676,6 +731,77 @@
 			_artwork = artwork ?? throw new ArgumentNullException(nameof(artwork));
 			UpdateActiveBanner();
 		}
+
+		/// <summary>Supplies read-only row assets and cached statistics without constructing game modes.</summary>
+		internal void ConfigureRows(Func<string, Icon> logoProvider, Func<GameDiscoveryEntry, GameDiscoveryStatistics> statisticsProvider)
+		{
+			_logoProvider = logoProvider;
+			_statisticsProvider = statisticsProvider;
+		}
+
+		/// <summary>Refreshes expanded details without rebinding the master list or losing selection.</summary>
+		internal void RefreshStatistics(string modeId)
+		{
+			var rows = _grid.DataSource as List<GameRow>;
+			GameRow row = rows?.FirstOrDefault(item => String.Equals(item.Entry.ModeId, modeId, StringComparison.OrdinalIgnoreCase));
+			if (row != null) UpdateStatistics(row);
+		}
+
+		/// <summary>Clones shared definition icons once per game and releases the owned images with the document.</summary>
+		private Image GetLogo(string modeId)
+		{
+			Image image;
+			if (_logos.TryGetValue(modeId, out image)) return image;
+			try
+			{
+				Icon source = _logoProvider?.Invoke(modeId) ?? SystemIcons.Application;
+				using (Icon icon = new Icon(source, 96, 96))
+				using (Bitmap logo = icon.ToBitmap())
+				{
+					// Older transparent wordmarks use dark lettering. An image-local matte
+					// keeps the original branding readable on both light and dark skins.
+					image = new Bitmap(112, 112);
+					using (Graphics graphics = Graphics.FromImage(image))
+					{
+						graphics.Clear(Color.White);
+						graphics.DrawImage(logo, new Rectangle(8, 8, 96, 96));
+					}
+				}
+			}
+			catch (Exception error) when (error is ArgumentException || error is System.IO.IOException ||
+				error is UnauthorizedAccessException || error is System.Runtime.InteropServices.ExternalException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Could not load game logo {0}: {1}", modeId, error.Message);
+				image = SystemIcons.Application.ToBitmap();
+			}
+			_logos[modeId] = image;
+			return image;
+		}
+
+		/// <summary>Formats current or cached counts, preserving unknown and unsupported values.</summary>
+		private void UpdateStatistics(GameRow row)
+		{
+			row.Details.RaiseListChangedEvents = false;
+			row.Details.Clear();
+			GameDiscoveryStatistics snapshot = _statisticsProvider?.Invoke(row.Entry);
+			if (snapshot == null)
+				row.Details.Add(new StatisticRow(L("GameDiscovery.SummaryUnavailable", "Manage this game to collect info"), String.Empty, String.Empty));
+			else
+			{
+				row.Details.Add(new StatisticRow(L("MainForm.Tabs.Mods", "Mods"), Count(snapshot.ActiveMods), Count(snapshot.ManagedMods)));
+				row.Details.Add(new StatisticRow(L("MainForm.Tabs.Collections", "Collections"), Count(snapshot.AppliedCollections), Count(snapshot.ManagedCollections)));
+				if (snapshot.ManagedPlugins.HasValue)
+					row.Details.Add(new StatisticRow(L("MainForm.Tabs.Plugins", "Plugins"), Count(snapshot.ActivePlugins), Count(snapshot.ManagedPlugins)));
+				if (!String.IsNullOrWhiteSpace(snapshot.ProfileName))
+					row.Details.Add(new StatisticRow(L("GameDiscovery.Profile", "Profile"), snapshot.ProfileName, String.Empty));
+				row.Details.Add(new StatisticRow(L("GameDiscovery.Snapshot", "Last updated"), snapshot.UpdatedUtc.ToLocalTime().ToString("g"), String.Empty));
+			}
+			row.Details.RaiseListChangedEvents = true;
+			row.Details.ResetBindings();
+		}
+
+		/// <summary>Displays unknown counts separately from known zero counts.</summary>
+		private static string Count(int? value) => value.HasValue ? value.Value.ToString("N0") : L("GameDiscovery.UnknownCount", "Unavailable");
 
 		internal void SetActiveManagedGame(string modeId)
 		{
@@ -821,7 +947,8 @@
 			// Keep the external game selection when a configuration moves sections.
 			var previous = filtered.FirstOrDefault(item => String.Equals(item.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
 			if (previous != null) _visibleCollection = previous.Collection;
-			var rows = filtered.Where(item => item.Collection == _visibleCollection).Select(item => new GameRow(item)).ToList();
+			var rows = filtered.Where(item => item.Collection == _visibleCollection).Select(item => new GameRow(item, GetLogo(item.ModeId))).ToList();
+			foreach (GameRow row in rows.Where(item => item.Entry.Collection == GameDiscoveryCollection.Managed)) UpdateStatistics(row);
 			int focusIndex = rows.FindIndex(row => String.Equals(row.Entry.ModeId, _selectedModeId, StringComparison.OrdinalIgnoreCase));
 			if (focusIndex < 0)
 			{
@@ -1061,15 +1188,37 @@
 			Populate();
 		}
 
+		/// <summary>A master row with owned-by-document artwork and read-only detail values.</summary>
 		public sealed class GameRow
 		{
-			internal GameRow(GameDiscoveryEntry entry)
+			/// <summary>Builds a row without reading game files or initializing native services.</summary>
+			internal GameRow(GameDiscoveryEntry entry, Image logo)
 			{
 				Entry = entry;
 				Name = entry.Name;
+				Logo = logo;
+				LastManaged = entry.LastPlayedUtc.HasValue ? entry.LastPlayedUtc.Value.ToLocalTime().ToString("g") : L("GameDiscovery.NoManagementHistory", "Not recorded");
 			}
 			internal GameDiscoveryEntry Entry { get; }
 			public string Name { get; }
+			public Image Logo { get; }
+			public string LastManaged { get; }
+			public BindingList<StatisticRow> Details { get; } = new BindingList<StatisticRow>();
+		}
+
+		/// <summary>One localized metric in the managed game's expandable overview.</summary>
+		public sealed class StatisticRow
+		{
+			/// <summary>Initializes already-formatted display values.</summary>
+			internal StatisticRow(string content, string active, string managed)
+			{
+				Content = content;
+				Active = active;
+				Managed = managed;
+			}
+			public string Content { get; }
+			public string Active { get; }
+			public string Managed { get; }
 		}
 
 		/// <summary>A determinate ring; never estimates progress from elapsed time.</summary>

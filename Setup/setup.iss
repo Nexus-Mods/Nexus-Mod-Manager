@@ -82,6 +82,10 @@ Type: files; Name: "{app}\GameModes\AntlrUtil.dll"
 Type: files; Name: "{app}\GameModes\CSharpScript.dll"
 Type: files; Name: "{app}\GameModes\ModScript.dll"
 Type: files; Name: "{app}\GameModes\XmlScript.dll"
+; GamebryoBase is shared with the host and must load only from the application folder.
+Type: files; Name: "{app}\GameModes\GamebryoBase.dll"
+Type: files; Name: "{app}\GameModes\GamebryoBase.dll.config"
+Type: files; Name: "{app}\GameModes\GamebryoBase.pdb"
 
 ; Remove only retired concrete Game Mode assemblies; game-specific Script Type assemblies remain installed.
 Type: files; Name: "{app}\Fallout3.dll"
@@ -117,7 +121,7 @@ Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {
 Source: "..\Stage\Release\*.dll"; Excludes: "{#RetiredGameModeDlls}"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\Languages\*"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,{#RetiredGameModeDlls}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 

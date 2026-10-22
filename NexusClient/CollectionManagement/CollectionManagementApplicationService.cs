@@ -343,6 +343,15 @@ namespace Nexus.Client.CollectionManagement
 				planStore, _associationStore, artifactStore, referenceStore, manifestStore);
 		}
 
+		/// <summary>Reads display counts without loading recipes, members, operations or native file state.</summary>
+		internal void GetAssociationCounts(out int applied, out int managed)
+		{
+			IReadOnlyList<CollectionTargetAssociation> associations = _store.Exists
+				? _associationStore.GetAssociationsForTarget(ResolveCurrentTarget()) : new CollectionTargetAssociation[0];
+			applied = associations.Count(item => item.State == CollectionAssociationState.Applied);
+			managed = associations.Count;
+		}
+
 		/// <summary>Returns installed Collection associations for the current canonical target.</summary>
 		public IReadOnlyList<CollectionManagementAssociation> GetAssociations()
 		{

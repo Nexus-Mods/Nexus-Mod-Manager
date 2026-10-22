@@ -1121,6 +1121,7 @@
 		/// </summary>
 		private void UpdateModsFeedback()
 		{
+			ScheduleGameStatistics();
 			tlbModsCounter.Caption = _statusTotalModsPrefix + ViewModel.ModManagerVM.ManagedMods.Count + _statusInstalledModsPrefix + ViewModel.ModManager.ActiveMods.Count + _statusActiveModsPrefix + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
 		}
 
@@ -1129,6 +1130,7 @@
 		/// </summary>
 		private void PmcPluginManagerControlUpdatePluginsCount(object sender, EventArgs e)
 		{
+			ScheduleGameStatistics();
 			toolStripLabelPluginsCounter.Caption = _statusTotalPluginsPrefix + ViewModel.PluginManagerVM.ManagedPlugins.Count + _statusActivePluginsPrefix;
 			var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
@@ -1186,6 +1188,7 @@
 			}
 
 			ScheduleActivePluginsProfileSave();
+			ScheduleGameStatistics();
 		}
 
 		/// <summary>
@@ -1469,6 +1472,7 @@
 			}
 
 			ScheduleActivePluginsProfileSave();
+			ScheduleGameStatistics();
 		}
 
 		private void ScheduleActivePluginsProfileSave()
@@ -1770,6 +1774,7 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		protected override void OnClosed(EventArgs e)
 		{
+			SaveGameStatistics();
 			if (!DesignMode)
 			{
 				SaveMainDockingLayout();
@@ -3521,6 +3526,7 @@
 				return;
 			}
 			_fileManagerControl.NotifyCollectionSourcesChanged();
+			ScheduleGameStatistics(true);
 			BindSupportedToolsCommands();
 		}
 

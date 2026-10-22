@@ -39,8 +39,15 @@
 		internal void ReprojectGameDiscoveryCatalog()
 		{
 			if (_gameDiscoveryRegistry == null || IsDisposed) return;
-			_gameDiscoveryDocument.SetCatalog(GameDiscoveryCatalogBuilder.Build(
-				_gameDiscoveryRegistry.RegisteredGameModes, _shellEnvironmentInfo.Settings, _gameDiscoveryCandidates));
+			GameDiscoveryCatalog catalog = GameDiscoveryCatalogBuilder.Build(
+				_gameDiscoveryRegistry.RegisteredGameModes, _shellEnvironmentInfo.Settings, _gameDiscoveryCandidates);
+			foreach (GameDiscoveryEntry entry in catalog.Managed)
+			{
+				string installInfoPath = null;
+				_shellEnvironmentInfo.Settings.InstallInfoFolder?.TryGetValue(entry.ModeId, out installInfoPath);
+				_gameStatistics.ValidateStorage(entry.ModeId, installInfoPath);
+			}
+			_gameDiscoveryDocument.SetCatalog(catalog);
 		}
 		internal bool IsFirstSessionLoading { get; set; }
 		internal bool HasBoundGameViewModel => ViewModel != null;
@@ -49,10 +56,19 @@
 		/// <summary>Records a mode only after its native services and game interface have opened successfully.</summary>
 		internal void SetActiveManagedGame(string modeId)
 		{
+			_gameStatisticsModeId = modeId;
+			_collectionStatisticsDirty = true;
 			_gameDiscoveryDocument.SetActiveManagedGame(modeId);
 			RecordGameActivity(modeId);
+			CaptureGameStatistics();
+			_gameStatistics.Save();
 		}
-		internal void SetGameSessionInactive() => _gameDiscoveryDocument.SetSessionInactive();
+		internal void SetGameSessionInactive()
+		{
+			_gameStatisticsModeId = null;
+			_gameStatisticsTimer?.Stop();
+			_gameDiscoveryDocument.SetSessionInactive();
+		}
 
 		internal void SetGameLoadStatus(string name, bool loading)
 		{
@@ -95,7 +111,20 @@
 
 		private void InitializeGameDiscoveryDocument()
 		{
+			_gameStatistics = new GameDiscoveryStatisticsCache(_shellEnvironmentInfo.ApplicationPersonalDataFolderPath);
+			_gameStatisticsTimer = new System.Windows.Forms.Timer { Interval = 750 };
+			_gameStatisticsTimer.Tick += (sender, args) =>
+			{
+				if (ViewModel?.IsSwitching == true || ViewModel?.ModActivationMonitor.HasPendingNativeOperations == true) return;
+				_gameStatisticsTimer.Stop();
+				CaptureGameStatistics();
+			};
 			_gameDiscoveryDocument = new GameDiscoveryDocument();
+			// This document is created before InitializeComponent creates the shell's component container.
+			_gameDiscoveryDocument.Disposed += (sender, args) => _gameStatisticsTimer.Dispose();
+			_gameDiscoveryDocument.ConfigureRows(modeId => _gameDiscoveryRegistry?.GetGameMode(modeId)?.GameModeDescriptor.ModeTheme?.Icon,
+				entry => _gameStatistics.Get(entry));
+			_gameDiscoveryDocument.StatisticsRequested += (sender, args) => CaptureGameStatistics();
 			_gameDiscoveryDocument.ConfigureArtwork(new GameDiscoveryArtwork(
 				_shellEnvironmentInfo.ApplicationPersonalDataFolderPath, modeId =>
 				(_gameDiscoveryRegistry?.GetGameMode(modeId) as DataDrivenGameModeFactory)?.DefinitionPath));

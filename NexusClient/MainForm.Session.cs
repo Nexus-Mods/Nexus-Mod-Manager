@@ -105,6 +105,7 @@
 				throw new InvalidOperationException("Cannot detach the current game on this window/thread.");
 
 			// Persist per-game state before clearing its document and monitor references.
+			SaveGameStatistics();
 			SaveMainDocumentOrder();
 			SaveMainDockingLayout();
 			(_modManagerControl as ModManagement.UI.ModManagerDXControl)?.SavePersistedLayout();
