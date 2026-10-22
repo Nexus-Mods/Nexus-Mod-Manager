@@ -51,6 +51,7 @@
     "allowCustomCommand": false
   },
   "resources": {
+    "iconPath": "witcher3_logo.ico",
     "categoriesPath": "Categories.xml"
   },
   "theme": {

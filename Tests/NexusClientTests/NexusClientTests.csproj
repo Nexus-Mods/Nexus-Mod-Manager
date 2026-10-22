@@ -475,5 +475,9 @@
       <Link>Fixtures\Categories.xml</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Game Modes\Definitions\Witcher3Remastered\witcher3_logo.ico">
+      <Link>Fixtures\witcher3_logo.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

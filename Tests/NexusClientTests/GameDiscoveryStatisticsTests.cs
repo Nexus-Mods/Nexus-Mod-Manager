@@ -6,10 +6,12 @@ using System.Threading;
 using System.Windows.Forms;
 using DevExpress.XtraGrid;
 using DevExpress.XtraGrid.Views.Grid;
+using DevExpress.XtraGrid.Views.Grid.ViewInfo;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Nexus.Client.Games;
 using Nexus.Client.Games.UI;
+using Nexus.Client.UI;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -147,6 +149,51 @@ namespace NexusClientTests
 				view.SetMasterRowExpanded(0, true);
 				Assert.That(view.GetRelationCount(0), Is.EqualTo(0));
 				Assert.That(view.GetMasterRowExpanded(0), Is.False);
+				document.Close();
+			}
+		}
+
+		/// <summary>Measures rendered logo rows after the same density updates used by the main window.</summary>
+		[TestCase("Compact")]
+		[TestCase("Comfortable")]
+		[TestCase("Spacious")]
+		[Apartment(ApartmentState.STA)]
+		public void LogoRowsSurviveDisplaySettingsAndHistoryIsManagedOnly(string density)
+		{
+			using (GameDiscoveryDocument document = new GameDiscoveryDocument())
+			using (DevExpressDisplaySettings settings = new DevExpressDisplaySettings("Segoe UI", 9f, density,
+				DevExpressDisplaySettings.DefaultIconStyle, 20, DevExpressDisplaySettings.DefaultIconColorProfile,
+				DevExpressDisplaySettings.DefaultButtonPresentationProfile))
+			{
+				document.ConfigureRows(id => SystemIcons.Application, entry => Snapshot());
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { Entry(),
+					new GameDiscoveryEntry("Configure", "Configure", GameDiscoveryCollection.ToConfigure,
+						"game", "executable", false, false, false, false, new GameDiscoveryInstallationCandidate[0]),
+					new GameDiscoveryEntry("Supported", "Supported", GameDiscoveryCollection.Supported,
+						null, null, false, false, false, false, new GameDiscoveryInstallationCandidate[0]) }, new string[0]));
+				document.StartPosition = FormStartPosition.Manual;
+				document.Location = new Point(-20000, -20000);
+				document.Size = new Size(1200, 900);
+				document.ShowInTaskbar = false;
+				document.Show();
+				GridControl grid = (GridControl)typeof(GameDiscoveryDocument).GetField("_grid", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				GridView view = (GridView)grid.MainView;
+				foreach (string modeId in new[] { "FalloutNV", "Configure", "Supported", "FalloutNV" })
+				{
+					document.SelectMode(modeId);
+					DevExpressDisplaySettingsApplier.ApplyToControlTree(document, settings);
+					DevExpressDisplaySettingsApplier.ApplyToControlTree(document, settings);
+					grid.ForceInitialize();
+					Application.DoEvents();
+					GridViewInfo info = (GridViewInfo)view.GetViewInfo();
+					Assert.That(info.GetGridRowInfo(0).Bounds.Height, Is.GreaterThanOrEqualTo(64), modeId);
+					Assert.That(view.Columns["LastManaged"].Visible, Is.EqualTo(modeId == "FalloutNV"), modeId);
+				}
+				view.SetMasterRowExpanded(0, true);
+				Application.DoEvents();
+				GridView detail = (GridView)view.GetDetailView(0, 0);
+				Assert.That(((GridViewInfo)detail.GetViewInfo()).GetGridRowInfo(0).Bounds.Height, Is.LessThan(64),
+					"Summary rows must retain normal density.");
 				document.Close();
 			}
 		}

@@ -23,6 +23,7 @@
 	/// </summary>
 	internal sealed class GameDiscoveryDocument : XtraForm
 	{
+		private const int LogoRowHeight = 64;
 		private readonly TextEdit _search;
 		private readonly SimpleButton _refresh;
 		private readonly SimpleButton _scan;
@@ -254,7 +255,9 @@
 			_view.OptionsCustomization.AllowColumnMoving = false;
 			_view.OptionsCustomization.AllowSort = false;
 			_view.OptionsCustomization.AllowFilter = false;
-			_view.RowHeight = 124;
+			_view.RowHeight = LogoRowHeight;
+			// Global display density is reapplied after construction; logo rows still need room for their images.
+			_view.CalcRowHeight += (sender, args) => args.RowHeight = Math.Max(LogoRowHeight, args.RowHeight);
 			_view.OptionsDetail.EnableMasterViewMode = true;
 			_view.OptionsDetail.DetailMode = DetailMode.Embedded;
 			_view.OptionsDetail.ShowDetailTabs = false;
@@ -959,6 +962,7 @@
 			_repopulating = true;
 			try
 			{
+				_view.Columns[nameof(GameRow.LastManaged)].Visible = _visibleCollection == GameDiscoveryCollection.Managed;
 				_grid.DataSource = rows;
 				_view.FocusedRowHandle = focusIndex < 0 ? GridControl.InvalidRowHandle : focusIndex;
 				_grid.Visible = rows.Count > 0;
