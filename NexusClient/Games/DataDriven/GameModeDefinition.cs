@@ -139,6 +139,8 @@ namespace Nexus.Client.Games.DataDriven
     public class GameModeLauncherDefinition
     {
         public string DefaultExecutable { get; set; }
+        /// <summary>Gets or sets an optional game-relative prelauncher used only for launching, not discovery or version detection.</summary>
+        public string PrelauncherExecutable { get; set; }
         public string PlainCommandName { get; set; }
         public string PlainCommandText { get; set; }
         public string CustomCommandName { get; set; }

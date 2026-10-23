@@ -341,6 +341,7 @@
     <Compile Include="CollectionInstallDestinationResolverTests.cs" />
     <Compile Include="BasicInstallPlanBuilderTests.cs" />
     <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
+    <Compile Include="DataDrivenPrelauncherTests.cs" />
     <Compile Include="GamebryoDescriptorRescanTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
@@ -396,6 +397,10 @@
     <ProjectReference Include="..\..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
       <Name>Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Commanding\Commanding.csproj">
+      <Project>{1732BB96-1F74-4B99-82D6-4D1239C9D36A}</Project>
+      <Name>Commanding</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Transactions\Transactions.csproj">
       <Project>{EA39FD1B-CF1C-4F56-80EE-52A8FA042964}</Project>

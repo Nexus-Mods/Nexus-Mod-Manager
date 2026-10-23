@@ -530,6 +530,10 @@ namespace Nexus.Client.Games.DataDriven
             if (!definition.Launcher.AllowCustomCommand.HasValue)
                 issues.Add(Error(definition, "launcher.allowCustomCommand", "launcher.allowCustomCommand is required."));
 
+            if (definition.Launcher.PrelauncherExecutable != null &&
+                !DataDrivenDefinitionRules.IsSafeExecutableRelativePath(definition.Launcher.PrelauncherExecutable))
+                issues.Add(Error(definition, "launcher.prelauncherExecutable", "launcher.prelauncherExecutable must be a safe game-relative .exe path."));
+
             ValidateOptionalIdentifier(definition, definition.Launcher.PlainCommandName, "launcher.plainCommandName", issues);
             ValidateOptionalIdentifier(definition, definition.Launcher.CustomCommandName, "launcher.customCommandName", issues);
             ValidateOptionalNonEmptyString(definition, definition.Launcher.PlainCommandText, "launcher.plainCommandText", issues);

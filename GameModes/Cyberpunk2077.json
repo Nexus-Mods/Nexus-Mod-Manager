@@ -21,6 +21,7 @@
   },
   "launcher": {
     "defaultExecutable": "bin\\x64\\Cyberpunk2077.exe",
+    "prelauncherExecutable": "REDprelauncher.exe",
     "plainCommandName": "PlainLaunch",
     "plainCommandText": "Launch Cyberpunk 2077",
     "customCommandName": "CustomLaunch",

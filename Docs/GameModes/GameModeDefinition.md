@@ -62,6 +62,8 @@ Maps to plugin-management overrides such as `UsesPlugins`, `PluginDirectorySuffi
 
 Maps to old `GameLauncher` classes: default executable, command names, display text, and whether the user can configure a custom launch command.
 
+`prelauncherExecutable` optionally names a safe game-relative `.exe` to prefer when installed, such as Cyberpunk's `REDprelauncher.exe`. It is a launch target only: keep `gameExecutables`, discovery metadata and `defaultExecutable` pointing to the actual game executable. If the prelauncher is absent, launching retains the existing direct-executable fallback order. Opting in also exposes **Direct launch (legacy)** in the launch menu. Custom commands retain precedence, and a failed prelauncher launch never triggers an automatic second launch attempt.
+
 ### resources
 
 Maps to embedded resource usage from old game mode projects. Values must be file names beside the runtime `game.json`:

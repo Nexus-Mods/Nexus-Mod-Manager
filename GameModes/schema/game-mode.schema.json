@@ -1251,6 +1251,10 @@
         "defaultExecutable": {
           "$ref": "#/$defs/executableRelativePath"
         },
+        "prelauncherExecutable": {
+          "$ref": "#/$defs/executableRelativePath",
+          "description": "Optional launch-only executable, preferred when installed. Does not participate in game discovery/version detection; absence falls back to defaultExecutable and gameExecutables."
+        },
         "plainCommandName": {
           "$ref": "#/$defs/identifier"
         },

@@ -43,15 +43,27 @@ namespace Nexus.Client.Games.DataDriven
 
             ClearLaunchCommands();
 
-            string plainCommand = GetPlainLaunchCommand(definition);
+            string plainCommand = GetLaunchCommand(definition, true);
             Image icon = SafeExtractIcon(plainCommand);
             AddLaunchCommand(new Command(
                 definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.PlainCommandName) ? "PlainLaunch" : definition.Launcher.PlainCommandName,
                 definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.PlainCommandText) ? LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", GameMode.Name) : definition.Launcher.PlainCommandText,
-                LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name),
+                definition.Launcher != null && !string.IsNullOrWhiteSpace(definition.Launcher.PrelauncherExecutable)
+                    ? LanguageManager.Format("GameModes.Commands.Game.PrelauncherDescription", "Opens {0}'s launcher when installed; otherwise launches the game directly.", GameMode.Name)
+                    : LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name),
                 icon,
                 LaunchPlain,
                 true));
+
+            if (definition.Launcher != null && !string.IsNullOrWhiteSpace(definition.Launcher.PrelauncherExecutable))
+            {
+                string directCommand = GetPlainLaunchCommand(definition);
+                AddLaunchCommand(new Command("DirectLaunch",
+                    LanguageManager.Get("GameModes.Commands.Game.DirectLegacyLaunchName", "Direct launch (legacy)"),
+                    AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.DirectLegacyLaunchDescription",
+                        "Launches {0} directly without its prelauncher.", GameMode.Name), directCommand),
+                    SafeExtractIcon(directCommand), LaunchDirect, true));
+            }
 
             string scriptExtenderCommand = GetInstalledScriptExtenderCommand(definition);
             if (!string.IsNullOrWhiteSpace(scriptExtenderCommand))
@@ -103,12 +115,26 @@ namespace Nexus.Client.Games.DataDriven
 
         private void LaunchPlain()
         {
+            LaunchConfiguredExecutable(true);
+        }
+
+        /// <summary>Preserves explicit direct launching for installations which do not need a prelauncher.</summary>
+        private void LaunchDirect()
+        {
+            LaunchConfiguredExecutable(false);
+        }
+
+        /// <summary>Resolves the selected executable on each click and hands it to the existing process launcher without retries.</summary>
+        private void LaunchConfiguredExecutable(bool usePrelauncher)
+        {
             if (!CheckLaunchReadiness())
                 return;
             PrepareProfileForLaunch();
-            Trace.TraceInformation("Launching {0} (Default)...", GameMode.Name);
+            string command = GetLaunchCommand(_definition, usePrelauncher);
+            Trace.TraceInformation("Launching {0} via {1}...", GameMode.Name, command);
             Trace.Indent();
-            Launch(GetPlainLaunchCommand(_definition), null);
+            // Launch uses the executable's directory, so a root-level prelauncher runs from the game root.
+            Launch(command, null);
         }
 
         private void LaunchScriptExtender()
@@ -183,14 +209,35 @@ namespace Nexus.Client.Games.DataDriven
 
         private string GetPlainLaunchCommand(GameModeDefinition definition)
         {
+            return GetLaunchCommand(definition, false);
+        }
+
+        /// <summary>Resolves a launch target without changing game discovery, script-extender selection or custom commands.</summary>
+        private string GetLaunchCommand(GameModeDefinition definition, bool usePrelauncher)
+        {
+            string executableRoot = GameMode.GameModeEnvironmentInfo.ExecutablePath ??
+                                    GameMode.GameModeEnvironmentInfo.InstallationPath ?? string.Empty;
+            return ResolveLaunchExecutable(definition, executableRoot, usePrelauncher);
+        }
+
+        /// <summary>Prefers an installed opt-in prelauncher; absence retains the original direct-executable fallback order.</summary>
+        internal static string ResolveLaunchExecutable(GameModeDefinition definition, string executableRoot, bool usePrelauncher)
+        {
             if (definition == null || definition.GameExecutables == null || definition.GameExecutables.Length == 0)
                 throw new InvalidOperationException("The data-driven GameMode has no game executable.");
+
+            if (usePrelauncher && definition.Launcher != null && !string.IsNullOrWhiteSpace(definition.Launcher.PrelauncherExecutable))
+            {
+                string prelauncher = Path.Combine(executableRoot, definition.Launcher.PrelauncherExecutable);
+                if (File.Exists(prelauncher))
+                    return prelauncher;
+            }
 
             string preferredExecutable = definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.DefaultExecutable)
                 ? definition.GameExecutables[0]
                 : definition.Launcher.DefaultExecutable;
 
-            string preferredCommand = CombineWithExecutablePath(preferredExecutable);
+            string preferredCommand = Path.Combine(executableRoot, preferredExecutable);
             if (File.Exists(preferredCommand))
                 return preferredCommand;
 
@@ -199,7 +246,7 @@ namespace Nexus.Client.Games.DataDriven
                 if (string.IsNullOrWhiteSpace(candidate))
                     continue;
 
-                string candidateCommand = CombineWithExecutablePath(candidate);
+                string candidateCommand = Path.Combine(executableRoot, candidate);
                 if (File.Exists(candidateCommand))
                     return candidateCommand;
             }
