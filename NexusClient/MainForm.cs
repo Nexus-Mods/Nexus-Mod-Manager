@@ -1442,7 +1442,8 @@
 				// Reload/profile-restore requests must not close the process-scoped window.
 				// Legacy rescan/default flags are deliberately NOT interpreted as a disk scan.
 				if (!String.IsNullOrWhiteSpace(ViewModel?.RequestedGameMode))
-					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(ViewModel.RequestedGameMode));
+					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(ViewModel.RequestedGameMode,
+						reload: String.Equals(ViewModel.GameMode.ModeId, ViewModel.RequestedGameMode, StringComparison.OrdinalIgnoreCase)));
 				else
 					_mainTabbedView?.ActivateDocument(_gameDiscoveryDocument);
 				return;
@@ -1875,7 +1876,9 @@
 				bool isReloadCommand = ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase);
 				changeCommand.Executed += ChangeGameModeCommand_Executed;
 				_changeModeCommandsWithExecutedHandler.Add(changeCommand);
-				BarButtonItem item = CreateCommandBarButton(changeCommand, NmmIconAction.ChangeGame);
+				BarButtonItem item = changeCommand.Image != null
+					? CreateCommandBarButton(changeCommand)
+					: CreateCommandBarButton(changeCommand, NmmIconAction.ChangeGame);
 				if (isReloadCommand)
 				{
 					item.Caption = LanguageManager.Format("MainForm.ChangeGameMode.Reload", "Reload {0}", changeCommand.Name);
@@ -1898,23 +1901,39 @@
 			}
 		}
 
-		/// <summary>Lists managed games in catalog order and routes switches through the discovery session controller.</summary>
+		/// <summary>Lists the active game first for reload, then other managed games in catalog order.</summary>
 		private void BindSessionGameSwitchItems()
 		{
 			if (GameDiscoveryCatalog == null) return;
-			foreach (Games.GameDiscoveryEntry entry in GameDiscoveryCatalog.Managed)
+			string activeModeId = ViewModel?.GameMode.ModeId;
+			foreach (Games.GameDiscoveryEntry entry in GameDiscoveryCatalog.Managed
+				.OrderByDescending(game => String.Equals(activeModeId, game.ModeId, StringComparison.OrdinalIgnoreCase)))
 			{
 				string modeId = entry.ModeId;
-				BarButtonItem item = new BarButtonItem(barManagerMain, entry.Name)
+				bool isReload = String.Equals(activeModeId, modeId, StringComparison.OrdinalIgnoreCase);
+				string caption = isReload
+					? LanguageManager.Format("MainForm.ChangeGameMode.Reload", "Reload {0}", entry.Name)
+					: entry.Name;
+				BarButtonItem item = new BarButtonItem(barManagerMain, caption)
 				{
-					Enabled = !IsFirstSessionLoading && Games.GameSessionEntryGate.CanManage(entry) &&
-						!String.Equals(ViewModel?.GameMode.ModeId, modeId, StringComparison.OrdinalIgnoreCase)
+					Enabled = !IsFirstSessionLoading && Games.GameSessionEntryGate.CanManage(entry),
+					Hint = caption
 				};
-				NmmIconProvider.Bind(item, NmmIconAction.ChangeGame);
+				Icon gameIcon = GameDiscoveryRegistry?.GetGameMode(modeId)?.GameModeDescriptor.ModeTheme.Icon;
+				if (gameIcon != null)
+				{
+					Image menuImage;
+					using (Icon sizedIcon = new Icon(gameIcon, StatusBarImageSize, StatusBarImageSize))
+						menuImage = sizedIcon.ToBitmap();
+					item.ImageOptions.Image = menuImage;
+					item.Disposed += (sender, args) => menuImage.Dispose();
+				}
+				else
+					NmmIconProvider.Bind(item, NmmIconAction.ChangeGame);
 				item.ItemClick += (sender, args) =>
 				{
 					SelectGameInDiscovery(modeId);
-					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(modeId));
+					ManageGameRequested?.Invoke(this, new Games.UI.GameDiscoveryGameRequestedEventArgs(modeId, reload: isReload));
 				};
 				popupChangeMode.AddItem(item);
 			}

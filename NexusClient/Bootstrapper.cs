@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Text;
     using System.Threading;
     using System.Windows.Forms;
@@ -108,7 +109,11 @@
         public bool RunMainForm(string[] args)
 		{
 			var startupIntent = GameDiscoveryStartupIntent.Parse(args, DetermineRequestedGameMode);
-			if (NexusLinkHandoff.TryForward(startupIntent, _environmentInfo.Settings.InstalledGames,
+			IEnumerable<string> configuredModes = (_environmentInfo.Settings.InstalledGames?.Cast<string>() ?? Enumerable.Empty<string>())
+				.Concat(_environmentInfo.Settings.CompletedSetup?.Keys ?? Enumerable.Empty<string>())
+				.Concat(_environmentInfo.Settings.InstallationPaths?.Keys ?? Enumerable.Empty<string>())
+				.Concat(_environmentInfo.Settings.ExecutablePaths?.Keys ?? Enumerable.Empty<string>());
+			if (NexusLinkHandoff.TryForward(startupIntent, configuredModes,
 				modeId => MessagerClient.GetMessager(modeId))) return true;
 
 			if (!SandboxCheck(_environmentInfo))
@@ -167,7 +172,13 @@
                 }
             }
 
-            var changeDefaultGameMode = false;
+			if (startupIntent.LocalFiles.Count > 0)
+			{
+				modToAdd = null;
+				requestedGameMode = startupIntent.RequestedModeId;
+			}
+
+            var changeDefaultGameMode = startupIntent.RequiresGameSelection;
 		    var supportedGames = GetSupportedGameModes();
 
 		    do
@@ -254,6 +265,14 @@
 									{
 										Trace.TraceInformation($"Messaging to add: {modToAdd}");
 										messager.AddMod(modToAdd.ToString());
+									}
+									else if (startupIntent.LocalFiles.Count > 0)
+									{
+										while (startupIntent.LocalFiles.Count > 0)
+										{
+											messager.AddMod(startupIntent.LocalFiles.Peek());
+											startupIntent.LocalFiles.Dequeue();
+										}
 									}
 									else
 									{
@@ -346,14 +365,21 @@
 					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm,
 						mainFormViewModel.CollectionNxmDispatcher))
 					{
-						if (modToAdd != null)
+						if (modToAdd != null || startupIntent.LocalFiles.Count > 0)
 						{
 							Uri startupMod = modToAdd;
 							// Run after OnShown has validated the saved API key on the UI thread.
 							mainForm.Shown += (sender, eventArgs) => mainForm.BeginInvoke((MethodInvoker)(() =>
 							{
 								if (!mainForm.IsDisposed)
-									msgMessager.AddMod(startupMod.ToString());
+								{
+									if (startupMod != null) msgMessager.AddMod(startupMod.ToString());
+									while (startupIntent.LocalFiles.Count > 0)
+									{
+										msgMessager.AddMod(startupIntent.LocalFiles.Peek());
+										startupIntent.LocalFiles.Dequeue();
+									}
+								}
 							}));
 							modToAdd = null;
 						}

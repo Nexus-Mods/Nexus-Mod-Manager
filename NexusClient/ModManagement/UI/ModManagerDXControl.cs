@@ -298,6 +298,7 @@
 			InitializeInlineRenameEditor();
 			InitializeSortNumberEditor();
 			SetupGrid();
+			ConfigureLocalFileDrop(gridControl);
 			_gridModListSurface = new GridModListSurface(_modGridControl, _modList, ColModName);
 			_activeModListSurface = _gridModListSurface;
 			_activeModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
@@ -3412,6 +3413,7 @@
 				Visible = false
 			};
 			viewHost.Controls.Add(_modCategoryTreeControl);
+			ConfigureLocalFileDrop(_modCategoryTreeControl.TreeList);
 
 			_categoryModListSurface = new TreeModListSurface(
 				_modCategoryTreeControl,
@@ -5523,6 +5525,33 @@
 					_filesEdit.ToolTip = String.Join(Environment.NewLine, FileNames);
 				}
 			}
+		}
+
+		/// <summary>Restores external archive drops on each native Mods frontend.</summary>
+		private void ConfigureLocalFileDrop(Control target)
+		{
+			target.AllowDrop = true;
+			target.DragEnter += ModFiles_DragEnter;
+			target.DragOver += ModFiles_DragEnter;
+			target.DragDrop += ModFiles_DragDrop;
+		}
+
+		/// <summary>Accepts disk files only when the ordinary Add Mod command is available.</summary>
+		private void ModFiles_DragEnter(object sender, DragEventArgs e)
+		{
+			string[] files = e.Data?.GetData(DataFormats.FileDrop) as string[];
+			e.Effect = Enabled && _viewModel?.AddModCommand?.CanExecute == true &&
+				(e.AllowedEffect & DragDropEffects.Copy) != 0 && files != null && files.Any(File.Exists)
+				? DragDropEffects.Copy : DragDropEffects.None;
+		}
+
+		/// <summary>Queues each dropped file through the existing command without changing category or activation state.</summary>
+		private void ModFiles_DragDrop(object sender, DragEventArgs e)
+		{
+			ModFiles_DragEnter(sender, e);
+			if (e.Effect != DragDropEffects.Copy) return;
+			foreach (string file in (string[])e.Data.GetData(DataFormats.FileDrop))
+				if (File.Exists(file)) _viewModel.AddModCommand.Execute(file);
 		}
 
 		private void addModToolStripMenuItem_Click(object sender, ItemClickEventArgs e)

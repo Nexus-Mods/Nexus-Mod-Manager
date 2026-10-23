@@ -91,7 +91,7 @@
 
 		private async void OnManageRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
 		{
-			await LoadFirstGameAsync(e.ModeId);
+			await LoadFirstGameAsync(e.ModeId, e.Reload);
 		}
 
 		private async void OnCatalogReady(object sender, EventArgs e)
@@ -125,9 +125,21 @@
 					return;
 				}
 			}
+			if (_startupIntent.RequiresGameSelection && _startupIntent.LocalFiles.Count > 0)
+			{
+				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.LocalFilesChooseGame",
+					"Choose a game to add the pending mod files."));
+				return;
+			}
 			if (String.IsNullOrWhiteSpace(selected) && _environment.Settings.RememberGameMode)
 				selected = _environment.Settings.RememberedGameMode;
-			if (String.IsNullOrWhiteSpace(selected)) return;
+			if (String.IsNullOrWhiteSpace(selected))
+			{
+				if (_startupIntent.LocalFiles.Count > 0)
+					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.LocalFilesChooseGame",
+						"Choose a game to add the pending mod files."));
+				return;
+			}
 			var entry = catalog.Entries.FirstOrDefault(item =>
 				String.Equals(item.ModeId, selected, StringComparison.OrdinalIgnoreCase));
 			if (entry == null)
@@ -228,14 +240,14 @@
 			}
 		}
 
-		private async Task LoadFirstGameAsync(string modeId)
+		private async Task LoadFirstGameAsync(string modeId, bool reload = false)
 		{
 			if (_disposed || _teardownFailed || _shell.IsDisposed || _shell.IsFirstSessionLoading) return;
 			GameDiscoveryCatalog catalog = _shell.GameDiscoveryCatalog;
 			var entry = catalog?.Entries.FirstOrDefault(item =>
 				String.Equals(item.ModeId, modeId, StringComparison.OrdinalIgnoreCase));
 			if (!GameSessionEntryGate.CanManage(entry)) return;
-			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
+			if (!reload && _gate.State == GameSessionEntryGate.EntryState.Ready &&
 				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase))
 			{
 				_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.GameReady", "Managing {0}", entry.Name));
@@ -322,6 +334,7 @@
 				_shell.SetGameSessionReady();
 				await _shell.NotifyFirstGameReadyAsync();
 				DeliverPendingNxmIfMatching();
+				DeliverPendingLocalFiles();
 			}
 			catch (Exception exception) when (!(exception is OutOfMemoryException))
 			{
@@ -497,6 +510,15 @@
 							}
 							catch (ArgumentException) { existing.BringToFront(); }
 						}
+						else if (_startupIntent.LocalFiles.Count > 0)
+						{
+							while (_startupIntent.LocalFiles.Count > 0)
+							{
+								existing.AddMod(_startupIntent.LocalFiles.Peek());
+								_startupIntent.LocalFiles.Dequeue();
+							}
+							_startupLinkForwarded = true;
+						}
 						else existing.BringToFront();
 					}
 				}
@@ -528,6 +550,26 @@
 				Trace.TraceWarning("Could not dispatch startup Nexus link: {0}", exception);
 				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.LinkDispatchFailed",
 					"The incoming Nexus link could not be queued. No download was started."));
+			}
+		}
+
+		/// <summary>Queues pending local archives only after a game session and its ordinary add-mod services are ready.</summary>
+		private void DeliverPendingLocalFiles()
+		{
+			if (_listener == null || _gameMode == null) return;
+			try
+			{
+				while (_startupIntent.LocalFiles.Count > 0)
+				{
+					_listener.AddMod(_startupIntent.LocalFiles.Peek());
+					_startupIntent.LocalFiles.Dequeue();
+				}
+			}
+			catch (Exception exception) when (!(exception is OutOfMemoryException))
+			{
+				Trace.TraceWarning("Could not dispatch startup local file: {0}", exception);
+				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.LocalFileDispatchFailed",
+					"A pending mod file could not be queued. The remaining files are still pending."));
 			}
 		}
 

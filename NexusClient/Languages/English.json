@@ -622,6 +622,8 @@
     "GameDiscovery.Phase.PluginOrder": "Reading plugin load order",
     "GameDiscovery.Phase.ActivePlugins": "Reading active plugin state",
     "GameDiscovery.Phase.PluginManager": "Initializing plugin management",
+    "GameDiscovery.LocalFilesChooseGame": "Choose a game to add the pending mod files.",
+    "GameDiscovery.LocalFileDispatchFailed": "A pending mod file could not be queued. The remaining files are still pending.",
     "GameDiscovery.Phase.ModManager": "Starting mod management",
     "GameDiscovery.Phase.OpeningUI": "Building the game interface",
     "GameDiscovery.Phase.Ready": "Game interface ready",

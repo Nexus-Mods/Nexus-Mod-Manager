@@ -1,14 +1,18 @@
 ﻿namespace Nexus.Client.Games
 {
 	using System;
+	using System.Collections.Generic;
+	using System.IO;
 
-	/// <summary>Game-independent launch intent. The shell is always shown first;
-	/// the controller decides whether this targets an already configured game.</summary>
+	/// <summary>Game-independent launch intent, including imports retained until a running or newly selected game accepts them.</summary>
 	internal sealed class GameDiscoveryStartupIntent
 	{
-		internal string RequestedModeId { get; private set; }
+		internal string RequestedModeId { get; set; }
 		internal Uri NxmLink { get; private set; }
+		internal Queue<string> LocalFiles { get; } = new Queue<string>();
+		internal bool RequiresGameSelection { get; set; }
 
+		/// <summary>Retains local file arguments alongside explicit game selection without changing saved preferences.</summary>
 		internal static GameDiscoveryStartupIntent Parse(string[] arguments, Func<string, string> mapNexusDomain)
 		{
 			var intent = new GameDiscoveryStartupIntent();
@@ -20,14 +24,24 @@
 				intent.RequestedModeId = mapNexusDomain?.Invoke(link.Host);
 				return intent;
 			}
-			for (int index = 0; index + 1 < arguments.Length; index++)
+			for (int index = 0; index < arguments.Length; index++)
+			{
 				if (String.Equals(arguments[index], "-game", StringComparison.OrdinalIgnoreCase) &&
-					!arguments[index + 1].StartsWith("-", StringComparison.Ordinal) &&
-					!String.IsNullOrWhiteSpace(arguments[index + 1]))
+					index + 1 < arguments.Length &&
+					!String.IsNullOrWhiteSpace(arguments[index + 1]) &&
+					!arguments[index + 1].StartsWith("-", StringComparison.Ordinal))
 				{
-					intent.RequestedModeId = arguments[index + 1];
-					break;
+					if (intent.RequestedModeId == null) intent.RequestedModeId = arguments[index + 1];
+					index++;
+					continue;
 				}
+				string argument = arguments[index];
+				if (String.IsNullOrWhiteSpace(argument) || argument.StartsWith("-", StringComparison.Ordinal)) continue;
+				if (File.Exists(argument))
+					intent.LocalFiles.Enqueue(Path.GetFullPath(argument));
+				else if (Uri.TryCreate(argument, UriKind.Absolute, out Uri file) && file.IsFile && File.Exists(file.LocalPath))
+					intent.LocalFiles.Enqueue(file.LocalPath);
+			}
 			return intent;
 		}
 	}
