@@ -43,6 +43,21 @@ namespace Nexus.Client.Games.DataDriven
 
             ClearLaunchCommands();
 
+            Command scriptExtenderLaunch = null;
+            string scriptExtenderCommand = GetInstalledScriptExtenderCommand(definition);
+            if (!string.IsNullOrWhiteSpace(scriptExtenderCommand))
+            {
+                string scriptExtenderName = GetScriptExtenderDisplayName(definition, scriptExtenderCommand);
+                scriptExtenderLaunch = new Command(
+                    "ScriptExtenderLaunch",
+                    LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", scriptExtenderName),
+                    AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", GameMode.Name, scriptExtenderName), scriptExtenderCommand),
+                    SafeExtractIcon(scriptExtenderCommand),
+                    LaunchScriptExtender,
+                    true);
+                AddLaunchCommand(scriptExtenderLaunch);
+            }
+
             string plainCommand = GetLaunchCommand(definition, true);
             Image icon = SafeExtractIcon(plainCommand);
             AddLaunchCommand(new Command(
@@ -65,19 +80,6 @@ namespace Nexus.Client.Games.DataDriven
                     SafeExtractIcon(directCommand), LaunchDirect, true));
             }
 
-            string scriptExtenderCommand = GetInstalledScriptExtenderCommand(definition);
-            if (!string.IsNullOrWhiteSpace(scriptExtenderCommand))
-            {
-                string scriptExtenderName = GetScriptExtenderDisplayName(definition, scriptExtenderCommand);
-                AddLaunchCommand(new Command(
-                    "ScriptExtenderLaunch",
-                    LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", scriptExtenderName),
-                    AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", GameMode.Name, scriptExtenderName), scriptExtenderCommand),
-                    SafeExtractIcon(scriptExtenderCommand),
-                    LaunchScriptExtender,
-                    true));
-            }
-
             if (AllowsCustomCommand(definition))
             {
                 string customCommand = GetCustomLaunchCommand();
@@ -93,20 +95,20 @@ namespace Nexus.Client.Games.DataDriven
             string defaultText = definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.DefaultCommandText)
                 ? LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", GameMode.Name)
                 : definition.Launcher.DefaultCommandText;
-            DefaultLaunchCommand = new Command(defaultText, LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name), LaunchDefault);
+            DefaultLaunchCommand = scriptExtenderLaunch ?? new Command(defaultText, LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name), LaunchDefault);
         }
 
         private void LaunchDefault()
         {
-            if (AllowsCustomCommand(_definition) && !string.IsNullOrWhiteSpace(GetConfiguredCustomCommand()))
-            {
-                LaunchCustom();
-                return;
-            }
-
             if (!string.IsNullOrWhiteSpace(GetInstalledScriptExtenderCommand(_definition)))
             {
                 LaunchScriptExtender();
+                return;
+            }
+
+            if (AllowsCustomCommand(_definition) && !string.IsNullOrWhiteSpace(GetConfiguredCustomCommand()))
+            {
+                LaunchCustom();
                 return;
             }
 

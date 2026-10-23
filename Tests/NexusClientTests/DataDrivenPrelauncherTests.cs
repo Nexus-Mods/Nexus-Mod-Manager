@@ -135,6 +135,61 @@ namespace NexusClientTests
 			Assert.That(arguments["Cyberpunk2077"], Is.EqualTo("--custom-argument"));
 		}
 
+		/// <summary>Installed Gamebryo loaders and auto-load files take menu and default priority over saved plain/custom choices.</summary>
+		[TestCase("sfse_loader.exe", false)]
+		[TestCase("skse64_loader.exe", false)]
+		[TestCase("f4se_loader.exe", false)]
+		[TestCase("nvse_loader.exe", false)]
+		[TestCase("fose_loader.exe", false)]
+		[TestCase("obse_loader.exe", false)]
+		[TestCase("test_extender_loader.exe", true)]
+		public void InstalledScriptExtenderIsFirstAndDefault(string loader, bool autoLoad)
+		{
+			_definition.BehaviorProfile = "gamebryo";
+			_definition.Launcher.PrelauncherExecutable = null;
+			_definition.Gamebryo = new GameModeGamebryoDefinition
+			{
+				ScriptExtenderExecutables = new[] { loader },
+				ScriptExtenderAutoLoadFiles = autoLoad ? new[] { "extender_autoload.dll" } : new string[0]
+			};
+			File.WriteAllText(Path.Combine(_root, autoLoad ? "extender_autoload.dll" : loader), "extender fixture");
+			DataDrivenGameLauncher launcher = CreateLauncherWithCustomCommand();
+			CollectionAssert.AreEqual(new[] { "ScriptExtenderLaunch", "PlainLaunch", "CustomLaunch" }, launcher.LaunchCommands.Select(command => command.Id).ToArray());
+			Assert.That(launcher.DefaultLaunchCommand, Is.SameAs(launcher.LaunchCommands.First()));
+			Assert.That(MainForm.ResolveDefaultLaunchCommand(launcher, "PlainLaunch"), Is.SameAs(launcher.DefaultLaunchCommand));
+			Assert.That(MainForm.ResolveDefaultLaunchCommand(launcher, "CustomLaunch"), Is.SameAs(launcher.DefaultLaunchCommand));
+		}
+
+		/// <summary>Absent loaders keep the plain menu first and preserve saved command selection.</summary>
+		[Test]
+		public void MissingScriptExtenderPreservesSavedLaunchChoice()
+		{
+			_definition.Gamebryo = new GameModeGamebryoDefinition { ScriptExtenderExecutables = new[] { "missing_loader.exe" } };
+			_definition.Launcher.PrelauncherExecutable = null;
+			DataDrivenGameLauncher launcher = CreateLauncherWithCustomCommand();
+			CollectionAssert.AreEqual(new[] { "PlainLaunch", "CustomLaunch" }, launcher.LaunchCommands.Select(command => command.Id).ToArray());
+			Assert.That(MainForm.ResolveDefaultLaunchCommand(launcher, "CustomLaunch").Id, Is.EqualTo("CustomLaunch"));
+			Assert.That(MainForm.ResolveDefaultLaunchCommand(launcher, "MissingCommand").Id, Is.EqualTo("PlainLaunch"));
+		}
+
+		/// <summary>Creates an isolated launcher with a configured custom command without starting any process.</summary>
+		private DataDrivenGameLauncher CreateLauncherWithCustomCommand()
+		{
+			var commands = new PerGameModeSettings<string> { [_definition.ModeId] = "custom.exe" };
+			ISettings settings = InterfaceStub<ISettings>.Create((method, args) => method.Name == "get_CustomLaunchCommands" ? commands : null);
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) => method.Name == "get_Settings" ? settings : null);
+			IGameModeEnvironmentInfo gameEnvironment = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_ExecutablePath" || method.Name == "get_InstallationPath" ? _root : null);
+			IGameMode mode = InterfaceStub<IGameMode>.Create((method, args) =>
+			{
+				if (method.Name == "get_GameModeEnvironmentInfo") return gameEnvironment;
+				if (method.Name == "get_ModeId") return _definition.ModeId;
+				if (method.Name == "get_Name") return _definition.Name;
+				return null;
+			});
+			return new DataDrivenGameLauncher(mode, environment, _definition);
+		}
+
 		/// <summary>Prelauncher configuration uses the same safe game-relative executable rules as other launch targets.</summary>
 		[TestCase(@"..\REDprelauncher.exe")]
 		[TestCase(@"C:\Games\REDprelauncher.exe")]

@@ -2787,6 +2787,7 @@
 		{
 			ClearTransientPopupItems(popupLaunch);
 			_launchDefaultItem = null;
+			Command defaultCommand = ResolveDefaultLaunchCommand(ViewModel.GameLauncher, _viewModel.SelectedGameLaunchCommandId);
 
 			foreach (Command launchCommand in ViewModel.GameLauncher.LaunchCommands)
 			{
@@ -2794,7 +2795,7 @@
 				launchItem.ItemClick += LaunchMenuItem_ItemClick;
 				popupLaunch.AddItem(launchItem);
 
-				if (String.Equals(launchCommand.Id, _viewModel.SelectedGameLaunchCommandId, StringComparison.OrdinalIgnoreCase))
+				if (ReferenceEquals(launchCommand, defaultCommand))
 					SetDefaultLaunchItem(launchItem);
 			}
 
@@ -2815,6 +2816,15 @@
 			ViewModel.ConfirmCloseAfterGameLaunch = ConfirmCloseAfterGameLaunch;
 			ViewModel.GameLauncher.GameLaunched -= GameLauncher_GameLaunched;
 			ViewModel.GameLauncher.GameLaunched += GameLauncher_GameLaunched;
+		}
+
+		/// <summary>Prefers an explicit menu default, such as an installed extender, before restoring a saved launch choice.</summary>
+		internal static Command ResolveDefaultLaunchCommand(IGameLauncher launcher, string selectedCommandId)
+		{
+			List<Command> commands = launcher.LaunchCommands.ToList();
+			return commands.FirstOrDefault(command => ReferenceEquals(command, launcher.DefaultLaunchCommand)) ??
+				commands.FirstOrDefault(command => String.Equals(command.Id, selectedCommandId, StringComparison.OrdinalIgnoreCase)) ??
+				commands.FirstOrDefault();
 		}
 
 		/// <summary>
