@@ -399,7 +399,7 @@
 			EnsureMainDocuments();
 			DisableGameDependentBars();
 			ApplyDevExpressDisplaySettingsToSurfaces();
-			Text = CommonData.ModManagerName;
+			Text = MainFormVM.FormatTitle(_shellEnvironmentInfo.ApplicationVersion);
 			_shellEnvironmentInfo.Settings.WindowPositions.GetWindowPosition("MainForm", this);
 			_lastWindowState = WindowState;
 		}

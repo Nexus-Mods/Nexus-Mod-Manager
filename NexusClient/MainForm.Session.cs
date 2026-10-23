@@ -158,7 +158,7 @@
 				InitializeNoGameDocuments();
 				EnsureMainDocuments();
 				DisableGameDependentBars();
-				Text = CommonData.ModManagerName;
+				Text = MainFormVM.FormatTitle(_shellEnvironmentInfo.ApplicationVersion);
 			}
 			finally
 			{

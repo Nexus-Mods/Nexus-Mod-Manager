@@ -492,7 +492,24 @@
 		/// Gets the title of the form.
 		/// </summary>
 		/// <value>The title of the form.</value>
-		public string Title => $"{CommonData.ModManagerName} ({EnvironmentInfo.ApplicationVersion}) - {GameMode.Name}";
+		public string Title => FormatTitle(EnvironmentInfo.ApplicationVersion, GameMode);
+
+		/// <summary>Formats the shell and loaded-game captions without requiring game version metadata to be available.</summary>
+		internal static string FormatTitle(Version applicationVersion, IGameMode gameMode = null)
+		{
+			string title = $"NMM ({applicationVersion})";
+			if (gameMode == null) return title;
+
+			Version gameVersion = null;
+			try { gameVersion = gameMode.GameVersion; }
+			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+				error is System.Security.SecurityException || error is Win32Exception || error is ArgumentException ||
+				error is FormatException || error is NotSupportedException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Could not read the game version for the window title: {0}", error.Message);
+			}
+			return $"{title} - {gameMode.Name} ({gameVersion?.ToString() ?? LanguageManager.Get("Common.Value.Unknown", "unknown")})";
+		}
 
 		/// <summary>
 		/// Gets the current game mode theme.
