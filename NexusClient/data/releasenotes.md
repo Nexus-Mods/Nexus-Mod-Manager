@@ -1,5 +1,24 @@
 # NMM Community Edition release notes
 
+## Version 0.93.5
+
+- New Feature: Added Italian, Ukrainian, Japanese, Russian, and Korean localizations.
+- New Feature: Added Select all / Deselect all buttons to the Collection uninstall window.
+- Bugfix: Improved startup performance for Gamebryo game modes.
+- Bugfix: Improved the download grid UI.
+- Bugfix: Fixed the Nexus authorization prompt appearing when starting NMM with a download.
+- Bugfix: Fixed the authorization window.
+- Bugfix: Fixed a random error message appearing in Game Discovery details.
+- Bugfix: Restored the Witcher 3 Remastered game logo.
+- Bugfix: Restored game icons in the Switch Game list.
+- Bugfix: Restored Reload Current Game Mode.
+- Bugfix: Restored drag-and-drop mod imports into the Mods grid and onto the NMM desktop icon.
+- Bugfix: Fixed empty mod folders being left behind after uninstalling.
+- Bugfix: Improved Game Discovery reporting and handling of managed games that are missing, uninstalled, or incomplete.
+- Bugfix: Fixed uninstall failures involving shared files when one of their owning mods had been upgraded.
+- Bugfix: Fixed issues preventing Cyberpunk 2077 Collections from being installed, including conflicts involving shared mods.
+- Bugfix: Fixed the Cyberpunk 2077 launcher.
+
 ## Version 0.93.4 hotfix
 
 - Bugfix: Fixed CSharp scripts mainly preventing Fallout NV mods from being installed.
