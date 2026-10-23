@@ -5,6 +5,9 @@
   "culture": "ja-JP",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "有効なMODをすべてアンインストールしました。",
+    "Mods.UninstallAll.Complete.Title": "MODのアンインストール完了",
+    "Mods.UninstallAll.Failed.Title": "MODのアンインストールに失敗しました",
     "ManagedContent.Components.InventorySummary": "インデックス済みのコンポーネントフォルダー: {0}、ディスクスキャン: {1}、検出結果: {2}。",
     "ManagedContent.Components.MissingSummary": "存在しない、または空のコンポーネントフォルダー: {0}。設定にのみ存在する項目は、インストール済みのMODではありません。",
     "ManagedContent.Order.InvalidSettings": "順序ファイルに無効な設定または競合する設定が含まれています。編集する前に確認してください。",

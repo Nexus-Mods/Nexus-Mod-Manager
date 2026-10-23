@@ -2033,16 +2033,21 @@ namespace Nexus.Client.ModManagement.UI
 
 			var booSilent = (bool)sender;
 
-			if (!booSilent && (Visible == true))
-			{
-				var strMessage = "All the active mods were uninstalled.";
-				MessageBox.Show(strMessage, "Mod uninstall complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-			}
-
-			if (e.Argument.ReturnValue == null)
+			bool completed = e.Argument.Status == TaskStatus.Complete && e.Argument.ReturnValue == null;
+			if (completed)
 			{
 				ViewModel.PurgeXMLInstalledFile();
 				UninstalledAllMods?.Invoke(this, new EventArgs());
+			}
+
+			if (!booSilent)
+			{
+				if (completed && Visible)
+					MessageBox.Show(this, LanguageManager.Get("Mods.UninstallAll.Complete.Message", "All active mods were uninstalled."),
+						LanguageManager.Get("Mods.UninstallAll.Complete.Title", "Mod uninstall complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+				else if (e.Argument.Status == TaskStatus.Error)
+					MessageBox.Show(e.Argument.OverallMessage + Environment.NewLine + Environment.NewLine + e.Argument.ItemMessage,
+						LanguageManager.Get("Mods.UninstallAll.Failed.Title", "Mod uninstall failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 

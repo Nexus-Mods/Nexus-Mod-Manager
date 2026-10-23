@@ -5,6 +5,9 @@
   "culture": "it-IT",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "Tutte le mod attive sono state disinstallate.",
+    "Mods.UninstallAll.Complete.Title": "Disinstallazione delle mod completata",
+    "Mods.UninstallAll.Failed.Title": "Disinstallazione delle mod non riuscita",
     "ManagedContent.Components.InventorySummary": "Cartelle dei componenti indicizzate: {0}; scansione del disco: {1}; risultati: {2}.",
     "ManagedContent.Components.MissingSummary": "Cartelle dei componenti mancanti o vuote: {0}. Le voci presenti solo nelle impostazioni non sono mod installate.",
     "ManagedContent.Order.InvalidSettings": "Il file dell'ordine contiene impostazioni non valide o in conflitto. Controllalo prima di modificarlo.",

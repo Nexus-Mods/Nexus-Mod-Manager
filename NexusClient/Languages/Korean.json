@@ -5,6 +5,9 @@
   "culture": "ko-KR",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "활성화된 모든 모드가 제거되었습니다.",
+    "Mods.UninstallAll.Complete.Title": "모드 제거 완료",
+    "Mods.UninstallAll.Failed.Title": "모드 제거 실패",
     "ManagedContent.Components.InventorySummary": "색인된 구성 요소 폴더: {0}; 디스크 검사: {1}; 검사 결과: {2}.",
     "ManagedContent.Components.MissingSummary": "없거나 비어 있는 구성 요소 폴더: {0}. 설정에만 있는 항목은 설치된 모드가 아닙니다.",
     "ManagedContent.Order.InvalidSettings": "순서 파일에 잘못되었거나 충돌하는 설정이 있습니다. 편집하기 전에 확인하세요.",

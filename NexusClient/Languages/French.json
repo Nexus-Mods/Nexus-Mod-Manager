@@ -5,6 +5,9 @@
   "culture": "fr-FR",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "Tous les mods actifs ont été désinstallés.",
+    "Mods.UninstallAll.Complete.Title": "Désinstallation des mods terminée",
+    "Mods.UninstallAll.Failed.Title": "Échec de la désinstallation des mods",
     "ActivationQueue.Actions.RemoveAll.Description": "Supprime de la liste toutes les activations terminées.",
     "ActivationQueue.Actions.RemoveAll.Name": "Tout supprimer",
     "ActivationQueue.Actions.RemoveQueued.Description": "Supprime de la liste les activations en attente.",

@@ -5,6 +5,9 @@
   "culture": "zh-CN",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "所有已启用的模组均已卸载。",
+    "Mods.UninstallAll.Complete.Title": "模组卸载完成",
+    "Mods.UninstallAll.Failed.Title": "模组卸载失败",
     "ActivationQueue.Actions.RemoveAll.Description": "从列表中清除所有已完成的激活任务。",
     "ActivationQueue.Actions.RemoveAll.Name": "全部移除",
     "ActivationQueue.Actions.RemoveQueued.Description": "从列表中清除所有排队中的激活任务。",

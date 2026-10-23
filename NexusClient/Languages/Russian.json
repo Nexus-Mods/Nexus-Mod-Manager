@@ -5,6 +5,9 @@
   "culture": "ru-RU",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "Все активные моды удалены.",
+    "Mods.UninstallAll.Complete.Title": "Удаление модов завершено",
+    "Mods.UninstallAll.Failed.Title": "Не удалось удалить моды",
     "ManagedContent.Components.InventorySummary": "Проиндексировано папок компонентов: {0}; сканирование диска: {1}; результаты: {2}.",
     "ManagedContent.Components.MissingSummary": "Отсутствующие или пустые папки компонентов: {0}. Записи, присутствующие только в настройках, не являются установленными модами.",
     "ManagedContent.Order.InvalidSettings": "Файл порядка содержит недопустимые или конфликтующие настройки. Проверьте его перед редактированием.",

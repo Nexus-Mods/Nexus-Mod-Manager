@@ -5,6 +5,9 @@
   "culture": "en-US",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "All active mods were uninstalled.",
+    "Mods.UninstallAll.Complete.Title": "Mod uninstall complete",
+    "Mods.UninstallAll.Failed.Title": "Mod uninstall failed",
     "ManagedContent.Components.InventorySummary": "Indexed component folders: {0}; disk scan: {1}; findings: {2}.",
     "ManagedContent.Components.MissingSummary": "Missing or empty component folders: {0}. Settings-only rows are not installed mods.",
     "ManagedContent.Order.InvalidSettings": "The order file contains invalid or conflicting settings. Review it before editing.",

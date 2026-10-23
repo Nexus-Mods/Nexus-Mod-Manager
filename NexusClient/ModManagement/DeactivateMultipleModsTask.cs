@@ -141,6 +141,8 @@ namespace Nexus.Client.ModManagement
 						m_mmgModManager.RecordAmbiguousManualCollectionMutation(driftCapture, null);
 					Status = TaskStatus.Error;
 					ItemMessage = munUninstaller.CompletionMessage;
+					System.Diagnostics.Trace.TraceError("Bulk uninstall stopped at '{0}' ({1}): {2}",
+						modMod.ModName, modMod.Filename, munUninstaller.CompletionMessage);
 					return false;
 				}
 

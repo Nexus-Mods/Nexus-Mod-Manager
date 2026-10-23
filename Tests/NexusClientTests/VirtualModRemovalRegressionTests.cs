@@ -407,6 +407,67 @@
 			}
 		}
 
+		/// <summary>Restores legacy inactive payloads using the installed ID after archive metadata changes.</summary>
+		[TestCase(ModInstallRoot.Data, true)]
+		[TestCase(ModInstallRoot.GameRoot, true)]
+		[TestCase(ModInstallRoot.Data, false)]
+		[TestCase(ModInstallRoot.GameRoot, false)]
+		public void NativeUninstall_LegacyInactiveSourceUsesInstalledDownloadId(ModInstallRoot root, bool sourcePresent)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod previous = fixture.CreateMod("PreviousArchive");
+				((InstallLog.DummyMod)previous).DownloadId = "140620";
+				fixture.Install(previous, "Shared.txt", "previous");
+				IMod winner = fixture.CreateMod("Winner");
+				fixture.Install(winner, "Shared.txt", "winner");
+				string legacySource = Path.Combine(fixture.Activator.VirtualPath, "140620", "Shared.txt");
+				Directory.CreateDirectory(Path.GetDirectoryName(legacySource));
+				File.Move(fixture.Staged(previous, "Shared.txt"), legacySource);
+				((InstallLog.DummyMod)previous).DownloadId = "146240";
+				if (!sourcePresent)
+					File.Delete(legacySource);
+				// Another download's payload must never substitute for this owner's missing file.
+				string unrelatedSource = Path.Combine(fixture.Activator.VirtualPath, "999999", "Shared.txt");
+				Directory.CreateDirectory(Path.GetDirectoryName(unrelatedSource));
+				File.WriteAllText(unrelatedSource, "unrelated");
+
+				SynchronousUninstaller result = fixture.Uninstall(winner);
+
+				Assert.That(result.Succeeded, Is.EqualTo(sourcePresent), result.CompletionMessage);
+				Assert.That(File.ReadAllText(fixture.Deployed("Shared.txt")), Is.EqualTo(sourcePresent ? "previous" : "winner"));
+				Assert.That(fixture.InstallLog.ActiveMods.Contains(previous), Is.True);
+				Assert.That(fixture.InstallLog.ActiveMods.Contains(winner), Is.EqualTo(!sourcePresent));
+				if (sourcePresent)
+				{
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(fixture.GameMode, previous, "Shared.txt", root);
+					Assert.That(fixture.Activator.GetVirtualSourceForOwner(target, fixture.InstallLog.GetModKey(previous)), Is.EqualTo(legacySource));
+					Assert.That(fixture.Uninstall(previous).Succeeded, Is.True);
+				}
+			}
+		}
+
+		/// <summary>Retains an exact recorded source when archive metadata changes and an older ID directory also exists.</summary>
+		[Test]
+		public void NativeUninstall_ExactRecordedSourceTakesPriorityOverLegacyDownloadId()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod previous = fixture.CreateMod("RecordedArchive");
+				((InstallLog.DummyMod)previous).DownloadId = "140620";
+				fixture.Install(previous, "Shared.txt", "recorded");
+				IMod winner = fixture.CreateMod("Winner");
+				fixture.Install(winner, "Shared.txt", "winner");
+				((InstallLog.DummyMod)previous).DownloadId = "146240";
+				string legacySource = Path.Combine(fixture.Activator.VirtualPath, "140620", "Shared.txt");
+				Directory.CreateDirectory(Path.GetDirectoryName(legacySource));
+				File.WriteAllText(legacySource, "older");
+
+				Assert.That(fixture.Uninstall(winner).Succeeded, Is.True);
+				Assert.That(File.ReadAllText(fixture.Deployed("Shared.txt")), Is.EqualTo("recorded"));
+			}
+		}
+
 		/// <summary>Existing game-folder installs retain access to originals saved in the older shared backup directory.</summary>
 		[Test]
 		public void NativeUninstall_RestoresLegacyGameRootBackup()

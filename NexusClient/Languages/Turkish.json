@@ -5,6 +5,9 @@
   "culture": "tr-TR",
   "author": "NMM Community Edition",
   "strings": {
+    "Mods.UninstallAll.Complete.Message": "Tüm etkin modlar kaldırıldı.",
+    "Mods.UninstallAll.Complete.Title": "Mod kaldırma tamamlandı",
+    "Mods.UninstallAll.Failed.Title": "Mod kaldırma başarısız oldu",
     "ActivationQueue.Actions.RemoveAll.Description": "Tamamlanan etkinleştirmeleri listeden temizler.",
     "ActivationQueue.Actions.RemoveAll.Name": "Tümünü kaldır",
     "ActivationQueue.Actions.RemoveQueued.Description": "Kuyruktaki etkinleştirmeleri listeden temizler.",

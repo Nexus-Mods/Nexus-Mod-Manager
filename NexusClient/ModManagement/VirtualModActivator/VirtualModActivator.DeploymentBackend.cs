@@ -430,6 +430,9 @@ namespace Nexus.Client.ModManagement
 				p_tfmFileManager.Delete(deployedPath);
 
 			DeployVirtualSource(p_tfmFileManager, sourcePath, deployedPath);
+			string relativeSource = GetRealFilePathFromSource(sourcePath);
+			if (!String.IsNullOrWhiteSpace(relativeSource))
+				link.RealModPath = relativeSource;
 			link.Active = true;
 			enlistment.MarkDirty();
 		}
@@ -708,6 +711,18 @@ namespace Nexus.Client.ModManagement
 			IMod mod = FindManagedMod(p_vmlLink.ModInfo);
 			if (mod != null && !p_vmlLink.Active)
 			{
+				// Archive metadata can acquire a newer download ID without moving the installed payload.
+				// The installed link retains the original ID and remains authoritative for its source.
+				string legacySource = ResolveLegacyVirtualSourcePath(p_vmlLink, m_strVirtualActivatorPath);
+				if (legacySource != null)
+					return legacySource;
+				if (MultiHDMode && !String.IsNullOrEmpty(HDLinkFolder))
+				{
+					legacySource = ResolveLegacyVirtualSourcePath(p_vmlLink, HDLinkFolder);
+					if (legacySource != null)
+						return legacySource;
+				}
+
 				string relative = GetRealFilePath(mod, p_vmlLink.VirtualModPath, m_strVirtualActivatorPath);
 				if (!String.IsNullOrEmpty(relative))
 					return Path.Combine(m_strVirtualActivatorPath, relative);
@@ -719,6 +734,23 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return virtualSource;
+		}
+
+		/// <summary>
+		/// Resolves an inactive legacy link within the original download's existing staging directory.
+		/// </summary>
+		private string ResolveLegacyVirtualSourcePath(IVirtualModLink p_vmlLink, string p_strSourceRoot)
+		{
+			string downloadId = p_vmlLink.ModInfo == null ? null : p_vmlLink.ModInfo.DownloadId;
+			if (String.IsNullOrWhiteSpace(downloadId) || String.IsNullOrWhiteSpace(p_strSourceRoot) ||
+				downloadId.Any(character => character < '0' || character > '9'))
+				return null;
+
+			string ownerRoot = Path.Combine(p_strSourceRoot, downloadId);
+			string sourcePath = Path.Combine(ownerRoot, p_vmlLink.VirtualModPath);
+			string relativePath;
+			return TryGetPathRelativeToRoot(sourcePath, ownerRoot, out relativePath) && File.Exists(sourcePath)
+				? sourcePath : null;
 		}
 
 		private void DeployVirtualSource(TxFileManager p_tfmFileManager, string p_strSourcePath, string p_strDeployedPath)
