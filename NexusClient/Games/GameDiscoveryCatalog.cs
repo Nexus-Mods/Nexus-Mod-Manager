@@ -38,7 +38,8 @@ namespace Nexus.Client.Games
 		internal GameDiscoveryEntry(string modeId, string name, GameDiscoveryCollection collection,
 			string savedInstallationPath, string savedExecutablePath, bool completedSetup,
 			bool hasLegacyStoragePaths, bool needsAttention, bool startupDefault,
-			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates, DateTime? lastPlayedUtc = null)
+			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates, DateTime? lastPlayedUtc = null,
+			IReadOnlyList<string> missingRequiredFiles = null)
 		{
 			ModeId = modeId;
 			Name = name;
@@ -51,6 +52,7 @@ namespace Nexus.Client.Games
 			IsStartupDefault = startupDefault;
 			Candidates = candidates;
 			LastPlayedUtc = lastPlayedUtc;
+			MissingRequiredFiles = missingRequiredFiles ?? new string[0];
 		}
 
 		public string ModeId { get; }
@@ -62,6 +64,9 @@ namespace Nexus.Client.Games
 		public bool HasLegacyStoragePaths { get; }
 		/// <summary>Shallow settings evidence only; not a filesystem/storage health verdict.</summary>
 		public bool NeedsAttention { get; }
+		/// <summary>Required files absent at catalog refresh; saved setup and storage remain untouched.</summary>
+		public IReadOnlyList<string> MissingRequiredFiles { get; }
+		public bool IsInstallationMissing => MissingRequiredFiles.Count > 0;
 		public bool IsStartupDefault { get; }
 		public IReadOnlyList<GameDiscoveryInstallationCandidate> Candidates { get; }
 		/// <summary>Last successful game-mode entry or game launch through NMM, or null when no valid history is available.</summary>
@@ -151,9 +156,12 @@ namespace Nexus.Client.Games
 					(hasAnyStoragePath && !legacyStorageComplete && !completedSetup);
 				bool startupDefault = settings.RememberGameMode &&
 					String.Equals(settings.RememberedGameMode, id, StringComparison.OrdinalIgnoreCase);
+				IReadOnlyList<string> missingFiles = managed
+					? FindMissingGameFiles(mode, String.IsNullOrWhiteSpace(executablePath) ? installedPath : executablePath) : new string[0];
+				collection = GameDiscoverySectionPreference.GetCollection(settings, id, missingFiles.Count > 0, collection);
 				result.Add(new GameDiscoveryEntry(id, mode.Name, collection, installedPath,
 					executablePath, completedSetup, legacyStorageComplete, needsAttention, startupDefault,
-					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id)));
+					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id), missingFiles));
 			}
 
 			var savedIds = new HashSet<string>(installedIds, StringComparer.OrdinalIgnoreCase);
@@ -174,6 +182,34 @@ namespace Nexus.Client.Games
 				.ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
 				.ThenBy(entry => entry.ModeId, StringComparer.OrdinalIgnoreCase).ToList();
 			return new GameDiscoveryCatalog(ordered.AsReadOnly(), unknown);
+		}
+
+		/// <summary>Checks only descriptor-declared files, without initializing a game mode or reading side-effecting path getters.</summary>
+		private static IReadOnlyList<string> FindMissingGameFiles(IGameModeDescriptor mode, string gameRoot)
+		{
+			var missing = new List<string>();
+			if (String.IsNullOrWhiteSpace(gameRoot)) return missing.AsReadOnly();
+			try
+			{
+				if (!Path.IsPathRooted(gameRoot) || !Directory.Exists(gameRoot))
+					missing.Add(gameRoot);
+				else
+				{
+					string[] executables = (mode.GameExecutables ?? new string[0]).Where(file => !String.IsNullOrWhiteSpace(file)).ToArray();
+					if (executables.Length > 0 && !executables.Any(file => File.Exists(Path.Combine(gameRoot, file))))
+						missing.Add(String.Join(" / ", executables));
+					GameModeDescriptorBase descriptor = mode as GameModeDescriptorBase;
+					if (descriptor != null)
+						missing.AddRange(descriptor.GetRequiredGameFiles(gameRoot).Where(file => !File.Exists(file)));
+				}
+			}
+			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+				error is System.Security.SecurityException || error is ArgumentException || error is NotSupportedException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Could not check required game files for {0}: {1}", mode.ModeId, error.Message);
+				missing.Add(gameRoot);
+			}
+			return missing.AsReadOnly();
 		}
 
 		/// <summary>Treats absent, empty or invalid timestamps as unknown without changing saved settings.</summary>

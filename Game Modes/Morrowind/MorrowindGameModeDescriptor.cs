@@ -18,6 +18,13 @@ namespace Nexus.Client.Games.Morrowind
 
 		#region Properties
 
+		/// <summary>Resolves required masters in Morrowind's Data Files folder without creating it.</summary>
+		public override System.Collections.Generic.IEnumerable<string> GetRequiredGameFiles(string gameRoot)
+		{
+			foreach (string file in CRITICAL_PLUGINS)
+				yield return Path.Combine(gameRoot, "Data Files", file);
+		}
+
 		/// <summary>
 		/// Gets the directory where Morrowind plugins are installed.
 		/// </summary>

@@ -194,6 +194,7 @@ namespace Nexus.Client.ModManagement
 			Witcher3NativeMutationReview remasteredRemovalReview = null;
 			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strErrorMessage = String.Empty;
+			IReadOnlyCollection<string> removedDeploymentPaths = null;
 			try
 			{
 				using (var mutationLease = AcquireMutationLease())
@@ -284,6 +285,7 @@ namespace Nexus.Client.ModManagement
 								MixedModDeploymentRemovalTask removalTask = new MixedModDeploymentRemovalTask(Mod, DeploymentManager, tfmFileManager);
 								OnTaskStarted(removalTask);
 								deploymentRemovalSucceeded = removalTask.Execute();
+								removedDeploymentPaths = removalTask.AbsentPaths;
 								booCancelled = removalTask.Status == TaskStatus.Cancelled || removalTask.Status == TaskStatus.Cancelling;
 								if (!deploymentRemovalSucceeded)
 									strErrorMessage = removalTask.ErrorMessage;
@@ -318,6 +320,9 @@ namespace Nexus.Client.ModManagement
 						VirtualModActivator.PublishPendingDeploymentChanges();
 						ProfileManager?.UpdateCurrentDeploymentManifest();
 						DeleteXMLInstalledFile(Mod);
+						if (remasteredRemovalReview == null && !DisableVirtualFilesOnly && Transaction.Current == null)
+							UninstalledModDirectoryCleanup.RemoveEmptyDirectories(
+								GameMode.GameModeEnvironmentInfo.InstallationPath, removedDeploymentPaths);
 					}
                     // This check is deliberately AFTER native commit and publication. It
                     // cannot undo changes; any discrepancy must leave durability Unknown

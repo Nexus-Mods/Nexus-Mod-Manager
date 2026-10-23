@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Diagnostics;
+	using System.Linq;
 	using System.Threading;
 	using System.Threading.Tasks;
 	using DevExpress.XtraBars;
@@ -48,6 +49,35 @@
 				_gameStatistics.ValidateStorage(entry.ModeId, installInfoPath);
 			}
 			_gameDiscoveryDocument.SetCatalog(catalog);
+		}
+
+		/// <summary>Persists an explicit missing-game section choice without changing paths, setup or native storage.</summary>
+		private void MoveMissingGameToSection(GameDiscoverySectionRequestedEventArgs request)
+		{
+			if (IsDisposed || IsFirstSessionLoading || _gameDiscoveryRegistry == null ||
+				_gameDiscoveryCancellation != null || _gameDiscoveryScanCancellation != null) return;
+			if (String.Equals(_gameStatisticsModeId, request.ModeId, StringComparison.OrdinalIgnoreCase)) return;
+			// Recheck file presence in case the game was restored since the panel was populated.
+			ReprojectGameDiscoveryCatalog();
+			GameDiscoveryEntry entry = GameDiscoveryCatalog.Entries.FirstOrDefault(item =>
+				String.Equals(item.ModeId, request.ModeId, StringComparison.OrdinalIgnoreCase));
+			var settings = _shellEnvironmentInfo.Settings;
+			lock (settings)
+			{
+				var previous = settings.GameDiscoverySections;
+				if (!GameDiscoverySectionPreference.TryMove(settings, entry, request.Destination)) return;
+				try { settings.Save(); }
+				catch (Exception error) when (!(error is OutOfMemoryException))
+				{
+					settings.GameDiscoverySections = previous;
+					Trace.TraceWarning("Could not save game section preference for {0}: {1}", request.ModeId, error);
+					SetGameLoadMessage(LanguageManager.Get("GameDiscovery.MoveSaveFailed", "Could not save the game section. Please try again."));
+					return;
+				}
+			}
+			ReprojectGameDiscoveryCatalog();
+			SelectGameInDiscovery(request.ModeId);
+			SetGameLoadMessage(LanguageManager.Get("GameDiscovery.MoveSaved", "Game moved. Saved configuration and mod data have been preserved."));
 		}
 		internal bool IsFirstSessionLoading { get; set; }
 		internal bool HasBoundGameViewModel => ViewModel != null;
@@ -135,6 +165,7 @@
 			_gameDiscoveryDocument.StartupDefaultRequested += (sender, args) => StartupDefaultGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.ConfigureRequested += (sender, args) => ConfigureGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.LocateRequested += (sender, args) => LocateGameRequested?.Invoke(this, args);
+			_gameDiscoveryDocument.MoveRequested += (sender, args) => MoveMissingGameToSection(args);
 		}
 
 		private void InitializeNoGameDocuments()

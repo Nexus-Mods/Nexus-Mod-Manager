@@ -34,6 +34,22 @@ namespace Nexus.Client.Games.DataDriven
         public override string RequiredToolErrorMessage => _definition.RequiredToolErrorMessage;
         public override string CriticalFilesErrorMessage => _definition.CriticalFilesErrorMessage;
 
+        /// <summary>Resolves required plugins from definition metadata without creating managed or plugin directories.</summary>
+        public override IEnumerable<string> GetRequiredGameFiles(string gameRoot)
+        {
+            if (_definition.OrderedCriticalPluginNames == null || _definition.OrderedCriticalPluginNames.Length == 0)
+                return new string[0];
+            var context = new DataDrivenPathContext(EnvironmentInfo, gameRoot, gameRoot, ModeId, null);
+            string managedPath = _definition.ModInstall == null ? null : _definition.ModInstall.ManagedInstallationPath;
+            string installationPath = string.IsNullOrWhiteSpace(managedPath) ? gameRoot
+                : DataDrivenPathResolver.ResolvePath(managedPath, context, gameRoot);
+            string suffix = _definition.Plugin == null ? null : _definition.Plugin.PluginDirectorySuffix;
+            string pluginPath = string.IsNullOrWhiteSpace(suffix) ? installationPath
+                : DataDrivenPathResolver.ResolvePath(suffix, context, installationPath);
+            return (_definition.OrderedCriticalPluginNames ?? new string[0])
+                .Where(file => !string.IsNullOrWhiteSpace(file)).Select(file => Path.Combine(pluginPath, file.Trim()));
+        }
+
         protected string BaseGameInstallationPath => base.InstallationPath;
 
         public override string InstallationPath

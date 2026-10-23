@@ -5,6 +5,7 @@
 	using System.IO;
 	using System.Linq;
 	using System.Reflection;
+	using System.Runtime.InteropServices;
 	using System.Runtime.Serialization;
 	using ChinhDo.Transactions;
 	using Nexus.Client;
@@ -664,6 +665,83 @@
 				Assert.IsFalse(File.Exists(path));
 			}
 		}
+
+		/// <summary>Native removal prunes the empty file ancestors but preserves the deployment root and unrelated empty folders.</summary>
+		[Test]
+		public void NativeUninstall_RemovesEmptyDeploymentAncestorsOnly()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("NestedDirectories");
+				fixture.Install(mod, @"Meshes\Example\part.nif", "mesh");
+				string unrelated = Path.Combine(fixture.DataPath, "Unrelated");
+				Directory.CreateDirectory(unrelated);
+				Assert.IsTrue(fixture.Uninstall(mod).Succeeded);
+				Assert.IsFalse(Directory.Exists(Path.Combine(fixture.DataPath, "Meshes")));
+				Assert.IsTrue(Directory.Exists(fixture.DataPath));
+				Assert.IsTrue(Directory.Exists(unrelated));
+			}
+		}
+
+		/// <summary>Shared folders keep remaining content after the mod's nested file is removed.</summary>
+		[Test]
+		public void NativeUninstall_PreservesNonemptyDeploymentAncestors()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("SharedDirectories");
+				fixture.Install(mod, @"Meshes\Example\part.nif", "mesh");
+				string otherFile = Path.Combine(fixture.DataPath, "Meshes", "Example", "keep.nif");
+				File.WriteAllText(otherFile, "unmanaged");
+				Assert.IsTrue(fixture.Uninstall(mod).Succeeded);
+				Assert.AreEqual("unmanaged", File.ReadAllText(otherFile));
+			}
+		}
+
+		/// <summary>Cleanup ignores removed paths outside the configured root, including siblings with a matching name prefix.</summary>
+		[Test]
+		public void EmptyDirectoryCleanup_OutsideRootAndUnrelatedDirectoriesArePreserved()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				string sibling = fixture.DataPath + "Other";
+				Directory.CreateDirectory(sibling);
+				string unrelated = Path.Combine(fixture.DataPath, "Unrelated");
+				Directory.CreateDirectory(unrelated);
+				UninstalledModDirectoryCleanup.RemoveEmptyDirectories(fixture.DataPath,
+					new[] { Path.Combine(sibling, "removed.nif"), Path.Combine(fixture.DataPath, "..", "outside.nif") });
+				Assert.IsTrue(Directory.Exists(sibling));
+				Assert.IsTrue(Directory.Exists(unrelated));
+				Assert.IsTrue(Directory.Exists(fixture.DataPath));
+			}
+		}
+
+		/// <summary>Cleanup never follows a linked ancestor to remove an empty directory in another tree.</summary>
+		[Test]
+		public void EmptyDirectoryCleanup_LinkedAncestorPreservesExternalDirectory()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				string external = fixture.DataPath + "External";
+				Directory.CreateDirectory(Path.Combine(external, "Nested"));
+				string link = Path.Combine(fixture.DataPath, "Linked");
+				if (!CreateDirectoryLink(link, external, 3) && !CreateDirectoryLink(link, external, 1))
+					Assert.Ignore("Directory symbolic links are not available in this test environment.");
+				try
+				{
+					UninstalledModDirectoryCleanup.RemoveEmptyDirectories(fixture.DataPath,
+						new[] { Path.Combine(link, "Nested", "removed.nif") });
+					Assert.IsTrue(Directory.Exists(Path.Combine(external, "Nested")));
+					Assert.IsTrue(Directory.Exists(link));
+				}
+				finally { Directory.Delete(link, false); }
+			}
+		}
+
+		/// <summary>Creates a directory symbolic link solely within the isolated regression fixture.</summary>
+		[DllImport("kernel32.dll", EntryPoint = "CreateSymbolicLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.I1)]
+		private static extern bool CreateDirectoryLink(string link, string target, int flags);
 
 		/// <summary>
 		/// Provides isolated filesystem roots and real native deployment services without a running main form.

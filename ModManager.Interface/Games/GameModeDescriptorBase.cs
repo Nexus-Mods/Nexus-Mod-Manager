@@ -36,6 +36,12 @@ namespace Nexus.Client.Games
 		/// <value>The list of possible executable files for the game.</value>
 		public abstract string[] GameExecutables { get; }
 
+		/// <summary>Gets required game files for a supplied root without resolving saved paths or creating directories.</summary>
+		public virtual IEnumerable<string> GetRequiredGameFiles(string gameRoot)
+		{
+			return new string[0];
+		}
+
 		/// <summary>
 		/// Gets the path to which mod files should be installed.
 		/// </summary>

@@ -17,7 +17,7 @@
 		public static bool CanManage(GameDiscoveryEntry entry)
 		{
 			return entry != null && entry.Collection == GameDiscoveryCollection.Managed &&
-				!entry.NeedsAttention;
+				!entry.NeedsAttention && !entry.IsInstallationMissing;
 		}
 
 		/// <summary>Never start a second initializer while another entry is in flight or ready.</summary>

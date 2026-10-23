@@ -237,6 +237,12 @@
 				&lt;PerGameModeSettingsOfString /&gt;
 			</Value>
 		</Setting>
+		<Setting Name="GameDiscoverySections" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
+			<Value Profile="(Default)">
+				&lt;?xml version="1.0" encoding="utf-16"?&gt;
+				&lt;PerGameModeSettingsOfString /&gt;
+			</Value>
+		</Setting>
 		<Setting Name="CompletedSetup" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
 			<Value Profile="(Default)">
 				&lt;?xml version="1.0" encoding="utf-16"?&gt;

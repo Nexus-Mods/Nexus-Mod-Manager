@@ -16,12 +16,27 @@ namespace NexusClientTests
 	[TestFixture]
 	public class GameDiscoveryCatalogTests
 	{
+		private string _gameRoot;
+
+		/// <summary>Provides a real executable for admission-policy cases that represent an installed game.</summary>
+		[SetUp]
+		public void SetUp()
+		{
+			_gameRoot = Path.Combine(Path.GetTempPath(), "nmm-catalog-game-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(_gameRoot);
+			File.WriteAllText(Path.Combine(_gameRoot, "game.exe"), "game");
+		}
+
+		/// <summary>Removes only the executable fixture created for the current case.</summary>
+		[TearDown]
+		public void TearDown() { Directory.Delete(_gameRoot, true); }
+
 		[Test]
 		public void SessionGate_AllowsOnlyReadyManagedCandidates_AndSerializesFirstLoad()
 		{
 			var settings = NewSettings();
 			settings.CompletedSetup["Configured"] = true;
-			settings.ExecutablePaths["Configured"] = @"C:\Games\Configured";
+			settings.ExecutablePaths["Configured"] = _gameRoot;
 			settings.InstallationPaths["Configured"] = @"D:\NMM\Configured";
 			var catalog = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Configured"), new Descriptor("Unseen") }, settings);
 			var managed = catalog.Entries.Single(e => e.ModeId == "Configured");
@@ -46,7 +61,7 @@ namespace NexusClientTests
 			foreach (string id in new[] { "First", "Second" })
 			{
 				settings.CompletedSetup[id] = true;
-				settings.ExecutablePaths[id] = @"C:\Games\" + id;
+				settings.ExecutablePaths[id] = _gameRoot;
 				settings.InstallationPaths[id] = @"D:\NMM\" + id;
 			}
 			var entries = GameDiscoveryCatalogBuilder.Build(
@@ -78,7 +93,7 @@ namespace NexusClientTests
 			Assert.That(GameSessionEntryGate.CanManage(blocked), Is.False);
 			var managedSettings = NewSettings();
 			managedSettings.CompletedSetup["Ready"] = true;
-			managedSettings.ExecutablePaths["Ready"] = @"C:\Games\Ready";
+			managedSettings.ExecutablePaths["Ready"] = _gameRoot;
 			managedSettings.InstallationPaths["Ready"] = @"D:\NMM\Ready";
 			var ready = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Ready") }, managedSettings).Entries.Single();
 			var gate = new GameSessionEntryGate();
@@ -95,7 +110,7 @@ namespace NexusClientTests
 			foreach (string id in new[] { "First", "Second" })
 			{
 				settings.CompletedSetup[id] = true;
-				settings.ExecutablePaths[id] = @"C:\Games\" + id;
+				settings.ExecutablePaths[id] = _gameRoot;
 				settings.InstallationPaths[id] = @"D:\NMM\" + id;
 			}
 			var descriptors = new[] { new Descriptor("First"), new Descriptor("Second"), new Descriptor("Supported") };
@@ -286,6 +301,124 @@ namespace NexusClientTests
 			Assert.That(catalog.Supported.Select(entry => entry.ModeId), Is.EqualTo(new[] { "AlphaSupported", "ZuluSupported" }));
 		}
 
+		/// <summary>Uninstalling a game is visible without discarding its configured storage or reading path getters.</summary>
+		[Test]
+		public void ManagedGame_MissingExecutable_IsReportedWithoutChangingSavedSetup()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-missing-game-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				var settings = NewSettings();
+				settings.CompletedSetup["Example"] = true;
+				settings.InstallationPaths["Example"] = root;
+				settings.ExecutablePaths["Example"] = root;
+				var descriptor = new Descriptor("Example");
+				GameDiscoveryEntry missing = GameDiscoveryCatalogBuilder.Build(new[] { descriptor }, settings).Managed.Single();
+				Assert.That(missing.IsInstallationMissing, Is.True);
+				Assert.That(missing.MissingRequiredFiles, Does.Contain("game.exe"));
+				Assert.That(settings.CompletedSetup["Example"], Is.True);
+				Assert.That(settings.InstallationPaths["Example"], Is.EqualTo(root));
+				Assert.That(descriptor.InstallationPathReadCount, Is.Zero);
+				File.WriteAllText(Path.Combine(root, "game.exe"), "game");
+				Assert.That(GameDiscoveryCatalogBuilder.Build(new[] { descriptor }, settings).Managed.Single().IsInstallationMissing, Is.False);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Required plugin metadata must be checked without creating the game's missing Data directory.</summary>
+		[Test]
+		public void ManagedGame_MissingCriticalPlugin_DoesNotCreatePluginDirectory()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-missing-plugin-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				File.WriteAllText(Path.Combine(root, "game.exe"), "game");
+				var settings = NewSettings();
+				settings.CompletedSetup["Example"] = true;
+				settings.InstallationPaths["Example"] = root;
+				settings.ExecutablePaths["Example"] = root;
+				var definition = new GameModeDefinition { ModeId = "Example", Name = "Example", GameExecutables = new[] { "game.exe" },
+					OrderedCriticalPluginNames = new[] { "Game.esm" }, Plugin = new GameModePluginDefinition { PluginDirectorySuffix = "Data" } };
+				var descriptor = new DataDrivenGamebryoGameModeDescriptor(null, definition);
+				GameDiscoveryEntry missing = GameDiscoveryCatalogBuilder.Build(new[] { descriptor }, settings).Managed.Single();
+				Assert.That(missing.MissingRequiredFiles, Does.Contain(Path.Combine(root, "Data", "Game.esm")));
+				Assert.That(Directory.Exists(Path.Combine(root, "Data")), Is.False);
+				Directory.CreateDirectory(Path.Combine(root, "Data"));
+				File.WriteAllText(Path.Combine(root, "Data", "Game.esm"), "master");
+				Assert.That(GameDiscoveryCatalogBuilder.Build(new[] { descriptor }, settings).Managed.Single().IsInstallationMissing, Is.False);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Section choices round-trip without changing historical setup or storage, and stop applying after reinstall.</summary>
+		[TestCase(GameDiscoveryCollection.ToConfigure)]
+		[TestCase(GameDiscoveryCollection.Supported)]
+		public void MissingGame_SectionPreferencePreservesSetupAndRestoresManagedOnReinstall(GameDiscoveryCollection destination)
+		{
+			var settings = NewSettings();
+			settings.CompletedSetup["Example"] = true;
+			settings.ExecutablePaths["Example"] = _gameRoot;
+			settings.InstallationPaths["Example"] = _gameRoot;
+			settings.ModFolder["Example"] = "saved mods";
+			settings.InstallInfoFolder["Example"] = "saved install info";
+			settings.VirtualFolder["Example"] = "saved virtual files";
+			settings.InstalledGames.Add("Example");
+			settings.GameDiscoverySections["Other"] = "Supported";
+			var previous = settings.GameDiscoverySections;
+			File.Delete(Path.Combine(_gameRoot, "game.exe"));
+			GameDiscoveryEntry missing = Single(settings, "Example");
+			Assert.That(GameSessionEntryGate.CanManage(missing), Is.False);
+			Assert.That(GameDiscoverySectionPreference.TryMove(settings, missing, destination), Is.True);
+			Assert.That(previous.ContainsKey("Example"), Is.False, "Keep the previous dictionary intact for save-failure rollback.");
+			var serializer = new System.Xml.Serialization.XmlSerializer(typeof(PerGameModeSettings<string>));
+			using (var xml = new StringWriter())
+			{
+				serializer.Serialize(xml, settings.GameDiscoverySections);
+				using (var reader = new StringReader(xml.ToString()))
+					settings.GameDiscoverySections = (PerGameModeSettings<string>)serializer.Deserialize(reader);
+			}
+			GameDiscoveryEntry moved = Single(settings, "Example");
+			Assert.That(moved.Collection, Is.EqualTo(destination));
+			Assert.That(moved.IsInstallationMissing, Is.True);
+			Assert.That(GameDiscoverySectionPreference.TryMove(settings, moved, destination), Is.False);
+			Assert.That(settings.CompletedSetup["Example"], Is.True);
+			Assert.That(settings.InstallationPaths["Example"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ExecutablePaths["Example"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ModFolder["Example"], Is.EqualTo("saved mods"));
+			Assert.That(settings.InstallInfoFolder["Example"], Is.EqualTo("saved install info"));
+			Assert.That(settings.VirtualFolder["Example"], Is.EqualTo("saved virtual files"));
+			Assert.That(settings.InstalledGames, Does.Contain("Example"));
+			Assert.That(settings.GameDiscoverySections["Other"], Is.EqualTo("Supported"));
+			File.WriteAllText(Path.Combine(_gameRoot, "game.exe"), "reinstalled");
+			GameDiscoveryEntry restored = Single(settings, "Example");
+			Assert.That(restored.Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
+			Assert.That(restored.IsInstallationMissing, Is.False);
+			Assert.That(GameSessionEntryGate.CanManage(restored), Is.True);
+			Assert.That(GameDiscoverySectionPreference.TryMove(settings, restored, destination), Is.False);
+		}
+
+		/// <summary>Invalid or future section values cannot hide a missing game or manufacture a manageable installation.</summary>
+		[TestCase(null)]
+		[TestCase("Managed")]
+		[TestCase("unknown")]
+		[TestCase("1")]
+		public void MissingGame_InvalidSectionPreferenceUsesAutomaticCollection(string saved)
+		{
+			var settings = NewSettings();
+			settings.CompletedSetup["Example"] = true;
+			settings.ExecutablePaths["Example"] = _gameRoot;
+			settings.InstallationPaths["Example"] = _gameRoot;
+			settings.GameDiscoverySections["Example"] = saved;
+			File.Delete(Path.Combine(_gameRoot, "game.exe"));
+			GameDiscoveryEntry entry = Single(settings, "Example");
+			Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
+			Assert.That(entry.IsInstallationMissing, Is.True);
+			Assert.That(GameDiscoverySectionPreference.TryMove(settings, entry, GameDiscoveryCollection.Managed), Is.False);
+			Assert.That(settings.GameDiscoverySections["Example"], Is.EqualTo(saved));
+		}
+
 		private static GameDiscoveryEntry Single(Nexus.Client.Properties.Settings settings, string id)
 		{
 			return GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor(id) }, settings).Entries.Single();
@@ -297,6 +430,7 @@ namespace NexusClientTests
 			{
 				InstalledGames = new SettingsList(),
 				LastGameLaunchUtc = new PerGameModeSettings<string>(),
+				GameDiscoverySections = new PerGameModeSettings<string>(),
 				CompletedSetup = new PerGameModeSettings<bool>(),
 				InstallationPaths = new PerGameModeSettings<string>(),
 				ExecutablePaths = new PerGameModeSettings<string>(),

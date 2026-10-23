@@ -829,6 +829,18 @@ namespace Nexus.Client.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("<PerGameModeSettingsOfString />")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> GameDiscoverySections {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["GameDiscoverySections"]));
+            }
+            set {
+                this["GameDiscoverySections"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfBoolean " +
             "/>\r\n\t\t\t")]
         public global::Nexus.Client.Settings.PerGameModeSettings<bool> CompletedSetup {

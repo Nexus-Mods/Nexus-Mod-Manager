@@ -225,6 +225,57 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Missing games expose only recovery actions in every section, then regain normal actions after restoration.</summary>
+		[TestCase(GameDiscoveryCollection.Managed)]
+		[TestCase(GameDiscoveryCollection.ToConfigure)]
+		[TestCase(GameDiscoveryCollection.Supported)]
+		[Apartment(ApartmentState.STA)]
+		public void MissingGame_RecoveryPanelReplacesNormalActions(GameDiscoveryCollection section)
+		{
+			using (var document = new GameDiscoveryDocument())
+			{
+				var missing = new GameDiscoveryEntry("Missing", "Missing", section, "mod storage", "game installation",
+					true, true, false, false, new GameDiscoveryInstallationCandidate[0], missingRequiredFiles: new[] { "game.exe" });
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { missing }, new string[0]));
+				document.SelectMode("Missing");
+				document.EnableFirstSessionActions();
+				document.StartPosition = FormStartPosition.Manual;
+				document.Location = new Point(-20000, -20000);
+				document.Size = new Size(1200, 900);
+				document.ShowInTaskbar = false;
+				document.Show();
+				Application.DoEvents();
+				Func<string, Control> control = name => (Control)typeof(GameDiscoveryDocument)
+					.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				Assert.That(control("_startupDefault").Visible, Is.False);
+				Assert.That(control("_startupDefault").Enabled, Is.False);
+				Assert.That(control("_primaryAction").Visible, Is.False);
+				Assert.That(control("_primaryAction").Enabled, Is.False);
+				Assert.That(control("_locate").Visible, Is.False);
+				Assert.That(control("_locate").Enabled, Is.False);
+				Assert.That(control("_recoveryPanel").Visible, Is.True);
+				Assert.That(control("_installationPath").Text, Is.EqualTo("game installation"));
+				Assert.That(control("_moveToConfigure").Enabled, Is.EqualTo(section != GameDiscoveryCollection.ToConfigure));
+				Assert.That(control("_moveToSupported").Enabled, Is.EqualTo(section != GameDiscoveryCollection.Supported));
+				GameDiscoverySectionRequestedEventArgs request = null;
+				document.MoveRequested += (sender, args) => request = args;
+				GameDiscoveryCollection destination = section == GameDiscoveryCollection.ToConfigure
+					? GameDiscoveryCollection.Supported : GameDiscoveryCollection.ToConfigure;
+				typeof(GameDiscoveryDocument).GetMethod("RequestSectionMove", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(document, new object[] { destination });
+				Assert.That(request.ModeId, Is.EqualTo("Missing"));
+				Assert.That(request.Destination, Is.EqualTo(destination));
+				var restored = new GameDiscoveryEntry("Missing", "Missing", GameDiscoveryCollection.Managed, "mod storage", "game installation",
+					true, true, false, false, new GameDiscoveryInstallationCandidate[0]);
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { restored }, new string[0]));
+				Assert.That(control("_recoveryPanel").Visible, Is.False);
+				Assert.That(control("_primaryAction").Visible, Is.True);
+				Assert.That(control("_primaryAction").Enabled, Is.True);
+				Assert.That(control("_startupDefault").Visible, Is.True);
+				document.Close();
+			}
+		}
+
 		private string CachePath => Path.Combine(_root, "game-discovery-statistics.json");
 
 		/// <summary>Writes a versioned test document.</summary>

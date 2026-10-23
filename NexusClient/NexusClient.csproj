@@ -1367,6 +1367,7 @@
     </Compile>
     <Compile Include="Games\FileSearcher.cs" />
     <Compile Include="Games\GameDiscoveryCatalog.cs" />
+    <Compile Include="Games\GameDiscoverySectionPreference.cs" />
     <Compile Include="Games\GameDiscoveryArtwork.cs" />
     <Compile Include="Games\GameDiscoveryStatistics.cs" />
     <Compile Include="MainForm.GameDiscoveryStatistics.cs">
@@ -1470,6 +1471,7 @@
     <Compile Include="ModManagement\ModFileIdentity.cs" />
     <Compile Include="ModManagement\ModMatcher.cs" />
     <Compile Include="ModManagement\ModUninstaller.cs" />
+    <Compile Include="ModManagement\UninstalledModDirectoryCleanup.cs" />
     <Compile Include="ModManagement\ModUninstallHistory.cs" />
     <Compile Include="ModManagement\ModUpgrader.cs" />
     <Compile Include="ModManagement\NexusUrl.cs" />

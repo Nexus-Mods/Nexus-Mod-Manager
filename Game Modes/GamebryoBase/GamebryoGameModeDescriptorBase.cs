@@ -86,6 +86,12 @@
 		/// <value>The list of critical plugin filenames, ordered by load order.</value>
 		protected abstract string[] OrderedCriticalPluginFilenames { get; }
 
+		/// <summary>Resolves critical masters without invoking the directory-creating PluginDirectory getter.</summary>
+		public override IEnumerable<string> GetRequiredGameFiles(string gameRoot)
+		{
+			return OrderedCriticalPluginFilenames.Select(file => Path.Combine(gameRoot, "Data", file));
+		}
+
 		/// <summary>
 		/// Gets the list of critical plugin names, ordered by load order.
 		/// </summary>

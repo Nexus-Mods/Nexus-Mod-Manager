@@ -294,6 +294,7 @@
 					_bootstrapper.ReleaseSessionServices(initializer.Services);
 					initializer = null;
 					_gate.Finish(entry.ModeId, false);
+					_shell.ReprojectGameDiscoveryCatalog();
 					_shell.SetGameLoadMessage(setupCancelled
 						? LanguageManager.Get("GameDiscovery.ConfigurationCancelled", "Game Storage configuration was cancelled.")
 						: LanguageManager.Get("GameDiscovery.LoadFailed", "Game initialization failed. Select the game to retry."));

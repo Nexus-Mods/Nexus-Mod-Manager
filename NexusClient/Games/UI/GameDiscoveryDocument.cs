@@ -31,6 +31,10 @@
 		private readonly SimpleButton _primaryAction;
 		private readonly SimpleButton _startupDefault;
 		private readonly SimpleButton _locate;
+		private readonly TableLayoutPanel _recoveryPanel;
+		private readonly LabelControl _recoveryHint;
+		private readonly SimpleButton _moveToConfigure;
+		private readonly SimpleButton _moveToSupported;
 		private readonly ComboBoxEdit _installations;
 		private readonly LabelControl _status;
 		private readonly TableLayoutPanel _statusLayout;
@@ -53,6 +57,7 @@
 		private readonly LabelControl _startupTitle;
 		private readonly LabelControl _candidateHint;
 		private readonly TextEdit _installationPath;
+		private readonly LabelControl _installationWarning;
 		private readonly MemoEdit _details;
 		private readonly PanelControl _candidatePanel;
 		private readonly TableLayoutPanel _detailLayout;
@@ -93,6 +98,7 @@
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> StartupDefaultRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateRequested;
+		internal event EventHandler<GameDiscoverySectionRequestedEventArgs> MoveRequested;
 		internal GameDiscoveryCatalog Catalog => _catalog;
 
 		internal GameDiscoveryDocument()
@@ -273,6 +279,13 @@
 			var nameColumn = _view.Columns.AddVisible(nameof(GameRow.Name), L("GameDiscovery.GameColumn", "Game"));
 			nameColumn.MinWidth = 140;
 			nameColumn.AppearanceCell.FontStyleDelta = FontStyle.Bold;
+			_view.RowStyle += (sender, args) =>
+			{
+				if ((_view.GetRow(args.RowHandle) as GameRow)?.Entry.IsInstallationMissing != true) return;
+				args.Appearance.ForeColor = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
+					DevExpressDisplaySettingsApplier.IsDarkSkinSurface()).PluginErrorColor;
+				args.HighPriority = true;
+			};
 			var activityColumn = _view.Columns.AddVisible(nameof(GameRow.LastManaged), L("GameDiscovery.LastManaged", "Last managed"));
 			activityColumn.OptionsColumn.FixedWidth = true;
 			activityColumn.Width = 145;
@@ -361,7 +374,15 @@
 			_pathTitle = Caption(L("GameDiscovery.InstallationHeading", "INSTALLATION PATH"));
 			card.Controls.Add(_pathTitle, 0, 3);
 			_installationPath = ReadOnlyPathEdit();
-			card.Controls.Add(_installationPath, 0, 4);
+			var pathLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = Padding.Empty };
+			pathLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+			pathLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			pathLayout.Controls.Add(_installationPath, 0, 0);
+			_installationWarning = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false, Visible = false,
+				AutoSizeMode = LabelAutoSizeMode.None,
+				Appearance = { TextOptions = { WordWrap = DevExpress.Utils.WordWrap.Wrap, VAlignment = DevExpress.Utils.VertAlignment.Top } } };
+			pathLayout.Controls.Add(_installationWarning, 0, 1);
+			card.Controls.Add(pathLayout, 0, 4);
 			_startupTitle = Caption(L("GameDiscovery.StartupPreference", "STARTUP PREFERENCE"));
 			card.Controls.Add(_startupTitle, 0, 5);
 			_startupValue = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false };
@@ -385,7 +406,27 @@
 			};
 			NmmIconProvider.BindDialogButton(_primaryAction, NmmIconAction.ChangeGame);
 			_primaryAction.Click += (sender, args) => InvokePrimaryAction();
-			card.Controls.Add(_primaryAction, 0, 8);
+			var actionPanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Margin = Padding.Empty };
+			actionPanel.Controls.Add(_primaryAction);
+			_recoveryPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = Padding.Empty, Visible = false };
+			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+			_recoveryHint = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false, AutoSizeMode = LabelAutoSizeMode.None,
+				Appearance = { TextOptions = { WordWrap = DevExpress.Utils.WordWrap.Wrap, VAlignment = DevExpress.Utils.VertAlignment.Top } } };
+			_recoveryPanel.Controls.Add(_recoveryHint, 0, 0);
+			_moveToConfigure = new SimpleButton { Dock = DockStyle.Fill,
+				Text = String.Format(L("GameDiscovery.MoveToSection", "Move to \"{0}\""), L("GameDiscovery.ToConfigure", "To configure")),
+				ToolTip = L("GameDiscovery.MoveToConfigureHint", "Keep this game listed for setup later. Saved configuration and mod data are preserved.") };
+			_moveToConfigure.Click += (sender, args) => RequestSectionMove(GameDiscoveryCollection.ToConfigure);
+			_recoveryPanel.Controls.Add(_moveToConfigure, 0, 1);
+			_moveToSupported = new SimpleButton { Dock = DockStyle.Fill,
+				Text = String.Format(L("GameDiscovery.MoveToSection", "Move to \"{0}\""), L("GameDiscovery.Supported", "Supported")),
+				ToolTip = L("GameDiscovery.MoveToSupportedHint", "Remove this game from your current setup list. Saved configuration and mod data are preserved.") };
+			_moveToSupported.Click += (sender, args) => RequestSectionMove(GameDiscoveryCollection.Supported);
+			_recoveryPanel.Controls.Add(_moveToSupported, 0, 2);
+			actionPanel.Controls.Add(_recoveryPanel);
+			card.Controls.Add(actionPanel, 0, 8);
 			_locate = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false, Text = L("GameDiscovery.Locate", "Locate game...") };
 			NmmIconProvider.BindDialogButton(_locate, NmmIconAction.Browse);
 			_locate.Click += (sender, args) =>
@@ -1030,13 +1071,22 @@
 		{
 			// Managed denotes historical configuration, not proof of persisted
 			// Game Storage identity. Its setup must remain explicitly reviewable.
-			return entry != null && (entry.Collection == GameDiscoveryCollection.ToConfigure ||
+			return entry != null && !entry.IsInstallationMissing && (entry.Collection == GameDiscoveryCollection.ToConfigure ||
 				entry.Collection == GameDiscoveryCollection.Managed);
 		}
 
 		private static bool CanLocate(GameDiscoveryEntry entry)
 		{
-			return entry != null && (entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
+			return entry != null && !entry.IsInstallationMissing && (entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
+		}
+
+		/// <summary>Dispatches only enabled, explicit moves for the currently selected missing game.</summary>
+		private void RequestSectionMove(GameDiscoveryCollection destination)
+		{
+			SimpleButton button = destination == GameDiscoveryCollection.ToConfigure ? _moveToConfigure : _moveToSupported;
+			GameDiscoveryEntry entry = SelectedEntry;
+			if (!button.Enabled || entry == null || !entry.IsInstallationMissing) return;
+			MoveRequested?.Invoke(this, new GameDiscoverySectionRequestedEventArgs(entry.ModeId, destination));
 		}
 
 		private void UpdateInstallationChoices()
@@ -1066,6 +1116,17 @@
 		private void UpdateDetails()
 		{
 			var entry = SelectedEntry;
+			bool missing = entry != null && entry.IsInstallationMissing;
+			Color errorColor = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile,
+				DevExpressDisplaySettingsApplier.IsDarkSkinSurface()).PluginErrorColor;
+			_installationPath.Properties.Appearance.ForeColor = missing ? errorColor : Color.Empty;
+			_installationPath.Properties.AppearanceReadOnly.ForeColor = missing ? errorColor : Color.Empty;
+			_installationWarning.Appearance.ForeColor = errorColor;
+			_installationWarning.Visible = missing;
+			_installationWarning.Text = missing ? L("GameDiscovery.InstallationMissingFeedback",
+				"The game appears to be uninstalled or incomplete: required game files are missing.") : String.Empty;
+			_installationWarning.ToolTip = missing ? String.Join(Environment.NewLine, entry.MissingRequiredFiles) : String.Empty;
+			_detailLayout.RowStyles[4].Height = missing ? 82 : 38;
 			if (entry == null)
 			{
 				_gameTitle.Text = L("GameDiscovery.SelectGameTitle", "Select a game");
@@ -1085,10 +1146,11 @@
 				? L("GameDiscovery.NoDetectionSource", "No installation detected")
 				: L("GameDiscovery.DetectedVia", "Found via") + ": " + String.Join(", ", entry.Candidates.Select(item => item.Source)
 					.Distinct(StringComparer.OrdinalIgnoreCase));
-			_pathTitle.Text = entry.Collection == GameDiscoveryCollection.Managed
+			_pathTitle.Text = entry.Collection == GameDiscoveryCollection.Managed || missing
 				? L("GameDiscovery.InstallationHeading", "INSTALLATION PATH")
 				: L("GameDiscovery.DetectedInstallPath", "DETECTED INSTALLATION");
-			string installPath = entry.Collection == GameDiscoveryCollection.Managed
+			string installPath = missing && !String.IsNullOrWhiteSpace(entry.SavedExecutablePath) ? entry.SavedExecutablePath
+				: entry.Collection == GameDiscoveryCollection.Managed || missing
 				? entry.SavedInstallationPath
 				: _selectedInstallationRoot;
 			_installationPath.Text = String.IsNullOrWhiteSpace(installPath)
@@ -1102,6 +1164,13 @@
 				? L("GameDiscovery.MultipleFoundHint", "Multiple verified installations: choose one before configuring.")
 				: L("GameDiscovery.OneFoundHint", "One installation was found for this game.");
 			var lines = new List<string>();
+			if (missing)
+			{
+				lines.Add(_installationWarning.Text);
+				lines.Add(L("GameDiscovery.MissingRequiredFiles", "Missing required files or folder:") + Environment.NewLine +
+					String.Join(Environment.NewLine, entry.MissingRequiredFiles));
+				lines.Add(String.Empty);
+			}
 			if (entry.NeedsAttention)
 				lines.Add(L("GameDiscovery.AttentionExplanation", "An existing configuration may need review. Saved settings have not been changed."));
 			else if (entry.Collection == GameDiscoveryCollection.Managed)
@@ -1127,6 +1196,7 @@
 
 		private string GetStatus(GameDiscoveryEntry entry)
 		{
+			if (entry.IsInstallationMissing) return "!  " + L("GameDiscovery.InstallationMissingStatus", "Installation missing or incomplete");
 			if (entry.NeedsAttention) return "!  " + L("GameDiscovery.NeedsAttention", "Needs attention");
 			switch (entry.Collection)
 			{
@@ -1140,11 +1210,21 @@
 		{
 			var entry = SelectedEntry;
 			bool readyForAction = _sessionActionsAvailable && !_sessionLoading && !_scanning && !_refreshing;
+			bool missing = entry != null && entry.IsInstallationMissing;
+			bool activeMissing = missing && String.Equals(entry.ModeId, _activeModeId, StringComparison.OrdinalIgnoreCase);
+			_recoveryPanel.Visible = missing;
+			_recoveryHint.Text = activeMissing
+				? L("GameDiscovery.ActiveMissingRecovery", "Reinstall or repair the game in the same folder, then refresh the game list. Switch to another game before changing this game's section.")
+				: L("GameDiscovery.MissingRecovery", "Reinstall or repair the game in the same folder, then refresh the game list to manage it again.");
+			_moveToConfigure.Enabled = readyForAction && missing && !activeMissing && entry.Collection != GameDiscoveryCollection.ToConfigure;
+			_moveToSupported.Enabled = readyForAction && missing && !activeMissing && entry.Collection != GameDiscoveryCollection.Supported;
+			_primaryAction.Visible = !missing;
+			_detailLayout.RowStyles[8].Height = missing ? 160 : 58;
 			bool canManage = GameSessionEntryGate.CanManage(entry);
 			bool canConfigure = CanConfigure(entry);
 			bool canLocate = CanLocate(entry);
 			bool hasCandidate = !String.IsNullOrWhiteSpace(_selectedInstallationRoot);
-			bool showDefaultAction = entry != null && entry.Collection == GameDiscoveryCollection.Managed;
+			bool showDefaultAction = entry != null && entry.Collection == GameDiscoveryCollection.Managed && !missing;
 			_startupTitle.Visible = showDefaultAction;
 			_startupValue.Visible = showDefaultAction;
 			_startupDefault.Visible = showDefaultAction;
@@ -1162,7 +1242,7 @@
 				L("GameDiscovery.Locate", "Locate game...");
 			_primaryAction.Enabled = readyForAction && entry != null && (canManage || canConfigure && hasCandidate || canLocate);
 			bool isManaged = entry != null && entry.Collection == GameDiscoveryCollection.Managed;
-			bool reviewManagedStorage = isManaged && hasCandidate;
+			bool reviewManagedStorage = isManaged && hasCandidate && !missing;
 			_locate.Text = reviewManagedStorage
 				? L("GameDiscovery.ReviewStorage", "Review Game Storage...")
 				: L("GameDiscovery.Locate", "Locate game...");

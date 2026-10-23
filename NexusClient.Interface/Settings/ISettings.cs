@@ -183,6 +183,9 @@
 		/// <summary>Gets or sets the last successful game-mode entry or game launch, stored per mode as an invariant UTC round-trip timestamp.</summary>
 		PerGameModeSettings<string> LastGameLaunchUtc { get; set; }
 
+		/// <summary>Gets or sets section choices for missing games without changing their saved setup.</summary>
+		PerGameModeSettings<string> GameDiscoverySections { get; set; }
+
 		/// <summary>
 		/// Gets the executable path dictionary.
 		/// </summary>

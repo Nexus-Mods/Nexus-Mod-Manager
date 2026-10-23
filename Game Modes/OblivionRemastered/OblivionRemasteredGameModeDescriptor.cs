@@ -21,6 +21,13 @@ namespace Nexus.Client.Games.OblivionRemastered
 
 		#region Properties
 
+		/// <summary>Resolves required masters in the remaster's nested Data folder without creating it.</summary>
+		public override System.Collections.Generic.IEnumerable<string> GetRequiredGameFiles(string gameRoot)
+		{
+			foreach (string file in CRITICAL_PLUGINS)
+				yield return Path.Combine(gameRoot, @"OblivionRemastered\Content\Dev\ObvData\Data", file);
+		}
+
 		/// <summary>
 		/// Gets the display name of the game mode.
 		/// </summary>
