@@ -95,6 +95,46 @@ namespace NexusClientTests
 			Assert.IsFalse(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "manifest.plugin-rules-unsupported"));
 		}
 
+		/// <summary>Accepts an empty extension load order without changing installation recipes or retained source bytes.</summary>
+		[TestCase("cyberpunk2077")]
+		[TestCase("skyrim")]
+		public void Normalize_EmptyLoadOrderHasNoInstallationBehavior(string domain)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"" + domain + "\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]");
+			JObject root = JObject.Parse(json);
+			root["info"]["domainName"] = domain;
+			NexusCollectionManifestNormalizationResult withoutOrder = Normalize(root.ToString(), 1);
+			root["loadOrder"] = new JArray();
+			string withOrderJson = root.ToString();
+			NexusCollectionManifestNormalizationResult withOrder = Normalize(withOrderJson, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, withOrder.CapabilityReport.Status);
+			Assert.AreEqual(withoutOrder.Manifest.Members[0].RecipeIdentity, withOrder.Manifest.Members[0].RecipeIdentity);
+			CollectionAssert.AreEqual(Encoding.UTF8.GetBytes(withOrderJson), withOrder.GetRawManifestBytes());
+		}
+
+		/// <summary>Keeps unimplemented ordering instructions and malformed load orders blocked outside game adapters.</summary>
+		[TestCase("[{\"id\":\"example\",\"enabled\":true}]")]
+		[TestCase("[null]")]
+		[TestCase("{}")]
+		[TestCase("null")]
+		[TestCase("false")]
+		[TestCase("\"\"")]
+		public void Normalize_NonEmptyOrMalformedCyberpunkLoadOrderRemainsUnsupported(string loadOrder)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"cyberpunk2077\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]", "\"loadOrder\":" + loadOrder);
+			JObject root = JObject.Parse(json);
+			root["info"]["domainName"] = "cyberpunk2077";
+			NexusCollectionManifestNormalizationResult result = Normalize(root.ToString(), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(issue => issue.Code == "manifest.unknown-field" && issue.FieldPath == "$.loadOrder"));
+		}
+
 		[Test]
 		public void Normalize_SetupGuidanceIsPreservedWithoutChangingCapability()
 		{

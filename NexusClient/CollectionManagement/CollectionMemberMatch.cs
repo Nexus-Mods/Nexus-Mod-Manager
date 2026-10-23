@@ -40,7 +40,10 @@ namespace Nexus.Client.CollectionManagement
 		AssociationNotApplied = 14,
 		AssociationRequiresRecovery = 15,
 		UnsupportedExecutionPolicy = 16,
-		RequiredInstallRootMismatch = 17
+		RequiredInstallRootMismatch = 17,
+
+		/// <summary>Retained sources prove identical installation behavior for the exact same installed archive.</summary>
+		CompatibleSharedInstallBehavior = 18
 	}
 
 	/// <summary>
@@ -176,10 +179,23 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Checks exact applied evidence or an installed binding from the same journal-proven partial revision.</summary>
 		internal bool HasReusableVerifiedBinding(CollectionMemberBinding binding, NativeModInstanceIdentity nativeMod, CollectionRecipeIdentity recipe)
 		{
-			return binding != null && binding.NativeMod.Equals(nativeMod) && binding.VerifiedRecipe.Equals(recipe) &&
+			return binding != null && binding.NativeMod.Equals(nativeMod) &&
+				(binding.VerifiedRecipe.Equals(recipe) || HasReviewedCompatibleBinding(binding, nativeMod, recipe)) &&
 				(binding.Association.State == CollectionAssociationState.Applied ||
 				 (binding.Association.State == CollectionAssociationState.Incomplete && binding.Association.Revision.Equals(_revision) &&
 				  binding.BindingKind == CollectionMemberBindingKind.InstalledForCollection && _reconciledPartialAssociations.Contains(binding.Association.AssociationId)));
+		}
+
+		/// <summary>Preserves exact legacy binding evidence through review/restart without treating different fingerprints as equal.</summary>
+		private bool HasReviewedCompatibleBinding(CollectionMemberBinding binding, NativeModInstanceIdentity nativeMod, CollectionRecipeIdentity recipe)
+		{
+			return _members.Any(match => match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible &&
+				match.Reason == CollectionMemberMatchReason.CompatibleSharedInstallBehavior && match.Member.RecipeIdentity.Equals(recipe) &&
+				match.MatchedNativeMod != null && match.MatchedNativeMod.Identity.Equals(nativeMod) &&
+				match.ExistingBindings.Any(reviewed => reviewed.Association.AssociationId == binding.Association.AssociationId &&
+					reviewed.Association.Revision.Equals(binding.Association.Revision) && reviewed.MemberKey.Equals(binding.MemberKey) &&
+					reviewed.NativeMod.Equals(binding.NativeMod) && reviewed.VerifiedRecipe.Equals(binding.VerifiedRecipe) &&
+					reviewed.BindingKind == binding.BindingKind));
 		}
 		public ReadOnlyCollection<CollectionMemberMatchResult> Members { get { return _members; } }
 		public IReadOnlyDictionary<CollectionMemberKey, CollectionMemberMatchResult> MembersByKey { get { return _membersByKey; } }

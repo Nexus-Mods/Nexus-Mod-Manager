@@ -460,7 +460,9 @@ namespace Nexus.Client.CollectionManagement
 			var bundledMaterializer = new NexusCollectionBundledArtifactMaterializer(_store, _revisionSourceStore);
 			var bundledAcquisition = new NexusCollectionBundledMemberAcquisitionCoordinator(bundledMaterializer,
 				archiveAdopter, requestCoordinator, _services.ModManager);
-			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager, artifactStore), archiveAdopter,
+			CollectionMemberMatchEngine matchEngine = CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager, artifactStore);
+			matchEngine.SharedRecipeCompatibility = new CollectionSharedRecipeCompatibility(_catalogStore, _revisionSourceStore).AreCompatible;
+			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(matchEngine, archiveAdopter,
 				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition, directCoordinator);
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);

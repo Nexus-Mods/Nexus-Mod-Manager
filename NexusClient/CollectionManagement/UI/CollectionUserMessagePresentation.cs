@@ -206,8 +206,14 @@ namespace Nexus.Client.CollectionManagement.UI
 		}
 
 		internal static CollectionUserMessagePresentation ForAcquisition(CollectionMemberAcquisitionDisposition disposition, string technicalDetail,
-			bool producerEndedWithoutArchive = false)
+			bool producerEndedWithoutArchive = false, CollectionMemberMatchReason matchReason = CollectionMemberMatchReason.Unknown)
 		{
+			if (disposition == CollectionMemberAcquisitionDisposition.Blocked && matchReason == CollectionMemberMatchReason.ConflictingVerifiedRecipe)
+				return Message("Collections.Messages.Acquisition.SharedRecipeConflict",
+					"This mod is already tracked by a Collection with different installation requirements. NMM has preserved the installed mod.",
+					"Collections.Messages.Next.ResolveSharedRecipeConflict",
+					"Review the shared mod's file version and installer options. Use compatible Collection requirements before preparing again; downloading the archive again will not resolve this conflict.", technicalDetail);
+
 			if (disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired && producerEndedWithoutArchive)
 				return Message("Collections.Messages.Acquisition.EndedUnverified", "The download or import ended without a verified archive for this Collection member.",
 					"Collections.Messages.Next.RetryAcquisition", "Choose Download / Prepare to retry acquisition, then check downloads again.", technicalDetail);

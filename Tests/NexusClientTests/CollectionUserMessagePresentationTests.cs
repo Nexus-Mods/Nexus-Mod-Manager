@@ -8,6 +8,18 @@ namespace Nexus.Client.Tests
 	[TestFixture]
 	public class CollectionUserMessagePresentationTests
 	{
+		/// <summary>Shared recipe conflicts explain preservation rather than reporting a misleading source/download failure.</summary>
+		[Test]
+		public void BlockedAcquisition_SharedRecipeConflictNamesInstalledRequirements()
+		{
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForAcquisition(
+				CollectionMemberAcquisitionDisposition.Blocked, "conflicting recipes", false, CollectionMemberMatchReason.ConflictingVerifiedRecipe);
+			Assert.That(presentation.MessageFallback, Does.Contain("different installation requirements"));
+			Assert.That(presentation.MessageFallback, Does.Contain("preserved the installed mod"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("downloading the archive again will not resolve"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo("conflicting recipes"));
+		}
+
 		/// <summary>A deferred member has an informational waiting status rather than a false acquisition error.</summary>
 		[Test]
 		public void DeferredAcquisition_ShowsWaitingForOtherMember()

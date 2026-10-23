@@ -7014,7 +7014,15 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				bool producerEndedWithoutArchive = state.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired &&
 					state.QueueCorrelation != null && CollectionAcquisitionConsumerTask.IsTerminal(state.QueueCorrelation.Task.Status);
-				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForAcquisition(state.Disposition, technical, producerEndedWithoutArchive);
+				technical += Environment.NewLine + "Requested artifact: " + state.Match.Member.ArtifactChoice.RequestedArtifact +
+					"; selected artifact: " + state.Match.Member.ArtifactChoice.SelectedArtifact;
+				foreach (CollectionNativeModState candidate in state.Match.NativeCandidates)
+					technical += Environment.NewLine + "Installed candidate: " + candidate.Identity.NativeModKey +
+						"; Nexus mod/file: " + candidate.NexusModId + "/" + candidate.NexusFileId;
+				foreach (CollectionMemberBinding binding in state.Match.ExistingBindings)
+					technical += Environment.NewLine + "Existing Collection: " + binding.Association.Revision +
+						"; verified recipe: " + binding.VerifiedRecipe.Fingerprint;
+				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForAcquisition(state.Disposition, technical, producerEndedWithoutArchive, state.Match.Reason);
 				if (producerEndedWithoutArchive && state.QueueCorrelation.Task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Error)
 					userMessage = new CollectionUserMessagePresentation(String.Empty,
 						L("Collections.Messages.Acquisition.DownloadFailed", "This mod's download or import failed.") + Environment.NewLine +

@@ -235,6 +235,7 @@
     <Compile Include="CollectionOwnerPayloadMaterializerTests.cs" />
     <Compile Include="CollectionScriptedReplayCaptureServiceTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
+    <Compile Include="CollectionSharedRecipeCompatibilityTests.cs" />
     <Compile Include="CollectionReplacementDiffPlannerTests.cs" />
     <Compile Include="CollectionRevisionUpdatePlannerTests.cs" />
     <Compile Include="CollectionRevisionUpdateCandidateSelectionTests.cs" />

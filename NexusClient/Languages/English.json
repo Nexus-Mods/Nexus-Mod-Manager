@@ -187,6 +187,8 @@
     "Collections.Messages.Acquisition.DeferredByBlockedMember": "This mod is waiting while another Collection member has a blocking issue.",
     "Collections.Messages.Next.ResolveOtherBlockedMember": "Resolve the blocking issues, then continue preparation. This mod has not failed acquisition.",
     "Collections.Messages.Acquisition.Blocked": "This mod cannot be acquired safely with the currently available source information.",
+    "Collections.Messages.Acquisition.SharedRecipeConflict": "This mod is already tracked by a Collection with different installation requirements. NMM has preserved the installed mod.",
+    "Collections.Messages.Next.ResolveSharedRecipeConflict": "Review the shared mod's file version and installer options. Use compatible Collection requirements before preparing again; downloading the archive again will not resolve this conflict.",
     "Collections.Messages.Acquisition.BundledQueued": "This bundled mod archive is queued for import.",
     "Collections.Messages.Acquisition.ManualRequired": "This mod needs a user-authorized download before preparation can continue.",
     "Collections.Messages.Acquisition.PremiumQueued": "This mod is queued for automatic Nexus download.",

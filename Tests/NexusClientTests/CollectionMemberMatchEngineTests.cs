@@ -118,6 +118,34 @@ namespace NexusClientTests
 			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.ConflictingVerifiedRecipe));
 		}
 
+		/// <summary>Retained-source compatibility can adopt identical installed output while preserving the old recipe fingerprint.</summary>
+		[Test]
+		public void Match_CompatibleSharedBehaviorRetainsExactBindingEvidenceForPublication()
+		{
+			Fixture fixture = CreateFixture("legacy-recipe", "100", "200", CollectionAssociationState.Applied, false,
+				CreateOtherRevision("other-collection", "other-revision", 1));
+			var engine = new CollectionMemberMatchEngine { SharedRecipeCompatibility = (plan, member, native, binding) => true };
+			CollectionMemberMatchSet matches = engine.Match(fixture.Plan, fixture.State);
+			CollectionMemberMatchResult result = matches.Members[0];
+			CollectionMemberBinding bindingEvidence = result.ExistingBindings.Single();
+			Assert.That(result.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.CompatibleSharedInstallBehavior));
+			Assert.That(bindingEvidence.VerifiedRecipe.Fingerprint, Is.EqualTo("legacy-recipe"));
+			Assert.That(matches.HasReusableVerifiedBinding(bindingEvidence, fixture.NativeMod.Identity, result.Member.RecipeIdentity), Is.True);
+			var changed = new CollectionMemberBinding(bindingEvidence.Association, bindingEvidence.MemberKey, bindingEvidence.NativeMod,
+				CollectionRecipeIdentity.FromFingerprint("changed-recipe"), bindingEvidence.BindingKind);
+			Assert.That(matches.HasReusableVerifiedBinding(changed, fixture.NativeMod.Identity, result.Member.RecipeIdentity), Is.False);
+		}
+
+		/// <summary>A compatibility callback cannot adopt another archive or bypass an installed-file mismatch.</summary>
+		[Test]
+		public void Match_CompatibilityCannotBypassDifferentInstalledFile()
+		{
+			Fixture fixture = CreateFixture("legacy-recipe", "100", "201", CollectionAssociationState.Applied, false);
+			var engine = new CollectionMemberMatchEngine { SharedRecipeCompatibility = (plan, member, native, binding) => true };
+			Assert.That(engine.Match(fixture.Plan, fixture.State).Members[0].Reason, Is.EqualTo(CollectionMemberMatchReason.ConflictingVerifiedRecipe));
+		}
+
 		[Test]
 		public void Match_ExactInstalledArtifactWithoutVerifiedRecipe_RequiresReinstall()
 		{

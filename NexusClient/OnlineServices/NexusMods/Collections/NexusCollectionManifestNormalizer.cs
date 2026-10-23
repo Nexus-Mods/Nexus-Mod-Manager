@@ -2844,6 +2844,21 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return recipe;
 		}
 
+		/// <summary>Compares installation instructions after the caller proves that both members use the same installed archive.</summary>
+		internal static bool HaveSameInstalledBehavior(JObject left, JObject right)
+		{
+			JObject leftRecipe = (JObject)BuildRecipeToken(left);
+			JObject rightRecipe = (JObject)BuildRecipeToken(right);
+			foreach (JObject recipe in new[] { leftRecipe, rightRecipe })
+			{
+				// Acquisition hints and selection/version labels do not change the output of an already selected archive.
+				recipe.Remove("source");
+				recipe.Remove("version");
+				recipe.Remove("optional");
+			}
+			return JToken.DeepEquals(Canonicalize(leftRecipe), Canonicalize(rightRecipe));
+		}
+
 		private static JToken Canonicalize(JToken token)
 		{
 			JObject objectToken = token as JObject;
@@ -2890,6 +2905,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		/// <summary>Validates game extension data before accepting its additional root fields.</summary>
 		private static void ValidateRootFields(JObject root, List<CollectionCapabilityIssue> issues)
 		{
+			// Game extensions can emit an empty loadOrder even when no ordering behavior is requested.
+			JArray loadOrder = root["loadOrder"] as JArray;
+			bool emptyLoadOrder = loadOrder != null && loadOrder.Count == 0;
 			bool witcher = CollectionWitcher3Data.IsWitcherManifest(root);
 			if (witcher)
 			{
@@ -2902,7 +2920,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 			foreach (JProperty property in root.Properties())
 			{
-				if (RootFields.Contains(property.Name) || (witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
+				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && emptyLoadOrder) ||
+					(witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
 					continue;
 				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 					"manifest.unknown-field", "The manifest contains an uncharacterized field; NMM will not assume it is cosmetic.", "$." + property.Name));

@@ -203,6 +203,7 @@
     <Compile Include="CollectionManagement\CollectionReplacementPhaseBarrierCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatch.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatchEngine.cs" />
+    <Compile Include="CollectionManagement\CollectionSharedRecipeCompatibility.cs" />
     <Compile Include="CollectionManagement\CollectionInstallDestinationResolver.cs" />
     <Compile Include="CollectionManagement\CollectionInstallRootCorrection.cs" />
     <Compile Include="CollectionManagement\CollectionDependencyPhasePlan.cs" />

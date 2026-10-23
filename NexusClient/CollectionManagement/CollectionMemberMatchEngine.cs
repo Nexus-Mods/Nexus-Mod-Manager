@@ -20,6 +20,9 @@ namespace Nexus.Client.CollectionManagement
 		private readonly Func<ResolvedCollectionMemberPlan, CollectionVerifiedArchive, CancellationToken, bool> _requiresVerifiedGameRoot;
 		private readonly bool _requiresDestinationArchive = true;
 
+		/// <summary>Gets or sets retained-source compatibility for same-file shared installations in the additive workflow.</summary>
+		internal Func<ResolvedCollectionPlan, ResolvedCollectionMemberPlan, CollectionNativeModState, CollectionMemberBinding, bool> SharedRecipeCompatibility { get; set; }
+
 		/// <summary>Creates matching with the legacy explicit-metadata destination policy.</summary>
 		public CollectionMemberMatchEngine() { }
 
@@ -193,19 +196,22 @@ namespace Nexus.Client.CollectionManagement
 			{
 				CollectionNativeModState candidate = candidates.Values.Single();
 				List<CollectionMemberBinding> bindings = GetBindings(nativeState, new[] { candidate.Identity });
+				bool exactArtifact = exactArtifactCandidates.Contains(candidate.Identity);
+				var compatibleBindings = new HashSet<CollectionMemberBinding>(bindings.Where(x =>
+					x.VerifiedRecipe.Equals(member.RecipeIdentity) || (exactArtifact && SharedRecipeCompatibility != null &&
+					SharedRecipeCompatibility(context.Plan, member, candidate, x))));
 
-				if (bindings.Any(x => !x.VerifiedRecipe.Equals(member.RecipeIdentity)))
+				if (bindings.Any(x => !compatibleBindings.Contains(x)))
 				{
 					return Result(member, CollectionMemberMatchDisposition.Blocked,
 						CollectionMemberMatchReason.ConflictingVerifiedRecipe, new[] { candidate }, bindings, verifiedArchive);
 				}
 
 				List<CollectionMemberBinding> verifiedApplied = bindings
-					.Where(x => x.VerifiedRecipe.Equals(member.RecipeIdentity) &&
+					.Where(x => compatibleBindings.Contains(x) &&
 						IsReusableAssociation(nativeState, context, x.Association))
 					.ToList();
 				bool installRootMismatch = RequiresGameRoot(member, verifiedArchive, cancellationToken) && candidate.InstallRoot != ModInstallRoot.GameRoot;
-				bool exactArtifact = exactArtifactCandidates.Contains(candidate.Identity);
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
 					x.VerifiedRecipe.Equals(member.RecipeIdentity) && IsReusableAssociation(nativeState, context, x.Association));
 
@@ -217,7 +223,9 @@ namespace Nexus.Client.CollectionManagement
 							CollectionMemberMatchReason.NoReusableInput, new[] { candidate }, bindings, null);
 					CollectionMemberMatchReason reason = directRecipeBinding
 						? CollectionMemberMatchReason.ExistingVerifiedBinding
-						: CollectionMemberMatchReason.CompatibleSharedVerifiedBinding;
+						: verifiedApplied.Any(x => !x.VerifiedRecipe.Equals(member.RecipeIdentity))
+							? CollectionMemberMatchReason.CompatibleSharedInstallBehavior
+							: CollectionMemberMatchReason.CompatibleSharedVerifiedBinding;
 					return Result(member, CollectionMemberMatchDisposition.InstalledCompatible,
 						reason, new[] { candidate }, bindings, verifiedArchive);
 				}
@@ -426,6 +434,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			public CollectionRevisionIdentity Revision { get; }
+			public ResolvedCollectionPlan Plan { get; private set; }
 
 			/// <summary>Builds the per-pass matching indexes once from the immutable C6.1 state.</summary>
 			public static MatchingContext Create(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState)
@@ -469,7 +478,7 @@ namespace Nexus.Client.CollectionManagement
 					if (NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
 						selectedNexusArtifacts.Add(NexusCollectionModFileArtifactIdentity.Format(domain, modId, fileId));
 				}
-				return new MatchingContext(modsByNexusModId, directBindingsByMember, plan.Revision, selectedNexusArtifacts);
+				return new MatchingContext(modsByNexusModId, directBindingsByMember, plan.Revision, selectedNexusArtifacts) { Plan = plan };
 			}
 
 			public IEnumerable<CollectionNativeModState> GetNativeMods(long nexusModId)
