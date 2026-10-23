@@ -71,6 +71,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					LanguageManager.Get("Collections.Management.Removal.Keep", "Keep"), reason(x)))
 				.OrderBy(x => x.ModName, StringComparer.CurrentCultureIgnoreCase).ToList());
 			grid.DataSource = rows;
+			FlowLayoutPanel selectionButtons = null;
 			if (plan.ExplicitMemberRemoval)
 			{
 				var check = new RepositoryItemCheckEdit();
@@ -99,6 +100,34 @@ namespace Nexus.Client.CollectionManagement.UI
 					RemovalRow row = view.GetFocusedRow() as RemovalRow;
 					if (row == null || !row.Impact.RequiresNativeRemoval) args.Cancel = true;
 				};
+				selectionButtons = new FlowLayoutPanel
+				{
+					Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(12, 4, 12, 4)
+				};
+				DevExpressDisplaySettingsApplier.ApplySkinSurface(selectionButtons);
+				SimpleButton selectAll = new SimpleButton
+				{
+					AutoSize = true, Text = LanguageManager.Get("Collections.Members.SelectAll", "Select all"),
+					ToolTip = LanguageManager.Get("Collections.Management.Removal.SelectAllHelp",
+						"Select all mods that can be uninstalled, including those hidden by the search.")
+				};
+				SimpleButton deselectAll = new SimpleButton
+				{
+					AutoSize = true, Text = LanguageManager.Get("Collections.Management.Removal.DeselectAll", "Deselect all"),
+					ToolTip = LanguageManager.Get("Collections.Management.Removal.DeselectAllHelp", "Keep all listed mods installed, including those hidden by the search.")
+				};
+				Action<bool> setSelection = remove =>
+				{
+					view.PostEditor();
+					view.CloseEditor();
+					view.UpdateCurrentRow();
+					foreach (RemovalRow row in rows.Where(x => x.Impact.RequiresNativeRemoval)) row.Remove = remove;
+					updateSummary();
+				};
+				selectAll.Click += (sender, args) => setSelection(true);
+				deselectAll.Click += (sender, args) => setSelection(false);
+				selectionButtons.Controls.Add(selectAll);
+				selectionButtons.Controls.Add(deselectAll);
 				updateSummary();
 			}
 
@@ -125,6 +154,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			buttons.Controls.Add(uninstall);
 			buttons.Controls.Add(cancel);
 			Controls.Add(grid);
+			if (selectionButtons != null) Controls.Add(selectionButtons);
 			Controls.Add(summary);
 			Controls.Add(buttons);
 			AcceptButton = cancel;
