@@ -940,11 +940,15 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					"member.installer-choices-type-unsupported", "Only Vortex FOMOD installer choices are characterized by this native translation.", path + ".type"));
 				return;
 			}
-			JArray options = root["options"] as JArray;
+			// A type-only marker records no installer selections. Native archive inspection still
+			// decides whether this is a basic package or an installer requiring normal input.
+			JToken optionsToken = root["options"];
+			if (optionsToken == null) return;
+			JArray options = optionsToken as JArray;
 			if (options == null)
 			{
 				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-					"member.installer-choices-invalid", "A characterized Vortex FOMOD choice record requires an options array, including an empty array for a default-only installer.", path + ".options"));
+					"member.installer-choices-invalid", "Recorded Vortex FOMOD options must be an array, including an empty array for a default-only installer.", path + ".options"));
 				return;
 			}
 

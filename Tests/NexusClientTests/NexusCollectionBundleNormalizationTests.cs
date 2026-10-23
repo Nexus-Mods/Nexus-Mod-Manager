@@ -1057,6 +1057,29 @@ namespace NexusClientTests
 			Assert.AreEqual(0, member.VortexFomodSelection.Steps.Count);
 		}
 
+		/// <summary>A type-only marker must defer to native archive inspection instead of inventing saved installer choices.</summary>
+		[Test]
+		public void Normalize_TypeOnlyFomodMarkerHasNoRecordedSelections()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Compact UI\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20},\"choices\":{\"type\":\"fomod\"}}", "[]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsFalse(result.Manifest.Members.Single().HasVortexFomodSelection);
+		}
+
+		/// <summary>Omitted options are distinct from explicitly malformed records; unknown marker fields remain unsupported.</summary>
+		[TestCase("{\"type\":\"fomod\",\"options\":null}")]
+		[TestCase("{\"type\":\"fomod\",\"options\":{}}")]
+		[TestCase("{\"type\":\"fomod\",\"options\":\"missing\"}")]
+		[TestCase("{\"type\":\"fomod\",\"future\":true}")]
+		public void Normalize_MalformedFomodOptionsOrUnknownMarkerFieldsRemainBlocked(string choices)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Compact UI\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20},\"choices\":" + choices + "}", "[]");
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, Normalize(json, 1).CapabilityReport.Status);
+		}
+
 		[Test]
 		public void Normalize_EmptyVortexFomodGroupChoiceArrayIsRetainedAsExplicitNoSelection()
 		{

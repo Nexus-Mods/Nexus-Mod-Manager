@@ -66,6 +66,26 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Compact UI's type-only marker must prepare its real Interface files without requiring an absent FOMOD.</summary>
+		[Test]
+		public void PrepareExact_TypeOnlyFomodMarkerOnBasicArchiveUsesSimpleFiles()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixtureCore(root, "type-only-fomod", null,
+					new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), false,
+					"{\"type\":\"fomod\"}", null, new[] { @"Interface\shipcrewmenu.swf", @"Interface\shipcrewmenu_lrg.swf" });
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(fixture.Plan, fixture.Member,
+					fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
+				Assert.That(fixture.Member.HasVortexFomodSelection, Is.False);
+				Assert.That(prepared.AdapterId, Is.EqualTo(ModInstallationSimpleFileRecipeAdapter.AdapterId));
+				Assert.That(prepared.EffectPreview.IsComplete, Is.True);
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(2));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>A fresh wizard supplies exact required and selected outputs inside the Collection preparation path.</summary>
 		[TestCase(false)]
 		[TestCase(true)]
