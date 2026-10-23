@@ -198,7 +198,16 @@
       ".exe",
       ".asi"
     ],
-    "supportsGameRootInstall": true
+    "supportsGameRootInstall": true,
+    "gameRootPackageRules": [
+      {
+        "id": "sfse-loader",
+        "requiredFiles": [
+          "sfse_loader.exe"
+        ],
+        "allowSingleWrapperFolder": true
+      }
+    ]
   },
   "gamebryo": {
     "scriptExtenderExecutables": [

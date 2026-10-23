@@ -429,7 +429,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private List<KeyValuePair<string, string>> StripGameRootWrapperFolder(List<KeyValuePair<string, string>> files)
 		{
-			return BasicInstallPlanBuilder.NormalizeGameRootFileMappings(files);
+			return BasicInstallPlanBuilder.NormalizeGameRootFileMappings(Mod, GameMode, files);
 		}
 
 		/// <summary>Runs one full-archive layout review before any native file operation.</summary>

@@ -470,7 +470,7 @@ namespace Nexus.Client.ModManagement
 
 			if (installContext.InstallRoot == ModInstallRoot.GameRoot)
 				files = gameRootArchiveBaseDirectory == null
-					? NormalizeGameRootFileMappings(files)
+					? NormalizeGameRootFileMappings(mod, gameMode, files)
 					: NormalizeReviewedGameRootFileMappings(files, gameRootArchiveBaseDirectory);
 
 			files = files.Where(file => !ModInstallFileFilter.IsIgnored(file.Key) && !ModInstallFileFilter.IsIgnored(file.Value)).ToList();
@@ -554,6 +554,15 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return BasicInstallPlanResult.Supported(new BasicInstallPlan(installContext, plannedFiles, generatedFiles, specialGameValues));
+		}
+
+		/// <summary>Uses configured package evidence for ordinary root installs while preserving legacy wrapper recognition for other archives.</summary>
+		internal static List<KeyValuePair<string, string>> NormalizeGameRootFileMappings(IMod mod, IGameMode gameMode,
+			List<KeyValuePair<string, string>> files)
+		{
+			GameRootPackageMatch match = GameRootPackageMatcher.Match(gameMode, mod);
+			return match == null ? NormalizeGameRootFileMappings(files) :
+				NormalizeReviewedGameRootFileMappings(files, match.ArchiveBaseDirectory);
 		}
 
 		/// <summary>

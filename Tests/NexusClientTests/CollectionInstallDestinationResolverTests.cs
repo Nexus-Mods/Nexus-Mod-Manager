@@ -6,8 +6,10 @@ using System.Text;
 using System.Threading;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games;
+using Nexus.Client.Games.DataDriven;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Mods;
+using Newtonsoft.Json;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -16,6 +18,45 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionInstallDestinationResolverTests
 	{
+		/// <summary>The shipped SFSE signature must unwrap both inferred Collection installs and explicit game-root installs.</summary>
+		[TestCase(ModInstallMethod.Direct, false, "sfse_0_2_21")]
+		[TestCase(ModInstallMethod.Virtual, false, "sfse_0_2_21")]
+		[TestCase(ModInstallMethod.Direct, true, "sfse_0_2_21")]
+		[TestCase(ModInstallMethod.Virtual, true, "sfse_0_2_21")]
+		[TestCase(ModInstallMethod.Direct, false, "")]
+		[TestCase(ModInstallMethod.Direct, true, "")]
+		public void Resolve_ShippedSfseRuleInstallsBinariesBesideGame(ModInstallMethod method, bool explicitRoot, string wrapper)
+		{
+			string prefix = wrapper.Length == 0 ? String.Empty : wrapper + "\\";
+			IMod mod = CreateMod(prefix + "sfse_loader.exe", prefix + "sfse_1_16_244.dll",
+				prefix + "sfse_readme.txt", prefix + @"src\sfse-0.2.21.tar.gz");
+			IGameMode game = CreateGameMode("Starfield", LoadStarfieldPackageRules());
+			ResolvedCollectionMemberPlan member = CreateMember(explicitRoot ?
+				CollectionMemberInstallRootBehavior.VortexDInputGameRoot : CollectionMemberInstallRootBehavior.Default);
+			CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(game, member, mod,
+				new ModInstallContext(method, ModInstallRoot.Data), CancellationToken.None);
+			Assert.That(destination.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+			Assert.That(destination.InstallContext.Method, Is.EqualTo(method));
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(mod, game, destination.InstallContext,
+				true, null, null, true, destination.GameRootArchiveBaseDirectory);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Single(file => file.SourcePath.EndsWith("sfse_loader.exe")).DestinationPath, Is.EqualTo("sfse_loader.exe"));
+			Assert.That(result.Plan.Files.Single(file => file.SourcePath.EndsWith("sfse_1_16_244.dll")).DestinationPath, Is.EqualTo("sfse_1_16_244.dll"));
+			Assert.That(result.Plan.Files.All(file => file.DeploymentTarget.Root == ModDeploymentRoot.GameRoot), Is.True);
+			Assert.That(result.Plan.Files.Single(file => file.SourcePath.EndsWith(".tar.gz")).DestinationPath, Is.EqualTo(@"src\sfse-0.2.21.tar.gz"));
+		}
+
+		/// <summary>Reads the actual shipped JSON so missing SFSE destination metadata cannot be hidden by a synthetic rule.</summary>
+		private static IReadOnlyList<GameRootPackageRule> LoadStarfieldPackageRules()
+		{
+			DirectoryInfo root = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+			while (root != null && !File.Exists(Path.Combine(root.FullName, "Game Modes", "Definitions", "Starfield", "game.json"))) root = root.Parent;
+			Assert.That(root, Is.Not.Null, "The shipped Starfield definition fixture must be available.");
+			GameModeDefinition definition = JsonConvert.DeserializeObject<GameModeDefinition>(File.ReadAllText(
+				Path.Combine(root.FullName, "Game Modes", "Definitions", "Starfield", "game.json")));
+			return DataDrivenGameRootPackageRules.Create(definition);
+		}
+
 		/// <summary>Resolves known root packages and preserves both native installation methods.</summary>
 		[TestCase(ModInstallMethod.Virtual, "")]
 		[TestCase(ModInstallMethod.Direct, "")]
@@ -161,7 +202,7 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Creates a game which opts into only the characterised preloader signature.</summary>
-		private static IGameMode CreateGameMode(string modeId = null)
+		private static IGameMode CreateGameMode(string modeId = null, IReadOnlyList<GameRootPackageRule> rules = null)
 		{
 			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
@@ -169,7 +210,7 @@ namespace NexusClientTests
 				{
 					case "get_ModeId": return modeId;
 					case "get_SupportsGameRootModInstall": return true;
-					case "get_GameRootPackageRules": return new[] { new GameRootPackageRule("preloader",
+					case "get_GameRootPackageRules": return rules ?? new[] { new GameRootPackageRule("preloader",
 						new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" },
 						new[] { new GameRootPackageXmlCheck("xSE PluginPreloader.xml", new[] { "xSE", "PluginPreloader" }) }, true) };
 					case "get_StopFolders": return new[] { "F4SE", "Tools", "Data" };
