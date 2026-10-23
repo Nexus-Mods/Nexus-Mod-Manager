@@ -220,7 +220,7 @@ namespace Nexus.Client.CollectionManagement
 				install.DeploymentCommitSequence, associationSnapshot == null ? null :
 					_associationStore.GetReconciledPartialAssociationIds(associationSnapshot),
 				(_gameMode.PluginManagementPolicy ?? new PluginManagementPolicy()).MasterPluginsMustLoadBeforeNonMasters,
-				baseline, refreshedTargets);
+				baseline, refreshedTargets, (_gameMode.PluginManagementPolicy ?? new PluginManagementPolicy()).IgnoreOfficialPluginOrder);
 			if (baseline == null)
 				CollectionPerformanceMetrics.RecordNativeStateIndexBuild(performanceStarted);
 			return result;

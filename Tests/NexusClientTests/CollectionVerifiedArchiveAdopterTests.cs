@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.ModRepositories;
+using Nexus.Client.OnlineServices.NexusMods.Collections;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -630,8 +632,68 @@ namespace NexusClientTests
 			return CreateRequest(expectedHash, StableArtifactId, Guid.NewGuid());
 		}
 
+		/// <summary>Completed exact downloads remain usable when Nexus hash search cannot prove their file identity.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void TryAdopt_ManifestMd5AndSizeVerifyBytesWithoutNexusHashIndex(bool corrupt)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Stores stores = CreateStores(root);
+				string archivePath = Path.Combine(root, "completed-download.7z");
+				File.WriteAllText(archivePath, corrupt ? "abd" : "abc", new UTF8Encoding(false));
+				var source = new RecordingArchiveSource(new[] { ExactCandidate(archivePath) });
+				// This repository has no API client. Exact manifest evidence must succeed without a lookup.
+				var verifier = new NexusCollectionArchiveIdentityVerifier(new NexusModsApiRepository("skyrimspecialedition", null));
+				var adopter = new CollectionVerifiedArchiveAdopter(source, verifier, stores.Artifacts, stores.References);
+				CollectionAcquisitionRequest request = CreateRequest(null, StableArtifactId, Guid.NewGuid(), 3,
+					"900150983cd24fb0d6963f7d28e17f72");
+				CollectionVerifiedArchive result = adopter.TryAdopt(request);
+				if (corrupt)
+					Assert.That(result, Is.Null, "Matching mod/file metadata and size must not accept different bytes.");
+				else
+				{
+					Assert.That(result, Is.Not.Null);
+					Assert.That(result.Artifact.ContentHash.Value, Is.EqualTo(Sha256(Encoding.ASCII.GetBytes("abc"))));
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Direct stream verification requires both the manifest digest and the declared number of bytes.</summary>
+		[TestCase(3, true)]
+		[TestCase(4, false)]
+		public void NexusVerifier_ManifestDigestAlsoRequiresDeclaredByteLength(long byteLength, bool expected)
+		{
+			var verifier = new NexusCollectionArchiveIdentityVerifier(new NexusModsApiRepository("skyrimspecialedition", null));
+			var artifact = new CollectionArtifactReference("nexus-mod-file", StableArtifactId, null, byteLength,
+				"900150983cd24fb0d6963f7d28e17f72");
+			using (var stream = new MemoryStream(Encoding.ASCII.GetBytes("abc")))
+				Assert.That(verifier.IsExactMatch(artifact, stream, CancellationToken.None), Is.EqualTo(expected));
+		}
+
+		/// <summary>Retains legacy provider verification when the manifest has no usable digest.</summary>
+		[Test]
+		public void TryAdopt_ManifestSizeWithoutMd5StillRequiresProviderVerification()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Stores stores = CreateStores(root);
+				string archivePath = Path.Combine(root, "candidate.7z");
+				File.WriteAllText(archivePath, "abc", new UTF8Encoding(false));
+				var verifier = new RecordingVerifier { Handler = (artifact, stream) => false };
+				var adopter = new CollectionVerifiedArchiveAdopter(new RecordingArchiveSource(new[] { ExactCandidate(archivePath) }),
+					verifier, stores.Artifacts, stores.References);
+				Assert.That(adopter.TryAdopt(CreateRequest(null, StableArtifactId, Guid.NewGuid(), 3)), Is.Null);
+				Assert.That(verifier.CallCount, Is.EqualTo(1));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static CollectionAcquisitionRequest CreateRequest(CollectionContentHash expectedHash, string stableArtifactId, Guid requestId,
-			long? expectedByteLength = null)
+			long? expectedByteLength = null, string expectedMd5 = null)
 		{
 			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c4-18");
 			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-c4-18", 18);
@@ -642,7 +704,7 @@ namespace NexusClientTests
 				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-c4-18")),
 				CollectionMemberRequirement.Required,
 				CollectionMemberSelection.Selected,
-				new CollectionArtifactReference("nexus-mod-file", stableArtifactId, expectedHash, expectedByteLength),
+				new CollectionArtifactReference("nexus-mod-file", stableArtifactId, expectedHash, expectedByteLength, expectedMd5),
 				CollectionRecipeIdentity.FromFingerprint("recipe-c4-18"),
 				"C4.18 member");
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(

@@ -20,6 +20,28 @@
 
     public class FileManagerManualSourceTests
     {
+        /// <summary>The active Starfield definition must retain all known legacy base files, including current DLC and localized archives.</summary>
+        [Test]
+        public void StarfieldBaseCatalogueRecognizesOfficialFilesWithoutMatchingUserPatches()
+        {
+            DirectoryInfo root = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (root != null && !Directory.Exists(Path.Combine(root.FullName, "Game Modes", "Definitions", "Starfield"))) root = root.Parent;
+            Assert.IsNotNull(root, "The repository's game definition fixtures must be available.");
+            var baseFiles = new HashSet<string>(File.ReadAllLines(Path.Combine(root.FullName, "Game Modes", "Definitions", "Starfield", "Starfield_base.txt")), StringComparer.OrdinalIgnoreCase);
+            string[] legacy = File.ReadAllLines(Path.Combine(root.FullName, "Game Modes", "Starfield", "Resources", "Starfield_base.txt"));
+            CollectionAssert.IsSubsetOf(legacy, baseFiles);
+            foreach (string name in new[] { "SFBGS003.esm", "SFBGS003 - Voices_de.ba2", "SFBGS004 - Textures.ba2",
+                "SFBGS050 - Voices_en.ba2", "BlueprintShips-SFBGS050.esm", "ShatteredSpace.esm", "ShatteredSpace - Main02.ba2",
+                "Starfield - LODTextures01.ba2", "Starfield - TexturesPatch02.ba2", "Starfield - LODTextures.ba2" })
+            {
+                FileManagerRow row = CreateRow(name);
+                FileManagerQueryService.ApplySourceClassification(row, null, baseFiles, EmptyManualSources());
+                Assert.AreEqual(FileManagerSource.BaseGame, row.Source, name);
+                Assert.IsFalse(row.SourceEditable, name);
+            }
+            Assert.IsFalse(baseFiles.Contains("SFBGS003 - UserPatch.ba2"));
+        }
+
         [Test]
         public void WitcherOwnerSwitch_RequiresTheFreshOwnerAndCandidateSet()
         {

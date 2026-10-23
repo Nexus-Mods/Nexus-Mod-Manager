@@ -29,9 +29,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Checks for optional rules without changing legacy games or ordinary native installation.</summary>
 		internal static bool HasPackageRules(IGameMode gameMode)
 		{
-			var provider = gameMode as IGameRootPackageRuleProvider;
-			return gameMode != null && gameMode.SupportsGameRootModInstall && provider != null &&
-				provider.GameRootPackageRules != null && provider.GameRootPackageRules.Count > 0;
+			return GameRootPackageMatcher.HasRules(gameMode);
 		}
 
 		/// <summary>Resolves one already verified managed archive while retaining its selected Virtual or Direct method.</summary>

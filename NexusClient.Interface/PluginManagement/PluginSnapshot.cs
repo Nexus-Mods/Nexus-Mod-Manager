@@ -253,7 +253,7 @@ namespace Nexus.Client.PluginManagement
                 entries.Add(new PluginSnapshotEntry(plugin, active, i, allocatedIndex, modIndex, entryDiagnostics));
             }
 
-            DetectDependencyCycles(orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin, restrictionMode);
+            DetectDependencyCycles(policy, orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin, restrictionMode);
             foreach (PluginSnapshotEntry entry in entries)
             {
                 List<PluginValidationDiagnostic> entryDiagnostics;
@@ -272,11 +272,27 @@ namespace Nexus.Client.PluginManagement
             if (policy == null || corrected.Count < 2)
                 return corrected;
 
+            List<Plugin> original = policy.IgnoreOfficialPluginOrder ? new List<Plugin>(corrected) : null;
+            if (original != null) corrected.RemoveAll(plugin => IsGameManagedOrder(policy, plugin));
             StableMoveFixedPlugins(policy, corrected);
             StableMoveMastersBeforeNonMasters(policy, corrected);
             StableMoveMastersAboveDependents(corrected);
             StableMoveBlueprintPluginsLate(corrected);
+            if (original != null)
+            {
+                int managedIndex = 0;
+                for (int index = 0; index < original.Count; index++)
+                    if (!IsGameManagedOrder(policy, original[index])) original[index] = corrected[managedIndex++];
+                return original;
+            }
             return corrected;
+        }
+
+        /// <summary>Checks whether this game's policy excludes the plugin from NMM order correction and validation.</summary>
+        private static bool IsGameManagedOrder(PluginManagementPolicy policy, Plugin plugin)
+        {
+            return plugin != null && policy.IsPluginOrderManagedByGame(plugin.Filename,
+                plugin.Metadata == null ? PluginSpecialFlags.None : plugin.Metadata.SpecialFlags);
         }
 
 		private static void StableMoveFixedPlugins(
@@ -430,6 +446,8 @@ namespace Nexus.Client.PluginManagement
 
 					if (!p_dicPluginsByName.TryGetValue(NormalizePluginName(strMasterName), out plgMaster) || plgMaster == null)
 						continue;
+					if (!PluginManagementPolicy.RequiresMasterBeforeDependent(IsBlueprint(plgMaster), IsBlueprint(ptfFrame.Plugin)))
+						continue;
 
 					PluginTraversalState ptsMasterState;
 
@@ -458,6 +476,12 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		/// <summary>Reads the special section classification supplied by the current game policy.</summary>
+		private static bool IsBlueprint(Plugin plugin)
+		{
+			return plugin != null && plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0;
+		}
+
 		private static void StableMoveBlueprintPluginsLate(List<Plugin> plugins)
         {
             List<Plugin> blueprintPlugins = plugins.Where(x => x != null && x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint).ToList();
@@ -483,8 +507,10 @@ namespace Nexus.Client.PluginManagement
 				return dicExpectedPriorities;
 
 			bool booUseMasterSections = p_pmpPolicy.MasterPluginsMustLoadBeforeNonMasters;
+			List<int> managedSlots = Enumerable.Range(0, p_lstOrderedPlugins.Count)
+				.Where(index => !IsGameManagedOrder(p_pmpPolicy, p_lstOrderedPlugins[index])).ToList();
 			int intMasterCount = booUseMasterSections
-				? p_lstOrderedPlugins.Count(x => x != null && x.Metadata != null && x.Metadata.EffectiveMaster)
+				? p_lstOrderedPlugins.Count(x => x != null && x.Metadata != null && x.Metadata.EffectiveMaster && !IsGameManagedOrder(p_pmpPolicy, x))
 				: 0;
 
 			int intGlobalOffset = 0;
@@ -496,7 +522,7 @@ namespace Nexus.Client.PluginManagement
 				string strNormalizedName = NormalizePluginName(strFixedPluginName);
 				Plugin plgFixedPlugin;
 
-				if (!p_dicPluginsByName.TryGetValue(strNormalizedName, out plgFixedPlugin) || plgFixedPlugin == null || plgFixedPlugin.Metadata == null)
+				if (!p_dicPluginsByName.TryGetValue(strNormalizedName, out plgFixedPlugin) || plgFixedPlugin == null || plgFixedPlugin.Metadata == null || IsGameManagedOrder(p_pmpPolicy, plgFixedPlugin))
 					continue;
 
 				int intExpectedPriority;
@@ -518,7 +544,7 @@ namespace Nexus.Client.PluginManagement
 				}
 
 				if (!dicExpectedPriorities.ContainsKey(strNormalizedName))
-					dicExpectedPriorities.Add(strNormalizedName, intExpectedPriority);
+					dicExpectedPriorities.Add(strNormalizedName, managedSlots[intExpectedPriority]);
 			}
 
 			return dicExpectedPriorities;
@@ -591,14 +617,16 @@ namespace Nexus.Client.PluginManagement
 				}
 
 				int masterPriority;
-				if (priorityByName.TryGetValue(normalizedMasterName, out masterPriority) &&	masterPriority > priority)
+				if (!IsGameManagedOrder(policy, plugin) && !IsGameManagedOrder(policy, master) &&
+					priorityByName.TryGetValue(normalizedMasterName, out masterPriority) && masterPriority > priority)
 				{
 					AddDiagnostic(
 						diagnostics,
 						diagnosticsByPlugin,
 						plugin,
 						PluginValidationIssueKind.MasterBelowDependent,
-						restrictionSeverity,
+						PluginManagementPolicy.RequiresMasterBeforeDependent(IsBlueprint(master), IsBlueprint(plugin))
+							? restrictionSeverity : PluginValidationSeverity.Warning,
 						String.Format(_masterBelowDependentFormat, masterName));
 				}
 			}
@@ -607,14 +635,14 @@ namespace Nexus.Client.PluginManagement
 		/// <summary>
 		/// Detects dependency cycles with an iterative depth-first traversal so pathological plugin chains cannot overflow the process stack.
 		/// </summary>
-		private void DetectDependencyCycles(IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
+		private void DetectDependencyCycles(PluginManagementPolicy policy, IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
 		{
 			Dictionary<Plugin, PluginTraversalState> traversalStates = new Dictionary<Plugin, PluginTraversalState>(PluginComparer.Filename);
 			HashSet<Plugin> reportedCyclePlugins = new HashSet<Plugin>(PluginComparer.Filename);
 
 			foreach (Plugin rootPlugin in orderedPlugins ?? new List<Plugin>())
 			{
-				if (rootPlugin == null || traversalStates.ContainsKey(rootPlugin))
+				if (rootPlugin == null || traversalStates.ContainsKey(rootPlugin) || IsGameManagedOrder(policy, rootPlugin))
 					continue;
 
 				Stack<PluginTraversalFrame> traversal = new Stack<PluginTraversalFrame>();
@@ -636,7 +664,7 @@ namespace Nexus.Client.PluginManagement
 						Plugin master;
 						string masterName = masters[frame.NextMasterIndex++];
 
-						if (!pluginsByName.TryGetValue(NormalizePluginName(masterName), out master) || master == null)
+						if (!pluginsByName.TryGetValue(NormalizePluginName(masterName), out master) || master == null || IsGameManagedOrder(policy, master))
 							continue;
 
 						PluginTraversalState masterState;

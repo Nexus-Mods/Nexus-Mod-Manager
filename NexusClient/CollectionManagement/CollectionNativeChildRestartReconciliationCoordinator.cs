@@ -1650,7 +1650,7 @@ namespace Nexus.Client.CollectionManagement
 			if (effect.Kind == CollectionPlannedPluginEffectKind.AbsoluteOrderIndex)
 			{
 				CollectionNativePluginState plugin = FindPlugin(state, effect.PluginPaths[0]);
-				return plugin != null && plugin.Priority == effect.AbsoluteIndex.Value;
+				return plugin != null && (state.IsGameManagedPluginOrder(plugin) || plugin.Priority == effect.AbsoluteIndex.Value);
 			}
 			if (effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
 			{

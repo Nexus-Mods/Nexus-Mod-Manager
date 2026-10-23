@@ -158,3 +158,7 @@ video\PowerVision_SolarFlare.bk2
 video\PowerVision_SunlessSpace.bk2
 video\PowerVision_Supernova.bk2
 video\PowerVision_VoidForm.bk2
+Starfield - LODTextures.ba2
+Starfield - ParticlesTestData.ba2
+Starfield - ShadersBeta.ba2
+Starfield - TexturesPatch.ba2

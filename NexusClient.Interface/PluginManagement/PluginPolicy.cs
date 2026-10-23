@@ -190,6 +190,8 @@ namespace Nexus.Client.PluginManagement
         public string AppDataGameFolderName { get; set; }
         public bool? UseTimestampOrder { get; set; }
         public bool? IgnoreOfficialPlugins { get; set; }
+        /// <summary>Gets or sets whether official and critical plugin order is owned by the game rather than NMM.</summary>
+        public bool IgnoreOfficialPluginOrder { get; set; }
         public bool? ForcedReadOnly { get; set; }
         public bool? SingleFileManagement { get; set; }
         public bool? OfficialPluginsAreImplicitlyActive { get; set; }
@@ -335,6 +337,13 @@ namespace Nexus.Client.PluginManagement
             return ContainsPluginName(m_setOfficialPlugins, pluginName);
         }
 
+        /// <summary>Identifies game-owned order using both configured official names and parsed plugin classification.</summary>
+        public bool IsPluginOrderManagedByGame(string pluginName, PluginSpecialFlags specialFlags = PluginSpecialFlags.None)
+        {
+            return IgnoreOfficialPluginOrder && (IsOfficialPlugin(pluginName) || IsCriticalPlugin(pluginName) ||
+                (specialFlags & (PluginSpecialFlags.Official | PluginSpecialFlags.Critical)) != 0);
+        }
+
         public bool IsCriticalPlugin(string pluginName)
         {
             return ContainsPluginName(m_setCriticalPlugins, pluginName);
@@ -348,6 +357,13 @@ namespace Nexus.Client.PluginManagement
         public bool IsForcedActivePlugin(string pluginName)
         {
             return ContainsPluginName(m_setForcedActivePlugins, pluginName);
+        }
+
+        /// <summary>Preserves Starfield's final Blueprint section when a legacy ordinary plugin lists a Blueprint master.</summary>
+        /// <remarks>The master remains a required, active dependency; only its load-before ordering requirement is excluded.</remarks>
+        public static bool RequiresMasterBeforeDependent(bool masterIsBlueprint, bool dependentIsBlueprint)
+        {
+            return !masterIsBlueprint || dependentIsBlueprint;
         }
 
         public bool IsBlueprintPlugin(string pluginName)

@@ -18,7 +18,8 @@ namespace Nexus.Client.CollectionManagement
 	/// <summary>One normalized Vortex Collection plugin-state declaration.</summary>
 	/// <remarks>
 	/// Vortex applies these declarations only to plugin files contributed by the effective installed Collection member closure.
-	/// A contributed plugin absent from the enabled declarations is desired inactive. This record preserves the exact source name/state;
+	/// In an exhaustive declaration, a contributed plugin absent from the enabled entries is desired inactive. Partial game-extension
+	/// declarations retain native behavior for omitted plugins. This record preserves the exact source name/state;
 	/// it does not independently claim ownership of a native plugin.
 	/// </remarks>
 	public sealed class CollectionDesiredPluginState : IEquatable<CollectionDesiredPluginState>
@@ -328,7 +329,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = null,
 			CollectionSetupGuidance setupGuidance = null,
 			IEnumerable<CollectionLaunchTool> launchTools = null,
-			IEnumerable<CollectionCapabilityIssue> launchToolIssues = null)
+			IEnumerable<CollectionCapabilityIssue> launchToolIssues = null,
+			bool pluginStatesArePartial = false)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -435,6 +437,7 @@ namespace Nexus.Client.CollectionManagement
 			_conflictConstraints = new ReadOnlyCollection<CollectionConflictConstraint>(copiedConflictConstraints);
 
 			HasPluginStateSection = pluginStates != null;
+			PluginStatesArePartial = pluginStatesArePartial;
 			List<CollectionDesiredPluginState> copiedPluginStates = new List<CollectionDesiredPluginState>();
 			HashSet<string> pluginNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			if (pluginStates != null)
@@ -556,8 +559,11 @@ namespace Nexus.Client.CollectionManagement
 			get { return _pluginRelativeOrderRules; }
 		}
 
-		/// <summary>Gets whether collection.json explicitly supplied the Vortex plugins array, including an intentionally empty array.</summary>
+		/// <summary>Gets whether collection.json supplied plugin activation intent, including an intentionally empty Vortex plugins array.</summary>
 		public bool HasPluginStateSection { get; }
+
+		/// <summary>Gets whether omitted plugins retain native activation instead of being declared inactive.</summary>
+		public bool PluginStatesArePartial { get; }
 
 		/// <summary>Gets curator-authored, non-mutating setup guidance retained from collection.json.</summary>
 		public CollectionSetupGuidance SetupGuidance { get; }

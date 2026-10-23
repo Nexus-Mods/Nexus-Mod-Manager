@@ -221,7 +221,8 @@ namespace Nexus.Client.CollectionManagement
 				sourceManifest.PluginRelativeOrderRules,
 				sourceManifest.SetupGuidance,
 				sourceManifest.LaunchTools,
-				sourceManifest.LaunchToolIssues);
+				sourceManifest.LaunchToolIssues,
+				sourceManifest.PluginStatesArePartial);
 			CollectionCapabilityReport effectiveCapabilityReport = normalizedCapabilityReport.RecalculateForSelection(effectiveManifest);
 
 			return new CollectionEffectiveSelection(

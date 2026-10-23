@@ -9,10 +9,10 @@ using Nexus.Client.ModRepositories;
 namespace Nexus.Client.OnlineServices.NexusMods.Collections
 {
 	/// <summary>
-	/// Verifies immutable Collection archive bytes through Nexus Mods' exact MD5-to-mod/file lookup.
+	/// Verifies immutable Collection archive bytes against retained manifest evidence or Nexus' exact MD5-to-mod/file lookup.
 	/// </summary>
 	/// <remarks>
-	/// MD5 is used only as Nexus' provider lookup key. The retained object itself is independently sealed by C4.10 with
+	/// MD5 identifies the exact manifest archive or serves as Nexus' provider lookup key. The retained object is independently sealed with
 	/// SHA-256 and later consumers use that stronger local immutable content identity.
 	/// </remarks>
 	public sealed class NexusCollectionArchiveIdentityVerifier : ICollectionArchiveIdentityVerifier, ICollectionArchiveMd5IdentityVerifier
@@ -38,6 +38,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				throw new ArgumentNullException(nameof(immutableArchive));
 			if (!immutableArchive.CanRead)
 				throw new ArgumentException("The immutable archive stream must be readable.", nameof(immutableArchive));
+			if (requestedArtifact.ExpectedMd5 != null)
+			{
+				long observedByteLength;
+				string observedMd5 = ComputeMd5(immutableArchive, cancellationToken, out observedByteLength);
+				return CollectionExternalArtifactIdentity.MatchesByteLength(requestedArtifact, observedByteLength) &&
+					IsExactMatchByMd5(requestedArtifact, observedMd5, cancellationToken);
+			}
 
 			string externalMd5;
 			long externalByteLength;
@@ -71,6 +78,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				throw new ArgumentNullException(nameof(requestedArtifact));
 			if (String.IsNullOrWhiteSpace(md5) || md5.Length != 32)
 				throw new ArgumentException("A normalized MD5 digest is required.", nameof(md5));
+			cancellationToken.ThrowIfCancellationRequested();
 
 			string externalMd5;
 			long externalByteLength;
@@ -86,13 +94,26 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			if (expectedModId > Int32.MaxValue || expectedFileId > Int32.MaxValue)
 				return false;
+			// Nexus' hash search can omit an otherwise downloadable exact file. The retained Collection
+			// already binds this MD5 and size to the selected mod/file; do not require another index lookup.
+			if (requestedArtifact.ExpectedMd5 != null)
+				return StringComparer.OrdinalIgnoreCase.Equals(md5, requestedArtifact.ExpectedMd5);
 
 			return _repository.IsExactArchiveIdentityByMd5(md5, expectedDomain, (int)expectedModId,
 				(int)expectedFileId, cancellationToken);
 		}
 
+		/// <summary>Hashes archive bytes with bounded cancellation checks.</summary>
 		private static string ComputeMd5(Stream stream, CancellationToken cancellationToken)
 		{
+			long byteLength;
+			return ComputeMd5(stream, cancellationToken, out byteLength);
+		}
+
+		/// <summary>Counts the same bytes being hashed, including streams that cannot seek.</summary>
+		private static string ComputeMd5(Stream stream, CancellationToken cancellationToken, out long byteLength)
+		{
+			byteLength = 0;
 			cancellationToken.ThrowIfCancellationRequested();
 			using (MD5 md5 = MD5.Create())
 			{
@@ -102,6 +123,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					md5.TransformBlock(buffer, 0, read, buffer, 0);
+					byteLength += read;
 				}
 				cancellationToken.ThrowIfCancellationRequested();
 				md5.TransformFinalBlock(new byte[0], 0, 0);

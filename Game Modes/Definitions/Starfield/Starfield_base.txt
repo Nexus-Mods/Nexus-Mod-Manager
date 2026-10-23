@@ -94,3 +94,71 @@ video\PowerVision_SolarFlare.bk2
 video\PowerVision_SunlessSpace.bk2
 video\PowerVision_Supernova.bk2
 video\PowerVision_VoidForm.bk2
+SFBGS003 - Main.ba2
+SFBGS003 - Textures.ba2
+SFBGS003 - Voices_de.ba2
+SFBGS003 - Voices_en.ba2
+SFBGS003 - Voices_es.ba2
+SFBGS003 - Voices_fr.ba2
+SFBGS003 - Voices_ja.ba2
+SFBGS003.esm
+SFBGS004 - Main.ba2
+SFBGS004 - Textures.ba2
+SFBGS004 - Voices_de.ba2
+SFBGS004 - Voices_en.ba2
+SFBGS004 - Voices_es.ba2
+SFBGS004 - Voices_fr.ba2
+SFBGS004 - Voices_ja.ba2
+SFBGS004.esm
+SFBGS006 - Main.ba2
+SFBGS006 - Textures.ba2
+SFBGS006.esm
+SFBGS007 - Main.ba2
+SFBGS007.esm
+SFBGS008 - Main.ba2
+SFBGS008.esm
+SFBGS00D - Main.ba2
+SFBGS00D - Textures.ba2
+SFBGS00D - Voices_de.ba2
+SFBGS00D - Voices_en.ba2
+SFBGS00D - Voices_es.ba2
+SFBGS00D - Voices_fr.ba2
+SFBGS00D - Voices_ja.ba2
+SFBGS00D.esm
+SFBGS047 - Main.ba2
+SFBGS047 - Textures.ba2
+SFBGS047.esm
+Starfield - LODTextures01.ba2
+Starfield - LODTextures02.ba2
+Starfield - TexturesPatch01.ba2
+Starfield - TexturesPatch02.ba2
+Starfield - Voices_de01.ba2
+Starfield - Voices_de02.ba2
+Starfield - Voices_de_Patch.ba2
+Starfield - Voices_fr01.ba2
+Starfield - Voices_fr02.ba2
+Starfield - Voices_fr_Patch.ba2
+Starfield - Voices_ja01.ba2
+Starfield - Voices_ja02.ba2
+Starfield - Voices_ja_Patch.ba2
+Starfield - Voices_es01.ba2
+Starfield - Voices_es02.ba2
+Starfield - Voices_es_Patch.ba2
+ShatteredSpace - Main01.ba2
+ShatteredSpace - Main02.ba2
+ShatteredSpace - Textures.ba2
+ShatteredSpace - Voices_en.ba2
+ShatteredSpace - Voices_de.ba2
+ShatteredSpace - Voices_es.ba2
+ShatteredSpace - Voices_fr.ba2
+ShatteredSpace - Voices_ja.ba2
+ShatteredSpace.esm
+BlueprintShips-SFBGS050.esm
+SFBGS050 - Main.ba2
+SFBGS050 - Textures.ba2
+SFBGS050 - Voices_en.ba2
+SFBGS050 - Voices_de.ba2
+SFBGS050 - Voices_es.ba2
+SFBGS050 - Voices_fr.ba2
+SFBGS050 - Voices_ja.ba2
+SFBGS050.esm

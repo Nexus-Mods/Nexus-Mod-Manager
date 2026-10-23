@@ -315,6 +315,132 @@ namespace NexusClientTests
             }
         }
 
+        /// <summary>Legacy Blueprint master references do not contradict Starfield's final Blueprint section.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CollectionOrder_BlueprintMasterReferencesDoNotCreateArtificialCycle(bool restrictionsDisabled)
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Starfield.esm"),
+                new PluginDefinition("BlueprintShips-Starfield.esm", "Starfield.esm") { BlueprintFlag = true },
+                new PluginDefinition("AstralGenders.esm", "Starfield.esm", "BlueprintShips-Starfield.esm"),
+                new PluginDefinition("BetterNPCs.esm", "Starfield.esm", "BlueprintShips-Starfield.esm"),
+                new PluginDefinition("Patch.esp", "AstralGenders.esm", "BlueprintShips-Starfield.esm")
+            }))
+            {
+                PluginSnapshot restrictionSnapshot;
+                Assert.IsTrue(context.Manager.TrySetPluginRestrictionsDisabled(restrictionsDisabled, out restrictionSnapshot));
+                var collectionManager = (ICollectionPluginStateManager)context.Manager;
+                IList<PluginValidationDiagnostic> diagnostics;
+                string[] names = { "Starfield.esm", "BlueprintShips-Starfield.esm", "AstralGenders.esm", "BetterNPCs.esm", "Patch.esp" };
+                bool applied = collectionManager.TryReconcileCollectionPluginState(names.Select(context.PathOf).ToList(),
+                    names.ToDictionary(context.PathOf, name => true), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("BetterNPCs.esm"), context.PathOf("AstralGenders.esm") },
+                        new List<string> { context.PathOf("AstralGenders.esm"), context.PathOf("Patch.esp") }
+                    }, out diagnostics);
+
+                Assert.IsTrue(applied);
+                Assert.AreEqual(restrictionsDisabled, context.Manager.PluginRestrictionsDisabled);
+                CollectionAssert.AreEqual(new[] { "Starfield.esm", "BetterNPCs.esm", "AstralGenders.esm", "Patch.esp", "BlueprintShips-Starfield.esm" },
+                    context.ManagedPluginNames);
+                CollectionAssert.AreEquivalent(names, context.ActivePluginNames);
+                Assert.IsFalse(diagnostics.Any(x => x.Kind == PluginValidationIssueKind.DependencyCycle));
+            }
+        }
+
+        /// <summary>Official Blueprints retained above ordinary plugins must not undo the solved Collection order.</summary>
+        [Test]
+        public void CollectionOrder_ProtectedBlueprintPositionsDoNotUndoNativeConstraints()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Starfield.esm") { ProtectedFlag = true },
+                new PluginDefinition("BlueprintShips-Starfield.esm", "Starfield.esm") { BlueprintFlag = true, ProtectedFlag = true },
+                new PluginDefinition("AstralGenders.esm", "Starfield.esm", "BlueprintShips-Starfield.esm"),
+                new PluginDefinition("BetterNPCs.esm", "Starfield.esm", "BlueprintShips-Starfield.esm")
+            }, p_booRestrictionsDisabled: true))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(new string[0],
+                    new Dictionary<string, bool>(), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("BetterNPCs.esm"), context.PathOf("AstralGenders.esm") }
+                    }, out diagnostics);
+
+                Assert.IsTrue(applied, String.Join("; ", diagnostics.Select(x => x.Message)));
+                CollectionAssert.AreEqual(new[] { "Starfield.esm", "BetterNPCs.esm", "AstralGenders.esm", "BlueprintShips-Starfield.esm" }, context.ManagedPluginNames);
+                Assert.IsTrue(context.Manager.PluginRestrictionsDisabled);
+                CollectionAssert.AreEquivalent(new[] { "Starfield.esm", "BlueprintShips-Starfield.esm" }, context.ActivePluginNames);
+            }
+        }
+
+        /// <summary>Game-owned official slots are untouched while only actual mods are ordered by Collection intent.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CollectionOrder_OptedInOfficialPluginsAreExcludedFromConstraints(bool restrictionsDisabled)
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("BlueprintShips-Starfield.esm") { BlueprintFlag = true, ProtectedFlag = true },
+                new PluginDefinition("A.esm", "BlueprintShips-Starfield.esm"),
+                new PluginDefinition("Starfield.esm") { ProtectedFlag = true },
+                new PluginDefinition("B.esm", "Starfield.esm")
+            }, p_booRestrictionsDisabled: restrictionsDisabled, p_booIgnoreOfficialOrder: true))
+            {
+                string[] initialActive = context.ActivePluginNames.ToArray();
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(new string[0],
+                    new Dictionary<string, bool>(), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("A.esm"), context.PathOf("BlueprintShips-Starfield.esm") },
+                        new List<string> { context.PathOf("B.esm"), context.PathOf("Starfield.esm"), context.PathOf("A.esm") }
+                    }, out diagnostics);
+                Assert.IsTrue(applied, String.Join("; ", diagnostics.Select(x => x.Message)));
+                CollectionAssert.AreEqual(new[] { "BlueprintShips-Starfield.esm", "B.esm", "Starfield.esm", "A.esm" }, context.ManagedPluginNames);
+                CollectionAssert.AreEquivalent(initialActive, context.ActivePluginNames);
+                Assert.AreEqual(restrictionsDisabled, context.Manager.PluginRestrictionsDisabled);
+                Assert.IsFalse(diagnostics.Any(x => x.Kind == PluginValidationIssueKind.InvalidFixedPluginPlacement || x.Kind == PluginValidationIssueKind.MasterBelowDependent));
+            }
+        }
+
+        /// <summary>The Blueprint correction must preserve protection of other official plugins.</summary>
+        [Test]
+        public void CollectionOrder_DoesNotMoveOtherProtectedPluginsForCuratorPreference()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Official.esm") { ProtectedFlag = true }, new PluginDefinition("Mod.esm")
+            }, p_booRestrictionsDisabled: true))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                Assert.IsFalse(((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(new string[0],
+                    new Dictionary<string, bool>(), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("Mod.esm"), context.PathOf("Official.esm") }
+                    }, out diagnostics));
+                Assert.IsTrue(diagnostics.Any(x => x.Kind == PluginValidationIssueKind.InvalidFixedPluginPlacement && x.Message.Contains("Official.esm")));
+                CollectionAssert.AreEqual(new[] { "Official.esm", "Mod.esm" }, context.ManagedPluginNames);
+            }
+        }
+
+        /// <summary>Unavailable order endpoints must identify the affected plugin instead of returning an empty failure.</summary>
+        [Test]
+        public void RelativeOrder_MissingPluginProducesDiagnostic()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[] { new PluginDefinition("A.esp") }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                Assert.IsFalse(context.Manager.TrySetRelativePluginOrder(new List<IList<string>>
+                {
+                    new List<string> { context.PathOf("A.esp"), context.PathOf("Missing.esp") }
+                }, out diagnostics));
+                Assert.IsTrue(diagnostics.Any(x => x.Message.Contains("Missing.esp")));
+                CollectionAssert.AreEqual(new[] { "A.esp" }, context.ManagedPluginNames);
+            }
+        }
+
         /// <summary>Newly eligible earlier slots retain priority over older eligible slots, including duplicate constraints.</summary>
         [Test]
         public void RelativeOrder_NewlyReadyEarlierPlugin_PreservesStablePriorityAndUnrelatedSlot()
@@ -419,6 +545,8 @@ namespace NexusClientTests
             public string Name { get; private set; }
             public string[] Masters { get; private set; }
             public bool MasterFlag { get; set; }
+            public bool BlueprintFlag { get; set; }
+            public bool ProtectedFlag { get; set; }
         }
 
         /// <summary>
@@ -434,7 +562,7 @@ namespace NexusClientTests
             /// <summary>
             /// Initializes a plugin manager with the supplied plugins and initial active set.
             /// </summary>
-            public PluginManagerTestContext(IList<PluginDefinition> p_lstDefinitions, IList<string> p_lstInitiallyActive = null)
+            public PluginManagerTestContext(IList<PluginDefinition> p_lstDefinitions, IList<string> p_lstInitiallyActive = null, bool p_booRestrictionsDisabled = false, bool p_booIgnoreOfficialOrder = false)
             {
                 m_strRoot = Path.Combine(Path.GetTempPath(), "NMM-ScriptedPlugin-Reconcile-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(m_strRoot);
@@ -461,7 +589,8 @@ namespace NexusClientTests
                                 definition.Masters,
                                 isMaster,
                                 PluginAddressClass.Full,
-                                PluginSpecialFlags.None,
+                                (definition.BlueprintFlag ? PluginSpecialFlags.Blueprint : PluginSpecialFlags.None) |
+                                (definition.ProtectedFlag ? PluginSpecialFlags.Official : PluginSpecialFlags.None),
                                 PluginParseStatus.Parsed));
                             return plugin;
                         case "GetUpdatedPluginInfo":
@@ -515,7 +644,8 @@ namespace NexusClientTests
                     return null;
                 });
 
-                PluginManagementPolicy policy = new PluginManagementPolicy();
+                PluginManagementPolicy policy = new PluginManagementPolicy { IgnoreOfficialPluginOrder = p_booIgnoreOfficialOrder };
+                foreach (PluginDefinition definition in p_lstDefinitions.Where(x => x.ProtectedFlag)) policy.AddOfficialPlugin(definition.Name);
                 IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
                 {
                     switch (method.Name)
@@ -525,12 +655,14 @@ namespace NexusClientTests
                         case "get_PluginDirectory":
                             return m_strRoot;
                         case "get_OrderedCriticalPluginNames":
-                        case "get_OrderedOfficialUnmanagedPluginNames":
                             return new string[0];
+                        case "get_OrderedOfficialUnmanagedPluginNames":
+                            return p_lstDefinitions.Where(x => x.ProtectedFlag).Select(x => x.Name).ToArray();
                         case "get_MaxAllowedActivePluginsCount":
                             return 0;
                         case "IsCriticalPlugin":
-                            return false;
+                            PluginDefinition protectedDefinition;
+                            return m_dicDefinitions.TryGetValue(((Plugin)args[0]).Filename, out protectedDefinition) && protectedDefinition.ProtectedFlag;
                         case "GetModFormatAdjustedPath":
                             return args[1];
                         default:
@@ -542,7 +674,7 @@ namespace NexusClientTests
                 {
                     m_aplActivePluginLog = ActivePluginLog.Initialize(registry, activeSerializer);
                     m_polPluginOrderLog = PluginOrderLog.Initialize(registry, orderSerializer, orderValidator);
-                    Manager = PluginManager.Initialize(gameMode, registry, m_aplActivePluginLog, m_polPluginOrderLog, orderValidator);
+                    Manager = PluginManager.Initialize(gameMode, registry, m_aplActivePluginLog, m_polPluginOrderLog, orderValidator, p_booRestrictionsDisabled);
                     ActivePluginSaveCount = 0;
                 }
                 catch

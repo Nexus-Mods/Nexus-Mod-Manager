@@ -391,6 +391,13 @@ namespace Nexus.Client.PluginManagement
 				   GameMode.IsCriticalPlugin(p_plgPlugin);
 		}
 
+		/// <summary>Identifies official plugin order owned by the game through its configured policy.</summary>
+		private bool IsGameManagedPluginOrder(Plugin plugin)
+		{
+			return plugin != null && Policy.IsPluginOrderManagedByGame(plugin.Filename,
+				plugin.Metadata == null ? PluginSpecialFlags.None : plugin.Metadata.SpecialFlags);
+		}
+
 		private bool IsOrderedCriticalPlugin(Plugin p_plgPlugin)
 		{
 			if (p_plgPlugin == null)
@@ -436,12 +443,15 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_lstOrderedPlugins">The requested plugin order.</param>
 		/// <param name="p_setActivePlugins">The requested active plugin set.</param>
 		/// <param name="p_lstBlockingDiagnostics">The newly introduced errors that blocked the operation.</param>
+		/// <param name="orderIncludesNativeConstraints">Whether the complete order already satisfies the Collection and native precedence graph.</param>
 		/// <returns><c>true</c> if the requested state was applied; otherwise, <c>false</c>.</returns>
-		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics, bool orderIncludesNativeConstraints = false)
 		{
 			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
 
-			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(p_lstOrderedPlugins);
+			// Collection graph ordering already includes native precedence. Restoring the old positions
+			// of official plugins here would put protected Starfield Blueprints back above ordinary plugins.
+			List<Plugin> correctedOrder = orderIncludesNativeConstraints ? new List<Plugin>(p_lstOrderedPlugins) : GetPolicyCorrectedOrder(p_lstOrderedPlugins);
 			HashSet<Plugin> desiredActivePlugins = new HashSet<Plugin>(p_setActivePlugins == null ? new List<Plugin>() : p_setActivePlugins.Where(x => x != null), PluginComparer.Filename);
 
 			foreach (Plugin protectedPlugin in correctedOrder.Where(IsProtectedPlugin))
@@ -1545,7 +1555,7 @@ namespace Nexus.Client.PluginManagement
 				currentIndex[current[index]] = index;
 
 			NativePluginOrderConstraints nativeConstraints = includeNativeDependencies
-				? new NativePluginOrderConstraints(current.Select(plugin => new NativePluginOrderNode(plugin.Filename, plugin.Masters,
+				? new NativePluginOrderConstraints(current.Where(plugin => !IsGameManagedPluginOrder(plugin)).Select(plugin => new NativePluginOrderNode(plugin.Filename, plugin.Masters,
 					plugin.Metadata != null && plugin.Metadata.EffectiveMaster,
 					plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0)), Policy.MasterPluginsMustLoadBeforeNonMasters)
 				: null;
@@ -1557,13 +1567,20 @@ namespace Nexus.Client.PluginManagement
 				if (constraint == null || constraint.Count < 2)
 					throw new ArgumentException("A relative plugin-order constraint must contain at least two plugin paths.", nameof(p_lstRelativeOrderConstraints));
 
-				for (int edgeIndex = 0; edgeIndex + 1 < constraint.Count; edgeIndex++)
+				IList<string> managedConstraint = constraint.Where(path => !Policy.IsPluginOrderManagedByGame(path) &&
+					!IsGameManagedPluginOrder(GetRegisteredPlugin(path))).ToList();
+				for (int edgeIndex = 0; edgeIndex + 1 < managedConstraint.Count; edgeIndex++)
 				{
-					Plugin lower = GetRegisteredPlugin(constraint[edgeIndex]);
-					Plugin higher = GetRegisteredPlugin(constraint[edgeIndex + 1]);
+					Plugin lower = GetRegisteredPlugin(managedConstraint[edgeIndex]);
+					Plugin higher = GetRegisteredPlugin(managedConstraint[edgeIndex + 1]);
 					if (lower == null || higher == null || !currentIndex.ContainsKey(lower) || !currentIndex.ContainsKey(higher) ||
 						PluginComparer.Filename.Equals(lower, higher))
+					{
+						p_lstBlockingDiagnostics.Add(new PluginValidationDiagnostic(PluginValidationIssueKind.UnsupportedPluginClass,
+							PluginValidationSeverity.Error, lower ?? higher, "Cannot resolve distinct registered plugins for relative order: '" +
+							managedConstraint[edgeIndex] + "' before '" + managedConstraint[edgeIndex + 1] + "'."));
 						return false;
+					}
 
 					if (nativeConstraints != null && nativeConstraints.RequiresBefore(higher.Filename, lower.Filename))
 					{
@@ -1587,24 +1604,26 @@ namespace Nexus.Client.PluginManagement
 
 			if (includeNativeDependencies)
 			{
-				foreach (Plugin plugin in current)
+				foreach (Plugin plugin in current.Where(plugin => !IsGameManagedPluginOrder(plugin)))
 					foreach (string masterName in (IEnumerable<string>)plugin.Masters ?? Enumerable.Empty<string>())
 					{
 						Plugin master = GetRegisteredPlugin(masterName);
-						if (master != null && currentIndex.ContainsKey(master))
+						if (master != null && !IsGameManagedPluginOrder(master) && currentIndex.ContainsKey(master) && PluginManagementPolicy.RequiresMasterBeforeDependent(
+							master.Metadata != null && (master.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0,
+							plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0))
 							AddPluginOrderEdge(master, plugin, involved, edges, indegree);
 					}
 				if (Policy.MasterPluginsMustLoadBeforeNonMasters)
 				{
-					List<Plugin> masters = current.Where(x => x.Metadata != null && x.Metadata.EffectiveMaster &&
+					List<Plugin> masters = current.Where(x => !IsGameManagedPluginOrder(x) && x.Metadata != null && x.Metadata.EffectiveMaster &&
 						(x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == 0).ToList();
-					List<Plugin> others = current.Where(x => x.Metadata == null || !x.Metadata.EffectiveMaster).ToList();
+					List<Plugin> others = current.Where(x => !IsGameManagedPluginOrder(x) && (x.Metadata == null || !x.Metadata.EffectiveMaster)).ToList();
 					foreach (Plugin master in masters)
 						foreach (Plugin other in others) AddPluginOrderEdge(master, other, involved, edges, indegree);
 				}
-				List<Plugin> blueprints = current.Where(x => x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0).ToList();
+				List<Plugin> blueprints = current.Where(x => !IsGameManagedPluginOrder(x) && x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0).ToList();
 				foreach (Plugin blueprint in blueprints)
-					foreach (Plugin other in current.Where(x => !blueprints.Contains(x)))
+					foreach (Plugin other in current.Where(x => !IsGameManagedPluginOrder(x) && !blueprints.Contains(x)))
 						AddPluginOrderEdge(other, blueprint, involved, edges, indegree);
 			}
 
@@ -1640,14 +1659,33 @@ namespace Nexus.Client.PluginManagement
 			for (int index = 0; index < occupiedSlots.Count; index++)
 				requested[occupiedSlots[index]] = sortedInvolved[index];
 
-			List<Plugin> corrected = GetPolicyCorrectedOrder(requested);
+			List<Plugin> corrected = includeNativeDependencies ? requested : GetPolicyCorrectedOrder(requested);
 			var correctedIndex = new Dictionary<Plugin, int>(PluginComparer.Filename);
 			for (int index = 0; index < corrected.Count; index++) correctedIndex[corrected[index]] = index;
+			if (includeNativeDependencies)
+				foreach (Plugin plugin in current.Where(IsProtectedPlugin))
+				{
+					// Official Blueprints follow their native final section. Other protected plugins
+					// must retain their canonical native positions rather than follow curator preferences.
+					if (plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0) continue;
+					if (correctedIndex[plugin] != currentIndex[plugin])
+					{
+						p_lstBlockingDiagnostics.Add(new PluginValidationDiagnostic(PluginValidationIssueKind.InvalidFixedPluginPlacement,
+							PluginValidationSeverity.Error, plugin, "Collection plugin order would move protected plugin '" + Path.GetFileName(plugin.Filename) + "' from its native position."));
+						return false;
+					}
+				}
 			foreach (KeyValuePair<Plugin, HashSet<Plugin>> edge in edges)
 				foreach (Plugin target in edge.Value)
-					if (correctedIndex[edge.Key] >= correctedIndex[target]) return false;
+					if (correctedIndex[edge.Key] >= correctedIndex[target])
+					{
+						p_lstBlockingDiagnostics.Add(new PluginValidationDiagnostic(PluginValidationIssueKind.InvalidFixedPluginPlacement,
+							PluginValidationSeverity.Error, target, "Native plugin policy could not preserve relative order: '" +
+							Path.GetFileName(edge.Key.Filename) + "' before '" + Path.GetFileName(target.Filename) + "'."));
+						return false;
+					}
 
-			return TryApplyPluginState(corrected, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename), out p_lstBlockingDiagnostics);
+			return TryApplyPluginState(corrected, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename), out p_lstBlockingDiagnostics, includeNativeDependencies);
 		}
 
 		/// <summary>Adds a native precedence once, sharing the same cycle detection as reviewed plugin rules.</summary>

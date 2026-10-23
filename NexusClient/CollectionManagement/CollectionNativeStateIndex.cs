@@ -412,7 +412,7 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<UserOverride> overrides, CollectionNativeStateCoverage associationCoverage,
 			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence, IEnumerable<Guid> reconciledPartialAssociations,
 			bool pluginOrderRequiresMasterSection = false, CollectionNativeStateIndex fileBaseline = null,
-			ISet<ModDeploymentTarget> refreshedFileTargets = null)
+			ISet<ModDeploymentTarget> refreshedFileTargets = null, bool pluginOrderIgnoresOfficialPlugins = false)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			Roots = new ReadOnlyCollection<CollectionNativeRootState>((roots ?? throw new ArgumentNullException(nameof(roots))).ToList());
@@ -422,6 +422,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentOutOfRangeException(nameof(associationCoverage));
 			PluginCoverage = pluginCoverage;
 			PluginOrderRequiresMasterSection = pluginOrderRequiresMasterSection;
+			PluginOrderIgnoresOfficialPlugins = pluginOrderIgnoresOfficialPlugins;
 			AssociationCoverage = associationCoverage;
 			ReconciledPartialAssociations = new ReadOnlyCollection<Guid>((reconciledPartialAssociations ?? Enumerable.Empty<Guid>()).Distinct().ToList());
 			DeploymentCommitSequence = deploymentCommitSequence;
@@ -509,6 +510,14 @@ namespace Nexus.Client.CollectionManagement
 		public IReadOnlyDictionary<Guid, ReadOnlyCollection<UserOverride>> OverridesByAssociation { get { return _overridesByAssociation; } }
 		/// <summary>Gets the current game policy used to interpret Collection ordering preferences; no persisted format is changed.</summary>
 		internal bool PluginOrderRequiresMasterSection { get; }
+		internal bool PluginOrderIgnoresOfficialPlugins { get; }
+
+		/// <summary>Identifies detached official plugin order that the game's configured policy excludes from NMM checks.</summary>
+		internal bool IsGameManagedPluginOrder(CollectionNativePluginState plugin)
+		{
+			return PluginOrderIgnoresOfficialPlugins && plugin != null &&
+				(plugin.SpecialFlags & (PluginSpecialFlags.Official | PluginSpecialFlags.Critical)) != 0;
+		}
 
 		public CollectionNativeStateCoverage AssociationCoverage { get; }
 		public ReadOnlyCollection<CollectionNativeStateIssue> Issues { get; }

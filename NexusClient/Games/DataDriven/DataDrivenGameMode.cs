@@ -518,6 +518,7 @@ namespace Nexus.Client.Games.DataDriven
             policy.AppDataGameFolderName = definition.AppDataGameFolderName ?? policy.AppDataGameFolderName;
             policy.UseTimestampOrder = definition.UseTimestampOrder ?? policy.UseTimestampOrder;
             policy.IgnoreOfficialPlugins = definition.IgnoreOfficialPlugins ?? policy.IgnoreOfficialPlugins;
+            policy.IgnoreOfficialPluginOrder = definition.IgnoreOfficialPluginOrder ?? policy.IgnoreOfficialPluginOrder;
             policy.ForcedReadOnly = definition.ForcedReadOnly ?? policy.ForcedReadOnly;
             policy.SingleFileManagement = definition.SingleFileManagement ?? policy.SingleFileManagement;
             policy.OfficialPluginsAreImplicitlyActive = definition.OfficialPluginsAreImplicitlyActive ?? policy.OfficialPluginsAreImplicitlyActive;

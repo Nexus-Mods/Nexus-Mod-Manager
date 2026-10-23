@@ -669,7 +669,7 @@
 
 				int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
-				if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+				if (ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount > 0 && limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 				{
 					var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
 					toolStripLabelActivePluginsCounter.ImageOptions.Image = icoIcon.ToBitmap();
@@ -1136,7 +1136,7 @@
 
 			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
-			if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
+			if (ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount > 0 && limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 			{
 				var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
 				toolStripLabelActivePluginsCounter.ImageOptions.Image = icoIcon.ToBitmap();

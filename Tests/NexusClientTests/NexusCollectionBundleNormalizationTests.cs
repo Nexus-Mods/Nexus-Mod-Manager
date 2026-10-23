@@ -65,12 +65,13 @@ namespace NexusClientTests
 		public void Normalize_NexusArchiveSizeIsMetadataWithoutChangingLegacyIdentity()
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Requested Release\",\"version\":\"1.17.1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":51073,\"fileId\":794717,\"fileSize\":8555518,\"updatePolicy\":\"exact\"}}", "[]");
+				"{\"name\":\"Requested Release\",\"version\":\"1.17.1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":51073,\"fileId\":794717,\"fileSize\":8555518,\"md5\":\"04A2999F76205E07242DAFD2C88C505B\",\"updatePolicy\":\"exact\"}}", "[]");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			CollectionArtifactReference artifact = result.Manifest.Members[0].Artifact;
 			var legacy = new CollectionArtifactReference(artifact.Scheme, artifact.StableId, artifact.ExpectedContentHash);
 
 			Assert.That(artifact.ExpectedByteLength, Is.EqualTo(8555518));
+			Assert.That(artifact.ExpectedMd5, Is.EqualTo("04a2999f76205e07242dafd2c88c505b"));
 			Assert.That(artifact, Is.EqualTo(legacy));
 			Assert.That(artifact.GetHashCode(), Is.EqualTo(legacy.GetHashCode()));
 			Assert.That(CollectionExternalArtifactIdentity.MatchesByteLength(artifact, 6398382), Is.False);
@@ -1958,6 +1959,109 @@ namespace NexusClientTests
 		private static NexusCollectionManifestNormalizationResult Normalize(string json, int declaredMemberCount)
 		{
 			return new NexusCollectionManifestNormalizer().Normalize(Encoding.UTF8.GetBytes(json), CreateRevision(declaredMemberCount));
+		}
+
+		/// <summary>Characterizes the Odyssey Starfield extension fields without relying on a user's retained files.</summary>
+		[Test]
+		public void Normalize_StarfieldDataFolderAndSparsePluginOrderUseNativeBehavior()
+		{
+			JObject root = BuildStarfieldManifest();
+			root["loadOrder"] = JArray.Parse("[{\"id\":\"Starfield.esm\",\"name\":\"Starfield.esm\",\"enabled\":true,\"locked\":true,\"modId\":\"unrelated-curator-local-id\"}," +
+				"{\"id\":\"Economy.esm\",\"name\":\"Economy.esm\",\"enabled\":true,\"locked\":false,\"data\":{\"isInvalid\":false}}," +
+				"{\"id\":\"Optional.esm\",\"name\":\"Optional.esm\",\"enabled\":false}," +
+				"{\"id\":\"Patch.esm\",\"name\":\"Patch.esm\",\"enabled\":true}]");
+			string json = root.ToString();
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(CollectionMemberInstallRootBehavior.Default, result.Manifest.Members[0].InstallRootBehavior);
+			Assert.IsFalse(result.Manifest.Members[0].RequiresGameRootInstall);
+			Assert.IsTrue(result.Manifest.PluginStatesArePartial);
+			Assert.AreEqual(3, result.Manifest.PluginStates.Count);
+			Assert.IsFalse(result.Manifest.PluginStates.Single(x => x.PluginName == "Optional.esm").Enabled);
+			Assert.IsFalse(result.Manifest.PluginStates.Any(x => x.PluginName == "Starfield.esm"));
+			Assert.AreEqual(3, result.Manifest.PluginRelativeOrderRules.Count);
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("Patch.esm", "Economy.esm")),
+				"Skipping an optional intermediate plugin must preserve the selected subsequence.");
+			CollectionAssert.AreEqual(Encoding.UTF8.GetBytes(json), result.GetRawManifestBytes());
+		}
+
+		/// <summary>Keeps unknown semantics, malformed states and unrecognized locks blocked.</summary>
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"B.esm\",\"enabled\":true}")]
+		[TestCase("{\"id\":\"../A.esm\",\"name\":\"../A.esm\",\"enabled\":true}")]
+		[TestCase("{\"id\":\"A:bad.esm\",\"name\":\"A:bad.esm\",\"enabled\":true}")]
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":\"true\"}")]
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true,\"locked\":true}")]
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true,\"data\":{\"isInvalid\":true}}")]
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true,\"data\":{\"future\":false}}")]
+		[TestCase("{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true,\"position\":42}")]
+		[TestCase("{\"id\":\"Starfield.esm\",\"name\":\"Starfield.esm\",\"enabled\":false}")]
+		[TestCase("null")]
+		public void Normalize_StarfieldMalformedLoadOrderEntryRemainsUnsupported(string entry)
+		{
+			JObject root = BuildStarfieldManifest();
+			root["loadOrder"] = JArray.Parse("[" + entry + "]");
+			Assert.IsTrue(Normalize(root.ToString(), 1).CapabilityReport.AllIssues.Any(x => x.Code == "manifest.starfield-load-order-invalid"));
+		}
+
+		/// <summary>Rejects malformed Starfield order containers rather than accepting them as extension metadata.</summary>
+		[TestCase("{}")]
+		[TestCase("null")]
+		[TestCase("false")]
+		public void Normalize_StarfieldMalformedLoadOrderRemainsUnsupported(string loadOrder)
+		{
+			JObject root = BuildStarfieldManifest();
+			root["loadOrder"] = JToken.Parse(loadOrder);
+			Assert.IsTrue(Normalize(root.ToString(), 1).CapabilityReport.AllIssues.Any(x => x.Code == "manifest.starfield-load-order-invalid"));
+		}
+
+		/// <summary>Never resolves contradictory declarations by silently choosing one source.</summary>
+		[Test]
+		public void Normalize_StarfieldConflictingPluginStatesAndOrderRemainBlocked()
+		{
+			JObject root = BuildStarfieldManifest();
+			root["loadOrder"] = JArray.Parse("[{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true},{\"id\":\"B.esm\",\"name\":\"B.esm\",\"enabled\":true}]");
+			root["plugins"] = JArray.Parse("[{\"name\":\"A.esm\",\"enabled\":false}]");
+			root["pluginRules"] = JObject.Parse("{\"plugins\":[{\"name\":\"A.esm\",\"after\":[\"B.esm\"]}],\"groups\":[]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(root.ToString(), 1);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "manifest.starfield-plugin-state-conflict"));
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "manifest.plugin-rule-cycle"));
+			Assert.IsFalse(result.Manifest.PluginStatesArePartial, "An explicit non-empty plugins section retains its exhaustive semantics.");
+		}
+
+		/// <summary>Rejects duplicate names case-insensitively without constructing duplicate native model entries.</summary>
+		[Test]
+		public void Normalize_StarfieldDuplicatePluginAndInvalidExtensionVersionRemainBlocked()
+		{
+			JObject root = BuildStarfieldManifest();
+			root["loadOrder"] = JArray.Parse("[{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true},{\"id\":\"a.esm\",\"name\":\"a.esm\",\"enabled\":true}]");
+			root["extensionVersion"] = 11010;
+			NexusCollectionManifestNormalizationResult result = Normalize(root.ToString(), 1);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "manifest.starfield-load-order-invalid"));
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "manifest.starfield-extension-version-invalid"));
+		}
+
+		/// <summary>Does not broaden another game's accepted extension or install-root semantics.</summary>
+		[Test]
+		public void Normalize_StarfieldFieldsRemainUnsupportedForOtherGames()
+		{
+			JObject root = BuildStarfieldManifest();
+			root["info"]["domainName"] = "skyrim";
+			root["mods"][0]["domainName"] = "skyrim";
+			root["loadOrder"] = JArray.Parse("[{\"id\":\"A.esm\",\"name\":\"A.esm\",\"enabled\":true}]");
+			NexusCollectionManifestNormalizationResult result = Normalize(root.ToString(), 1);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.mod-type-unsupported"));
+			Assert.AreEqual(2, result.CapabilityReport.AllIssues.Count(x => x.Code == "manifest.unknown-field"));
+		}
+
+		/// <summary>Creates the exact minimal Starfield manifest envelope used by the extension adapter checks.</summary>
+		private static JObject BuildStarfieldManifest()
+		{
+			JObject root = JObject.Parse(BuildManifest("{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"starfield\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20},\"details\":{\"type\":\"starfield-data-folder\"}}", "[]"));
+			root["info"]["domainName"] = "starfield";
+			root["extensionVersion"] = "1.10.10";
+			root["plugins"] = new JArray();
+			return root;
 		}
 
 		private static CollectionRevision CreateRevision(int declaredMemberCount)

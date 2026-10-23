@@ -98,6 +98,7 @@ namespace Nexus.Client.Games.DataDriven
         public string AppDataGameFolderName { get; set; }
         public bool? UseTimestampOrder { get; set; }
         public bool? IgnoreOfficialPlugins { get; set; }
+        public bool? IgnoreOfficialPluginOrder { get; set; }
         public bool? ForcedReadOnly { get; set; }
         public bool? SingleFileManagement { get; set; }
         public bool? OfficialPluginsAreImplicitlyActive { get; set; }

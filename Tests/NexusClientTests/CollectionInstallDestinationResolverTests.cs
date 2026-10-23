@@ -122,6 +122,33 @@ namespace NexusClientTests
 			Assert.That(result.Plan.Files.Single().DestinationPath, Is.EqualTo("WinHTTP.dll"));
 		}
 
+		/// <summary>Starfield console batches install beside the executable and remain eligible when readmes are skipped.</summary>
+		[TestCase(ModInstallMethod.Virtual)]
+		[TestCase(ModInstallMethod.Direct)]
+		public void Resolve_StarfieldConsoleBatchPreservesTextAndUsesGameRoot(ModInstallMethod method)
+		{
+			IGameMode game = CreateGameMode("Starfield");
+			IMod mod = InterfaceStub<IMod>.Create((member, args) =>
+			{
+				switch (member.Name)
+				{
+					case "get_Filename": return @"C:\Mods\console-batch.zip";
+					case "GetFileList": return new List<string> { "builderTweak.txt", "README.txt" };
+					case "GetFileStream": return CreatePackageFileStream("SetINISetting \"fShipBuilderMaxFloor:Spaceship\" \"50\"\nSaveIniFiles");
+					default: return null;
+				}
+			});
+			CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(game, CreateMember(), mod,
+				new ModInstallContext(method, ModInstallRoot.Data), CancellationToken.None);
+			Assert.That(destination.InstallContext.Method, Is.EqualTo(method));
+			Assert.That(destination.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+			BasicInstallPlanResult plan = new BasicInstallPlanBuilder().Build(mod, game, destination.InstallContext,
+				true, null, null, true, destination.GameRootArchiveBaseDirectory);
+			Assert.That(plan.IsSupported, Is.True);
+			Assert.That(plan.Plan.Files.Single().DestinationPath, Is.EqualTo("builderTweak.txt"));
+			Assert.That(plan.Plan.Files.Single().DeploymentTarget.Root, Is.EqualTo(ModDeploymentRoot.GameRoot));
+		}
+
 		/// <summary>Creates a default provider recipe so destination inference remains independent of source identity.</summary>
 		private static ResolvedCollectionMemberPlan CreateMember(CollectionMemberInstallRootBehavior behavior = CollectionMemberInstallRootBehavior.Default)
 		{
@@ -134,12 +161,13 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Creates a game which opts into only the characterised preloader signature.</summary>
-		private static IGameMode CreateGameMode()
+		private static IGameMode CreateGameMode(string modeId = null)
 		{
 			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
+					case "get_ModeId": return modeId;
 					case "get_SupportsGameRootModInstall": return true;
 					case "get_GameRootPackageRules": return new[] { new GameRootPackageRule("preloader",
 						new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" },
@@ -169,10 +197,10 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Supplies the FileStream required by IMod and deletes the isolated file when the reader disposes it.</summary>
-		private static FileStream CreatePackageFileStream()
+		private static FileStream CreatePackageFileStream(string content = "<xSE><PluginPreloader/></xSE>")
 		{
 			string path = Path.Combine(Path.GetTempPath(), "nmm-package-rule-" + Guid.NewGuid().ToString("N"));
-			File.WriteAllText(path, "<xSE><PluginPreloader/></xSE>", Encoding.UTF8);
+			File.WriteAllText(path, content, Encoding.UTF8);
 			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 

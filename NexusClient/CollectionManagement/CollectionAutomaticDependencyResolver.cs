@@ -131,9 +131,14 @@ namespace Nexus.Client.CollectionManagement
 			}
 			HashSet<string> providedNames = provided;
 			NormalizedCollectionManifest manifest = plan.CapabilityReport.Manifest;
-			var active = manifest.HasPluginStateSection
+			var active = manifest.HasPluginStateSection && !manifest.PluginStatesArePartial
 				? new HashSet<string>(manifest.PluginStates.Where(x => x.Enabled && providedNames.Contains(x.PluginName)).Select(x => x.PluginName), StringComparer.OrdinalIgnoreCase)
 				: new HashSet<string>(activeIncomingPlugins.Concat(state.Plugins.Values.Where(x => x.Active && providedNames.Contains(Path.GetFileName(x.FileName))).Select(x => Path.GetFileName(x.FileName))), StringComparer.OrdinalIgnoreCase);
+			if (manifest.PluginStatesArePartial)
+			{
+				foreach (CollectionDesiredPluginState desired in manifest.PluginStates.Where(x => providedNames.Contains(x.PluginName)))
+					if (desired.Enabled) active.Add(desired.PluginName); else active.Remove(desired.PluginName);
+			}
 			if (plan.Policy.EnableUnspecifiedPlugins)
 			{
 				var explicitlyDisabled = new HashSet<string>(manifest.PluginStates.Where(x => !x.Enabled).Select(x => x.PluginName), StringComparer.OrdinalIgnoreCase);

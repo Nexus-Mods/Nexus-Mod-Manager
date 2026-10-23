@@ -830,6 +830,13 @@ namespace Nexus.Client.CollectionManagement
 						bool active = plan.Policy.EnableUnspecifiedPlugins
 							? explicitState == null || explicitState.Enabled
 							: enabledNames.Contains(candidate.Key) || (requiredPlugins != null && requiredPlugins.Contains(candidate.Key));
+						if (manifest.PluginStatesArePartial && explicitState == null && !plan.Policy.EnableUnspecifiedPlugins)
+						{
+							CollectionNativePluginState existingPlugin = FindPlugin(nativeState, candidate.Key);
+							active = active || (existingPlugin != null && existingPlugin.Active) || original.Any(x =>
+								x.Item2.Kind == CollectionPlannedPluginEffectKind.Activation && x.Item2.Active == true &&
+								StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Item2.PluginPaths[0]), candidate.Key));
+						}
 						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, active)));
 					}
 				}
@@ -846,6 +853,8 @@ namespace Nexus.Client.CollectionManagement
 				}
 				foreach (CollectionPluginRelativeOrderRule rule in manifest.PluginRelativeOrderRules)
 				{
+					if (nativeState.IsGameManagedPluginOrder(FindPlugin(nativeState, rule.PluginName)) ||
+						nativeState.IsGameManagedPluginOrder(FindPlugin(nativeState, rule.AfterPluginName))) continue;
 					List<Tuple<CollectionMemberKey, string>> sourceCandidates;
 					List<Tuple<CollectionMemberKey, string>> referenceCandidates;
 					bool hasSource = candidates.TryGetValue(rule.PluginName, out sourceCandidates) && sourceCandidates.Count > 0;
@@ -878,6 +887,22 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
+			if (nativeState.PluginOrderIgnoresOfficialPlugins)
+			{
+				var managedEffects = new List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>>();
+				foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in all)
+				{
+					if (item.Item2.Kind == CollectionPlannedPluginEffectKind.Activation) managedEffects.Add(item);
+					else
+					{
+						List<string> paths = item.Item2.PluginPaths.Where(path => !nativeState.IsGameManagedPluginOrder(FindPlugin(nativeState, path))).ToList();
+						if (item.Item2.Kind == CollectionPlannedPluginEffectKind.RelativeOrder && paths.Count >= 2)
+							managedEffects.Add(Tuple.Create(item.Item1, CollectionPlannedPluginEffect.RelativeOrder(paths)));
+						else if (item.Item2.Kind == CollectionPlannedPluginEffectKind.AbsoluteOrderIndex && paths.Count == 1) managedEffects.Add(item);
+					}
+				}
+				all = managedEffects;
+			}
 			if (all.Count == 0) return new List<CollectionPluginImpact>();
 			if (nativeState.PluginCoverage != CollectionNativeStateCoverage.Complete)
 			{

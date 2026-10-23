@@ -35,7 +35,9 @@ namespace Nexus.Client.PluginManagement
 			Dictionary<string, NativePluginOrderNode> nodes = plugins.ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
 			foreach (NativePluginOrderNode plugin in nodes.Values)
 			{
-				foreach (string master in plugin.Masters.Where(nodes.ContainsKey)) AddEdge(master, plugin.Name);
+				foreach (string master in plugin.Masters.Where(nodes.ContainsKey))
+					if (PluginManagementPolicy.RequiresMasterBeforeDependent(nodes[master].Blueprint, plugin.Blueprint))
+						AddEdge(master, plugin.Name);
 				// Synthetic section nodes avoid a master-count times plugin-count edge set. '|' is not a valid filename.
 				if (mastersBeforeNonMasters)
 				{

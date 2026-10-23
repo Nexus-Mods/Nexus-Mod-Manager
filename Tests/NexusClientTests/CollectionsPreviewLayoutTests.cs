@@ -15,6 +15,34 @@ namespace Nexus.Client.Tests
 	[TestFixture, Apartment(ApartmentState.STA), NonParallelizable]
 	public class CollectionsPreviewLayoutTests
 	{
+		/// <summary>Incoming previews must expose their stale installation recovery without requiring an installed association view.</summary>
+		[TestCase(true, 0, true)]
+		[TestCase(false, 0, false)]
+		[TestCase(true, 1, false)]
+		public void IncomingPreviewFindsOnlyItsCurrentInstallationRecovery(bool sameRevision, int generation, bool expected)
+		{
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(CollectionIdentity.FromNexus("93228"), "779225", 58);
+			CollectionRevisionIdentity displayed = sameRevision ? revision :
+				CollectionRevisionIdentity.FromNexus(revision.Collection, "779226", 59);
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				revision.Collection, CollectionTargetIdentity.FromFingerprint("target-preview-recovery"), revision,
+				CollectionPlanIdentity.From(Guid.NewGuid(), 1), 6, CollectionOperationPhase.ApplyingNativeChildren,
+				CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+			var recovery = new CollectionAdditiveWorkflowRecoveryResult(CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired,
+				operation, null, "Native state changed.");
+			using (CollectionsPreviewControl collections = new CollectionsPreviewControl())
+			{
+				typeof(CollectionsPreviewControl).GetField("_displayContext", BindingFlags.Instance | BindingFlags.NonPublic)
+					.SetValue(collections, CollectionUiContext.Incoming(generation, displayed, operation.Identity));
+				typeof(CollectionsPreviewControl).GetField("_recoveryResults", BindingFlags.Instance | BindingFlags.NonPublic)
+					.SetValue(collections, new[] { recovery });
+				object found = typeof(CollectionsPreviewControl).GetMethod("GetInterruptedInstallationRecovery", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(collections, null);
+				if (expected) Assert.That(found, Is.SameAs(recovery));
+				else Assert.That(found, Is.Null);
+			}
+		}
+
 		/// <summary>Loads an installed context while another document is selected, then opens Collections.</summary>
 		[TestCase(2000, 900)]
 		[TestCase(900, 1100)]

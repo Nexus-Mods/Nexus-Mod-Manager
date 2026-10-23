@@ -98,17 +98,22 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 
+				// A game's implicit official order and the display indexes derived from it are not managed state.
+				// Keep presence, activation and dependency metadata, and fingerprint the relative order of real mods.
+				var orderedPlugins = index.Plugins.Values.OrderBy(x => x.Priority).ThenBy(x => x.FileName, StringComparer.OrdinalIgnoreCase).ToList();
+				var managedPriorities = orderedPlugins.Where(plugin => !index.IsGameManagedPluginOrder(plugin))
+					.Select((plugin, priority) => new { plugin.FileName, priority }).ToDictionary(x => x.FileName, x => x.priority, StringComparer.OrdinalIgnoreCase);
 				writer.Write(index.Plugins.Count);
-				foreach (CollectionNativePluginState plugin in index.Plugins.Values
-					.OrderBy(x => x.Priority).ThenBy(x => x.FileName, StringComparer.OrdinalIgnoreCase))
+				foreach (CollectionNativePluginState plugin in index.PluginOrderIgnoresOfficialPlugins
+					? orderedPlugins.OrderBy(x => x.FileName, StringComparer.OrdinalIgnoreCase).ToList() : orderedPlugins)
 				{
 					Write(writer, plugin.FileName.ToUpperInvariant());
 					writer.Write(plugin.Active);
-					writer.Write(plugin.Priority);
-					writer.Write(plugin.AllocatedIndex.HasValue);
-					if (plugin.AllocatedIndex.HasValue)
+					writer.Write(index.PluginOrderIgnoresOfficialPlugins ? (index.IsGameManagedPluginOrder(plugin) ? -1 : managedPriorities[plugin.FileName]) : plugin.Priority);
+					writer.Write(!index.PluginOrderIgnoresOfficialPlugins && plugin.AllocatedIndex.HasValue);
+					if (!index.PluginOrderIgnoresOfficialPlugins && plugin.AllocatedIndex.HasValue)
 						writer.Write(plugin.AllocatedIndex.Value);
-					Write(writer, plugin.ModIndex);
+					Write(writer, index.PluginOrderIgnoresOfficialPlugins ? String.Empty : plugin.ModIndex);
 					writer.Write((int)plugin.ParseStatus);
 					writer.Write((int)plugin.AddressClass);
 					writer.Write((int)plugin.HeaderFlags);
@@ -175,7 +180,7 @@ namespace Nexus.Client.CollectionManagement
 				using (SHA256 sha256 = SHA256.Create())
 				{
 					byte[] hash = sha256.ComputeHash(stream.ToArray());
-					return new CollectionCurrentStateFingerprint(FormatVersion,
+					return new CollectionCurrentStateFingerprint(index.PluginOrderIgnoresOfficialPlugins ? "native-state-index-v4" : FormatVersion,
 						String.Concat(hash.Select(x => x.ToString("x2"))));
 				}
 			}

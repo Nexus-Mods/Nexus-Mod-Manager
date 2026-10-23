@@ -2933,11 +2933,15 @@ namespace Nexus.Client.CollectionManagement.UI
 				(operation != null && operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.IsSuccessful);
 		}
 
-		/// <summary>Returns the checked recovery state of the unfinished installation shown in the installed Collection view.</summary>
+		/// <summary>Returns the checked recovery state of the unfinished installation in the displayed incoming or installed Collection.</summary>
 		private CollectionAdditiveWorkflowRecoveryResult GetInterruptedInstallationRecovery()
 		{
-			if (_managedAssociationPresentation == null) return null;
-			CollectionOperation pending = FindInterruptedInstallation(_managedAssociationPresentation.Association.Association.Revision);
+			CollectionUiContext context = _displayContext;
+			if (!IsActionContextCurrent(context) || context.Revision == null ||
+				(context.Kind != CollectionUiContextKind.IncomingCollection && context.Kind != CollectionUiContextKind.InstalledCollection)) return null;
+			if (context.Kind == CollectionUiContextKind.InstalledCollection && (_managedAssociationPresentation == null ||
+				context.AssociationId != _managedAssociationPresentation.Association.Association.AssociationId)) return null;
+			CollectionOperation pending = FindInterruptedInstallation(context.Revision);
 			return pending == null ? null : _recoveryResults.FirstOrDefault(x => x != null && x.Operation != null &&
 				x.Operation.Identity.Equals(pending.Identity));
 		}
@@ -2945,14 +2949,12 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Refreshes a stale continuation review from its retained revision and selections, keeping completed native installations.</summary>
 		private async Task RefreshRemainingInstallationAsync(CollectionAdditiveWorkflowRecoveryResult recovery)
 		{
-			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
-			CollectionUiContext context = _managedAssociationActionContext;
+			CollectionUiContext context = _displayContext;
 			NexusCollectionPreviewSnapshot snapshot = _snapshot;
 			CollectionReviewedWorkflowSnapshot reviewed = recovery.Rehydration == null ? null : recovery.Rehydration.Snapshot;
-			if (_workflowBusy || _workflow == null || selected == null || context == null || context.AssociationId != selected.AssociationId ||
-				_managedAssociationPresentation == null || !_managedAssociationPresentation.HasRetainedManifest || reviewed == null ||
+			if (_workflowBusy || !CanRefreshRemainingInstallation(recovery) || reviewed == null ||
 				snapshot == null || !snapshot.HasManifestPreview || snapshot.Revision == null ||
-				!snapshot.Revision.Identity.Equals(selected.Association.Revision) || !reviewed.Revision.Equals(selected.Association.Revision))
+				!snapshot.Revision.Identity.Equals(context.Revision) || !reviewed.Revision.Equals(context.Revision))
 				return;
 			var selectedMembers = new HashSet<CollectionMemberKey>(reviewed.Members.Select(x => x.MemberKey));
 			List<CollectionOptionalMemberSelection> savedSelections = snapshot.CapabilityReport.Manifest.Members
@@ -2963,7 +2965,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				L("Collections.Workflow.RefreshRemainingInstallation", "Refreshing the remaining installation; completed mods are kept..."));
 			try
 			{
-				IReadOnlyList<CollectionOperation> stopped = await _workflow.StopReconciledInstallationForRemovalAsync(selected.Association.Revision, token);
+				IReadOnlyList<CollectionOperation> stopped = await _workflow.StopReconciledInstallationForRemovalAsync(context.Revision, token);
 				if (!IsWorkflowContextCurrent(context, token)) return;
 				if (!recovery.Operation.IsTerminal && !stopped.Any(x => x.Identity.Equals(recovery.Operation.Identity)))
 					throw new InvalidOperationException("The interrupted installation changed before its remaining review could be refreshed.");
@@ -2992,6 +2994,20 @@ namespace Nexus.Client.CollectionManagement.UI
 					SetWorkflowPresentation(CollectionUserMessagePresenter.ForFailure("workflow.remaining-refresh-failed", ex.Message));
 			}
 			finally { EndWorkflowWork(context); }
+		}
+
+		/// <summary>Requires the exact displayed recovery and retained selections before offering a refreshed installation review.</summary>
+		private bool CanRefreshRemainingInstallation(CollectionAdditiveWorkflowRecoveryResult recovery)
+		{
+			return _workflow != null && recovery != null && ReferenceEquals(recovery, GetInterruptedInstallationRecovery()) &&
+				recovery.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired &&
+				!recovery.Operation.RequiresRecovery && !recovery.Operation.HasUnreconciledNativeChild &&
+				recovery.Rehydration != null && recovery.Rehydration.Snapshot != null &&
+				_snapshot != null && _snapshot.HasManifestPreview && _snapshot.Revision != null &&
+				_snapshot.Revision.Identity.Equals(_displayContext.Revision) &&
+				recovery.Rehydration.Snapshot.Revision.Equals(_displayContext.Revision) &&
+				(_displayContext.Kind == CollectionUiContextKind.IncomingCollection ||
+				 (_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest));
 		}
 
 		private async void VerifyRepairButton_Click(object sender, EventArgs e)
@@ -5240,7 +5256,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private async void InstallButton_Click(object sender, EventArgs e)
 		{
 			CollectionAdditiveWorkflowRecoveryResult interrupted = GetInterruptedInstallationRecovery();
-			if (!_workflowBusy && interrupted != null && interrupted.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired)
+			if (!_workflowBusy && CanRefreshRemainingInstallation(interrupted))
 			{
 				await RefreshRemainingInstallationAsync(interrupted);
 				return;
@@ -7321,7 +7337,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionAdditiveWorkflowRecoveryResult matching = _recoveryResults.FirstOrDefault(x =>
 				x != null && x.Operation != null && x.Operation.Revision != null && x.Operation.Revision.Equals(_snapshot.Revision.Identity) &&
 				(x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReviewRequired || x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume ||
-				 x.Status == CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired));
+				 x.Status == CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired || x.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired));
 			if (matching == null || matching.Operation.PlanIdentity == null || matching.Operation.IsTerminal ||
 				(_operationSnapshot != null && _operationSnapshot.Identity.Equals(matching.Operation.Identity) &&
 				 _operationSnapshot.CheckpointSequence > matching.Operation.CheckpointSequence))
@@ -7329,10 +7345,12 @@ namespace Nexus.Client.CollectionManagement.UI
 			_operationIdentity = matching.Operation.Identity;
 			_operationSnapshot = matching.Operation;
 			BindIncomingDisplayOperation(_operationIdentity);
-			_reviewedPlanIdentity = matching.Operation.PlanIdentity;
+			_reviewedPlanIdentity = matching.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired ? null : matching.Operation.PlanIdentity;
 			_selectionDirty = false;
 			SetWorkflowPresentation(CollectionUserMessagePresenter.ForRecovery(matching.Status, matching.Message));
-			_appliedValue.Text = matching.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume
+			_appliedValue.Text = matching.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired
+				? L("Collections.Status.Applied.Reprepare", "Not applied - preparation must be rebuilt")
+				: matching.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume
 				? L("Collections.Status.Applied.ResumeReady", "Ready to continue installation - completed mods are kept")
 				: matching.Status == CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired
 				? L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation")
@@ -8621,9 +8639,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			bool exactReview = GetInstallActionContext() != null && _operationSnapshot != null &&
 				_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan;
 			CollectionAdditiveWorkflowRecoveryResult interruptedRecovery = GetInterruptedInstallationRecovery();
-			bool refreshInterrupted = interruptedRecovery != null && interruptedRecovery.Status == CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired &&
-				interruptedRecovery.Rehydration != null && interruptedRecovery.Rehydration.Snapshot != null &&
-				_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest && _workflow != null;
+			bool refreshInterrupted = CanRefreshRemainingInstallation(interruptedRecovery);
 			_installButton.Enabled = !_workflowBusy && (exactReview || refreshInterrupted) && !sameRevisionAlreadyApplied;
 			bool replacementReady = !_workflowBusy && _replacementWorkflow != null && _workflow != null && !installedAssociationView &&
 				!_hasInterruptedReplacement && !sameRevisionAlreadyApplied && !_selectionDirty && _replacementReview == null && _preparation != null &&
@@ -8776,6 +8792,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_primaryIncomingReviewsBlockedIssues = true;
 			else if (_compareUpdateButton.Enabled)
 				source = _compareUpdateButton;
+			else if (_installButton.Enabled && CanRefreshRemainingInstallation(GetInterruptedInstallationRecovery()))
+				source = _installButton;
 			else if (_resolveFileConflictsButton.Enabled)
 				source = _resolveFileConflictsButton;
 			else if (!_workflowBusy && !_selectionDirty &&

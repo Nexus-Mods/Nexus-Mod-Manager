@@ -25,9 +25,20 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Retains an optional manifest size constraint without changing legacy provider identity or serialized formats.</summary>
 		internal CollectionArtifactReference(string scheme, string stableId, CollectionContentHash expectedContentHash, long? expectedByteLength)
+			: this(scheme, stableId, expectedContentHash, expectedByteLength, null)
+		{
+		}
+
+		/// <summary>Retains exact manifest MD5/size evidence while preserving persisted provider identity.</summary>
+		internal CollectionArtifactReference(string scheme, string stableId, CollectionContentHash expectedContentHash,
+			long? expectedByteLength, string expectedMd5)
 		{
 			if (expectedByteLength.HasValue && expectedByteLength.Value < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedByteLength));
+			string normalizedMd5 = null;
+			if (expectedMd5 != null && (!expectedByteLength.HasValue || expectedByteLength.Value <= 0 ||
+				!CollectionExternalArtifactIdentity.TryNormalizeMd5(expectedMd5, out normalizedMd5)))
+				throw new ArgumentException("Manifest MD5 evidence requires a valid digest and a positive byte length.", nameof(expectedMd5));
 			Scheme = CollectionIdentityValidation.RequireOpaqueToken(scheme, nameof(scheme));
 			StableId = CollectionIdentityValidation.RequireOpaqueToken(stableId, nameof(stableId));
 
@@ -38,6 +49,7 @@ namespace Nexus.Client.CollectionManagement
 
 			ExpectedContentHash = expectedContentHash;
 			ExpectedByteLength = expectedByteLength;
+			ExpectedMd5 = normalizedMd5;
 		}
 
 		/// <summary>
@@ -57,6 +69,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets optional source metadata reconstructed from the retained manifest, separate from stable artifact identity.</summary>
 		internal long? ExpectedByteLength { get; }
+
+		/// <summary>Gets exact Nexus archive content evidence reconstructed from the retained manifest, when supplied.</summary>
+		internal string ExpectedMd5 { get; }
 
 		/// <inheritdoc />
 		public bool Equals(CollectionArtifactReference other)

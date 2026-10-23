@@ -96,6 +96,7 @@
       "appDataGameFolderName": "Starfield",
       "useTimestampOrder": false,
       "ignoreOfficialPlugins": true,
+      "ignoreOfficialPluginOrder": true,
       "forcedReadOnly": false,
       "singleFileManagement": true,
       "officialPluginsAreImplicitlyActive": true,

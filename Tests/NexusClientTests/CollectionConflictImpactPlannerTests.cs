@@ -1637,6 +1637,25 @@ namespace NexusClientTests
 			Assert.IsTrue(result.PluginImpacts.Any(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation));
 		}
 
+		/// <summary>Sparse Starfield declarations change explicit entries while preserving other incoming plugin activations.</summary>
+		[Test]
+		public void PartialPluginStates_LeaveUnspecifiedIncomingPluginsActive()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { a }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
+				desiredPlugins: new[] { new CollectionDesiredPluginState("Disabled.esm", false) }, pluginStatesArePartial: true);
+			CollectionMemberEffectPreview preview = CreatePreview(a, null, new[]
+			{
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\Disabled.esm", true),
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\Unspecified.esm", true)
+			});
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+			Assert.IsFalse(result.PluginImpacts.Single(x => x.Effect.PluginPaths[0].EndsWith("Disabled.esm")).Effect.Active.Value);
+			Assert.IsTrue(result.PluginImpacts.Single(x => x.Effect.PluginPaths[0].EndsWith("Unspecified.esm")).Effect.Active.Value);
+		}
+
 		private static ModInstallationRecipeInput CreatePreviewRecipeInput(NormalizedCollectionMember member,
 			ModInstallContext context, params ScriptedInstallOperation[] operations)
 		{
@@ -1729,7 +1748,8 @@ namespace NexusClientTests
 			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null,
 			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null,
 			CollectionExternalFilePriorityRule[] externalPriorityRules = null,
-			CollectionPluginRelativeOrderRule[] pluginRelativeOrderRules = null, CollectionExecutionPolicy policy = null)
+			CollectionPluginRelativeOrderRule[] pluginRelativeOrderRules = null, CollectionExecutionPolicy policy = null,
+			bool pluginStatesArePartial = false)
 		{
 			CollectionNativeStateIndex state = new CollectionNativeStateIndex(target,
 				new CollectionNativeRootState[0], mods ?? new CollectionNativeModState[0], files ?? new CollectionNativeFileState[0],
@@ -1741,7 +1761,7 @@ namespace NexusClientTests
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(revision,
 				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 10, "schema", "normalizer-v3"),
 				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints, externalPriorityRules,
-				pluginRelativeOrderRules);
+				pluginRelativeOrderRules, pluginStatesArePartial: pluginStatesArePartial);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, report.Status);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,

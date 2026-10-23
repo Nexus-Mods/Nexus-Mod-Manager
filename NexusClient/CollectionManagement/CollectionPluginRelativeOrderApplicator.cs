@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement
 		internal static bool IsOrderSatisfied(CollectionNativeStateIndex state, IEnumerable<string> paths)
 		{
 			NativePluginOrderConstraints native = NativeConstraints.GetValue(state, snapshot => new NativePluginOrderConstraints(
-				snapshot.Plugins.Values.Select(plugin => new NativePluginOrderNode(plugin.FileName, plugin.Masters,
+				snapshot.Plugins.Values.Where(plugin => !snapshot.IsGameManagedPluginOrder(plugin)).Select(plugin => new NativePluginOrderNode(plugin.FileName, plugin.Masters,
 					plugin.EffectiveMaster, (plugin.SpecialFlags & PluginSpecialFlags.Blueprint) != 0)), snapshot.PluginOrderRequiresMasterSection));
 			CollectionNativePluginState previous = null;
 			foreach (string path in paths)
@@ -27,6 +27,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!state.Plugins.TryGetValue(name, out plugin))
 					plugin = state.Plugins.Values.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(System.IO.Path.GetFileName(x.FileName), name));
 				if (plugin == null) return false;
+				if (state.IsGameManagedPluginOrder(plugin)) continue;
 				if (previous != null)
 				{
 					bool nativePrecedence = native.RequiresBefore(plugin.FileName, previous.FileName);

@@ -329,6 +329,50 @@ namespace NexusClientTests
 			Assert.That(gameRootPath, Is.EqualTo(Path.Combine(@"C:\Virtual", "Remap", @"meshes\body.nif")));
 		}
 
+		/// <summary>Functional text files survive readme suppression in both ordinary and Collection basic planning.</summary>
+		[TestCase("JetpackOverhaul.txt")]
+		[TestCase("lz5.txt")]
+		[TestCase("toleranceBig.txt")]
+		[TestCase("builderTweak.txt")]
+		[TestCase("TrueAim.txt")]
+		[TestCase("readmesh.txt")]
+		public void Build_SkipReadmesPreservesFunctionalTextFiles(string textFile)
+		{
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("Batch.zip", textFile, "README.txt", @"Docs\Installation.txt"), CreateGameMode(),
+				new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot), true);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Select(x => x.SourcePath), Is.EquivalentTo(new[] { textFile }));
+		}
+
+		/// <summary>Recognizes documentation by its name or folder while keeping functional file formats eligible for viewing.</summary>
+		[TestCase("README.txt", true)]
+		[TestCase("Some Mod - Read Me EN.rtf", true)]
+		[TestCase("readme.md", true)]
+		[TestCase("README", true)]
+		[TestCase(@"Docs\Guide.txt", true)]
+		[TestCase("LICENSE.txt", true)]
+		[TestCase("ChangeLog.txt", true)]
+		[TestCase("builderReset.txt", false)]
+		[TestCase(@"Data\SFSE\Plugins\Runtime.txt", false)]
+		[TestCase("readmesh.txt", false)]
+		[TestCase("README.dds", false)]
+		public void Readme_DocumentationClassificationDoesNotUseExtensionAlone(string path, bool expected)
+		{
+			Assert.That(Readme.IsDocumentationFile(path), Is.EqualTo(expected));
+			Assert.That(Readme.IsValidReadme("builderReset.txt"), Is.True, "Viewer format support remains compatible.");
+		}
+
+		/// <summary>Preserves the user's choice to install documentation when readme suppression is disabled.</summary>
+		[Test]
+		public void Build_ReadmeSuppressionDisabledKeepsDocumentation()
+		{
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(CreateMod("Docs.zip", "README.txt"),
+				CreateGameMode(), new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot), false);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Single().SourcePath, Is.EqualTo("README.txt"));
+		}
+
 		private static IMod CreateMod(string fileName, params string[] files)
 		{
 			List<string> archiveFiles = files.ToList();

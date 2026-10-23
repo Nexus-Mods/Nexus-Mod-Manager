@@ -36,7 +36,7 @@ namespace Nexus.Client.CollectionManagement
 					string plugin = Path.GetFileName(relative);
 					CollectionDesiredPluginState desired = manifest.PluginStates.FirstOrDefault(x =>
 						StringComparer.OrdinalIgnoreCase.Equals(x.PluginName, plugin));
-					_plugins[plugin] = desired != null ? desired.Enabled : enableUnspecifiedPlugins || !manifest.HasPluginStateSection;
+					_plugins[plugin] = desired != null ? desired.Enabled : enableUnspecifiedPlugins || !manifest.HasPluginStateSection || manifest.PluginStatesArePartial;
 				}
 		}
 

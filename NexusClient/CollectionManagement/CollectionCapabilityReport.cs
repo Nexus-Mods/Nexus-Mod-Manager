@@ -195,6 +195,7 @@ namespace Nexus.Client.CollectionManagement
 				source.Members.Count != candidate.Members.Count || source.Dependencies.Count != candidate.Dependencies.Count ||
 				source.FilePriorityRules.Count != candidate.FilePriorityRules.Count || source.ExternalFilePriorityRules.Count != candidate.ExternalFilePriorityRules.Count || source.ConflictConstraints.Count != candidate.ConflictConstraints.Count ||
 				source.PluginStates.Count != candidate.PluginStates.Count || source.HasPluginStateSection != candidate.HasPluginStateSection ||
+				source.PluginStatesArePartial != candidate.PluginStatesArePartial ||
 				source.PluginRelativeOrderRules.Count != candidate.PluginRelativeOrderRules.Count)
 				throw new ArgumentException("Capability can be recalculated only for a selection-only projection of the same normalized manifest.", nameof(candidate));
 

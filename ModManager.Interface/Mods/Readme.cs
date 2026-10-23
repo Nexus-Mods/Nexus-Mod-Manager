@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.Mods
@@ -42,6 +43,10 @@ namespace Nexus.Client.Mods
 	/// </summary>
 	public class Readme : ObservableObject
 	{
+		private static readonly Regex DocumentationName = new Regex(
+			@"(?:^|[\s_.-])(?:read[\s_.-]*me|read[\s_.-]*first|read[\s_.-]*this|licen[cs]e|change[\s_.-]*log|changes|credits|authors|copyright|install|installation|instructions|documentation|manual)(?:$|[\s_.-])",
+			RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
 		/// <summary>
 		/// The mapping of valid extensions to their respective readme formats.
 		/// </summary>
@@ -177,6 +182,23 @@ namespace Nexus.Client.Mods
 			if (IsConfigFile(Path.GetFileName(p_strPath)))
 				return false;
 			return IsValidExtension(Path.GetExtension(p_strPath.ToLower()));
+		}
+
+		/// <summary>Identifies documentation for installation filtering without treating every readable text file as a readme.</summary>
+		public static bool IsDocumentationFile(string path)
+		{
+			if (String.IsNullOrWhiteSpace(path)) return false;
+			string extension = Path.GetExtension(path);
+			if (!IsValidReadme(path) && !String.IsNullOrEmpty(extension) &&
+				!String.Equals(extension, ".md", StringComparison.OrdinalIgnoreCase) &&
+				!String.Equals(extension, ".markdown", StringComparison.OrdinalIgnoreCase)) return false;
+			if (DocumentationName.IsMatch(Path.GetFileNameWithoutExtension(path))) return true;
+			string[] segments = path.Replace('/', '\\').Split('\\');
+			return segments.Take(segments.Length - 1).Any(segment =>
+				String.Equals(segment, "docs", StringComparison.OrdinalIgnoreCase) ||
+				String.Equals(segment, "documentation", StringComparison.OrdinalIgnoreCase) ||
+				String.Equals(segment, "readme", StringComparison.OrdinalIgnoreCase) ||
+				String.Equals(segment, "readmes", StringComparison.OrdinalIgnoreCase));
 		}
 
 		/// <summary>

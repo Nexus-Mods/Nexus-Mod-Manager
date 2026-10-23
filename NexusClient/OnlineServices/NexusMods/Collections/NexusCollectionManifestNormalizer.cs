@@ -302,6 +302,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			JObject info = root["info"] as JObject;
 			List<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = NormalizePluginRelativeOrderRules(
 				root["pluginRules"], info == null ? null : NormalizeDomain(ReadString(info, "domainName")), allDeclaredIssues);
+			bool partialPluginStates = NormalizeStarfieldLoadOrder(root, ref pluginStates, pluginRelativeOrderRules, allDeclaredIssues);
 
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
@@ -320,7 +321,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				pluginRelativeOrderRules,
 				setupGuidance,
 				launchTools,
-				launchToolIssues);
+				launchToolIssues,
+				partialPluginStates);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -458,8 +460,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			string stableArtifactId = string.Format(CultureInfo.InvariantCulture, "{0}/{1}/{2}", domain, modId, fileId);
 			draft.StableMatchKey = "nexus-mod-file:" + stableArtifactId;
 			long declaredByteLength;
+			long? expectedByteLength = TryReadPositiveInteger(source["fileSize"], out declaredByteLength) ? (long?)declaredByteLength : null;
+			string declaredMd5;
+			string expectedMd5 = expectedByteLength.HasValue && CollectionExternalArtifactIdentity.TryNormalizeMd5(ReadString(source, "md5"), out declaredMd5)
+				? declaredMd5 : null;
 			draft.Artifact = new CollectionArtifactReference("nexus-mod-file", stableArtifactId, null,
-				TryReadPositiveInteger(source["fileSize"], out declaredByteLength) ? (long?)declaredByteLength : null);
+				expectedByteLength, expectedMd5);
 			draft.SourceDomain = domain;
 			draft.SourceModId = modId;
 			draft.SourceFileId = fileId;
@@ -712,6 +718,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						{
 							// Witcher's ordinary Data root is the physical game root. The exact retained
 							// type remains recipe identity and is consumed by the Witcher native planner.
+							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
+						}
+						else if (String.Equals(ReadString(memberObject, "domainName"), "starfield", StringComparison.OrdinalIgnoreCase) &&
+							String.Equals(modType, "starfield-data-folder", StringComparison.Ordinal))
+						{
+							// Vortex's Data Folder type targets <game>/Data, the native Starfield Data root.
+							// Keep the type in the retained recipe, including FOMOD and explicit-file recipes.
 							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
 						}
 						else
@@ -2293,6 +2306,96 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
+		/// <summary>Translates Starfield's file-based load order into native activation and relative-order intent.</summary>
+		private static bool NormalizeStarfieldLoadOrder(JObject root, ref List<CollectionDesiredPluginState> pluginStates,
+			List<CollectionPluginRelativeOrderRule> rules, List<CollectionCapabilityIssue> issues)
+		{
+			if (!IsStarfieldManifest(root) || root["loadOrder"] == null) return false;
+			JArray entries = root["loadOrder"] as JArray;
+			if (entries == null || entries.Count > 512)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.starfield-load-order-invalid", "Starfield loadOrder must be an array of at most 512 plugin entries.", "$.loadOrder"));
+				return false;
+			}
+			if (entries.Count == 0) return false;
+
+			// Starfield exports a sparse file-based list independently of the Gamebryo plugins section.
+			// An empty plugins array must not turn every other contributed plugin off.
+			bool partial = pluginStates == null || pluginStates.Count == 0;
+			pluginStates = pluginStates ?? new List<CollectionDesiredPluginState>();
+			var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var orderedNames = new List<string>();
+			var fields = new HashSet<string>(new[] { "id", "name", "enabled", "modId", "locked", "data" }, StringComparer.Ordinal);
+			for (int index = 0; index < entries.Count; index++)
+			{
+				string path = "$.loadOrder[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject entry = entries[index] as JObject;
+				string name = null;
+				string id = null;
+				bool valid = entry != null && TryReadPluginRuleFileName(entry["name"], out name) &&
+					TryReadPluginRuleFileName(entry["id"], out id) && StringComparer.OrdinalIgnoreCase.Equals(name, id) &&
+					name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
+					new[] { ".esm", ".esp", ".esl" }.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase) &&
+					entry["enabled"] != null && entry["enabled"].Type == JTokenType.Boolean;
+				if (valid)
+				{
+					valid = !entry.Properties().Any(x => !fields.Contains(x.Name)) &&
+						(entry["modId"] == null || entry["modId"].Type == JTokenType.String) &&
+						(entry["locked"] == null || entry["locked"].Type == JTokenType.Boolean);
+					JToken data = entry["data"];
+					if (data != null)
+					{
+						JObject metadata = data as JObject;
+						valid = valid && metadata != null && !metadata.Properties().Any(x => x.Name != "isInvalid") &&
+							(metadata["isInvalid"] == null || (metadata["isInvalid"].Type == JTokenType.Boolean && !(bool)metadata["isInvalid"]));
+					}
+				}
+				bool baseMaster = StringComparer.OrdinalIgnoreCase.Equals(name, "Starfield.esm");
+				if (valid)
+					valid = names.Add(name) && (baseMaster
+						? index == 0 && (bool)entry["enabled"]
+						: entry["locked"] == null || !(bool)entry["locked"]);
+				if (!valid)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.starfield-load-order-invalid",
+						"A Starfield load-order entry has invalid, duplicate or uncharacterized plugin state/locking metadata.", path));
+					continue;
+				}
+				// Starfield.esm is engine-owned and already first under the native game policy.
+				// Vortex modId is machine-local display metadata, never evidence of NMM file ownership.
+				if (baseMaster) continue;
+				bool enabled = (bool)entry["enabled"];
+				CollectionDesiredPluginState existing = pluginStates.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(x.PluginName, name));
+				if (existing != null && existing.Enabled != enabled)
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.starfield-plugin-state-conflict", "plugins and loadOrder request conflicting enabled states.", path + ".enabled"));
+				else if (existing == null)
+					pluginStates.Add(new CollectionDesiredPluginState(name, enabled));
+				orderedNames.Add(name);
+			}
+			var uniqueRules = new HashSet<CollectionPluginRelativeOrderRule>(rules);
+			for (int later = 1; later < orderedNames.Count; later++)
+				for (int earlier = 0; earlier < later; earlier++)
+				{
+					// Preserve the selected subsequence even when an optional/intermediate plugin is absent.
+					var rule = new CollectionPluginRelativeOrderRule(orderedNames[later], orderedNames[earlier]);
+					if (uniqueRules.Add(rule)) rules.Add(rule);
+				}
+			if (HasPluginRelativeOrderCycle(rules))
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rule-cycle", "Starfield loadOrder conflicts with the Collection's plugin rules.", "$.loadOrder"));
+			return partial;
+		}
+
+		/// <summary>Scopes the Vortex Starfield extension fields to their declared game.</summary>
+		private static bool IsStarfieldManifest(JObject root)
+		{
+			JObject info = root["info"] as JObject;
+			return info != null && String.Equals(ReadString(info, "domainName"), "starfield", StringComparison.OrdinalIgnoreCase);
+		}
+
 		/// <summary>Normalizes the characterized Vortex pluginRules subset into native relative plugin-order constraints.</summary>
 		private static List<CollectionPluginRelativeOrderRule> NormalizePluginRelativeOrderRules(JToken pluginRulesToken, string gameDomain, List<CollectionCapabilityIssue> issues)
 		{
@@ -2908,6 +3011,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			// Game extensions can emit an empty loadOrder even when no ordering behavior is requested.
 			JArray loadOrder = root["loadOrder"] as JArray;
 			bool emptyLoadOrder = loadOrder != null && loadOrder.Count == 0;
+			bool starfield = IsStarfieldManifest(root);
+			if (starfield && root["extensionVersion"] != null &&
+				(root["extensionVersion"].Type != JTokenType.String || String.IsNullOrWhiteSpace((string)root["extensionVersion"])))
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.starfield-extension-version-invalid", "Starfield extensionVersion must be a non-empty string.", "$.extensionVersion"));
+			// The extension exports this version as provenance; its importer does not use it to select installation behavior.
+			// https://github.com/Nexus-Mods/game-starfield/blob/master/src/migrations/collections.ts
 			bool witcher = CollectionWitcher3Data.IsWitcherManifest(root);
 			if (witcher)
 			{
@@ -2921,6 +3031,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			foreach (JProperty property in root.Properties())
 			{
 				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && emptyLoadOrder) ||
+					(starfield && (property.Name == "loadOrder" || property.Name == "extensionVersion")) ||
 					(witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
 					continue;
 				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,

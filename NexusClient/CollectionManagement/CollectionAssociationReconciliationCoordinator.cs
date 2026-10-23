@@ -337,7 +337,7 @@ namespace Nexus.Client.CollectionManagement
 				new CollectionNativeFileState[0], terminalState.IniEdits.Values, terminalState.GameValues.Values, terminalState.Plugins.Values,
 				terminalState.PluginCoverage, associations, bindings, overrides, terminalState.AssociationCoverage, terminalState.Issues,
 				terminalState.DeploymentCommitSequence, terminalState.ReconciledPartialAssociations, terminalState.PluginOrderRequiresMasterSection,
-				terminalState, new HashSet<ModDeploymentTarget>());
+				terminalState, new HashSet<ModDeploymentTarget>(), terminalState.PluginOrderIgnoresOfficialPlugins);
 		}
 
 		private CollectionAssociationReconciliationResult LoadReconciledResult(CollectionOperation operation,

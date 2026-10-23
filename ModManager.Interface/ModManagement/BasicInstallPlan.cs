@@ -623,12 +623,9 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		internal static bool ShouldSkipReadme(bool skipReadme, string sourcePath, string gameInstallPath, string pluginDirectory)
 		{
-			string sourceDirectory = Path.GetDirectoryName(sourcePath);
-			string targetDirectory = Path.GetDirectoryName(gameInstallPath);
-			return skipReadme && Readme.IsValidReadme(sourcePath) &&
-				(String.IsNullOrEmpty(sourceDirectory) ||
-					(!String.IsNullOrEmpty(targetDirectory) &&
-					 targetDirectory.Equals(Path.GetFileName(pluginDirectory), StringComparison.CurrentCultureIgnoreCase)));
+			// IsValidReadme describes formats supported by the viewer, including functional .txt files.
+			// Installation filtering needs positive documentation evidence instead of an extension check.
+			return skipReadme && Readme.IsDocumentationFile(sourcePath);
 		}
 
 		private static List<KeyValuePair<string, string>> NormalizeGameRootFileMappings(List<KeyValuePair<string, string>> files, bool stripCommonWrapper)

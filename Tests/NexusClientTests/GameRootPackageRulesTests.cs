@@ -269,19 +269,60 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Creates an optional-capability GameMode without an installed game or persisted configuration.</summary>
-		private static IGameMode CreateGameMode(GameRootPackageRule[] rules = null)
+		private static IGameMode CreateGameMode(GameRootPackageRule[] rules = null, string modeId = null)
 		{
 			GameRootPackageRule[] configured = rules ?? new[] { CreateRule() };
 			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
+					case "get_ModeId": return modeId;
 					case "get_SupportsGameRootModInstall": return true;
 					case "get_GameRootPackageRules": return configured;
 					case "get_StopFolders": return new[] { "F4SE", "Tools", "textures" };
 					default: return null;
 				}
 			});
+		}
+
+		/// <summary>Recognizes the console-batch patterns used by the five Odyssey members without executing their commands.</summary>
+		[TestCase("JetpackOverhaul.txt", "; comment\nPlayer.setav BoostpackHorizontalPercentage 0.10")]
+		[TestCase("lz5.txt", "SetINISetting \"uLandingKeepBufferSize:Landing\" \"4\"\nSaveIniFiles")]
+		[TestCase("toleranceBig.txt", "SetINISetting \"fShipBuilderModuleOverlapTolerance:Spaceship\" \"-2\"\nSaveIniFiles")]
+		[TestCase("builderTweak.txt", "SetINISetting \"fShipBuilderMouseZoomSpeedMultiplier:Spaceship\" \"4\"\nSaveIniFiles\ncgf \"Debug.Notification\" \"Tweaked Ship Builder Settings\"")]
+		[TestCase("fov103.txt", "SetGS \"fFlightCameraFOV:FlightCamera\" 103")]
+		public void Match_StarfieldConsoleBatch_RequiresGameRoot(string name, string text)
+		{
+			var files = new Dictionary<string, byte[]> { { name, Encoding.UTF8.GetBytes(text) }, { "readme.txt", Encoding.UTF8.GetBytes("Documentation") } };
+			GameRootPackageMatch match = Match(files, CreateGameMode(new GameRootPackageRule[0], "Starfield"));
+			Assert.That(match, Is.Not.Null);
+			Assert.That(match.Rule.Id, Is.EqualTo("starfield-console-batch"));
+			Assert.That(match.ArchiveBaseDirectory, Is.Empty);
+			Assert.That(Match(files, CreateGameMode(new GameRootPackageRule[0], "Fallout4")), Is.Null);
+		}
+
+		/// <summary>Only a common non-content wrapper may be stripped for console batches.</summary>
+		[TestCase("Package\\", true)]
+		[TestCase("Data\\", false)]
+		[TestCase("SFSE\\Plugins\\", false)]
+		public void Match_StarfieldConsoleBatch_RespectsArchiveFolders(string prefix, bool expected)
+		{
+			var files = new Dictionary<string, byte[]> { { prefix + "batch.txt", Encoding.UTF8.GetBytes("player.setav boostpackdraininitial 0") } };
+			GameRootPackageMatch match = Match(files, CreateGameMode(new GameRootPackageRule[0], "Starfield"));
+			Assert.That(match != null, Is.EqualTo(expected));
+			if (expected) Assert.That(match.ArchiveBaseDirectory, Is.EqualTo("Package"));
+		}
+
+		/// <summary>Arbitrary text, empty/comment-only files and oversized documents do not establish a game-root destination.</summary>
+		[TestCase("Install this mod then run the command below.\nplayer.setav boostpackdraininitial 0")]
+		[TestCase("; comments only")]
+		[TestCase("SetINISetting")]
+		[TestCase("")]
+		public void Match_StarfieldTextWithoutBatchEvidence_PreservesDefaultDestination(string text)
+		{
+			IGameMode game = CreateGameMode(new GameRootPackageRule[0], "Starfield");
+			Assert.That(Match(new Dictionary<string, byte[]> { { "notes.txt", Encoding.UTF8.GetBytes(text) } }, game), Is.Null);
+			Assert.That(Match(new Dictionary<string, byte[]> { { "batch.txt", Encoding.UTF8.GetBytes(new string(' ', 65537)) } }, game), Is.Null);
 		}
 
 		/// <summary>Provides the optional rule capability for the read-only GameMode stub.</summary>

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using Nexus.Client.Games;
@@ -30,6 +31,19 @@ namespace Nexus.Client.ModManagement
 	public static class GameRootPackageMatcher
 	{
 		private const long MaximumXmlCharacters = 256 * 1024;
+		private const int MaximumConsoleBatchCharacters = 64 * 1024;
+		private static readonly HashSet<string> StarfieldBatchCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+		{
+			"SetINISetting", "SetGS", "SaveIniFiles", "player.setav", "cgf"
+		};
+
+		/// <summary>Reports whether this game has configured or characterized native game-root package recognition.</summary>
+		public static bool HasRules(IGameMode gameMode)
+		{
+			IGameRootPackageRuleProvider provider = gameMode as IGameRootPackageRuleProvider;
+			return gameMode != null && gameMode.SupportsGameRootModInstall &&
+				(IsStarfield(gameMode) || (provider != null && provider.GameRootPackageRules != null && provider.GameRootPackageRules.Count > 0));
+		}
 
 		/// <summary>Inspects a caller-verified mod archive without writing game, deployment or installation state.</summary>
 		public static GameRootPackageMatch Match(IGameMode gameMode, IMod archive,
@@ -38,9 +52,7 @@ namespace Nexus.Client.ModManagement
 			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
 			if (archive == null) throw new ArgumentNullException(nameof(archive));
 			cancellationToken.ThrowIfCancellationRequested();
-			IGameRootPackageRuleProvider provider = gameMode as IGameRootPackageRuleProvider;
-			if (!gameMode.SupportsGameRootModInstall || provider == null ||
-				provider.GameRootPackageRules == null || provider.GameRootPackageRules.Count == 0) return null;
+			if (!HasRules(gameMode)) return null;
 			return Match(gameMode, archive.GetFileList(), path => archive.GetFileStream(path), cancellationToken);
 		}
 
@@ -54,13 +66,20 @@ namespace Nexus.Client.ModManagement
 			if (openArchiveFile == null) throw new ArgumentNullException(nameof(openArchiveFile));
 			cancellationToken.ThrowIfCancellationRequested();
 			IGameRootPackageRuleProvider provider = gameMode as IGameRootPackageRuleProvider;
-			if (!gameMode.SupportsGameRootModInstall || provider == null) return null;
-			IReadOnlyList<GameRootPackageRule> rules = provider.GameRootPackageRules;
-			if (rules == null || rules.Count == 0) return null;
+			if (!HasRules(gameMode)) return null;
+			IReadOnlyList<GameRootPackageRule> rules = provider == null ? null : provider.GameRootPackageRules;
 
 			Dictionary<string, string> files = ReadArchivePaths(archiveFiles, cancellationToken);
 			if (files == null || files.Count == 0) return null;
 			string wrapper = GetCommonWrapper(files.Keys, gameMode.StopFolders);
+			if (IsStarfield(gameMode))
+			{
+				GameRootPackageMatch batch = MatchStarfieldBatch(files, String.Empty, openArchiveFile, cancellationToken);
+				if (batch == null && wrapper != null)
+					batch = MatchStarfieldBatch(files, wrapper, openArchiveFile, cancellationToken);
+				if (batch != null) return batch;
+			}
+			if (rules == null || rules.Count == 0) return null;
 			var xmlDocuments = new Dictionary<string, XmlDocument>(StringComparer.OrdinalIgnoreCase);
 			foreach (GameRootPackageRule rule in rules.Where(value => value != null).OrderBy(value => value.Id, StringComparer.Ordinal))
 			{
@@ -70,6 +89,58 @@ namespace Nexus.Client.ModManagement
 				if (rule.AllowSingleWrapperFolder && wrapper != null &&
 					MatchesAtBase(rule, wrapper + "\\", files, openArchiveFile, xmlDocuments, cancellationToken))
 					return new GameRootPackageMatch(rule, wrapper);
+			}
+			return null;
+		}
+
+		/// <summary>Keeps console-batch recognition scoped to Starfield, including its legacy game mode.</summary>
+		private static bool IsStarfield(IGameMode gameMode)
+		{
+			return String.Equals(gameMode.ModeId, "Starfield", StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>Recognizes an executable console batch at the archive root or one proven common wrapper.</summary>
+		private static GameRootPackageMatch MatchStarfieldBatch(IDictionary<string, string> files, string archiveBase,
+			Func<string, Stream> openArchiveFile, CancellationToken cancellationToken)
+		{
+			string prefix = archiveBase.Length == 0 ? String.Empty : archiveBase + "\\";
+			foreach (KeyValuePair<string, string> file in files.OrderBy(value => value.Key, StringComparer.OrdinalIgnoreCase))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (!file.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+				string relative = file.Key.Substring(prefix.Length);
+				if (relative.IndexOf('\\') >= 0 || !String.Equals(Path.GetExtension(relative), ".txt", StringComparison.OrdinalIgnoreCase) ||
+					Readme.IsDocumentationFile(relative)) continue;
+				using (Stream stream = openArchiveFile(file.Value))
+				using (var reader = new StreamReader(stream, Encoding.UTF8, true, 1024))
+				{
+					char[] buffer = new char[MaximumConsoleBatchCharacters + 1];
+					int count = reader.ReadBlock(buffer, 0, buffer.Length);
+					cancellationToken.ThrowIfCancellationRequested();
+					if (count > MaximumConsoleBatchCharacters) continue;
+					using (var lines = new StringReader(new String(buffer, 0, count)))
+					{
+						bool valid = true;
+						bool hasCommand = false;
+						string line;
+						while ((line = lines.ReadLine()) != null)
+						{
+							line = line.Trim();
+							if (line.Length == 0 || line.StartsWith(";", StringComparison.Ordinal) || line.StartsWith("//", StringComparison.Ordinal)) continue;
+							int separator = line.IndexOfAny(new[] { ' ', '\t' });
+							string command = separator < 0 ? line : line.Substring(0, separator);
+							if (!StarfieldBatchCommands.Contains(command) || line.IndexOf('\0') >= 0 ||
+								(separator < 0 && !String.Equals(command, "SaveIniFiles", StringComparison.OrdinalIgnoreCase)))
+							{
+								valid = false;
+								break;
+							}
+							hasCommand = true;
+						}
+						if (valid && hasCommand)
+							return new GameRootPackageMatch(new GameRootPackageRule("starfield-console-batch", new[] { relative }), archiveBase);
+					}
+				}
 			}
 			return null;
 		}
