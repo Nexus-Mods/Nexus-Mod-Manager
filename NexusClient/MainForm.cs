@@ -67,6 +67,7 @@
 		private CategoryManagerControl _categoryManagerControl;
 		private FileManagerControl _fileManagerControl;
 		private CollectionsPreviewControl _collectionsPreviewControl;
+		private Wabbajack.UI.WabbajackGalleryControl _wabbajackGalleryControl;
 		private Witcher3LoadOrderControl _witcher3LoadOrderControl;
 		private ManagedContentComponentsControl _managedContentComponentsControl;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
@@ -181,6 +182,7 @@
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
 					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
 					_viewModel.CollectionRevisionUpdateWorkflow);
+				_wabbajackGalleryControl.Initialize(_viewModel.WabbajackGallery);
 				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
 				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
@@ -331,6 +333,7 @@
 			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
 			_fileManagerControl = new FileManagerControl();
 			_collectionsPreviewControl = new CollectionsPreviewControl();
+			_wabbajackGalleryControl = new Wabbajack.UI.WabbajackGalleryControl();
 			_witcher3LoadOrderControl = new Witcher3LoadOrderControl();
 			_managedContentComponentsControl = new ManagedContentComponentsControl();
 			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;

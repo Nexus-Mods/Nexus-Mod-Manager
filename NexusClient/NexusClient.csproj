@@ -428,6 +428,10 @@
     <Compile Include="OnlineServices\NexusMods\NexusCredentials.cs" />
     <Compile Include="OnlineServices\NexusMods\NexusErrorMapper.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\INexusCollectionsProvider.cs" />
+    <Compile Include="OnlineServices\Wabbajack\WabbajackModels.cs" />
+    <Compile Include="OnlineServices\Wabbajack\WabbajackClient.cs" />
+    <Compile Include="OnlineServices\Wabbajack\WabbajackPackage.cs" />
+    <Compile Include="Wabbajack\UI\WabbajackGalleryControl.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionsClient.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionsModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionDomainMapper.cs" />
@@ -1661,6 +1665,7 @@
     <Reference Include="System.Data.OracleClient" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
+    <Reference Include="PresentationCore" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>

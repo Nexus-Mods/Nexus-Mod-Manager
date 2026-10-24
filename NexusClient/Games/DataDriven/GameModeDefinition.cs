@@ -34,6 +34,7 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeThemeDefinition Theme { get; set; }
         public GameModeSetupDefinition Setup { get; set; }
         public GameModeSettingsDefinition Settings { get; set; }
+        public GameModeWabbajackDefinition Wabbajack { get; set; }
         public GameModeStorageDefinition Storage { get; set; }
         public GameModeModInstallDefinition ModInstall { get; set; }
         public GameModeGamebryoDefinition Gamebryo { get; set; }
@@ -50,6 +51,13 @@ namespace Nexus.Client.Games.DataDriven
 
         [JsonIgnore]
         public string DefinitionDirectory { get; set; }
+    }
+
+    /// <summary>Opts a game into the shared Wabbajack gallery using its upstream catalogue game identifier.</summary>
+    public sealed class GameModeWabbajackDefinition
+    {
+        public bool Enabled { get; set; }
+        public string Game { get; set; }
     }
 
     public class GameModeDiscoveryDefinition

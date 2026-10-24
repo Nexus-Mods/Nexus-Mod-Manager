@@ -133,6 +133,16 @@
     "settings": {
       "$ref": "#/$defs/settings"
     },
+    "wabbajack": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "game": { "type": "string", "minLength": 1, "description": "Wabbajack catalogue game identifier, for example falloutnewvegas." }
+      },
+      "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+      "then": { "required": ["game"] }
+    },
     "storage": {
       "$ref": "#/$defs/storage"
     },

@@ -342,6 +342,7 @@
     <Compile Include="BasicInstallPlanBuilderTests.cs" />
     <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
     <Compile Include="DataDrivenPrelauncherTests.cs" />
+    <Compile Include="WabbajackGalleryTests.cs" />
     <Compile Include="GamebryoDescriptorRescanTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />

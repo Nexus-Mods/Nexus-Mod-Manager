@@ -130,6 +130,7 @@
 				ClosePlaceholder(_categoryManagerControl);
 				ClosePlaceholder(_fileManagerControl);
 				ClosePlaceholder(_collectionsPreviewControl);
+				ClosePlaceholder(_wabbajackGalleryControl);
 				ClosePlaceholder(_witcher3LoadOrderControl);
 				ClosePlaceholder(_managedContentComponentsControl);
 
@@ -150,6 +151,7 @@
 				_categoryManagerControl = null;
 				_fileManagerControl = null;
 				_collectionsPreviewControl = null;
+				_wabbajackGalleryControl = null;
 				_witcher3LoadOrderControl = null;
 				_managedContentComponentsControl = null;
 				_downloadMonitorControl = null;

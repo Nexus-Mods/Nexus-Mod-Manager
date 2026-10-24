@@ -14,6 +14,7 @@
 	using Nexus.Client.Commands;
 	using Nexus.Client.CollectionManagement;
 	using Nexus.Client.Games;
+	using Nexus.Client.Games.DataDriven;
 	using Nexus.Client.Games.Tools;
 	using Nexus.Client.ModActivationMonitoring;
 	using Nexus.Client.ModActivationMonitoring.UI;
@@ -476,6 +477,9 @@
 		/// <value>The game mode currently being managed.</value>
 		public IGameMode GameMode { get; private set; }
 
+		/// <summary>Gets the active game's optional configuration for the shared Wabbajack gallery.</summary>
+		public GameModeWabbajackDefinition WabbajackGallery { get; private set; }
+
 		/// <summary>
 		/// Gets the name of the currently managed game mode.
 		/// </summary>
@@ -714,6 +718,7 @@
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
+			WabbajackGallery = (p_gmrInstalledGames.GetGameMode(GameMode.ModeId) as DataDrivenGameModeFactory)?.Definition.Wabbajack;
 			GameMode.GameLauncher.GameLaunching += new CancelEventHandler(GameLauncher_GameLaunching);
 			ModManager = p_mmgModManager;
 			PluginManager = p_pmgPluginManager;

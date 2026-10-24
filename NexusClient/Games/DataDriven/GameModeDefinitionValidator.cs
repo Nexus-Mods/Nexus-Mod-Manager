@@ -80,6 +80,9 @@ namespace Nexus.Client.Games.DataDriven
             if (string.IsNullOrWhiteSpace(definition.Name))
                 issues.Add(Error(definition, "name", "name is required."));
 
+            if (definition.Wabbajack != null && definition.Wabbajack.Enabled && string.IsNullOrWhiteSpace(definition.Wabbajack.Game))
+                issues.Add(Error(definition, "wabbajack.game", "An enabled Wabbajack gallery requires its catalogue game identifier."));
+
             if (definition.CriticalFilesErrorMessage != null && string.IsNullOrWhiteSpace(definition.CriticalFilesErrorMessage))
                 issues.Add(Error(definition, "criticalFilesErrorMessage", "criticalFilesErrorMessage cannot be empty when present."));
 

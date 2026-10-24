@@ -99,6 +99,10 @@
   "settings": {
     "useGenericSettings": true
   },
+  "wabbajack": {
+    "enabled": true,
+    "game": "falloutnewvegas"
+  },
   "modInstall": {
     "pathAdjustmentProfile": "none",
     "hardlinkRequiredExtensions": [

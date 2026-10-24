@@ -236,6 +236,10 @@
 			}
 
 			EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
+			if (_wabbajackGalleryControl.IsAvailable)
+				EnsureMdiDocument(_wabbajackGalleryControl, "WabbajackGalleryDocument", "Wabbajack");
+			else if (_wabbajackGalleryControl.Visible)
+				_wabbajackGalleryControl.Hide();
 			EnsureMdiDocument(_gameDiscoveryDocument, "GameDiscoveryDocument", L("GameDiscovery.TabTitle", "Games"));
 			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 		}
@@ -248,7 +252,7 @@
 			if (ViewModel == null)
 				return new Control[] { _gameDiscoveryDocument, _emptyModsDocument, _emptyCategoriesDocument, _emptyCollectionsDocument };
 			return new Control[] { _gameDiscoveryDocument, _pluginManagerControl, _witcher3LoadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
-				_fileManagerControl, _collectionsPreviewControl, _managedContentComponentsControl };
+				_fileManagerControl, _collectionsPreviewControl, _wabbajackGalleryControl, _managedContentComponentsControl };
 		}
 
 		/// <summary>
@@ -584,6 +588,9 @@
 
 			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _collectionsPreviewControl))
 				_collectionsPreviewControl.RefreshInstalledState();
+
+			if (_mainDocumentPersistenceEnabled && Visible && Object.ReferenceEquals(e?.Document?.Control, _wabbajackGalleryControl))
+				await _wabbajackGalleryControl.EnsureLoadedAsync().ConfigureAwait(true);
 
 			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null &&
 				Object.ReferenceEquals(e.Document.Control, _witcher3LoadOrderControl) &&
