@@ -6304,8 +6304,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					: revision != null ? "collection " + revision.Collection.StableId : L("Collections.Value.Unknown", "Unknown"));
 			if (revision != null)
 			{
-				_revisionValue.Text = LanguageManager.Format("Collections.Preview.ConcreteRevision", "#{0} (collection {1}, revision {2})",
-					revision.Identity.NexusRevisionNumber, revision.Collection.StableId, revision.Identity.StableRevisionId);
+				_revisionValue.Text = revision.Identity.NexusRevisionNumber.HasValue
+					? LanguageManager.Format("Collections.Preview.ConcreteRevision", "#{0} (collection {1}, revision {2})",
+						revision.Identity.NexusRevisionNumber, revision.Collection.StableId, revision.Identity.StableRevisionId)
+					: FirstNonEmpty(revision.RevisionLabel, revision.Identity.StableRevisionId);
 			}
 			else if (providerRevision != null && providerRevision.RevisionNumber.HasValue)
 				_revisionValue.Text = LanguageManager.Format("Collections.Preview.PartialRevision", "#{0} (identity incomplete)", providerRevision.RevisionNumber.Value);

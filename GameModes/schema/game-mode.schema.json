@@ -138,7 +138,10 @@
       "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean", "default": false },
-        "game": { "type": "string", "minLength": 1, "description": "Wabbajack catalogue game identifier, for example falloutnewvegas." }
+        "game": { "type": "string", "minLength": 1, "description": "Wabbajack catalogue game identifier, for example falloutnewvegas." },
+        "gameRootFolders": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "toolFolders": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "pluginFileUsesActiveMarkers": { "type": "boolean", "default": false }
       },
       "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
       "then": { "required": ["game"] }

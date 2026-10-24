@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -72,6 +73,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			_setupHistory = new MemoEdit { Dock = DockStyle.Fill }; _setupHistory.Properties.ReadOnly = true; layout.Controls.Add(_setupHistory, 0, 4);
 			_setupImport.Click += async (sender, args) =>
 			{
+				if (_preparedWabbajackRevision != null && _preparedWabbajackRevision.Equals(SetupRevision()) && File.Exists(_preparedWabbajackSetupPath))
+				{
+					await ReviewSetupPackageAsync(_preparedWabbajackSetupPath); return;
+				}
 				using (var dialog = new OpenFileDialog { Filter = L("Collections.Setup.ZipFilter", "Setup ZIP archives (*.zip)|*.zip"), CheckFileExists = true })
 					if (dialog.ShowDialog(this) == DialogResult.OK) await ReviewSetupPackageAsync(dialog.FileName);
 			};
@@ -184,6 +189,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			try
 			{
 				CollectionSetupPackage package = await Task.Run(() => _workflow.SetupPackages.Preview(path, revision), token);
+				if (revision.Equals(_preparedWabbajackRevision) && !string.IsNullOrEmpty(_preparedWabbajackSettingsDirectory))
+				{
+					package.DocumentsDirectory = _preparedWabbajackSettingsDirectory;
+					_workflow.SetupPackages.Refresh(package);
+				}
 				if (!IsWorkflowContextCurrent(context, token)) return;
 				using (var dialog = new CollectionSetupPackageReviewDialog(package, _workflow.SetupPackages, SetupInstalled()))
 				{

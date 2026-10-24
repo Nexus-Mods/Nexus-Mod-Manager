@@ -17,10 +17,14 @@ namespace Nexus.Client.OnlineServices.Wabbajack
 		public string GameType { get; set; }
 		public string Version { get; set; }
 		public string WabbajackVersion { get; set; }
+		public string Readme { get; set; }
+		public string Website { get; set; }
 		public List<WabbajackArchive> Archives { get; set; } = new List<WabbajackArchive>();
 		public List<WabbajackDirective> Directives { get; set; } = new List<WabbajackDirective>();
 		[JsonIgnore] public string FilePath { get; internal set; }
 		[JsonIgnore] public string RawManifest { get; internal set; }
+		[JsonIgnore] public string SourceId { get; internal set; }
+		[JsonIgnore] public string DefaultProfile { get; internal set; }
 		[JsonExtensionData] public IDictionary<string, JToken> AdditionalData { get; set; }
 
 		/// <summary>Reads either manifest entry name accepted by Wabbajack without extracting or executing the package.</summary>
@@ -38,8 +42,25 @@ namespace Nexus.Client.OnlineServices.Wabbajack
 					throw new InvalidDataException(LanguageManager.Get("Wabbajack.InvalidManifest", "The Wabbajack modlist manifest could not be read."));
 				package.FilePath = Path.GetFullPath(filePath);
 				package.RawManifest = json;
+				WabbajackDirective compiler = package.Directives.Find(directive => directive.To != null &&
+					(directive.To.EndsWith(".compiler_settings", StringComparison.OrdinalIgnoreCase) || directive.To.EndsWith(".mo2_compiler_settings", StringComparison.OrdinalIgnoreCase)));
+				ZipArchiveEntry settings = compiler == null || compiler.SourceDataId == null ? null : archive.GetEntry(compiler.SourceDataId);
+				if (settings != null)
+					using (StreamReader reader = new StreamReader(settings.Open()))
+					{
+						CompilerSettings metadata = JsonConvert.DeserializeObject<CompilerSettings>(reader.ReadToEnd(), WabbajackClient.JsonSettings);
+						package.SourceId = metadata?.MachineUrl;
+						package.DefaultProfile = metadata?.Profile;
+					}
 				return package;
 			}
+		}
+
+		/// <summary>Compiled source identity and default profile, independent of local authoring paths.</summary>
+		private sealed class CompilerSettings
+		{
+			public string MachineUrl { get; set; }
+			public string Profile { get; set; }
 		}
 	}
 
@@ -76,6 +97,7 @@ namespace Nexus.Client.OnlineServices.Wabbajack
 		public string[] ArchiveHashPath { get; set; }
 		public string SourceDataId { get; set; }
 		public string PatchId { get; set; }
+		public string FromHash { get; set; }
 		[JsonExtensionData] public IDictionary<string, JToken> AdditionalData { get; set; }
 	}
 }

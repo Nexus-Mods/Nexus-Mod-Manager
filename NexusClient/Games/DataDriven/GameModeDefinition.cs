@@ -58,6 +58,9 @@ namespace Nexus.Client.Games.DataDriven
     {
         public bool Enabled { get; set; }
         public string Game { get; set; }
+        public string[] GameRootFolders { get; set; } = new string[0];
+        public string[] ToolFolders { get; set; } = new string[0];
+        public bool PluginFileUsesActiveMarkers { get; set; }
     }
 
     public class GameModeDiscoveryDefinition

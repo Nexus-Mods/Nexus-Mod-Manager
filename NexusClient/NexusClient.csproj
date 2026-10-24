@@ -431,7 +431,18 @@
     <Compile Include="OnlineServices\Wabbajack\WabbajackModels.cs" />
     <Compile Include="OnlineServices\Wabbajack\WabbajackClient.cs" />
     <Compile Include="OnlineServices\Wabbajack\WabbajackPackage.cs" />
-    <Compile Include="Wabbajack\UI\WabbajackGalleryControl.cs" />
+    <Compile Include="OnlineServices\Wabbajack\WabbajackHash.cs" />
+    <Compile Include="Wabbajack\WabbajackProfile.cs" />
+    <Compile Include="Wabbajack\WabbajackCollectionConverter.cs" />
+    <Compile Include="Wabbajack\UI\WabbajackPreparationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Wabbajack.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Wabbajack\UI\WabbajackGalleryControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionsClient.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionsModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionDomainMapper.cs" />
@@ -1050,6 +1061,12 @@
     <Content Include="data\Third-Party Licenses\SevenZipSharp License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="data\Third-Party Licenses\Octodiff License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="data\Third-Party Licenses\System.IO.Hashing License.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="data\Third-Party Licenses\TxFileMAnager License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -1665,6 +1682,12 @@
     <Reference Include="System.Data.OracleClient" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
+    <Reference Include="Octodiff">
+      <HintPath>..\Stage\packages\Octopus.Octodiff.2.0.549\lib\netstandard2.0\Octodiff.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IO.Hashing">
+      <HintPath>..\Stage\packages\System.IO.Hashing.8.0.0\lib\net462\System.IO.Hashing.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">

@@ -97,6 +97,9 @@
     </Reference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.IO.Compression" />
+    <Reference Include="Octodiff">
+      <HintPath>..\..\Stage\packages\Octopus.Octodiff.2.0.549\lib\netstandard2.0\Octodiff.dll</HintPath>
+    </Reference>
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
@@ -343,6 +346,7 @@
     <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
     <Compile Include="DataDrivenPrelauncherTests.cs" />
     <Compile Include="WabbajackGalleryTests.cs" />
+    <Compile Include="WabbajackConversionTests.cs" />
     <Compile Include="GamebryoDescriptorRescanTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />

@@ -101,7 +101,9 @@
   },
   "wabbajack": {
     "enabled": true,
-    "game": "falloutnewvegas"
+    "game": "falloutnewvegas",
+    "gameRootFolders": [ "__Files Requiring Manual Install" ],
+    "toolFolders": [ "__Vanilla BSAs Patcher" ]
   },
   "modInstall": {
     "pathAdjustmentProfile": "none",

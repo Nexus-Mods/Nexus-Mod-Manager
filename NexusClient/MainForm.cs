@@ -182,7 +182,8 @@
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
 					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
 					_viewModel.CollectionRevisionUpdateWorkflow);
-				_wabbajackGalleryControl.Initialize(_viewModel.WabbajackGallery);
+				_wabbajackGalleryControl.Initialize(_viewModel.WabbajackGallery, _viewModel,
+					(collection, settingsDirectory) => _collectionsPreviewControl.OpenPreparedWabbajackAsync(collection, settingsDirectory));
 				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
 				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;

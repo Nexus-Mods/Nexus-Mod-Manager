@@ -46,6 +46,7 @@ namespace Nexus.Client.Wabbajack.UI
 		private readonly SimpleButton _website;
 		private readonly SimpleButton _contents;
 		private readonly SimpleButton _openFile;
+		private readonly SimpleButton _prepare;
 		private readonly MemoEdit _details;
 		private readonly LabelControl _status;
 		private WabbajackCatalogue _catalogue;
@@ -53,6 +54,10 @@ namespace Nexus.Client.Wabbajack.UI
 		private CancellationTokenSource _operation;
 		private bool _busy;
 		private bool _updatingFilters;
+		private MainFormVM _viewModel;
+		private Func<WabbajackConvertedCollection, string, Task> _openPrepared;
+		private string _lastPackagePath;
+		private string _lastSourceId;
 
 		/// <summary>Creates native DevExpress tiles, filters and list actions without making network requests.</summary>
 		public WabbajackGalleryControl()
@@ -77,9 +82,10 @@ namespace Nexus.Client.Wabbajack.UI
 			_cancel = Button(L("Cancel", "Cancel"), () => _operation?.Cancel());
 			_cancel.Enabled = false;
 			_openFile = Button(L("OpenFile", "Open list file..."), async () => await OpenFileAsync());
+			_prepare = Button(L("PrepareInstallation", "Prepare installation..."), async () => await PrepareInstallationAsync());
 
 			FlowLayoutPanel filters = Flow();
-			filters.Controls.AddRange(new Control[] { _search, _unofficial, _nsfw, _sort, _refresh, _openFile, _cancel });
+			filters.Controls.AddRange(new Control[] { _search, _unofficial, _nsfw, _sort, _refresh, _openFile, _prepare, _cancel });
 			FlowLayoutPanel advancedFilters = Flow();
 			advancedFilters.Controls.AddRange(new Control[]
 			{
@@ -131,7 +137,7 @@ namespace Nexus.Client.Wabbajack.UI
 			split.Panel1.Controls.Add(_grid);
 			split.Panel2.Controls.Add(detailLayout);
 			_status = new LabelControl { Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.Vertical, Padding = new Padding(8) };
-			LabelControl phase = Label(L("BrowseOnly", "Browse and download Wabbajack lists. Installation support is not available yet."));
+			LabelControl phase = Label(L("BrowseAndPrepare", "Browse lists or prepare a compiled profile for installation with NMM."));
 			phase.Dock = DockStyle.Fill;
 			phase.AutoSizeMode = LabelAutoSizeMode.Vertical;
 			TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
@@ -157,7 +163,10 @@ namespace Nexus.Client.Wabbajack.UI
 		private WabbajackList SelectedList => (_tiles.GetFocusedRow() as GalleryRow)?.List;
 
 		/// <summary>Supplies the active game's JSON configuration; omitted settings leave the tab unavailable.</summary>
-		public void Initialize(GameModeWabbajackDefinition configuration) { _configuration = configuration; }
+		public void Initialize(GameModeWabbajackDefinition configuration, MainFormVM viewModel, Func<WabbajackConvertedCollection, string, Task> openPrepared)
+		{
+			_configuration = configuration; _viewModel = viewModel; _openPrepared = openPrepared;
+		}
 
 		/// <summary>Loads the gallery on its first activation, leaving game startup free of Wabbajack requests.</summary>
 		public async Task EnsureLoadedAsync()
@@ -266,6 +275,7 @@ namespace Nexus.Client.Wabbajack.UI
 		{
 			WabbajackList list = SelectedList;
 			if (_download == null) return;
+			_prepare.Enabled = !_busy && IsAvailable && _openPrepared != null;
 			_download.Enabled = !_busy && list != null && !list.IsUnavailable && IsWebLink(list.Links.Download);
 			_readme.Enabled = list != null && IsWebLink(list.Links.Readme);
 			_website.Enabled = list != null && IsWebLink(list.Links.WebsiteUrl);
@@ -292,7 +302,7 @@ namespace Nexus.Client.Wabbajack.UI
 				{
 					Progress<int> progress = new Progress<int>(percent => { if (!IsDisposed) _status.Text = string.Format(L("DownloadProgress", "Downloading list: {0}%"), percent); });
 					await _client.DownloadAsync(list, dialog.FileName, progress, _operation.Token);
-					await InspectAsync(dialog.FileName);
+					await InspectAsync(dialog.FileName, list.Id);
 					if (!IsDisposed) _status.Text = string.Format(L("Downloaded", "Downloaded: {0}"), dialog.FileName);
 				}
 				catch (OperationCanceledException) { if (!IsDisposed) _status.Text = L("Cancelled", "Cancelled."); }
@@ -317,10 +327,11 @@ namespace Nexus.Client.Wabbajack.UI
 		}
 
 		/// <summary>Summarizes typed sources and directives while preserving the full recipe for later translation.</summary>
-		private async Task InspectAsync(string filePath)
+		private async Task InspectAsync(string filePath, string sourceId = null)
 		{
 			WabbajackPackage package = await Task.Run(() => WabbajackPackage.Read(filePath), _operation.Token);
 			if (IsDisposed || _operation.IsCancellationRequested) return;
+			_lastPackagePath = filePath; _lastSourceId = sourceId;
 			StringBuilder text = new StringBuilder();
 			text.AppendLine(package.Name).AppendLine(package.Author).AppendLine(package.GameType).AppendLine(package.Version).AppendLine();
 			text.AppendLine(package.Description).AppendLine();
@@ -330,13 +341,39 @@ namespace Nexus.Client.Wabbajack.UI
 			text.AppendLine().AppendLine(L("Instructions", "Installation instructions:"));
 			foreach (IGrouping<string, WabbajackDirective> group in package.Directives.GroupBy(directive => directive.Type ?? "Unknown"))
 				text.AppendLine(group.Key + ": " + group.Count());
-			text.AppendLine().AppendLine(L("BrowseOnly", "Browse and download Wabbajack lists. Installation support is not available yet."));
+			text.AppendLine().AppendLine(L("PrepareInspectionHint", "Prepare installation opens this profile as a Collection for NMM's installation review."));
 			using (XtraForm form = new XtraForm { Text = package.Name ?? "Wabbajack", Size = new Size(700, 560), StartPosition = FormStartPosition.CenterParent })
 			using (MemoEdit memo = new MemoEdit { Dock = DockStyle.Fill, Text = text.ToString() })
 			{
 				memo.Properties.ReadOnly = true;
 				form.Controls.Add(memo);
 				form.ShowDialog(this);
+			}
+		}
+
+		/// <summary>Prepares a selected compiled list and passes it to the existing Collection installation surface.</summary>
+		private async Task PrepareInstallationAsync()
+		{
+			if (_busy || _viewModel == null || _openPrepared == null) return;
+			using (OpenFileDialog file = new OpenFileDialog { Filter = L("PackageFilter", "Wabbajack lists (*.wabbajack)|*.wabbajack"), FileName = _lastPackagePath ?? string.Empty })
+			{
+				if (file.ShowDialog(this) != DialogResult.OK) return;
+				string sourceId = string.Equals(file.FileName, _lastPackagePath, StringComparison.OrdinalIgnoreCase) ? _lastSourceId : null;
+				BeginOperation(L("Reading", "Reading list..."));
+				try
+				{
+					WabbajackPackage package = await Task.Run(() => WabbajackPackage.Read(file.FileName), _operation.Token);
+					if (IsDisposed || _operation.IsCancellationRequested) return;
+					using (WabbajackPreparationDialog dialog = new WabbajackPreparationDialog(_viewModel, package, _client, sourceId))
+					{
+						if (dialog.ShowDialog(this) != DialogResult.OK) return;
+						string settingsDirectory = (_viewModel.GameMode as Nexus.Client.Games.Gamebryo.GamebryoGameModeBase)?.UserGameDataPath;
+						await _openPrepared(dialog.Result, settingsDirectory);
+					}
+				}
+				catch (OperationCanceledException) { }
+				catch (Exception error) { ReportError(error); }
+				finally { EndOperation(); }
 			}
 		}
 
