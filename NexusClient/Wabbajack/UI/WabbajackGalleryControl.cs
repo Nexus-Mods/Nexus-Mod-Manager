@@ -194,8 +194,10 @@ namespace Nexus.Client.Wabbajack.UI
 			layout.Controls.Add(feedback, 0, 1);
 			layout.Controls.Add(_modAuthorWarning, 0, 2);
 			Controls.Add(layout);
-			foreach (BaseEdit editor in new BaseEdit[] { _search, _unofficial, _nsfw, _tags, _mods, _excludeMods, _minimumSize, _maximumSize, _sort })
+			foreach (BaseEdit editor in new BaseEdit[] { _search, _tags, _mods, _minimumSize, _maximumSize, _sort })
 				editor.EditValueChanged += (sender, args) => ApplyFilters();
+			foreach (CheckEdit check in new[] { _unofficial, _nsfw, _excludeMods })
+				check.CheckedChanged += CheckFilter_CheckedChanged;
 			ShowSelectedList();
 		}
 
@@ -252,6 +254,13 @@ namespace Nexus.Client.Wabbajack.UI
 			catch (OperationCanceledException) { if (!IsDisposed) _activity.Detail = L("Cancelled", "Cancelled."); }
 			catch (Exception error) { ReportError(error); }
 			finally { _updatingFilters = false; EndOperation(); }
+		}
+
+		/// <summary>Lets the checkbox commit its state and finish its click before rebuilding the gallery.</summary>
+		private void CheckFilter_CheckedChanged(object sender, EventArgs e)
+		{
+			if (IsHandleCreated && !IsDisposed)
+				BeginInvoke((Action)ApplyFilters);
 		}
 
 		/// <summary>Filters catalogue metadata locally and fills native tile cards.</summary>

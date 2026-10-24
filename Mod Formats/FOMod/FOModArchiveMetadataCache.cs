@@ -18,7 +18,6 @@
 	{
 		internal const string DatabaseFileName = "fomodArchiveMetadata.sqlite";
 		private const int SchemaVersion = 1;
-		private const int CommitBatchSize = 50;
 		private const int BusyTimeoutMilliseconds = 5000;
 		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private static readonly object NativeLoadLock = new object();
@@ -396,10 +395,8 @@ VALUES
 						command.ExecuteNonQuery();
 						_database.PendingWrites++;
 
-						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
-						{
-							CommitDatabase(_database);
-						}
+						// Release the SQLite writer before registration uses this database from another FOMod load context.
+						CommitDatabase(_database);
 					}
 			}
 			catch (Exception e)
@@ -437,10 +434,8 @@ VALUES
 						command.ExecuteNonQuery();
 						_database.PendingWrites++;
 
-						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
-						{
-							CommitDatabase(_database);
-						}
+						// Release the SQLite writer before registration uses this database from another FOMod load context.
+						CommitDatabase(_database);
 					}
 			}
 			catch (Exception e)
@@ -558,10 +553,8 @@ VALUES
 						_database.AddArchiveFingerprint(archivePath, archiveInfo.Length, archiveInfo.LastWriteTimeUtc.Ticks);
 						_database.PendingWrites++;
 
-						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
-						{
-							CommitDatabase(_database);
-						}
+						// Release the SQLite writer before registration uses this database from another FOMod load context.
+						CommitDatabase(_database);
 					}
 			}
 			catch (Exception e)

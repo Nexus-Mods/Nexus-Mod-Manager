@@ -143,6 +143,45 @@
 			AssertAssignment(storage, store, "Failure.7z", null, null, 12, ModSortOrderAssignmentState.ExplicitNumeric);
 		}
 
+		/// <summary>A single cache write must release its SQLite writer even when no later archive fills the old batch.</summary>
+		[TestCase("Save")]
+		[TestCase("SaveScreenshot")]
+		[TestCase("RemoveScreenshot")]
+		public void ArchiveCacheWriteReleasesWriterBeforeRegistration(string methodName)
+		{
+			var storage = CreateStorage();
+			var store = storage.CreateStore();
+			Type cacheType = typeof(ModSortOrderStore).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+			object cache = Activator.CreateInstance(cacheType, new object[] { storage.CacheDirectory });
+			object database = typeof(ModSortOrderStore).GetField("_database", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(store);
+			Type databaseType = database.GetType();
+			// Keep the former time-based batch flush ineligible without depending on test execution speed.
+			databaseType.GetField("LastCommitUtc").SetValue(database, DateTime.UtcNow.AddMinutes(1));
+			string archivePath = Path.Combine(storage.ModDirectory, "CacheProbe.7z");
+			File.WriteAllBytes(archivePath, new byte[] { 1 });
+			object[] arguments;
+			if (methodName == "Save")
+			{
+				Type metadataType = cacheType.Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadata", true);
+				object metadata = Activator.CreateInstance(metadataType, true);
+				metadataType.GetProperty("InfoXml").SetValue(metadata, new byte[] { 1 }, null);
+				arguments = new object[] { archivePath, metadata };
+			}
+			else if (methodName == "SaveScreenshot") arguments = new object[] { archivePath, "screenshot.png", new byte[] { 1 } };
+			else arguments = new object[] { archivePath };
+			cacheType.GetMethod(methodName).Invoke(cache, arguments);
+			Assert.That(databaseType.GetField("Transaction").GetValue(database), Is.Null, "A completed cache call must not block another registration connection.");
+			using (var connection = OpenFreshConnection(storage.DatabasePath))
+			using (var transaction = connection.BeginTransaction())
+			using (var command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "UPDATE mod_sort_assignments SET updated_utc = updated_utc WHERE assignment_id = -1;";
+				Assert.DoesNotThrow(() => command.ExecuteNonQuery());
+				transaction.Rollback();
+			}
+		}
+
 		/// <summary>
 		/// Ensures a durable write does not leave an idle SQLite writer transaction behind.
 		/// A second FOMod assembly/load context must be able to begin its own durable transaction immediately.
