@@ -6,14 +6,17 @@ namespace Nexus.Client.Games
 	/// <summary>Stores display-only section choices while preserving historical game configuration.</summary>
 	internal static class GameDiscoverySectionPreference
 	{
-		/// <summary>Applies recognized preferences only while a previously configured game's installation is missing.</summary>
+		/// <summary>Preserves missing-game choices and a confirmed installation awaiting storage setup.</summary>
 		internal static GameDiscoveryCollection GetCollection(ISettings settings, string modeId, bool missing, GameDiscoveryCollection automaticCollection)
 		{
 			string saved;
-			if (missing && settings.GameDiscoverySections != null && settings.GameDiscoverySections.TryGetValue(modeId, out saved))
+			if (settings.GameDiscoverySections != null && settings.GameDiscoverySections.TryGetValue(modeId, out saved))
 			{
-				if (saved == nameof(GameDiscoveryCollection.ToConfigure)) return GameDiscoveryCollection.ToConfigure;
-				if (saved == nameof(GameDiscoveryCollection.Supported)) return GameDiscoveryCollection.Supported;
+				bool completed;
+				// An explicit incomplete setup plus ToConfigure is persisted by installation confirmation.
+				bool pendingSetup = settings.CompletedSetup != null && settings.CompletedSetup.TryGetValue(modeId, out completed) && !completed;
+				if (saved == nameof(GameDiscoveryCollection.ToConfigure) && (missing || pendingSetup)) return GameDiscoveryCollection.ToConfigure;
+				if (missing && saved == nameof(GameDiscoveryCollection.Supported)) return GameDiscoveryCollection.Supported;
 			}
 			return automaticCollection;
 		}

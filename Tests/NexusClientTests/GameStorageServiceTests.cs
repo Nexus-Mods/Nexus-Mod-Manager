@@ -420,6 +420,52 @@ namespace NexusClientTests
             Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedGame), Is.True);
         }
 
+        /// <summary>Explicitly applying empty staging records its current snapshot without touching previous payload.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void InitialSetup_EmptyStorageRequiresExplicitAcceptance(bool acceptEmpty)
+        {
+            var strings = new System.Collections.Generic.Dictionary<string, Nexus.Client.Settings.PerGameModeSettings<string>>();
+            foreach (string name in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder" })
+                strings[name] = new Nexus.Client.Settings.PerGameModeSettings<string>();
+            var multiDrive = new Nexus.Client.Settings.PerGameModeSettings<bool>();
+            var settings = InterfaceStub<Nexus.Client.Settings.ISettings>.Create((method, args) =>
+            {
+                if (method.Name == "get_MultiHDInstall") return multiDrive;
+                if (method.Name.StartsWith("get_") && strings.ContainsKey(method.Name.Substring(4)))
+                    return strings[method.Name.Substring(4)];
+                return null;
+            });
+            var environment = InterfaceStub<Nexus.Client.IEnvironmentInfo>.Create((method, args) =>
+            {
+                if (method.Name == "get_Settings") return settings;
+                if (method.Name == "get_ApplicationPersonalDataFolderPath") return _tempRoot;
+                if (method.Name == "get_ApplicationVersion") return new Version(9, 0, 1);
+                return null;
+            });
+            _service = new GameStorageService(environment);
+            var previous = CreateStorage("SkyrimSE", "Previous", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(previous);
+            string snapshot = File.ReadAllText(_service.RegistryPath);
+            var selected = CreateStorage("SkyrimSE", "Selected", withArchive: true);
+            GameStorageHealthCheck health;
+            Assert.That(_service.ApplyInitialSetupCandidate(previous, CreateCandidate(selected), acceptEmpty, out health), Is.EqualTo(acceptEmpty));
+            if (acceptEmpty)
+            {
+                Assert.That(health.IsHealthy, Is.True);
+                Assert.That(_service.ValidateStorage(selected).IsHealthy, Is.True, "Confirmed empty staging must not prompt again.");
+                Assert.That(strings["ModFolder"]["SkyrimSE"], Is.EqualTo(selected.ModsPath));
+                Assert.That(strings["InstallInfoFolder"]["SkyrimSE"], Is.EqualTo(selected.InstallInfoPath));
+            }
+            else
+            {
+                Assert.That(health.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
+                Assert.That(File.ReadAllText(_service.RegistryPath), Is.EqualTo(snapshot));
+            }
+            Assert.That(File.ReadAllText(Path.Combine(previous.ModsPath, "ExampleMod.7z")), Is.EqualTo("archive"));
+            Assert.That(File.ReadAllText(Path.Combine(previous.VirtualInstallPath, "Data", "Example.esp")), Is.EqualTo("plugin"));
+        }
+
         [Test]
         public void ValidateStorage_EmptyCurrentStorageAfterKnownGood_IsSuspicious()
         {

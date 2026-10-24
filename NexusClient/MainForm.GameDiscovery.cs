@@ -25,6 +25,7 @@
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ManageGameRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> StartupDefaultGameRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureGameRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfirmGameInstallationRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateGameRequested;
 		internal event EventHandler GameCatalogReady;
 		internal GameModeRegistry GameDiscoveryRegistry => _gameDiscoveryRegistry;
@@ -37,9 +38,12 @@
 
 		/// <summary>Refresh only the read-only projection after explicit configuration.
 		/// No launcher enumeration or settings changes occur here.</summary>
-		internal void ReprojectGameDiscoveryCatalog()
+		internal void ReprojectGameDiscoveryCatalog(string confirmedModeId = null)
 		{
 			if (_gameDiscoveryRegistry == null || IsDisposed) return;
+			if (confirmedModeId != null && _gameDiscoveryCandidates != null)
+				_gameDiscoveryCandidates = _gameDiscoveryCandidates.Where(candidate =>
+					!String.Equals(candidate.ModeId, confirmedModeId, StringComparison.OrdinalIgnoreCase)).ToArray();
 			GameDiscoveryCatalog catalog = GameDiscoveryCatalogBuilder.Build(
 				_gameDiscoveryRegistry.RegisteredGameModes, _shellEnvironmentInfo.Settings, _gameDiscoveryCandidates);
 			foreach (GameDiscoveryEntry entry in catalog.Managed)
@@ -164,6 +168,7 @@
 			_gameDiscoveryDocument.ManageRequested += (sender, args) => ManageGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.StartupDefaultRequested += (sender, args) => StartupDefaultGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.ConfigureRequested += (sender, args) => ConfigureGameRequested?.Invoke(this, args);
+			_gameDiscoveryDocument.ConfirmInstallationRequested += (sender, args) => ConfirmGameInstallationRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.LocateRequested += (sender, args) => LocateGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.MoveRequested += (sender, args) => MoveMissingGameToSection(args);
 		}

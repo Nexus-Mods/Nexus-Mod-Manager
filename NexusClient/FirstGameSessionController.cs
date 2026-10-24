@@ -55,6 +55,7 @@
 			_startupIntent = startupIntent ?? GameDiscoveryStartupIntent.Parse(null, null);
 			_pendingNxm = _startupIntent.NxmLink;
 			_shell.ConfigureGameRequested += OnConfigureRequested;
+			_shell.ConfirmGameInstallationRequested += OnConfirmInstallationRequested;
 			_shell.LocateGameRequested += OnLocateRequested;
 			_shell.ManageGameRequested += OnManageRequested;
 			_shell.StartupDefaultGameRequested += OnStartupDefaultRequested;
@@ -176,16 +177,25 @@
 						"The selected folder is not a valid installation of this game/edition."));
 					return;
 				}
-				ConfigureGame(e.ModeId, chooser.SelectedPath);
+				ConfigureGame(e.ModeId, chooser.SelectedPath, true);
 			}
 		}
 
 		private void OnConfigureRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
 		{
-			ConfigureGame(e.ModeId, e.CandidatePath);
+			var entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
+				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
+			if (entry?.Collection == GameDiscoveryCollection.ToConfigure && !entry.IsInstallationMissing)
+				ConfigureGame(e.ModeId, e.CandidatePath);
 		}
 
-		private void ConfigureGame(string modeId, string candidatePath)
+		/// <summary>Confirms a detected game folder before storage is configured in its own section.</summary>
+		private void OnConfirmInstallationRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
+		{
+			ConfigureGame(e.ModeId, e.CandidatePath, true);
+		}
+
+		private void ConfigureGame(string modeId, string candidatePath, bool confirmInstallationOnly = false)
 		{
 			if (_disposed || _teardownFailed || _shell.IsFirstSessionLoading ||
 				String.IsNullOrWhiteSpace(candidatePath)) return;
@@ -216,16 +226,31 @@
 				try
 				{
 					string result;
-					bool configured = new GameDiscoveryConfigurationService(_environment)
-						.Configure(_shell, factory, candidatePath, out result, () =>
+					Func<IDisposable> acquireReservation = () =>
+					{
+						CollectionTargetMutationLease reservation;
+						return CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out reservation)
+							? reservation : null;
+					};
+					bool configured;
+					if (confirmInstallationOnly)
+					{
+						using (IDisposable reservation = acquireReservation())
 						{
-							CollectionTargetMutationLease reservation;
-							return CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out reservation)
-								? reservation : null;
-						});
+							if (reservation == null)
+							{
+								_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.StorageBusy",
+									"A mod or Collection operation is running. Finish it before saving Game Storage."));
+								return;
+							}
+							configured = GameDiscoveryConfigurationService.ConfirmInstallation(_environment.Settings, factory, candidatePath, out result);
+						}
+					}
+					else
+						configured = new GameDiscoveryConfigurationService(_environment).Configure(_shell, factory, candidatePath, out result, acquireReservation);
 					if (configured)
 					{
-						_shell.ReprojectGameDiscoveryCatalog();
+						_shell.ReprojectGameDiscoveryCatalog(confirmInstallationOnly ? modeId : null);
 						_shell.SelectGameInDiscovery(modeId);
 					}
 					if (!String.IsNullOrWhiteSpace(result)) _shell.SetGameLoadMessage(result);
@@ -608,6 +633,7 @@
 			_shell.ManageGameRequested -= OnManageRequested;
 			_shell.StartupDefaultGameRequested -= OnStartupDefaultRequested;
 			_shell.ConfigureGameRequested -= OnConfigureRequested;
+			_shell.ConfirmGameInstallationRequested -= OnConfirmInstallationRequested;
 			_shell.LocateGameRequested -= OnLocateRequested;
 			_shell.GameCatalogReady -= OnCatalogReady;
 			ReleaseNativeSession();

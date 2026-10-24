@@ -251,8 +251,9 @@ namespace NexusClientTests
 				Assert.That(control("_startupDefault").Enabled, Is.False);
 				Assert.That(control("_primaryAction").Visible, Is.False);
 				Assert.That(control("_primaryAction").Enabled, Is.False);
-				Assert.That(control("_locate").Visible, Is.False);
-				Assert.That(control("_locate").Enabled, Is.False);
+				Assert.That(control("_locate").Visible, Is.True);
+				Assert.That(control("_locate").Enabled, Is.True);
+				Assert.That(control("_confirmInstallation").Visible, Is.False);
 				Assert.That(control("_recoveryPanel").Visible, Is.True);
 				Assert.That(control("_installationPath").Text, Is.EqualTo("game installation"));
 				Assert.That(control("_moveToConfigure").Enabled, Is.EqualTo(section != GameDiscoveryCollection.ToConfigure));
@@ -272,6 +273,75 @@ namespace NexusClientTests
 				Assert.That(control("_primaryAction").Visible, Is.True);
 				Assert.That(control("_primaryAction").Enabled, Is.True);
 				Assert.That(control("_startupDefault").Visible, Is.True);
+				document.Close();
+			}
+		}
+
+		/// <summary>A detected replacement must expose a usable action even when the catalog is bound before the tab is shown.</summary>
+		[TestCase(GameDiscoveryCollection.Managed, true)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, true)]
+		[TestCase(GameDiscoveryCollection.Supported, true)]
+		[TestCase(GameDiscoveryCollection.Managed, false)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, false)]
+		[TestCase(GameDiscoveryCollection.Supported, false)]
+		[Apartment(ApartmentState.STA)]
+		public void MissingGame_ConfirmInstallationActionFitsBesideLocate(GameDiscoveryCollection section, bool bindWhileHidden)
+		{
+			using (var document = new GameDiscoveryDocument())
+			{
+				var candidates = new[] { new GameDiscoveryInstallationCandidate("Missing", @"C:\OldGame", "Saved"),
+					new GameDiscoveryInstallationCandidate("Missing", @"D:\NewGame", "Steam") };
+				var missing = new GameDiscoveryEntry("Missing", "Missing", section, @"C:\OldGame\Data", @"C:\OldGame",
+					true, true, false, false, candidates, missingRequiredFiles: new[] { "game.exe" });
+				Action bind = () =>
+				{
+					document.SetCatalog(new GameDiscoveryCatalog(new[] { missing }, new string[0]));
+					document.SelectMode("Missing");
+					document.EnableFirstSessionActions();
+				};
+				if (bindWhileHidden) bind();
+				document.StartPosition = FormStartPosition.Manual;
+				document.Location = new Point(-20000, -20000);
+				document.Size = new Size(1200, 900);
+				document.ShowInTaskbar = false;
+				document.Show();
+				if (!bindWhileHidden) bind();
+				Application.DoEvents();
+				Func<string, Control> control = name => (Control)typeof(GameDiscoveryDocument)
+					.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				var confirm = (SimpleButton)control("_confirmInstallation");
+				Control locate = control("_locate");
+				Assert.That(confirm.Visible, Is.True);
+				Assert.That(confirm.Enabled, Is.True);
+				Assert.That(confirm.Height, Is.GreaterThanOrEqualTo(24));
+				Assert.That(confirm.Width, Is.GreaterThan(100));
+				Assert.That(confirm.Parent, Is.SameAs(locate.Parent));
+				Assert.That(confirm.Parent.ClientRectangle.Contains(confirm.Bounds), Is.True);
+				Assert.That(confirm.Parent.Parent.ClientRectangle.Contains(confirm.Parent.Bounds), Is.True,
+					"The recovery action must fit inside the details card.");
+				GameDiscoveryGameRequestedEventArgs request = null;
+				document.ConfirmInstallationRequested += (sender, args) => request = args;
+				GameDiscoveryGameRequestedEventArgs storageRequest = null;
+				document.ConfigureRequested += (sender, args) => storageRequest = args;
+				confirm.PerformClick();
+				Assert.That(storageRequest, Is.Null, "Confirming an installation must not open storage setup.");
+				Assert.That(request, Is.Not.Null);
+				Assert.That(request.ModeId, Is.EqualTo("Missing"));
+				Assert.That(request.CandidatePath, Is.EqualTo(@"D:\NewGame"));
+				document.SetActiveManagedGame("Missing");
+				document.SetSessionReady();
+				Assert.That(confirm.Enabled, Is.False, "The active game's native services still protect its setup.");
+				document.SetSessionInactive();
+				var confirmed = new GameDiscoveryEntry("Missing", "Missing", GameDiscoveryCollection.ToConfigure,
+					@"D:\NewGame", @"D:\NewGame", false, true, false, false, new[] { candidates[1] });
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { confirmed }, new string[0]));
+				document.SelectMode("Missing");
+				Assert.That(confirm.Visible, Is.False);
+				var configure = (SimpleButton)control("_primaryAction");
+				Assert.That(configure.Visible && configure.Enabled, Is.True);
+				configure.PerformClick();
+				Assert.That(storageRequest, Is.Not.Null);
+				Assert.That(storageRequest.CandidatePath, Is.EqualTo(@"D:\NewGame"));
 				document.Close();
 			}
 		}

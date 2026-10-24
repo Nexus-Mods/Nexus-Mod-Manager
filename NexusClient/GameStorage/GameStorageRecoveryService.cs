@@ -347,6 +347,13 @@ namespace Nexus.Client.GameStorage
 			GameStorageCandidate candidate,
 			out GameStorageHealthCheck healthCheck)
 		{
+			return ApplyInitialSetupCandidate(currentPaths, candidate, false, out healthCheck);
+		}
+
+		/// <summary>Applies a reviewed setup, optionally accepting empty folders as intentional and recording their current snapshot.</summary>
+		public bool ApplyInitialSetupCandidate(GameStoragePathSet currentPaths, GameStorageCandidate candidate,
+			bool acceptSuspiciousEmptyFolders, out GameStorageHealthCheck healthCheck)
+		{
 			Witcher3StorageMutationReservation reservation;
 			string failure;
 			if (!Witcher3StorageMutationReservation.TryAcquire(currentPaths == null ? null : currentPaths.GameId,
@@ -356,17 +363,18 @@ namespace Nexus.Client.GameStorage
 				return false;
 			}
 			using (reservation)
-				return ApplyInitialSetupCandidateUnderReservation(currentPaths, candidate, out healthCheck);
+				return ApplyInitialSetupCandidateUnderReservation(currentPaths, candidate, acceptSuspiciousEmptyFolders, out healthCheck);
 		}
 
 		private bool ApplyInitialSetupCandidateUnderReservation(
 			GameStoragePathSet currentPaths,
 			GameStorageCandidate candidate,
+			bool acceptSuspiciousEmptyFolders,
 			out GameStorageHealthCheck healthCheck)
 		{
 			healthCheck = null;
 
-			if (candidate == null ||
+			if (currentPaths == null || candidate == null ||
 				!string.Equals(
 					candidate.GameId,
 					currentPaths.GameId,
@@ -399,7 +407,9 @@ namespace Nexus.Client.GameStorage
 				storageId,
 				registry);
 
-			if (!healthCheck.IsHealthy)
+			if (!healthCheck.IsHealthy && !(acceptSuspiciousEmptyFolders &&
+				healthCheck.Items.Any(IsAcceptableSuspiciousEmptyFolder) &&
+				CanFinalizeRecoveredStorage(healthCheck, false, true, false)))
 				return false;
 
 			if (!TryInitializeMetadata(

@@ -31,11 +31,13 @@
 		private readonly SimpleButton _primaryAction;
 		private readonly SimpleButton _startupDefault;
 		private readonly SimpleButton _locate;
+		private readonly TableLayoutPanel _locateActions;
 		private readonly TableLayoutPanel _recoveryPanel;
 		private readonly LabelControl _recoveryHint;
 		private readonly SimpleButton _moveToConfigure;
 		private readonly SimpleButton _moveToSupported;
 		private readonly ComboBoxEdit _installations;
+		private readonly SimpleButton _confirmInstallation;
 		private readonly LabelControl _status;
 		private readonly TableLayoutPanel _statusLayout;
 		private readonly CompletionRing _loadingRing;
@@ -97,6 +99,7 @@
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ManageRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> StartupDefaultRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfirmInstallationRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateRequested;
 		internal event EventHandler<GameDiscoverySectionRequestedEventArgs> MoveRequested;
 		internal GameDiscoveryCatalog Catalog => _catalog;
@@ -432,15 +435,15 @@
 			_locate.Click += (sender, args) =>
 			{
 				if (!_locate.Enabled || SelectedEntry == null) return;
-				// A Managed game may be based on legacy folders without persisted
-				// Game Storage identity. Review setup without entering its session.
-				if (SelectedEntry.Collection == GameDiscoveryCollection.Managed &&
-					!String.IsNullOrWhiteSpace(_selectedInstallationRoot))
-					ConfigureRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
-				else
-					LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId));
+				LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId));
 			};
-			card.Controls.Add(_locate, 0, 9);
+			// Keep recovery actions above the selector so the details card cannot clip a button below it.
+			_locateActions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
+			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_locateActions.Controls.Add(_locate, 0, 0);
+			card.Controls.Add(_locateActions, 0, 9);
 
 			_candidatePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Visible = false };
 			var candidateLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
@@ -459,6 +462,15 @@
 				UpdateActions();
 			};
 			candidateLayout.Controls.Add(_installations, 0, 1);
+			_confirmInstallation = new SimpleButton { Dock = DockStyle.Fill, Visible = false, Margin = new Padding(3, 1, 0, 5),
+				Text = L("GameDiscovery.ConfirmInstallation", "Confirm installation path") };
+			NmmIconProvider.BindDialogButton(_confirmInstallation, NmmIconAction.ChangeGame);
+			_confirmInstallation.Click += (sender, args) =>
+			{
+				if (_confirmInstallation.Enabled && CanConfirmInstallation(SelectedEntry, _selectedInstallationRoot, _activeModeId))
+					ConfirmInstallationRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
+			};
+			_locateActions.Controls.Add(_confirmInstallation, 1, 0);
 			_candidatePanel.Controls.Add(candidateLayout);
 			card.Controls.Add(_candidatePanel, 0, 10);
 
@@ -1063,21 +1075,23 @@
 				ManageRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
 			else if (CanConfigure(entry) && !String.IsNullOrWhiteSpace(_selectedInstallationRoot))
 				ConfigureRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId, _selectedInstallationRoot));
-			else if (CanLocate(entry))
+			else if (CanConfirmInstallation(entry, _selectedInstallationRoot, _activeModeId))
+				ConfirmInstallationRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId, _selectedInstallationRoot));
+			else if (CanLocate(entry, _activeModeId))
 				LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
 		}
 
 		private static bool CanConfigure(GameDiscoveryEntry entry)
 		{
-			// Managed denotes historical configuration, not proof of persisted
-			// Game Storage identity. Its setup must remain explicitly reviewable.
-			return entry != null && !entry.IsInstallationMissing && (entry.Collection == GameDiscoveryCollection.ToConfigure ||
-				entry.Collection == GameDiscoveryCollection.Managed);
+			return entry != null && !entry.IsInstallationMissing && entry.Collection == GameDiscoveryCollection.ToConfigure;
 		}
 
-		private static bool CanLocate(GameDiscoveryEntry entry)
+		/// <summary>Allows missing installations to be located again without reconfiguring an active native session.</summary>
+		internal static bool CanLocate(GameDiscoveryEntry entry, string activeModeId = null)
 		{
-			return entry != null && !entry.IsInstallationMissing && (entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
+			return entry != null && (entry.IsInstallationMissing
+				? !String.Equals(entry.ModeId, activeModeId, StringComparison.OrdinalIgnoreCase)
+				: entry.Collection != GameDiscoveryCollection.Managed || entry.NeedsAttention);
 		}
 
 		/// <summary>Dispatches only enabled, explicit moves for the currently selected missing game.</summary>
@@ -1089,6 +1103,24 @@
 			MoveRequested?.Invoke(this, new GameDiscoverySectionRequestedEventArgs(entry.ModeId, destination));
 		}
 
+		/// <summary>Offers detected replacements without presenting the missing saved root as an installation.</summary>
+		internal static IEnumerable<GameDiscoveryInstallationCandidate> GetInstallationChoices(GameDiscoveryEntry entry)
+		{
+			return entry == null ? Enumerable.Empty<GameDiscoveryInstallationCandidate>() : entry.Candidates.Where(candidate =>
+				!entry.IsInstallationMissing || (!String.Equals(candidate.Source, "Saved", StringComparison.OrdinalIgnoreCase) &&
+				 !String.Equals(candidate.GameRoot.TrimEnd('\\', '/'), (entry.SavedExecutablePath ?? String.Empty).TrimEnd('\\', '/'),
+					 StringComparison.OrdinalIgnoreCase)));
+		}
+
+		/// <summary>Requires a selected installation and an inactive target before replacing the saved game path.</summary>
+		internal static bool CanConfirmInstallation(GameDiscoveryEntry entry, string selectedRoot, string activeModeId)
+		{
+			return entry != null && (entry.IsInstallationMissing || entry.Collection == GameDiscoveryCollection.Supported) &&
+				CanLocate(entry, activeModeId) && !String.Equals(entry.ModeId, activeModeId, StringComparison.OrdinalIgnoreCase) &&
+				!String.IsNullOrWhiteSpace(selectedRoot) && GetInstallationChoices(entry).Any(candidate =>
+					String.Equals(candidate.GameRoot, selectedRoot, StringComparison.OrdinalIgnoreCase));
+		}
+
 		private void UpdateInstallationChoices()
 		{
 			GameDiscoveryEntry entry = SelectedEntry;
@@ -1097,7 +1129,7 @@
 			{
 				_installations.Properties.Items.Clear();
 				if (entry != null)
-					foreach (var candidate in entry.Candidates)
+					foreach (var candidate in GetInstallationChoices(entry))
 						_installations.Properties.Items.Add(new CandidateChoice(candidate));
 				int index = -1;
 				if (!String.IsNullOrWhiteSpace(_selectedInstallationRoot))
@@ -1160,7 +1192,7 @@
 			_startupValue.Text = entry.IsStartupDefault
 				? "★  " + L("GameDiscovery.Default", "Remembered startup game")
 				: L("GameDiscovery.NotStartupDefault", "Not the default game");
-			_candidateHint.Text = entry.Candidates.Count > 1
+			_candidateHint.Text = _installations.Properties.Items.Count > 1
 				? L("GameDiscovery.MultipleFoundHint", "Multiple verified installations: choose one before configuring.")
 				: L("GameDiscovery.OneFoundHint", "One installation was found for this game.");
 			var lines = new List<string>();
@@ -1214,15 +1246,15 @@
 			bool activeMissing = missing && String.Equals(entry.ModeId, _activeModeId, StringComparison.OrdinalIgnoreCase);
 			_recoveryPanel.Visible = missing;
 			_recoveryHint.Text = activeMissing
-				? L("GameDiscovery.ActiveMissingRecovery", "Reinstall or repair the game in the same folder, then refresh the game list. Switch to another game before changing this game's section.")
-				: L("GameDiscovery.MissingRecovery", "Reinstall or repair the game in the same folder, then refresh the game list to manage it again.");
+				? L("GameDiscovery.ActiveMissingRecovery", "Switch to another game before locating this game's new installation folder. Saved configuration and mod data are preserved.")
+				: L("GameDiscovery.MissingRecovery", "Locate the game's new installation folder, or repair the installation and refresh. Saved configuration and mod data are preserved.");
 			_moveToConfigure.Enabled = readyForAction && missing && !activeMissing && entry.Collection != GameDiscoveryCollection.ToConfigure;
 			_moveToSupported.Enabled = readyForAction && missing && !activeMissing && entry.Collection != GameDiscoveryCollection.Supported;
 			_primaryAction.Visible = !missing;
 			_detailLayout.RowStyles[8].Height = missing ? 160 : 58;
 			bool canManage = GameSessionEntryGate.CanManage(entry);
 			bool canConfigure = CanConfigure(entry);
-			bool canLocate = CanLocate(entry);
+			bool canLocate = CanLocate(entry, _activeModeId);
 			bool hasCandidate = !String.IsNullOrWhiteSpace(_selectedInstallationRoot);
 			bool showDefaultAction = entry != null && entry.Collection == GameDiscoveryCollection.Managed && !missing;
 			_startupTitle.Visible = showDefaultAction;
@@ -1239,22 +1271,27 @@
 			_primaryAction.Text = entry == null ? L("GameDiscovery.SelectGameTitle", "Select a game") :
 				canManage ? String.Format(L("GameDiscovery.ManageSpecific", "Manage {0}"), entry.Name) :
 				canConfigure && hasCandidate ? L("GameDiscovery.Configure", "Configure game storage") :
+				CanConfirmInstallation(entry, _selectedInstallationRoot, _activeModeId) ? L("GameDiscovery.ConfirmInstallation", "Confirm installation path") :
 				L("GameDiscovery.Locate", "Locate game...");
-			_primaryAction.Enabled = readyForAction && entry != null && (canManage || canConfigure && hasCandidate || canLocate);
-			bool isManaged = entry != null && entry.Collection == GameDiscoveryCollection.Managed;
-			bool reviewManagedStorage = isManaged && hasCandidate && !missing;
-			_locate.Text = reviewManagedStorage
-				? L("GameDiscovery.ReviewStorage", "Review Game Storage...")
-				: L("GameDiscovery.Locate", "Locate game...");
-			_locate.Visible = reviewManagedStorage || (canConfigure && hasCandidate);
-			_locate.Enabled = readyForAction && (reviewManagedStorage || canLocate);
-			// Do not crowd ordinary Managed details with a selector when the
-			// saved installation is the only candidate.
-			_candidatePanel.Visible = canConfigure && entry != null && entry.Candidates.Count > 0 &&
-				(!isManaged || entry.Candidates.Count > 1);
-			_detailLayout.RowStyles[9].Height = _locate.Visible ? 42 : 0;
-			_detailLayout.RowStyles[10].Height = _candidatePanel.Visible ? 83 : 0;
-			_installations.Enabled = readyForAction && canConfigure && _installations.Properties.Items.Count > 0;
+			_primaryAction.Enabled = readyForAction && !missing && entry != null && (canManage || canConfigure && hasCandidate || canLocate);
+			_locate.Text = L("GameDiscovery.Locate", "Locate game...");
+			bool showLocate = missing || (canConfigure && hasCandidate);
+			_locate.Visible = showLocate;
+			_locate.Enabled = readyForAction && canLocate;
+			// Storage configuration belongs to To configure; Supported only confirms an installation.
+			bool hasDetectedReplacement = entry != null && (missing || entry.Collection == GameDiscoveryCollection.Supported) &&
+				_installations.Properties.Items.Count > 0;
+			bool showCandidates = hasDetectedReplacement || (canConfigure && _installations.Properties.Items.Count > 0);
+			_candidatePanel.Visible = showCandidates;
+			bool showConfirmation = missing && hasDetectedReplacement;
+			_confirmInstallation.Visible = showConfirmation;
+			_confirmInstallation.Enabled = readyForAction && CanConfirmInstallation(entry, _selectedInstallationRoot, _activeModeId);
+			_locateActions.ColumnStyles[0].Width = showConfirmation ? 50 : 100;
+			_locateActions.ColumnStyles[1].Width = showConfirmation ? 50 : 0;
+			// Visible reflects ancestor visibility during hidden-tab binding; size rows from the intended state.
+			_detailLayout.RowStyles[9].Height = showLocate ? 42 : 0;
+			_detailLayout.RowStyles[10].Height = showCandidates ? 83 : 0;
+			_installations.Enabled = readyForAction && (canConfigure || hasDetectedReplacement && !activeMissing) && _installations.Properties.Items.Count > 0;
 		}
 
 		internal void SelectMode(string modeId)

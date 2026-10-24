@@ -8,6 +8,7 @@ using System.Threading;
 using Nexus.Client;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
+using Nexus.Client.Games.UI;
 using Nexus.Client.Settings;
 using NUnit.Framework;
 
@@ -17,6 +18,118 @@ namespace NexusClientTests
 	public class GameDiscoveryCatalogTests
 	{
 		private string _gameRoot;
+
+		/// <summary>Missing games remain locatable in every section, but cannot retarget an active native session.</summary>
+		[TestCase(GameDiscoveryCollection.Managed, null, true)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, null, true)]
+		[TestCase(GameDiscoveryCollection.Supported, null, true)]
+		[TestCase(GameDiscoveryCollection.Managed, "OtherGame", true)]
+		[TestCase(GameDiscoveryCollection.Managed, "example", false)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, "Example", false)]
+		[TestCase(GameDiscoveryCollection.Supported, "Example", false)]
+		public void MissingGame_CanLocateNewInstallationWithoutDiscardingSetup(GameDiscoveryCollection section, string activeModeId, bool expected)
+		{
+			var entry = new GameDiscoveryEntry("Example", "Example game", section, @"C:\OldGame\Data", @"C:\OldGame",
+				true, true, false, false, new GameDiscoveryInstallationCandidate[0],
+				missingRequiredFiles: new[] { @"C:\OldGame\game.exe" });
+			Assert.That(GameDiscoveryDocument.CanLocate(entry, activeModeId), Is.EqualTo(expected));
+			Assert.That(entry.CompletedSetup, Is.True);
+			Assert.That(GameSessionEntryGate.CanManage(entry), Is.False, "Locating is not permission to open a missing installation.");
+		}
+
+		/// <summary>Refreshing a moved game exposes its detected folder without rewriting saved paths or admitting its old setup.</summary>
+		[TestCase(GameDiscoveryCollection.Managed, "new", null, true)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, "new", null, true)]
+		[TestCase(GameDiscoveryCollection.Supported, "new", null, true)]
+		[TestCase(GameDiscoveryCollection.Managed, "new", "OtherGame", true)]
+		[TestCase(GameDiscoveryCollection.Managed, "new", "example", false)]
+		[TestCase(GameDiscoveryCollection.ToConfigure, "new", "Example", false)]
+		[TestCase(GameDiscoveryCollection.Supported, "new", "Example", false)]
+		[TestCase(GameDiscoveryCollection.Managed, "old", null, false)]
+		[TestCase(GameDiscoveryCollection.Managed, null, null, false)]
+		[TestCase(GameDiscoveryCollection.Managed, "unknown", null, false)]
+		public void MissingGame_DetectedReplacementRequiresReview(GameDiscoveryCollection section, string choice, string activeModeId, bool expected)
+		{
+			var settings = NewSettings();
+			string oldRoot = Path.Combine(_gameRoot, "OldGame");
+			settings.CompletedSetup["Example"] = true;
+			settings.ExecutablePaths["Example"] = oldRoot;
+			settings.InstallationPaths["Example"] = Path.Combine(oldRoot, "Data");
+			settings.GameDiscoverySections["Example"] = section.ToString();
+			var detected = new GameDiscoveryInstallationCandidate("Example", _gameRoot, "Steam");
+			var entry = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Example") }, settings, new[] { detected }).Entries.Single();
+			string selected = choice == "new" ? _gameRoot : choice == "old" ? oldRoot : choice;
+
+			Assert.That(entry.IsInstallationMissing, Is.True);
+			Assert.That(entry.Collection, Is.EqualTo(section));
+			Assert.That(GameDiscoveryDocument.GetInstallationChoices(entry), Is.EqualTo(new[] { detected }));
+			Assert.That(GameDiscoveryDocument.CanConfirmInstallation(entry, selected, activeModeId), Is.EqualTo(expected));
+			Assert.That(GameSessionEntryGate.CanManage(entry), Is.False);
+			Assert.That(settings.ExecutablePaths["Example"], Is.EqualTo(oldRoot));
+			Assert.That(settings.InstallationPaths["Example"], Is.EqualTo(Path.Combine(oldRoot, "Data")));
+			Assert.That(settings.CompletedSetup["Example"], Is.True);
+		}
+
+		/// <summary>Confirming a moved game updates only its installation and keeps legacy storage pending review.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ConfirmInstallation_ReplacesOldRootAndRequiresStorageSetup(bool failSave)
+		{
+			var settings = NewSettings();
+			string oldRoot = Path.Combine(_gameRoot, "OldGame");
+			settings.InstallationPaths["Example"] = oldRoot;
+			settings.ExecutablePaths["Example"] = oldRoot;
+			settings.CompletedSetup["Example"] = true;
+			settings.GameDiscoverySections["Example"] = nameof(GameDiscoveryCollection.Supported);
+			settings.ModFolder["Example"] = Path.Combine(_gameRoot, "ModArchives");
+			settings.InstallInfoFolder["Example"] = Path.Combine(_gameRoot, "InstallInfo");
+			settings.VirtualFolder["Example"] = Path.Combine(_gameRoot, "StagedMods");
+			string[] files = Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories);
+			ISettings memorySettings = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				if (method.Name == "Save")
+				{
+					if (failSave) throw new IOException("Simulated save failure");
+					return null;
+				}
+				return method.Invoke(settings, args);
+			});
+			IGameModeFactory factory = InterfaceStub<IGameModeFactory>.Create((method, args) =>
+			{
+				if (method.Name == "get_GameModeDescriptor") return new Descriptor("Example");
+				if (method.Name == "GetInstallationPath" || method.Name == "GetExecutablePath") return args[0];
+				Assert.Fail("Installation confirmation must not initialize a game or configure storage.");
+				return null;
+			});
+			string message;
+			if (failSave)
+			{
+				Assert.Throws<IOException>(() => GameDiscoveryConfigurationService.ConfirmInstallation(memorySettings, factory, _gameRoot, out message));
+				Assert.That(settings.InstallationPaths["Example"], Is.EqualTo(oldRoot));
+				Assert.That(settings.ExecutablePaths["Example"], Is.EqualTo(oldRoot));
+				Assert.That(settings.CompletedSetup["Example"], Is.True);
+				Assert.That(settings.GameDiscoverySections["Example"], Is.EqualTo(nameof(GameDiscoveryCollection.Supported)));
+			}
+			else
+			{
+				Assert.That(GameDiscoveryConfigurationService.ConfirmInstallation(memorySettings, factory, Path.Combine(_gameRoot, "Missing"), out message), Is.False);
+				Assert.That(settings.ExecutablePaths["Example"], Is.EqualTo(oldRoot));
+				Assert.That(GameDiscoveryConfigurationService.ConfirmInstallation(memorySettings, factory, _gameRoot, out message), Is.True);
+				GameDiscoveryEntry entry = Single(settings, "Example");
+				Assert.That(entry.SavedExecutablePath, Is.EqualTo(_gameRoot));
+				Assert.That(entry.SavedInstallationPath, Is.EqualTo(_gameRoot));
+				Assert.That(entry.IsInstallationMissing, Is.False);
+				Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.ToConfigure));
+				Assert.That(entry.Candidates.Single().GameRoot, Is.EqualTo(_gameRoot));
+				Assert.That(GameSessionEntryGate.CanManage(entry), Is.False);
+				settings.CompletedSetup["Example"] = true;
+				Assert.That(Single(settings, "Example").Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
+			}
+			Assert.That(settings.ModFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "ModArchives")));
+			Assert.That(settings.InstallInfoFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "InstallInfo")));
+			Assert.That(settings.VirtualFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "StagedMods")));
+			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EqualTo(files));
+		}
 
 		/// <summary>Provides a real executable for admission-policy cases that represent an installed game.</summary>
 		[SetUp]
