@@ -549,6 +549,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			{
 				get
 				{
+					if (Task.Status == TaskStatus.Error || Task.Status == TaskStatus.Incomplete)
+						return Task.ItemMessage;
 					if (Task.Status != TaskStatus.Running)
 						return string.Empty;
 					if (Task.TaskSpeed > 0)

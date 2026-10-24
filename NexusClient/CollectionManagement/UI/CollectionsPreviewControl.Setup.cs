@@ -73,9 +73,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			_setupHistory = new MemoEdit { Dock = DockStyle.Fill }; _setupHistory.Properties.ReadOnly = true; layout.Controls.Add(_setupHistory, 0, 4);
 			_setupImport.Click += async (sender, args) =>
 			{
-				if (_preparedWabbajackRevision != null && _preparedWabbajackRevision.Equals(SetupRevision()) && File.Exists(_preparedWabbajackSetupPath))
+				CollectionRevisionIdentity revision = SetupRevision();
+				if (_workflow != null && revision != null && HasWabbajackSetup(revision))
 				{
-					await ReviewSetupPackageAsync(_preparedWabbajackSetupPath); return;
+					await ReviewSetupPackageAsync(null, true); return;
 				}
 				using (var dialog = new OpenFileDialog { Filter = L("Collections.Setup.ZipFilter", "Setup ZIP archives (*.zip)|*.zip"), CheckFileExists = true })
 					if (dialog.ShowDialog(this) == DialogResult.OK) await ReviewSetupPackageAsync(dialog.FileName);
@@ -117,8 +118,13 @@ namespace Nexus.Client.CollectionManagement.UI
 			_setupUndo.Enabled = available && !_workflowBusy && _setupCanUndo;
 			_setupAcknowledge.Enabled = available && !_workflowBusy && !_setupAcknowledged;
 			if (!available) { _setupSection.Visible = false; _setupUiKey = null; return; }
+			bool wabbajackSettings = HasWabbajackSetup(revision);
+			_setupImport.Text = wabbajackSettings ? L("Collections.Setup.WabbajackSettings", "Review Wabbajack settings...") : L("Collections.Setup.Import", "Review setup package...");
+			_setupHint.Text = wabbajackSettings
+				? L("Collections.Setup.WabbajackSettingsHelp", "NMM has already created a ZIP with the selected Wabbajack profile's game INI files. After the mods finish installing, click Review Wabbajack settings... to review and apply them. The ZIP is selected automatically; you do not need to download or find another file.")
+				: L("Collections.Setup.DropHelp", "Drop an additional setup ZIP here, or choose Review setup package. Select the Collection revision first. Apply setup files only after its installation finishes. Personal settings are optional.");
 			string text = _snapshot != null && _snapshot.HasManifestPreview ? _snapshot.CapabilityReport.Manifest.SetupGuidance?.InstallInstructions : null;
-			string key = revision + "\n" + text + "\n" + SetupInstalled();
+			string key = revision + "\n" + text + "\n" + SetupInstalled() + "\n" + wabbajackSettings;
 			if (_setupUiKey == key) return;
 			_setupUiKey = key; _setupInstructionText = text ?? String.Empty; _setupAcknowledged = false;
 			_setupInstructions.Text = String.IsNullOrWhiteSpace(text) ? L("Collections.Setup.NoInstructions", "This revision supplies no curator installation instructions. Additional setup archives can still be reviewed here.") : text;
@@ -139,6 +145,9 @@ namespace Nexus.Client.CollectionManagement.UI
 					: _setupAcknowledged ? L("Collections.Presentation.InstructionsReviewed", "Curator instructions acknowledged.")
 					: SetupInstalled() ? L("Collections.Presentation.SetupReviewNeeded", "Curator instructions still need review.")
 					: L("Collections.Presentation.SetupReviewBefore", "Review the curator's instructions before installing.");
+				if (wabbajackSettings && state == CollectionSetupPackageState.None && !_setupAcknowledged)
+					_setupSummary.Text = SetupInstalled() ? L("Collections.Setup.WabbajackSettingsReady", "Mods installed. Open Setup & instructions and click Review Wabbajack settings... to apply the profile's game INI files.")
+						: L("Collections.Setup.WabbajackSettingsAfterInstall", "NMM has prepared the profile's game INI files. Apply them from Setup & instructions after the mods finish installing.");
 				if (state == CollectionSetupPackageState.Restored) _setupSummary.Text = L("Collections.Presentation.SetupRestored", "Last setup package restored. Review instructions before reapplying.");
 				_setupSection.Visible = !String.IsNullOrWhiteSpace(text) || state != CollectionSetupPackageState.None;
 			}
@@ -180,7 +189,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		}
 
 		/// <summary>Inspects the dropped archive, obtains explicit selection approval, then delegates publication to the application service.</summary>
-		private async Task ReviewSetupPackageAsync(string path)
+		private async Task ReviewSetupPackageAsync(string path, bool wabbajackSettings = false)
 		{
 			CollectionRevisionIdentity revision = SetupRevision(); if (_workflowBusy || revision == null || _workflow == null) return;
 			CollectionUiContext context = _displayContext ?? CollectionUiContext.CurrentSetup(_previewGeneration);
@@ -188,12 +197,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Setup.Inspecting", "Inspecting additional setup files..."));
 			try
 			{
-				CollectionSetupPackage package = await Task.Run(() => _workflow.SetupPackages.Preview(path, revision), token);
-				if (revision.Equals(_preparedWabbajackRevision) && !string.IsNullOrEmpty(_preparedWabbajackSettingsDirectory))
-				{
-					package.DocumentsDirectory = _preparedWabbajackSettingsDirectory;
-					_workflow.SetupPackages.Refresh(package);
-				}
+				CollectionSetupPackage package = await Task.Run(() => wabbajackSettings
+					? _workflow.SetupPackages.PreviewWabbajack(revision) : _workflow.SetupPackages.Preview(path, revision), token);
 				if (!IsWorkflowContextCurrent(context, token)) return;
 				using (var dialog = new CollectionSetupPackageReviewDialog(package, _workflow.SetupPackages, SetupInstalled()))
 				{

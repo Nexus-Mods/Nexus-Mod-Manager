@@ -116,7 +116,32 @@
       ".ogg",
       ".xwm"
     ],
-    "supportsGameRootInstall": true
+    "supportsGameRootInstall": true,
+    "gameRootPackageRules": [
+      {
+        "id": "xnvse",
+        "requiredFiles": [
+          "nvse_loader.exe",
+          "nvse_1_4.dll",
+          "nvse_steam_loader.dll"
+        ],
+        "allowSingleWrapperFolder": true
+      },
+      {
+        "id": "fnv-4gb-patcher",
+        "requiredFiles": [
+          "FNVpatch.exe"
+        ],
+        "allowSingleWrapperFolder": true
+      },
+      {
+        "id": "epic-games-patcher",
+        "requiredFiles": [
+          "Patcher.exe"
+        ],
+        "allowSingleWrapperFolder": true
+      }
+    ]
   },
   "gamebryo": {
     "archiveInvalidationProfile": "falloutnv",

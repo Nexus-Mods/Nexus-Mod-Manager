@@ -434,9 +434,15 @@
     <Compile Include="OnlineServices\Wabbajack\WabbajackHash.cs" />
     <Compile Include="Wabbajack\WabbajackProfile.cs" />
     <Compile Include="Wabbajack\WabbajackCollectionConverter.cs" />
-    <Compile Include="Wabbajack\UI\WabbajackPreparationDialog.cs">
-      <SubType>Form</SubType>
+    <Compile Include="Wabbajack\UI\WabbajackPreparationControl.cs">
+      <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Wabbajack\UI\WabbajackUi.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Wabbajack\WabbajackDownloadTask.cs" />
+    <Compile Include="Wabbajack\WabbajackDownloadQueue.cs" />
+    <Compile Include="ModManagement\ModManager.Wabbajack.cs" />
     <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Wabbajack.cs">
       <SubType>Form</SubType>
     </Compile>

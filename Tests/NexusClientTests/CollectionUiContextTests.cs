@@ -48,6 +48,22 @@ namespace Nexus.Client.Tests
 			Assert.That(resolved.Operation, Is.SameAs(operation));
 		}
 
+		/// <summary>A converted Wabbajack profile enters installation as a Local revision without becoming a saved setup capture.</summary>
+		[Test]
+		public void IncomingContext_AcceptsLocalCollectionRevisionAndPreservesOperationOwnership()
+		{
+			CollectionRevisionIdentity revision = CreateLocalRevision();
+			CollectionOperationIdentity operation = CollectionOperationIdentity.CreateNew();
+			CollectionUiContext context = CollectionUiContext.Incoming(3, revision, null).WithOperation(operation);
+			Assert.That(context.Kind, Is.EqualTo(CollectionUiContextKind.IncomingCollection));
+			Assert.That(context.Revision, Is.SameAs(revision));
+			Assert.That(context.Operation, Is.SameAs(operation));
+			Assert.That(context.LocalCapture, Is.Null);
+			Assert.That(context.AssociationId, Is.Null);
+			Assert.That(context.Generation, Is.EqualTo(3));
+			Assert.That(CollectionUiContext.Incoming(3, null, null).WithRevision(revision).Revision, Is.SameAs(revision));
+		}
+
 		[Test]
 		public void Generation_DistinguishesCurrentAndSupersededSurfaceWork()
 		{
@@ -64,7 +80,6 @@ namespace Nexus.Client.Tests
 			CollectionRevisionIdentity local = CreateLocalRevision();
 			LocalCaptureIdentity capture = LocalCaptureIdentity.From(Guid.Parse("11111111-2222-3333-4444-555555555555"));
 
-			Assert.Throws<ArgumentException>(() => CollectionUiContext.Incoming(1, local, null));
 			Assert.Throws<ArgumentException>(() => CollectionUiContext.Installed(1, remote, Guid.Empty));
 			Assert.Throws<ArgumentNullException>(() => CollectionUiContext.SavedLocal(1, local, null));
 			Assert.Throws<ArgumentException>(() => CollectionUiContext.SavedLocal(1, remote, capture));

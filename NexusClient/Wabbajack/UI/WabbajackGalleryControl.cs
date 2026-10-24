@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -46,9 +45,14 @@ namespace Nexus.Client.Wabbajack.UI
 		private readonly SimpleButton _website;
 		private readonly SimpleButton _contents;
 		private readonly SimpleButton _openFile;
-		private readonly SimpleButton _prepare;
-		private readonly MemoEdit _details;
-		private readonly LabelControl _status;
+		private readonly WabbajackSummaryControl _details;
+		private readonly WabbajackActivityControl _activity;
+		private readonly WabbajackActivityControl _unofficialSupportWarning;
+		private readonly LabelControl _modAuthorWarning;
+		private readonly GroupControl _detailGroup;
+		private readonly TableLayoutPanel _listDetails;
+		private WabbajackPreparationControl _preparation;
+		private readonly Dictionary<string, string> _downloadedPackages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private WabbajackCatalogue _catalogue;
 		private GameModeWabbajackDefinition _configuration;
 		private CancellationTokenSource _operation;
@@ -56,8 +60,7 @@ namespace Nexus.Client.Wabbajack.UI
 		private bool _updatingFilters;
 		private MainFormVM _viewModel;
 		private Func<WabbajackConvertedCollection, string, Task> _openPrepared;
-		private string _lastPackagePath;
-		private string _lastSourceId;
+		private bool _operationFailed;
 
 		/// <summary>Creates native DevExpress tiles, filters and list actions without making network requests.</summary>
 		public WabbajackGalleryControl()
@@ -65,33 +68,38 @@ namespace Nexus.Client.Wabbajack.UI
 			Name = "WabbajackGalleryDocument";
 			Text = "Wabbajack";
 			AutoScaleMode = AutoScaleMode.Font;
-			_search = new TextEdit { Width = 230 };
+			_search = new TextEdit { Width = 230, MinimumSize = new Size(230, 0) };
 			_search.Properties.NullValuePrompt = L("Search", "Search lists...");
-			_unofficial = new CheckEdit { Text = L("Unofficial", "Include unofficial"), AutoSize = true };
-			_nsfw = new CheckEdit { Text = L("Nsfw", "Include NSFW"), AutoSize = true };
-			_tags = new CheckedComboBoxEdit { Width = 180 };
-			_mods = new CheckedComboBoxEdit { Width = 200 };
-			_excludeMods = new CheckEdit { Text = L("ExcludeMods", "Exclude selected mods"), AutoSize = true };
+			_unofficial = Check(L("Unofficial", "Include unofficial"));
+			_nsfw = Check(L("Nsfw", "Include NSFW"));
+			_tags = new CheckedComboBoxEdit { Width = 180, MinimumSize = new Size(180, 0) };
+			_mods = new CheckedComboBoxEdit { Width = 200, MinimumSize = new Size(200, 0) };
+			_excludeMods = Check(L("ExcludeMods", "Exclude selected mods"));
 			_minimumSize = CreateSizeEditor(0);
 			_maximumSize = CreateSizeEditor(10000);
-			_sort = new ComboBoxEdit { Width = 145 };
+			_sort = new ComboBoxEdit { Width = 180, MinimumSize = new Size(180, 0) };
 			_sort.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
 			_sort.Properties.Items.AddRange(new[] { L("SortTitle", "Title"), L("SortUpdated", "Recently updated"), L("SortSize", "Installation size") });
 			_sort.SelectedIndex = 0;
 			_refresh = Button(L("Refresh", "Refresh"), async () => await LoadCatalogueAsync());
-			_cancel = Button(L("Cancel", "Cancel"), () => _operation?.Cancel());
+			_cancel = Button(L("Cancel", "Cancel"), () => { if (_preparation?.IsBusy == true) _preparation.CancelWork(); else _operation?.Cancel(); _cancel.Enabled = false; _activity.Detail = L("Cancelling", "Cancelling the current operation..."); });
 			_cancel.Enabled = false;
-			_openFile = Button(L("OpenFile", "Open list file..."), async () => await OpenFileAsync());
-			_prepare = Button(L("PrepareInstallation", "Prepare installation..."), async () => await PrepareInstallationAsync());
+			_openFile = Button(L("OpenDownloadedList", "Open downloaded list..."), async () => await OpenFileAsync());
+			NmmIconProvider.Bind(_refresh, NmmIconAction.Refresh);
+			NmmIconProvider.Bind(_openFile, NmmIconAction.OpenFolder);
+			NmmIconProvider.Bind(_cancel, NmmIconAction.Cancel);
 
-			FlowLayoutPanel filters = Flow();
-			filters.Controls.AddRange(new Control[] { _search, _unofficial, _nsfw, _sort, _refresh, _openFile, _prepare, _cancel });
-			FlowLayoutPanel advancedFilters = Flow();
+			WabbajackActionRow filters = new WabbajackActionRow();
+			filters.Controls.AddRange(new Control[] { Label(L("SearchLabel", "Search")), _search, Label(L("SortLabel", "Sort by")), _sort, _unofficial, _nsfw });
+			WabbajackActionRow advancedFilters = new WabbajackActionRow();
 			advancedFilters.Controls.AddRange(new Control[]
 			{
 				Label(L("Tags", "Tags")), _tags, Label(L("Mods", "Mods")), _mods, _excludeMods,
 				Label(L("SizeRange", "Total size (GiB)")), _minimumSize, Label("–"), _maximumSize
 			});
+			WabbajackActionRow galleryActions = new WabbajackActionRow();
+			galleryActions.Controls.AddRange(new Control[] { _refresh, _openFile });
+
 
 			_grid = new GridControl { Dock = DockStyle.Fill };
 			_tiles = new TileView(_grid);
@@ -117,41 +125,74 @@ namespace Nexus.Client.Wabbajack.UI
 			_tiles.FocusedRowChanged += (sender, args) => ShowSelectedList();
 			_grid.DataSource = new List<GalleryRow>();
 
-			_details = new MemoEdit { Dock = DockStyle.Fill };
-			_details.Properties.ReadOnly = true;
-			_download = Button(L("Download", "Download list..."), async () => await DownloadSelectedAsync());
+			_details = new WabbajackSummaryControl();
+			_download = Button(L("DownloadAndPrepare", "Download & prepare"), async () => await DownloadSelectedAsync());
+			_download.Appearance.FontStyleDelta = FontStyle.Bold;
 			_readme = Button(L("Readme", "Installation instructions"), () => OpenLink(SelectedList?.Links.Readme));
 			_website = Button(L("Website", "Website"), () => OpenLink(SelectedList?.Links.WebsiteUrl));
 			_contents = Button(L("Contents", "List contents"), () => OpenLink(SelectedList == null ? null :
 				"https://www.wabbajack.org/search/" + Uri.EscapeDataString(SelectedList.Repository) + "/" + Uri.EscapeDataString(SelectedList.Links.MachineUrl)));
-			FlowLayoutPanel actions = Flow();
-			actions.Controls.AddRange(new Control[] { _download, _readme, _website, _contents });
-			TableLayoutPanel detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+			NmmIconProvider.Bind(_download, NmmIconAction.InstallEnable);
+			NmmIconProvider.Bind(_readme, NmmIconAction.Help);
+			NmmIconProvider.Bind(_website, NmmIconAction.ExternalLink);
+			NmmIconProvider.Bind(_contents, NmmIconAction.Browse);
+			WabbajackActionRow primaryAction = new WabbajackActionRow();
+			primaryAction.Controls.Add(_download);
+			WabbajackActionRow links = new WabbajackActionRow();
+			links.Controls.AddRange(new Control[] { _readme, _website, _contents });
+			XtraScrollableControl detailScroll = new XtraScrollableControl { Dock = DockStyle.Fill };
+			_details.Dock = DockStyle.Top; detailScroll.Controls.Add(_details);
+			_detailGroup = new GroupControl { Dock = DockStyle.Fill, Text = L("SelectedList", "Selected modlist"), Padding = new Padding(6) };
+			TableLayoutPanel detailLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+			_listDetails = detailLayout;
 			detailLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			detailLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			detailLayout.Controls.Add(_details, 0, 0);
-			detailLayout.Controls.Add(actions, 0, 1);
-			SplitContainerControl split = new SplitContainerControl { Dock = DockStyle.Fill, Size = new Size(1100, 500), Horizontal = true,
-				SplitterPosition = 720, FixedPanel = SplitFixedPanel.Panel2 };
-			split.Panel1.Controls.Add(_grid);
-			split.Panel2.Controls.Add(detailLayout);
-			_status = new LabelControl { Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.Vertical, Padding = new Padding(8) };
-			LabelControl phase = Label(L("BrowseAndPrepare", "Browse lists or prepare a compiled profile for installation with NMM."));
-			phase.Dock = DockStyle.Fill;
-			phase.AutoSizeMode = LabelAutoSizeMode.Vertical;
-			TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
+			detailLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			detailLayout.Controls.Add(detailScroll, 0, 0);
+			detailLayout.Controls.Add(primaryAction, 0, 1); detailLayout.Controls.Add(links, 0, 2);
+			_detailGroup.Controls.Add(detailLayout);
+			SplitContainerControl split = new SplitContainerControl { Dock = DockStyle.Fill, Size = new Size(1200, 500), Horizontal = true,
+				SplitterPosition = 700, FixedPanel = SplitFixedPanel.Panel2 };
+			split.Panel2.Controls.Add(_detailGroup);
+			_activity = new WabbajackActivityControl();
+			_activity.ShowActivity(L("Ready", "Ready to browse"), L("GallerySteps", "Choose a modlist → Download & prepare → Review and install in Collections."), false);
+			_modAuthorWarning = WabbajackUi.Caption(L("ModAuthorSupportWarning", "Wabbajack lists may contain mod edits that are neither authorized nor endorsed by the mod authors. Do not ask mod authors to troubleshoot broken mods installed through these lists."));
+			_modAuthorWarning.Dock = DockStyle.Top;
+			_modAuthorWarning.Margin = new Padding(6, 4, 6, 4);
+			_modAuthorWarning.ImageAlignToText = ImageAlignToText.LeftCenter;
+			_modAuthorWarning.IndentBetweenImageAndText = 8;
+			_modAuthorWarning.ImageOptions.Image = NmmIconProvider.GetBitmap(NmmIconAction.Warning, NmmIconProvider.CurrentIconSize, false);
+			TableLayoutPanel feedback = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+			feedback.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); feedback.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			feedback.RowStyles.Add(new RowStyle(SizeType.AutoSize)); feedback.Controls.Add(_activity, 0, 0);
+			_cancel.Anchor = AnchorStyles.Right; feedback.Controls.Add(_cancel, 1, 0);
+
+			_unofficialSupportWarning = new WabbajackActivityControl { Margin = new Padding(0, 0, 0, 8) };
+			_unofficialSupportWarning.ShowActivity(L("UnofficialSupportTitle", "Unofficial Wabbajack support"),
+				L("UnofficialSupportWarning", "Wabbajack support in NMM CE is unofficial. Report issues with this integration to NMM CE. Do not ask list authors or Wabbajack curators to troubleshoot installations made through NMM CE."), false, true);
+			// Gallery filters belong to the cards pane; preparation uses the full height alongside it.
+			TableLayoutPanel galleryLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
+			galleryLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+			galleryLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			galleryLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			galleryLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			galleryLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			galleryLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			galleryLayout.Controls.Add(_unofficialSupportWarning, 0, 0);
+			galleryLayout.Controls.Add(filters, 0, 1);
+			galleryLayout.Controls.Add(advancedFilters, 0, 2);
+			galleryLayout.Controls.Add(galleryActions, 0, 3);
+			galleryLayout.Controls.Add(_grid, 0, 4);
+			split.Panel1.Controls.Add(galleryLayout);
+			TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(8) };
 			layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			layout.Controls.Add(filters, 0, 0);
-			layout.Controls.Add(advancedFilters, 0, 1);
-			layout.Controls.Add(split, 0, 2);
-			layout.Controls.Add(_status, 0, 3);
-			layout.Controls.Add(phase, 0, 4);
+			layout.Controls.Add(split, 0, 0);
+			layout.Controls.Add(feedback, 0, 1);
+			layout.Controls.Add(_modAuthorWarning, 0, 2);
 			Controls.Add(layout);
 			foreach (BaseEdit editor in new BaseEdit[] { _search, _unofficial, _nsfw, _tags, _mods, _excludeMods, _minimumSize, _maximumSize, _sort })
 				editor.EditValueChanged += (sender, args) => ApplyFilters();
@@ -178,6 +219,9 @@ namespace Nexus.Client.Wabbajack.UI
 		public void ApplyDisplaySettings(DevExpressDisplaySettings settings)
 		{
 			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+			_activity.RefreshIcon();
+			_unofficialSupportWarning.RefreshIcon();
+			_modAuthorWarning.ImageOptions.Image = NmmIconProvider.GetBitmap(NmmIconAction.Warning, NmmIconProvider.CurrentIconSize, false);
 		}
 
 		/// <summary>Refreshes the public gallery and rebuilds its available filter values.</summary>
@@ -205,7 +249,7 @@ namespace Nexus.Client.Wabbajack.UI
 				_updatingFilters = false;
 				ApplyFilters();
 			}
-			catch (OperationCanceledException) { if (!IsDisposed) _status.Text = L("Cancelled", "Cancelled."); }
+			catch (OperationCanceledException) { if (!IsDisposed) _activity.Detail = L("Cancelled", "Cancelled."); }
 			catch (Exception error) { ReportError(error); }
 			finally { _updatingFilters = false; EndOperation(); }
 		}
@@ -230,7 +274,7 @@ namespace Nexus.Client.Wabbajack.UI
 			int selectedIndex = rows.FindIndex(row => row.List.Id == selectedId);
 			if (selectedIndex >= 0) _tiles.FocusedRowHandle = selectedIndex;
 			ShowSelectedList();
-			_status.Text = string.Format(L("ListCount", "{0} lists. {1} repositories could not be loaded."), rows.Count, _catalogue.FailedRepositories);
+			if (!_busy && _preparation == null) _activity.ShowActivity(L("GalleryReady", "Gallery ready"), CatalogueStatus(rows.Count), false, _catalogue.FailedRepositories > 0);
 			await Task.WhenAll(rows.Where(row => IsWebLink(row.List.Links.Image)).Select(async row =>
 			{
 				Task<Image> request;
@@ -275,37 +319,40 @@ namespace Nexus.Client.Wabbajack.UI
 		{
 			WabbajackList list = SelectedList;
 			if (_download == null) return;
-			_prepare.Enabled = !_busy && IsAvailable && _openPrepared != null;
-			_download.Enabled = !_busy && list != null && !list.IsUnavailable && IsWebLink(list.Links.Download);
+			_download.Enabled = !_busy && list != null && !list.IsUnavailable && IsWebLink(list.Links.Download) && _openPrepared != null;
 			_readme.Enabled = list != null && IsWebLink(list.Links.Readme);
 			_website.Enabled = list != null && IsWebLink(list.Links.WebsiteUrl);
 			_contents.Enabled = list != null;
-			_details.Text = list == null ? L("SelectList", "Select a list to see its details.") :
-				list.Title + Environment.NewLine + list.Author + Environment.NewLine + list.Version + Environment.NewLine + Environment.NewLine +
-				list.Description + Environment.NewLine + Environment.NewLine + string.Join(", ", list.Tags) + Environment.NewLine +
-				string.Format(L("Sizes", "Downloads: {0}\r\nInstalled files: {1}"), FormatSize(list.DownloadMetadata?.SizeOfArchives ?? 0),
-					FormatSize(list.DownloadMetadata?.SizeOfInstalledFiles ?? 0)) + Environment.NewLine +
-				(list.IsUnavailable ? L("Unavailable", "Unavailable / under maintenance") : list.Status == null ? L("UnknownStatus", "Availability report unavailable") : L("Available", "Available"));
+			_details.ShowList(list);
+			if (_preparation == null) _detailGroup.Text = list?.Title ?? L("SelectedList", "Selected modlist");
 		}
 
-		/// <summary>Downloads the selected compiled recipe and opens its inspection summary.</summary>
+		/// <summary>Downloads the selected list through Download Manager and prepares that exact package in its details pane.</summary>
 		private async Task DownloadSelectedAsync()
 		{
 			WabbajackList list = SelectedList;
-			if (_busy || list == null || list.IsUnavailable) return;
+			if (_busy || list == null || list.IsUnavailable || _viewModel == null || _preparation != null) return;
+			string key = list.Id + "/" + list.Version + "/" + list.DownloadMetadata?.Hash;
+			string existing;
+			if (_downloadedPackages.TryGetValue(key, out existing) && File.Exists(existing))
+			{
+				BeginOperation(L("Reading", "Reading list..."));
+				try { await OpenPreparationAsync(existing, list.Id); } catch (Exception error) { ReportError(error); } finally { EndOperation(); }
+				return;
+			}
 			using (SaveFileDialog dialog = new SaveFileDialog { Filter = L("PackageFilter", "Wabbajack lists (*.wabbajack)|*.wabbajack"),
 				FileName = string.Concat(list.Title.Split(Path.GetInvalidFileNameChars())) + ".wabbajack", DefaultExt = "wabbajack" })
 			{
 				if (dialog.ShowDialog(this) != DialogResult.OK) return;
-				BeginOperation(L("Downloading", "Downloading list..."));
+				BeginOperation(string.Format(L("DownloadingNamedList", "Downloading {0}"), list.Title));
 				try
 				{
-					Progress<int> progress = new Progress<int>(percent => { if (!IsDisposed) _status.Text = string.Format(L("DownloadProgress", "Downloading list: {0}%"), percent); });
-					await _client.DownloadAsync(list, dialog.FileName, progress, _operation.Token);
-					await InspectAsync(dialog.FileName, list.Id);
-					if (!IsDisposed) _status.Text = string.Format(L("Downloaded", "Downloaded: {0}"), dialog.FileName);
+					Progress<string> progress = new Progress<string>(message => { if (!IsDisposed && _busy) _activity.Detail = message; });
+					string path = await WabbajackDownloadQueue.DownloadAsync(_viewModel.ModManager, new Uri(list.Links.Download), dialog.FileName, list.DownloadMetadata?.Hash, list.DownloadMetadata?.Size ?? 0, progress, _operation.Token);
+					_downloadedPackages[key] = path;
+					await OpenPreparationAsync(path, list.Id);
 				}
-				catch (OperationCanceledException) { if (!IsDisposed) _status.Text = L("Cancelled", "Cancelled."); }
+				catch (OperationCanceledException) { if (!IsDisposed) _activity.Detail = L("DownloadsContinue", "Queued downloads remain available in Download Manager. Check sources when you are ready to continue."); }
 				catch (Exception error) { ReportError(error); }
 				finally { EndOperation(); }
 			}
@@ -314,77 +361,47 @@ namespace Nexus.Client.Wabbajack.UI
 		/// <summary>Inspects an existing package independently of the gallery's availability.</summary>
 		private async Task OpenFileAsync()
 		{
-			if (_busy) return;
+			if (_busy || _preparation != null) return;
 			using (OpenFileDialog dialog = new OpenFileDialog { Filter = L("PackageFilter", "Wabbajack lists (*.wabbajack)|*.wabbajack") })
 			{
 				if (dialog.ShowDialog(this) != DialogResult.OK) return;
 				BeginOperation(L("Reading", "Reading list..."));
-				try { await InspectAsync(dialog.FileName); }
-				catch (OperationCanceledException) { if (!IsDisposed) _status.Text = L("Cancelled", "Cancelled."); }
+				try { await OpenPreparationAsync(dialog.FileName); }
+				catch (OperationCanceledException) { if (!IsDisposed) _activity.Detail = L("Cancelled", "Cancelled."); }
 				catch (Exception error) { ReportError(error); }
 				finally { EndOperation(); }
 			}
 		}
 
-		/// <summary>Summarizes typed sources and directives while preserving the full recipe for later translation.</summary>
-		private async Task InspectAsync(string filePath, string sourceId = null)
+		/// <summary>Replaces the selected-list details with preparation for the actual downloaded package.</summary>
+		private async Task OpenPreparationAsync(string path, string sourceId = null)
 		{
-			WabbajackPackage package = await Task.Run(() => WabbajackPackage.Read(filePath), _operation.Token);
+			WabbajackPackage package = await Task.Run(() => WabbajackPackage.Read(path), _operation.Token);
 			if (IsDisposed || _operation.IsCancellationRequested) return;
-			_lastPackagePath = filePath; _lastSourceId = sourceId;
-			StringBuilder text = new StringBuilder();
-			text.AppendLine(package.Name).AppendLine(package.Author).AppendLine(package.GameType).AppendLine(package.Version).AppendLine();
-			text.AppendLine(package.Description).AppendLine();
-			text.AppendLine(L("Sources", "Sources:"));
-			foreach (IGrouping<string, WabbajackArchive> group in package.Archives.GroupBy(archive => archive.State?.Type ?? "Unknown"))
-				text.AppendLine(group.Key + ": " + group.Count());
-			text.AppendLine().AppendLine(L("Instructions", "Installation instructions:"));
-			foreach (IGrouping<string, WabbajackDirective> group in package.Directives.GroupBy(directive => directive.Type ?? "Unknown"))
-				text.AppendLine(group.Key + ": " + group.Count());
-			text.AppendLine().AppendLine(L("PrepareInspectionHint", "Prepare installation opens this profile as a Collection for NMM's installation review."));
-			using (XtraForm form = new XtraForm { Text = package.Name ?? "Wabbajack", Size = new Size(700, 560), StartPosition = FormStartPosition.CenterParent })
-			using (MemoEdit memo = new MemoEdit { Dock = DockStyle.Fill, Text = text.ToString() })
-			{
-				memo.Properties.ReadOnly = true;
-				form.Controls.Add(memo);
-				form.ShowDialog(this);
-			}
+			WabbajackPreparationControl preparation = new WabbajackPreparationControl(_viewModel, package, sourceId, _openPrepared, _activity);
+			preparation.BackRequested += (sender, args) => {
+				_detailGroup.Controls.Remove(preparation); preparation.Dispose(); _preparation = null;
+				_detailGroup.Controls.Add(_listDetails); ShowSelectedList();
+				_refresh.Enabled = _openFile.Enabled = true;
+				_activity.ShowActivity(L("GalleryReady", "Gallery ready"), CatalogueStatus((_grid.DataSource as List<GalleryRow>)?.Count ?? 0), false);
+			};
+			preparation.BusyChanged += (sender, args) => { _cancel.Enabled = preparation.IsBusy; };
+			_preparation = preparation;
+			_detailGroup.Controls.Remove(_listDetails);
+			_detailGroup.Text = string.Format(L("PreparingNamedList", "Prepare {0}"), package.Name);
+			_detailGroup.Controls.Add(preparation);
+			using (DevExpressDisplaySettings display = DevExpressDisplaySettings.CreateFromSettings(_viewModel.EnvironmentInfo.Settings))
+				DevExpressDisplaySettingsApplier.ApplyToControlTree(preparation, display);
 		}
-
-		/// <summary>Prepares a selected compiled list and passes it to the existing Collection installation surface.</summary>
-		private async Task PrepareInstallationAsync()
-		{
-			if (_busy || _viewModel == null || _openPrepared == null) return;
-			using (OpenFileDialog file = new OpenFileDialog { Filter = L("PackageFilter", "Wabbajack lists (*.wabbajack)|*.wabbajack"), FileName = _lastPackagePath ?? string.Empty })
-			{
-				if (file.ShowDialog(this) != DialogResult.OK) return;
-				string sourceId = string.Equals(file.FileName, _lastPackagePath, StringComparison.OrdinalIgnoreCase) ? _lastSourceId : null;
-				BeginOperation(L("Reading", "Reading list..."));
-				try
-				{
-					WabbajackPackage package = await Task.Run(() => WabbajackPackage.Read(file.FileName), _operation.Token);
-					if (IsDisposed || _operation.IsCancellationRequested) return;
-					using (WabbajackPreparationDialog dialog = new WabbajackPreparationDialog(_viewModel, package, _client, sourceId))
-					{
-						if (dialog.ShowDialog(this) != DialogResult.OK) return;
-						string settingsDirectory = (_viewModel.GameMode as Nexus.Client.Games.Gamebryo.GamebryoGameModeBase)?.UserGameDataPath;
-						await _openPrepared(dialog.Result, settingsDirectory);
-					}
-				}
-				catch (OperationCanceledException) { }
-				catch (Exception error) { ReportError(error); }
-				finally { EndOperation(); }
-			}
-		}
-
 		/// <summary>Starts one user operation with cancellation and ordinary action state.</summary>
 		private void BeginOperation(string message)
 		{
 			_busy = true;
+			_operationFailed = false;
 			_operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
 			_refresh.Enabled = _openFile.Enabled = false;
 			_cancel.Enabled = true;
-			_status.Text = message;
+			_activity.ShowActivity(message, L("DownloadManagerHint", "Downloads appear in Download Manager. You can pause, resume or cancel them there."), true);
 			ShowSelectedList();
 		}
 
@@ -395,8 +412,12 @@ namespace Nexus.Client.Wabbajack.UI
 			_operation = null;
 			_busy = false;
 			if (IsDisposed) return;
-			_refresh.Enabled = _openFile.Enabled = true;
+			_refresh.Enabled = _preparation == null;
+			_openFile.Enabled = _preparation == null;
 			_cancel.Enabled = false;
+			if (_operationFailed || _preparation == null)
+				_activity.ShowActivity(_operationFailed ? L("ActionRequired", "Action required") : L("GalleryReady", "Gallery ready"),
+					_operationFailed ? _activity.Detail : CatalogueStatus((_grid.DataSource as List<GalleryRow>)?.Count ?? 0), false, _operationFailed);
 			ShowSelectedList();
 		}
 
@@ -404,7 +425,8 @@ namespace Nexus.Client.Wabbajack.UI
 		private void ReportError(Exception error)
 		{
 			Trace.TraceError("Wabbajack: {0}", error);
-			if (!IsDisposed) _status.Text = L("Error", "Wabbajack: ") + error.Message;
+			_operationFailed = true;
+			if (!IsDisposed) _activity.ShowActivity(L("ActionRequired", "Action required"), error.Message, false, true);
 		}
 
 		/// <summary>Opens ordinary web links using the system browser.</summary>
@@ -429,16 +451,23 @@ namespace Nexus.Client.Wabbajack.UI
 				TextAlignment = TileItemContentAlignment.MiddleLeft, MaxLineCount = row == 1 ? 2 : 1 };
 		}
 
-		/// <summary>Creates an automatically wrapping toolbar row.</summary>
-		private static FlowLayoutPanel Flow() { return new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(5) }; }
+		/// <summary>Describes the loaded gallery and the next action without a redundant zero-failure warning.</summary>
+		private string CatalogueStatus(int count)
+		{
+			return string.Format(L("GalleryCount", "{0} modlists. Select one, then choose Download & prepare."), count) +
+				(_catalogue != null && _catalogue.FailedRepositories > 0 ? " " + string.Format(L("RepositoryFailures", "{0} repositories could not be loaded."), _catalogue.FailedRepositories) : string.Empty);
+		}
+
+		/// <summary>Sizes checkbox captions through DevExpress rather than the default fixed editor width.</summary>
+		private static CheckEdit Check(string text) { CheckEdit check = new CheckEdit { Text = text, AutoSize = true, Margin = new Padding(8, 4, 8, 4) }; check.Properties.AutoWidth = true; return check; }
 
 		/// <summary>Creates a skin-aware filter label.</summary>
-		private static LabelControl Label(string text) { return new LabelControl { Text = text, Margin = new Padding(5, 7, 5, 3) }; }
+		private static LabelControl Label(string text) { return new LabelControl { Text = text, AutoSizeMode = LabelAutoSizeMode.Horizontal, Margin = new Padding(6, 7, 6, 4) }; }
 
 		/// <summary>Creates a button using the existing DevExpress appearance.</summary>
 		private static SimpleButton Button(string text, Action action)
 		{
-			SimpleButton button = new SimpleButton { Text = text, AutoSize = true };
+			SimpleButton button = new SimpleButton { Text = text, AutoSize = true, Margin = new Padding(4, 4, 4, 4) };
 			button.Click += (sender, args) => action();
 			return button;
 		}
@@ -446,7 +475,7 @@ namespace Nexus.Client.Wabbajack.UI
 		/// <summary>Creates a non-negative GiB range editor.</summary>
 		private static SpinEdit CreateSizeEditor(decimal value)
 		{
-			SpinEdit editor = new SpinEdit { Width = 75 };
+			SpinEdit editor = new SpinEdit { Width = 75, MinimumSize = new Size(75, 0) };
 			editor.Properties.MinValue = 0;
 			editor.Properties.MaxValue = 100000;
 			editor.Value = value;

@@ -1804,7 +1804,7 @@
 		/// After being disposed, that is no guarantee that the task's status will be correct. Further
 		/// interaction with the object is undefined.
 		/// </remarks>
-		public void Dispose()
+		public virtual void Dispose()
 		{
 			foreach (IDisposable task in _runningTasks)
             {

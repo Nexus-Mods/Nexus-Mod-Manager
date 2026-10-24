@@ -277,6 +277,7 @@
 			// The process bootstrap supplies the concrete environment; the VM exposes only IEnvironmentInfo.
 			_shellEnvironmentInfo = viewModel.EnvironmentInfo as EnvironmentInfo
 				?? throw new ArgumentException("The main window requires the application EnvironmentInfo.", nameof(viewModel));
+			Icon = Properties.Resources.NMM_CE_P_Logo;
 			_gameDiscoveryRegistry = supportedGames;
 
 			// Restore the global skin before any DevExpress controls are created.
@@ -387,6 +388,8 @@
 		{
 			_persistentSessionShell = true;
 			_shellEnvironmentInfo = environmentInfo ?? throw new ArgumentNullException(nameof(environmentInfo));
+			// Windows sees the shell before a game attaches, so its taskbar icon must already be assigned.
+			Icon = Properties.Resources.NMM_CE_P_Logo;
 			InitializeDevExpressLookAndFeel(_shellEnvironmentInfo);
 			InitializeGameDiscoveryDocument();
 			InitializeMainLocalizationCache();
@@ -1258,6 +1261,9 @@
 		private void MacModActivationMonitorControlUpdateBottomBarFeedback(object sender, EventArgs e)
 		{
 			UpgradeBottomBarFeedbackCounter();
+			IBackgroundTaskSet completedTask = (sender as ModActivationMonitorRow)?.Task ?? (sender as ModActivationMonitorListViewItem)?.Task;
+			if (ViewModel.UsesPlugins && completedTask != null && completedTask.IsCompleted)
+				_pluginManagerControl.RefreshAfterNativeChanges();
 
 			if (sender != null)
 			{
@@ -3559,6 +3565,8 @@
 				return;
 			}
 			_fileManagerControl.NotifyCollectionSourcesChanged();
+			if (ViewModel.UsesPlugins)
+				_pluginManagerControl.RefreshAfterNativeChanges();
 			ScheduleGameStatistics(true);
 			BindSupportedToolsCommands();
 		}

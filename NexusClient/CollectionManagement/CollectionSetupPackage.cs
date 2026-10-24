@@ -58,12 +58,18 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reads regular ZIP entries without extraction or accepting author-supplied absolute paths.</summary>
 		internal static CollectionSetupPackage Read(string path)
 		{
+			using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+				return Read(input, Path.GetFileName(path));
+		}
+
+		/// <summary>Reads a retained setup archive without depending on its original export path.</summary>
+		internal static CollectionSetupPackage Read(Stream input, string archiveName)
+		{
 			var files = new List<CollectionSetupFile>();
 			var readmes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			long total = 0;
 			string archiveHash;
-			using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
 			{
 				if (input.Length > MaximumTotalBytes) throw new InvalidDataException(L("ValidationTheSetupArchiveExceedsTheSupportedSize128MB", "The setup archive exceeds the supported size (128 MB)."));
 				using (SHA256 sha = SHA256.Create()) archiveHash = Hex(sha.ComputeHash(input));
@@ -99,7 +105,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (files.Count == 0) throw new InvalidDataException(L("ValidationTheSetupArchiveHasNoPayloadFiles", "The setup archive has no payload files."));
 			foreach (CollectionSetupFile file in files) Propose(file, readmes);
-			return new CollectionSetupPackage { ArchiveName = Path.GetFileName(path), ArchiveHash = archiveHash, Files = files,
+			return new CollectionSetupPackage { ArchiveName = archiveName, ArchiveHash = archiveHash, Files = files,
 				Readmes = String.Join(Environment.NewLine + Environment.NewLine, readmes.Select(x => x.Key + Environment.NewLine + x.Value)) };
 		}
 
@@ -114,6 +120,11 @@ namespace Nexus.Client.CollectionManagement
 			{
 				file.Root = CollectionSetupRoot.Documents; file.RelativePath = leaf.ToLowerInvariant();
 				file.PersonalSettings = !leaf.Equals("mods.settings", StringComparison.OrdinalIgnoreCase);
+			}
+			else if (parts.Length > 1 && parts[0].Equals("Documents", StringComparison.OrdinalIgnoreCase))
+			{
+				file.Root = CollectionSetupRoot.Documents;
+				file.RelativePath = String.Join("\\", parts.Skip(1));
 			}
 			else if (leaf.Equals("dx12filelist.txt", StringComparison.OrdinalIgnoreCase) || leaf.Equals("dx11filelist.txt", StringComparison.OrdinalIgnoreCase))
 			{

@@ -1422,6 +1422,23 @@
 			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
 		}
 
+		/// <summary>Rebuilds displayed plugins from committed state after a native operation finishes.</summary>
+		internal void RefreshAfterNativeChanges()
+		{
+			RequestManagedPluginsRefresh();
+		}
+
+		/// <summary>Resumes pending refreshes when a previously hidden Plugins tab creates its handle.</summary>
+		protected override void OnHandleCreated(EventArgs e)
+		{
+			base.OnHandleCreated(e);
+			if (_managedPluginsRefreshPending || _activePluginsRefreshPending)
+			{
+				_pluginRefreshScheduled = false;
+				SchedulePluginRefresh();
+			}
+		}
+
 		private void RequestManagedPluginsRefresh()
         {
             if (IsDisposed || Disposing)

@@ -78,10 +78,8 @@ namespace Nexus.Client.CollectionManagement
 
 		public CollectionVortexFomodStepSelection(string name, IEnumerable<CollectionVortexFomodGroupSelection> groups)
 		{
-			// A null or empty name is a valid legacy/unnamed FOMOD step. The parsed step
-			// position and native name remain subject to exact C5 shape validation.
-			if (name != null && name.Length > 0 && String.IsNullOrWhiteSpace(name))
-				throw new ArgumentException("A Vortex FOMOD step name cannot contain only whitespace.", nameof(name));
+			// Preserve labels, including whitespace-only names used by some installers.
+			// The native adapter still matches each step by its exact position and name.
 			if (groups == null)
 				throw new ArgumentNullException(nameof(groups));
 			List<CollectionVortexFomodGroupSelection> copied = groups.ToList();

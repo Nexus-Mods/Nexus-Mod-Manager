@@ -152,7 +152,7 @@ namespace Nexus.Client.OnlineServices.Wabbajack
 		}
 
 		/// <summary>Recognizes the CDN hosts supported by Wabbajack's own downloader.</summary>
-		private static bool IsCdn(Uri uri)
+		internal static bool IsCdn(Uri uri)
 		{
 			return new[] { "authored-files.wabbajack.org", "mirror.wabbajack.org", "patches.wabbajack.org", "test-files.wabbajack.org",
 				"wabbajack.b-cdn.net", "wabbajack-mirror.b-cdn.net", "wabbajack-patches.b-cdn.net", "wabbajacktest.b-cdn.net" }

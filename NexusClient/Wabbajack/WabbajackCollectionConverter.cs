@@ -11,6 +11,7 @@ using Newtonsoft.Json.Linq;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games.DataDriven;
 using Nexus.Client.ModRepositories;
+using Nexus.Client.ModManagement;
 using Nexus.Client.Mods;
 using Nexus.Client.OnlineServices.Wabbajack;
 using Nexus.Client.Util.Localization;
@@ -31,7 +32,7 @@ namespace Nexus.Client.Wabbajack
 		public CollectionRevision Revision { get; internal set; }
 	}
 
-	/// <summary>Reconstructs one compiled profile into the Collection bundle format already consumed by NMM.</summary>
+	/// <summary>References original archives in a logical Collection and packages only list-specific custom outputs.</summary>
 	public sealed class WabbajackCollectionConverter
 	{
 		private readonly WabbajackPackage _package;
@@ -46,6 +47,10 @@ namespace Nexus.Client.Wabbajack
 		private readonly Dictionary<string, Dictionary<string, int>> _entries = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
 		private string _downloadsDirectory;
 		public IReadOnlyList<WabbajackArchive> RequiredArchives { get; }
+		public string CurrentOutput { get; private set; }
+		public string CurrentInstruction { get; private set; }
+		public int CompletedOutputs { get; private set; }
+		public int TotalOutputs { get; private set; }
 
 		/// <summary>Chooses enabled mod outputs and the game JSON's explicit root/tool mappings.</summary>
 		public WabbajackCollectionConverter(WabbajackPackage package, WabbajackProfile profile, GameModeWabbajackDefinition configuration,
@@ -55,6 +60,7 @@ namespace Nexus.Client.Wabbajack
 			if (!string.Equals(package.GameType, configuration.Game, StringComparison.OrdinalIgnoreCase))
 				throw new NotSupportedException(L("GameMismatch", "This Wabbajack list belongs to a different game."));
 			_outputs = SelectOutputs();
+			TotalOutputs = _outputs.Count;
 			foreach (Output output in _outputs)
 				if (!new[] { "FromArchive", "PatchedFromArchive", "InlineFile", "RemappedInlineFile" }.Contains(Kind(output.Directive.Type)))
 					throw new NotSupportedException(L("UnsupportedInstruction", "Unsupported Wabbajack instruction: ") + output.Directive.Type);
@@ -70,7 +76,9 @@ namespace Nexus.Client.Wabbajack
 			_downloadsDirectory = directories.FirstOrDefault() ?? Path.GetDirectoryName(_package.FilePath);
 			Dictionary<long, List<string>> candidates = new Dictionary<long, List<string>>();
 			foreach (string directory in directories.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
-				foreach (string file in Directory.EnumerateFiles(directory))
+				// Recover downloads written by the old explicit-path bug as archive.ext/archive.ext.
+				foreach (string file in Directory.EnumerateFiles(directory).Concat(Directory.EnumerateDirectories(directory)
+					.Select(folder => Path.Combine(folder, Path.GetFileName(folder))).Where(File.Exists)))
 				{
 					long size = new FileInfo(file).Length;
 					List<string> files;
@@ -104,9 +112,10 @@ namespace Nexus.Client.Wabbajack
 
 		/// <summary>Acquires supported HTTP/CDN and Premium Nexus sources; free-account downloads remain browser-driven.</summary>
 		public async Task DownloadSourcesAsync(IEnumerable<WabbajackArchive> missing, string downloadDirectory, IModRepository repository,
-			WabbajackClient client, IProgress<string> progress, CancellationToken token)
+			ModManager manager, IProgress<string> progress, CancellationToken token)
 		{
 			Directory.CreateDirectory(downloadDirectory);
+			List<Task> transfers = new List<Task>();
 			foreach (WabbajackArchive archive in missing)
 			{
 				token.ThrowIfCancellationRequested();
@@ -115,18 +124,18 @@ namespace Nexus.Client.Wabbajack
 				if (kind.StartsWith("Nexus", StringComparison.Ordinal))
 				{
 					if (repository.UserStatus?.IsPremium != true || !string.Equals(archive.State.GameName, _package.GameType, StringComparison.OrdinalIgnoreCase)) continue;
-					List<RepositoryDownloadLink> links = await Task.Run(() => repository.GetFilePartInfo(archive.State.ModId.ToString(), archive.State.FileId.ToString()), token).ConfigureAwait(false);
-					url = links.First().Uri.AbsoluteUri;
+					url = "nxm://" + repository.GameDomainName + "/mods/" + archive.State.ModId + "/files/" + archive.State.FileId;
 				}
 				else if (!(kind.StartsWith("Http", StringComparison.Ordinal) || kind.StartsWith("WabbajackCDN", StringComparison.Ordinal))) continue;
 				else if (archive.State.AdditionalData != null && archive.State.AdditionalData.ContainsKey("Headers") && archive.State.AdditionalData["Headers"].HasValues) continue;
 				if (string.IsNullOrWhiteSpace(url)) continue;
 				progress?.Report(L("DownloadingSource", "Downloading source: ") + archive.Name);
-				await client.DownloadFileAsync(url, Inside(downloadDirectory, Path.GetFileName(archive.Name)), archive.Hash, null, token).ConfigureAwait(false);
+				transfers.Add(WabbajackDownloadQueue.DownloadAsync(manager, new Uri(url), Inside(downloadDirectory, Path.GetFileName(archive.Name)), archive.Hash, archive.Size, progress, token));
 			}
+			await Task.WhenAll(transfers).ConfigureAwait(false);
 		}
 
-		/// <summary>Writes reconstructed bundled members and exact file/plugin priority into a normal Collection ZIP.</summary>
+		/// <summary>Creates a logical Collection over original archives, bundling only list-specific custom outputs.</summary>
 		public WabbajackConvertedCollection Convert(string outputDirectory, string sourceId, IProgress<string> progress, CancellationToken token)
 		{
 			if (RequiredArchives.Any(archive => !_sources.ContainsKey(archive.Hash))) throw new InvalidOperationException(L("SourcesMissing", "Download the missing sources before preparing the Collection."));
@@ -140,86 +149,132 @@ namespace Nexus.Client.Wabbajack
 			string temporary = Path.Combine(workspace, "collection.zip");
 			string provenance = _package.SourceId ?? sourceId ?? _package.GameType + "/" + _package.Author + "/" + _package.Name;
 			CollectionIdentity identity = CollectionIdentity.FromLocal(StableGuid("wabbajack/" + provenance + "/" + _profile.Name));
+			List<WabbajackArchive> originals = new List<WabbajackArchive>();
+			CompletedOutputs = 0;
 			try
 			{
-				// Native deployment can replace original masters; retain their inputs for later profile/version conversions.
-				foreach (WabbajackArchive archive in RequiredArchives.Where(archive => Kind(archive.State?.Type).StartsWith("GameFileSource", StringComparison.Ordinal)))
+				List<string> order = _profile.Mods.ToList();
+				order.Insert(0, "[Wabbajack root files]"); order.Add("[Wabbajack overwrite]");
+				// Keep each final compiled destination once, with the same winning mod as the selected MO2 profile.
+				List<Output> selected = _outputs.OrderBy(output => order.IndexOf(output.Member))
+					.GroupBy(output => (output.GameRoot ? "root:" : "data:") + Relative(output.Path), StringComparer.OrdinalIgnoreCase)
+					.Select(group => group.Last()).ToList();
+				TotalOutputs = selected.Count;
+				List<Output> referenced = selected.Where(output => Kind(output.Directive.Type) == "FromArchive" && output.Directive.ArchiveHashPath.Length == 2)
+					.GroupBy(output => output.Directive.ArchiveHashPath[0])
+					.Where(group => group.All(output => output.GameRoot) || group.All(output => !output.GameRoot)).SelectMany(group => group).ToList();
+				List<Output> custom = selected.Except(referenced).ToList();
+
+				// Only custom game-file patches consume vanilla masters. Keep those original inputs for future revisions.
+				HashSet<string> customInputs = new HashSet<string>(custom.Where(output => output.Directive.ArchiveHashPath != null)
+					.Select(output => output.Directive.ArchiveHashPath[0]));
+				foreach (WabbajackArchive archive in RequiredArchives.Where(archive => customInputs.Contains(archive.Hash) && Kind(archive.State?.Type).StartsWith("GameFileSource", StringComparison.Ordinal)))
 				{
-					string originals = Path.Combine(outputDirectory, "Wabbajack Sources"); Directory.CreateDirectory(originals);
-					string retained = Inside(originals, archive.Hash.Replace('/', '_').Replace('+', '-') + "-" + Path.GetFileName(archive.Name));
+					string retained = Inside(Path.Combine(outputDirectory, "Wabbajack Sources"), archive.Hash.Replace('/', '_').Replace('+', '-') + "-" + Path.GetFileName(archive.Name));
+					Directory.CreateDirectory(Path.GetDirectoryName(retained));
 					if (!string.Equals(Path.GetFullPath(_sources[archive.Hash]), Path.GetFullPath(retained), StringComparison.OrdinalIgnoreCase)) File.Copy(_sources[archive.Hash], retained, true);
 					_sources[archive.Hash] = retained;
 				}
+
 				JArray members = new JArray();
 				JArray rules = new JArray();
 				using (ZipArchive source = ZipFile.OpenRead(_package.FilePath))
 				using (ZipArchive bundle = ZipFile.Open(temporary, ZipArchiveMode.Create))
 				{
-					List<string> order = _profile.Mods.ToList();
-					// MO2 overlays enabled mods over the physical game folder, then applies overwrite last.
-					order.Insert(0, "[Wabbajack root files]"); order.Add("[Wabbajack overwrite]");
-					string previousTag = null;
-					int completed = 0;
-					foreach (IGrouping<string, Output> group in _outputs.GroupBy(output => output.Member).OrderBy(group => order.IndexOf(group.Key)))
+					// Ordinary mods stay in their original downloaded archives. The hash list selects and maps their files at installation.
+					foreach (IGrouping<string, Output> group in referenced.GroupBy(output => output.Directive.ArchiveHashPath[0]))
 					{
-						string tag = "wb-" + StableGuid(group.Key).ToString("N");
+						token.ThrowIfCancellationRequested();
+						WabbajackArchive archive = RequiredArchives.First(item => item.Hash == group.Key);
+						string displayName = string.Join(" / ", group.Select(output => output.Member).Distinct(StringComparer.OrdinalIgnoreCase));
+						progress?.Report(string.Format(L("ReferencingArchive", "Referencing original archive: {0}"), archive.Name));
+						CurrentOutput = archive.Name; CurrentInstruction = "ArchiveReference";
+						bool nexus = Kind(archive.State?.Type).StartsWith("Nexus", StringComparison.Ordinal) &&
+							string.Equals(archive.State.GameName, _package.GameType, StringComparison.OrdinalIgnoreCase);
+						JObject archiveSource = new JObject { ["type"] = nexus ? "nexus" : "manual", ["fileSize"] = archive.Size,
+							["fileExpression"] = Path.GetFileName(archive.Name), ["tag"] = "wb-source-" + StableGuid(group.Key).ToString("N") };
+						if (nexus) { archiveSource["modId"] = archive.State.ModId; archiveSource["fileId"] = archive.State.FileId; }
+						else
+						{
+							using (MD5 md5 = MD5.Create())
+							using (FileStream input = File.OpenRead(_sources[group.Key]))
+								archiveSource["md5"] = BitConverter.ToString(md5.ComputeHash(input)).Replace("-", "").ToLowerInvariant();
+						}
+						JArray files = new JArray(group.Select(output => FileHash(output.Path, output.Directive.Hash)));
+						JObject referencedMember = Member(displayName, files, archiveSource, members.Count);
+						if (group.First().GameRoot) { referencedMember["details"] = new JObject { ["type"] = "enb" }; members.Insert(0, referencedMember); }
+						else members.Add(referencedMember);
+						originals.Add(archive);
+						CompletedOutputs += group.Count();
+					}
+
+					int customCompleted = 0;
+					foreach (IGrouping<bool, Output> group in custom.GroupBy(output => output.GameRoot))
+					{
+						string tag = group.Key ? "wb-custom-root" : "wb-custom-data";
 						JArray files = new JArray();
 						long size = 0;
 						foreach (Output output in group)
 						{
 							token.ThrowIfCancellationRequested();
-							completed++;
-							if (completed % 50 == 0 || completed == _outputs.Count) progress?.Report(string.Format(L("Reconstructing", "Reconstructing {0}: {1}/{2}"), group.Key, completed, _outputs.Count));
+							CurrentOutput = output.Directive.To; CurrentInstruction = Kind(output.Directive.Type);
+							progress?.Report(string.Format(L("PreparingCustomFile", "Preparing list-specific file {0}/{1}: {2}"), ++customCompleted, custom.Count, output.Path));
 							ZipArchiveEntry entry = bundle.CreateEntry("bundled/" + tag + "/" + Relative(output.Path).Replace('\\', '/'), CompressionLevel.Fastest);
 							entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-							using (Stream entryStream = entry.Open())
-							using (WabbajackOutputStream target = new WabbajackOutputStream(entryStream, token))
+							using (Stream stream = entry.Open())
+							using (WabbajackOutputStream target = new WabbajackOutputStream(stream, token))
 							{
-								WriteDirective(source, output.Directive, target, workspace, token);
-								if (Kind(output.Directive.Type) != "RemappedInlineFile" &&
-									(target.Length != output.Directive.Size || target.Hash != output.Directive.Hash))
-									throw new InvalidDataException(L("OutputMismatch", "Reconstructed file does not match the Wabbajack recipe: ") + output.Directive.To);
-								byte[] digest = System.Convert.FromBase64String(target.Hash); Array.Reverse(digest);
-								files.Add(new JObject { ["path"] = output.Path.Replace('\\', '/'), ["xxh64"] = System.Convert.ToBase64String(digest) });
-								size += target.Length;
+								try { WriteDirective(source, output.Directive, target, workspace, token); }
+								catch (OperationCanceledException) { throw; }
+								catch (Exception error) { throw new InvalidDataException(L("ReconstructionFailed", "Could not reconstruct compiled file: ") + CurrentOutput + ". " + error.Message, error); }
+								if (Kind(output.Directive.Type) != "RemappedInlineFile" && (target.Length != output.Directive.Size || target.Hash != output.Directive.Hash))
+									throw new InvalidDataException(L("OutputMismatch", "Reconstructed file does not match the Wabbajack recipe: ") + CurrentOutput);
+								files.Add(FileHash(output.Path, target.Hash)); size += target.Length; CompletedOutputs++;
 							}
 						}
-						JObject member = new JObject { ["name"] = group.Key, ["version"] = _package.Version ?? "1.0", ["optional"] = false,
-							["domainName"] = _domain, ["hashes"] = files, ["phase"] = members.Count,
-							["source"] = new JObject { ["type"] = "bundle", ["fileSize"] = Math.Max(1, size), ["fileExpression"] = tag, ["tag"] = tag } };
-						if (group.Any(output => output.GameRoot)) member["details"] = new JObject { ["type"] = "enb" };
-						members.Add(member);
-						if (previousTag != null) rules.Add(new JObject { ["type"] = "after", ["source"] = new JObject { ["tag"] = tag, ["versionMatch"] = "*" },
-							["reference"] = new JObject { ["tag"] = previousTag, ["versionMatch"] = "*" } });
-						previousTag = tag;
+						JObject member = Member(_package.Name + " - " + L(group.Key ? "CustomRootFiles" : "CustomFiles", group.Key ? "Root setup files" : "Custom files"), files,
+							new JObject { ["type"] = "bundle", ["fileSize"] = Math.Max(1, size), ["fileExpression"] = tag, ["tag"] = tag }, members.Count);
+						if (group.Key) { member["details"] = new JObject { ["type"] = "enb" }; members.Insert(0, member); }
+						else members.Add(member);
+					}
+					for (int index = 0; index < members.Count; index++)
+					{
+						members[index]["phase"] = index;
+						if (index > 0) rules.Add(new JObject { ["type"] = "after", ["source"] = new JObject { ["tag"] = members[index]["source"]["tag"].Value<string>(), ["versionMatch"] = "*" },
+							["reference"] = new JObject { ["tag"] = members[index - 1]["source"]["tag"].Value<string>(), ["versionMatch"] = "*" } });
 					}
 					JArray plugins = new JArray(_profile.Plugins.Select(plugin => new JObject { ["name"] = plugin, ["enabled"] = true }));
 					JArray pluginRules = new JArray();
 					for (int index = 1; index < _profile.LoadOrder.Count; index++) pluginRules.Add(new JObject { ["name"] = _profile.LoadOrder[index], ["after"] = new JArray(_profile.LoadOrder[index - 1]) });
 					string instructions = L("ConvertedInstructions", "Wabbajack profile: ") + _profile.Name + "\r\n" +
-						L("ApplySetupInstructions", "After installation, apply the companion setup ZIP from Setup & instructions. Follow the author's post-install steps, including any game patchers.") +
-						(_outputs.Any(output => output.GameRoot && output.Path.StartsWith("Tools\\", StringComparison.OrdinalIgnoreCase))
-							? "\r\n" + L("ToolsLocation", "Tools are included beneath the game's Tools folder.") : string.Empty) +
+						L("LogicalCollectionInstructions", "This Collection references the original downloaded mods. Only list-specific custom files are bundled.") + "\r\n" +
+						L("ApplyProfileSettingsInstructions", "NMM has created a setup ZIP containing this Wabbajack profile's game INI files. After the mods finish installing, open Setup & instructions and click Review Wabbajack settings... to review and apply them. NMM selects the generated ZIP automatically; no additional download is needed. Follow the list author's remaining post-install instructions, including any game patchers.") +
+						(custom.Any(output => output.GameRoot && output.Path.StartsWith("Tools\\", StringComparison.OrdinalIgnoreCase)) ? "\r\n" + L("ToolsLocation", "Tools are included beneath the game's Tools folder.") : string.Empty) +
 						"\r\n" + (_package.Readme ?? _package.Website ?? string.Empty);
 					JObject manifest = new JObject { ["info"] = new JObject { ["name"] = name, ["author"] = _package.Author ?? "Wabbajack",
-						["description"] = _package.Description ?? name, ["domainName"] = _domain, ["installInstructions"] = instructions },
+						["authorUrl"] = _package.Website ?? string.Empty, ["description"] = _package.Description ?? name, ["domainName"] = _domain, ["installInstructions"] = instructions },
 						["mods"] = members, ["modRules"] = rules, ["plugins"] = plugins, ["pluginRules"] = new JObject { ["plugins"] = pluginRules } };
 					WriteText(bundle, "collection.json", manifest.ToString());
 					WriteText(bundle, "wabbajack/modlist.json", _package.RawManifest);
-					WriteText(bundle, "wabbajack/provenance.json", new JObject { ["formatVersion"] = 1, ["source"] = provenance, ["profile"] = _profile.Name,
-						["version"] = _package.Version, ["wabbajackVersion"] = _package.WabbajackVersion }.ToString());
+					WriteText(bundle, "wabbajack/provenance.json", new JObject { ["formatVersion"] = 2, ["source"] = provenance, ["profile"] = _profile.Name,
+						["version"] = _package.Version, ["wabbajackVersion"] = _package.WabbajackVersion, ["archiveReferences"] = originals.Count, ["customFiles"] = custom.Count }.ToString());
 				}
 				using (ZipArchive setup = ZipFile.Open(Path.Combine(workspace, "setup.zip"), ZipArchiveMode.Create))
-					foreach (KeyValuePair<string, string> file in _profile.Files.Where(file => file.Key.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) &&
+					foreach (KeyValuePair<string, byte[]> file in _profile.FileContents.Where(file => file.Key.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) &&
 						!new[] { "settings.ini", "savepath.ini", "initweaks.ini" }.Contains(file.Key, StringComparer.OrdinalIgnoreCase)))
-						{
-							byte[] bytes = _profile.FileContents[file.Key];
-							ZipArchiveEntry entry = setup.CreateEntry("Documents/" + file.Key, CompressionLevel.Fastest);
-							entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-							using (Stream stream = entry.Open()) stream.Write(bytes, 0, bytes.Length);
-						}
-				File.Copy(temporary, destination, true);
-				File.Copy(Path.Combine(workspace, "setup.zip"), setupPath, true);
+					{
+						ZipArchiveEntry entry = setup.CreateEntry("Documents/" + file.Key, CompressionLevel.Fastest);
+						entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+						using (Stream stream = entry.Open()) stream.Write(file.Value, 0, file.Value.Length);
+					}
+				using (ZipArchive bundle = ZipFile.Open(temporary, ZipArchiveMode.Update))
+				{
+					ZipArchiveEntry entry = bundle.CreateEntry("wabbajack/setup.zip", CompressionLevel.NoCompression);
+					entry.LastWriteTime = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+					using (Stream target = entry.Open())
+					using (FileStream source = File.OpenRead(Path.Combine(workspace, "setup.zip"))) source.CopyTo(target);
+				}
+				File.Copy(temporary, destination, true); File.Copy(Path.Combine(workspace, "setup.zip"), setupPath, true);
 				CollectionRevisionIdentity revisionIdentity;
 				using (SHA256 hash = SHA256.Create())
 				using (FileStream source = File.OpenRead(destination))
@@ -235,6 +290,20 @@ namespace Nexus.Client.Wabbajack
 				if (Path.GetFullPath(workspace).StartsWith(Path.GetFullPath(outputDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
 					Directory.Delete(workspace, true);
 			}
+		}
+
+		/// <summary>Uses the standard Collection member schema for both referenced archives and custom payloads.</summary>
+		private JObject Member(string name, JArray files, JObject source, int phase)
+		{
+			return new JObject { ["name"] = name, ["version"] = _package.Version ?? "1.0", ["optional"] = false,
+				["domainName"] = _domain, ["hashes"] = files, ["phase"] = phase, ["source"] = source };
+		}
+
+		/// <summary>Translates the compiled digest into the file-list byte order used by Collections.</summary>
+		private static JObject FileHash(string path, string hash)
+		{
+			byte[] digest = System.Convert.FromBase64String(hash); Array.Reverse(digest);
+			return new JObject { ["path"] = path.Replace('\\', '/'), ["xxh64"] = System.Convert.ToBase64String(digest) };
 		}
 
 		/// <summary>Routes compiled outputs by profile and explicit game configuration; MO2 metadata is not game content.</summary>
@@ -278,15 +347,22 @@ namespace Nexus.Client.Wabbajack
 		{
 			switch (Kind(directive.Type))
 			{
-				case "FromArchive": ExtractSource(directive.ArchiveHashPath, target, workspace); break;
+				case "FromArchive":
+					// Native archive decoders can seek their destination; compressed ZIP entries cannot seek.
+					using (FileStream extracted = new FileStream(Path.Combine(workspace, "archive-output"), FileMode.Create, FileAccess.ReadWrite))
+					{ ExtractSource(directive.ArchiveHashPath, extracted, workspace); extracted.Position = 0; extracted.CopyTo(target); }
+					break;
 				case "PatchedFromArchive":
 					string inputPath = Path.Combine(workspace, "patch-input");
 					string outputPath = Path.Combine(workspace, "patch-output");
 					using (FileStream input = File.Create(inputPath)) ExtractSource(directive.ArchiveHashPath, input, workspace);
 					using (FileStream input = File.OpenRead(inputPath))
 					using (FileStream output = new FileStream(outputPath, FileMode.Create, FileAccess.ReadWrite))
-					using (Stream delta = package.GetEntry(directive.PatchId).Open())
+					using (MemoryStream delta = new MemoryStream())
 					{
+						// Octodiff inspects the delta length/position while applying commands.
+						using (Stream embedded = package.GetEntry(directive.PatchId).Open()) embedded.CopyTo(delta);
+						delta.Position = 0;
 						if (directive.FromHash != null && WabbajackHash.Compute(input, token) != directive.FromHash)
 							throw new InvalidDataException(L("PatchInputMismatch", "The binary patch input does not match the Wabbajack recipe."));
 						input.Position = 0;

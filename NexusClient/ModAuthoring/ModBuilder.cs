@@ -351,6 +351,13 @@ namespace Nexus.Client.ModAuthoring
 				MessageBox.Show(LanguageManager.Format("ModAuthoring.Builder.ArchiveWarning", "Archive: {0}\n\n ERROR: {1}", p_strArchivePath, ex.Message), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return lstFoundMods;
 			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+			{
+				Status = TaskStatus.Error;
+				p_strMessage = ex.Message;
+				Trace.TraceError("Could not import mod archive {0}: {1}", p_strArchivePath, ex);
+				return lstFoundMods;
+			}
 			finally
 			{
 				if (!String.IsNullOrEmpty(strTmpPath))
@@ -443,6 +450,15 @@ namespace Nexus.Client.ModAuthoring
 		private string ConfirmOverwrite(ConfirmOverwriteCallback p_dlgConfirmOverwrite, string p_strDestinationPath)
 		{
 			string strDest = p_strDestinationPath;
+			if (Directory.Exists(strDest))
+			{
+				// Older downloads can leave an archive-named directory. Preserve it and import under a free filename.
+				string directory = Path.GetDirectoryName(p_strDestinationPath);
+				string name = Path.GetFileNameWithoutExtension(p_strDestinationPath);
+				string extension = Path.GetExtension(p_strDestinationPath);
+				for (int index = 2; File.Exists(strDest) || Directory.Exists(strDest); index++)
+					strDest = Path.Combine(directory, String.Format("{0} ({1}){2}", name, index, extension));
+			}
 			if (p_dlgConfirmOverwrite(strDest, out strDest))
 				return strDest;
 			return null;

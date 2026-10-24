@@ -67,7 +67,7 @@ namespace NexusClientTests
 			}
 		}
 
-		/// <summary>Rebuilds a selected profile, applies an Octodiff patch, preserves order and retains vanilla inputs for repeat imports.</summary>
+		/// <summary>References original mods, packs only custom files, applies a real patch and retains vanilla inputs for repeat imports.</summary>
 		[Test]
 		public void ConversionProducesRepeatableNativeCollectionAndSetupBundles()
 		{
@@ -78,6 +78,9 @@ namespace NexusClientTests
 			string downloads = Path.Combine(_directory, "downloads"); Directory.CreateDirectory(downloads);
 			string output = Path.Combine(_directory, "prepared");
 			WabbajackPackage package = CreatePackage(original, patched);
+			using (ZipArchive compiled = ZipFile.OpenRead(package.FilePath))
+			using (Stream compressedPatch = compiled.GetEntry("patch").Open())
+				Assert.That(compressedPatch.CanSeek, Is.False, "Compiled ZIP deltas require a seekable adapter before Octodiff reads them.");
 			GameModeWabbajackDefinition configuration = new GameModeWabbajackDefinition { Enabled = true, Game = "examplegame", GameRootFolders = new[] { "Root files" } };
 			WabbajackProfile profile = WabbajackProfile.ReadAll(package, configuration).Single();
 			CollectionAssert.AreEqual(new[] { "Base", "Override" }, profile.Mods);
@@ -89,7 +92,14 @@ namespace NexusClientTests
 			using (ZipArchive bundle = ZipFile.OpenRead(result.BundlePath))
 			{
 				JObject manifest = JObject.Parse(Read(bundle.GetEntry("collection.json")));
-				CollectionAssert.AreEqual(new[] { "[Wabbajack root files]", "Base", "Override" }, manifest["mods"].Select(member => (string)member["name"]));
+				Assert.That(manifest["info"]["authorUrl"].Type, Is.EqualTo(JTokenType.String));
+				Assert.That((string)manifest["info"]["authorUrl"], Is.EqualTo(string.Empty), "Lists without a website still require a string authorUrl.");
+				CollectionAssert.AreEqual(new[] { "bundle", "nexus", "bundle" }, manifest["mods"].Select(member => (string)member["source"]["type"]));
+				Assert.That((string)manifest["mods"][1]["name"], Is.EqualTo("Base"));
+				Assert.That((long)manifest["mods"][1]["source"]["modId"], Is.EqualTo(42));
+				Assert.That((long)manifest["mods"][1]["source"]["fileId"], Is.EqualTo(84));
+				CollectionAssert.AreEqual(new[] { "retained.bin" }, manifest["mods"][1]["hashes"].Select(file => (string)file["path"]));
+				Assert.That(bundle.Entries.Any(entry => entry.FullName.EndsWith("/retained.bin")), Is.False, "Original mod files must not be copied into the Collection bundle.");
 				Assert.That((string)manifest["mods"][0]["details"]["type"], Is.EqualTo("enb"));
 				Assert.That(manifest["modRules"].Count(), Is.EqualTo(2));
 				string expression = (string)manifest["mods"][2]["source"]["fileExpression"];
@@ -98,20 +108,54 @@ namespace NexusClientTests
 				NexusCollectionManifestNormalizationResult normalized = new NexusCollectionBundleImporter().ImportManifest(Encoding.UTF8.GetBytes(manifest.ToString()), result.Revision);
 				Assert.That(normalized.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
 				Assert.That(result.Definition.Origin, Is.EqualTo(CollectionOrigin.Local));
+				using (Stream input = bundle.GetEntry("wabbajack/setup.zip").Open())
+				using (MemoryStream retainedSetup = new MemoryStream())
+				{
+					input.CopyTo(retainedSetup); retainedSetup.Position = 0;
+					CollectionSetupFile retainedSettings = CollectionSetupPackageReader.Read(retainedSetup, "setup.zip").Files.Single();
+					Assert.That(retainedSettings.Root, Is.EqualTo(CollectionSetupRoot.Documents));
+					Assert.That(retainedSettings.RelativePath, Is.EqualTo("game.ini"));
+					CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("setting=1"), retainedSettings.Content);
+				}
 			}
 			using (ZipArchive setup = ZipFile.OpenRead(result.SetupPath)) Assert.That(Read(setup.GetEntry("Documents/game.ini")), Is.EqualTo("setting=1"));
+			CollectionSetupFile settings = CollectionSetupPackageReader.Read(result.SetupPath).Files.Single();
+			Assert.That(settings.Root, Is.EqualTo(CollectionSetupRoot.Documents));
+			Assert.That(settings.RelativePath, Is.EqualTo("game.ini"));
+			Assert.That(settings.Selected, Is.True, "Generated profile settings must already target the game Documents folder.");
 			File.WriteAllText(gameFile, "installed replacement");
 			WabbajackCollectionConverter again = new WabbajackCollectionConverter(package, profile, configuration, game, "newvegas");
 			Assert.That(again.FindMissingSources(new[] { downloads, Path.Combine(output, "Wabbajack Sources") }, null, CancellationToken.None), Is.Empty);
 			WabbajackConvertedCollection second = again.Convert(output, null, null, CancellationToken.None);
 			Assert.That(second.Revision.Identity, Is.EqualTo(result.Revision.Identity));
 			CollectionAssert.AreEqual(firstBundle, File.ReadAllBytes(second.BundlePath));
+			Assert.That(File.Exists(Path.Combine(downloads, "original.zip")), Is.True, "The existing original archive must remain in place.");
+		}
+
+		/// <summary>Reuses archives already downloaded into the nested layout created by the former save-path bug.</summary>
+		[Test]
+		public void SourceScanReusesNestedDownloadsWithoutMovingFiles()
+		{
+			byte[] original = Encoding.UTF8.GetBytes("original game input");
+			WabbajackPackage package = CreatePackage(original, Encoding.UTF8.GetBytes("patched output"));
+			GameModeWabbajackDefinition configuration = new GameModeWabbajackDefinition { Game = "examplegame", GameRootFolders = new[] { "Root files" } };
+			string downloads = Path.Combine(_directory, "downloads");
+			string nested = Path.Combine(downloads, "base.bin", "base.bin");
+			Directory.CreateDirectory(Path.GetDirectoryName(nested)); File.WriteAllBytes(nested, original);
+			WabbajackCollectionConverter converter = new WabbajackCollectionConverter(package, WabbajackProfile.ReadAll(package, configuration).Single(), configuration, Path.Combine(_directory, "game"), "newvegas");
+			Assert.That(converter.FindMissingSources(new[] { downloads }, null, CancellationToken.None), Is.Empty);
+			Assert.That(File.Exists(nested), Is.True);
 		}
 
 		/// <summary>Creates a compact compiled package with real Octodiff bytes and a disabled unsupported member.</summary>
 		private WabbajackPackage CreatePackage(byte[] original, byte[] patched)
 		{
 			Dictionary<string, byte[]> embedded = new Dictionary<string, byte[]>(); JArray directives = new JArray();
+			string downloads = Path.Combine(_directory, "downloads"); Directory.CreateDirectory(downloads);
+			string originalArchive = Path.Combine(downloads, "original.zip");
+			using (ZipArchive zip = ZipFile.Open(originalArchive, ZipArchiveMode.Create))
+			using (Stream stream = zip.CreateEntry("data.bin").Open()) stream.Write(original, 0, original.Length);
+			byte[] archiveBytes = File.ReadAllBytes(originalArchive);
 			Action<string, string, string> inline = (path, id, text) => {
 				byte[] bytes = Encoding.UTF8.GetBytes(text); embedded.Add(id, bytes);
 				directives.Add(new JObject { ["$type"] = "InlineFile", ["To"] = path, ["SourceDataID"] = id, ["Size"] = bytes.Length, ["Hash"] = Hash(bytes) }); };
@@ -124,7 +168,8 @@ namespace NexusClientTests
 			inline("mods/Base/meta.ini", "metadata", "ignored metadata");
 			inline("mods/Base/hidden.esp.mohidden", "hidden", "disabled file");
 			directives.Add(new JObject { ["$type"] = "CreateBSA", ["To"] = "mods/Ignored/unused.bsa" });
-			directives.Add(new JObject { ["$type"] = "FromArchive", ["To"] = "mods/Base/data.bin", ["ArchiveHashPath"] = new JArray(Hash(original)), ["Hash"] = Hash(original), ["Size"] = original.Length });
+			directives.Add(new JObject { ["$type"] = "FromArchive", ["To"] = "mods/Base/data.bin", ["ArchiveHashPath"] = new JArray(Hash(archiveBytes), "data.bin"), ["Hash"] = Hash(original), ["Size"] = original.Length });
+			directives.Add(new JObject { ["$type"] = "FromArchive", ["To"] = "mods/Base/retained.bin", ["ArchiveHashPath"] = new JArray(Hash(archiveBytes), "data.bin"), ["Hash"] = Hash(original), ["Size"] = original.Length });
 			directives.Add(new JObject { ["$type"] = "PatchedFromArchive", ["To"] = "mods/Override/data.bin", ["ArchiveHashPath"] = new JArray(Hash(original)),
 				["FromHash"] = Hash(original), ["Hash"] = Hash(patched), ["Size"] = patched.Length, ["PatchID"] = "patch" });
 			using (MemoryStream signature = new MemoryStream())
@@ -138,7 +183,9 @@ namespace NexusClientTests
 			}
 			JObject manifest = new JObject { ["Name"] = "Example", ["Author"] = "Author", ["GameType"] = "ExampleGame", ["Version"] = "1.0",
 				["Directives"] = directives, ["Archives"] = new JArray(new JObject { ["Name"] = "base.bin", ["Size"] = original.Length, ["Hash"] = Hash(original),
-					["State"] = new JObject { ["$type"] = "GameFileSourceDownloader, Wabbajack.Lib", ["Game"] = "ExampleGame", ["GameFile"] = "Data/base.bin" } }) };
+					["State"] = new JObject { ["$type"] = "GameFileSourceDownloader, Wabbajack.Lib", ["Game"] = "ExampleGame", ["GameFile"] = "Data/base.bin" } },
+					new JObject { ["Name"] = "original.zip", ["Size"] = archiveBytes.Length, ["Hash"] = Hash(archiveBytes),
+						["State"] = new JObject { ["$type"] = "NexusDownloader", ["GameName"] = "ExampleGame", ["ModID"] = 42, ["FileID"] = 84 } }) };
 			string file = Path.Combine(_directory, "example.wabbajack");
 			using (ZipArchive zip = ZipFile.Open(file, ZipArchiveMode.Create))
 			{

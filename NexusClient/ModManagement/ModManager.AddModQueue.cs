@@ -165,6 +165,30 @@ namespace Nexus.Client.ModManagement
 			}
 
 			/// <summary>
+			/// Adds raw Wabbajack input to the normal queue without registering it as an installable mod.
+			/// </summary>
+			internal IBackgroundTask AddWabbajackDownload(Uri source, string destination, string hash, long size)
+			{
+				// Missing recipe inputs must not overwrite a different archive already used by an installed mod.
+				if (hash != null && (File.Exists(destination) || Directory.Exists(destination)))
+					destination = Path.Combine(Path.GetDirectoryName(destination), hash.Replace('/', '_').Replace('+', '-') + "-" + Path.GetFileName(destination));
+				AddModTask task;
+				lock (m_dicActiveTasks)
+				{
+					if (m_booDisposed) throw new ObjectDisposedException(nameof(AddModQueue));
+					if (m_dicActiveTasks.TryGetValue(source, out task)) return task;
+					task = new Nexus.Client.Wabbajack.WabbajackDownloadTask(m_mmgModManager.GameMode, m_eifEnvironmentInfo, m_mmgModManager.ModRepository, source, destination, hash, size);
+					task.TaskEnded += ModAdder_TaskEnded;
+					m_dicActiveTasks[source] = task;
+					m_dicActiveTasksByOperationId[task.QueueOperationId] = task;
+				}
+				m_mmgModManager.DownloadMonitor.AddActivity(task);
+				int maximum = Math.Max(1, Math.Min(m_eifEnvironmentInfo.Settings.MaxConcurrentDownloads, m_mmgModManager.ModRepository.MaxConcurrentDownloads));
+				if (m_mmgModManager.DownloadMonitor.ActiveTasks.Count < maximum) task.Resume(); else task.Queue();
+				return task;
+			}
+
+			/// <summary>
 			/// Removes an older persisted URI for the same external queue operation before fresh authorization is queued.
 			/// </summary>
 			private void RemoveStalePersistedCorrelation(Guid queueOperationId, Uri currentSource)

@@ -207,6 +207,8 @@
 			popupChangeMode.BeforePopup += (sender, args) =>
 			{
 				if (_persistentSessionShell) BindChangeModeCommands();
+				// Rebuilt game entries did not exist when the global display settings were applied.
+				DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMain, _devExpressDisplaySettings);
 			};
 			popupTools = new PopupMenu(barManagerMain);
 			popupFolders = new PopupMenu(barManagerMain);

@@ -10,8 +10,18 @@ namespace Nexus.Client.CollectionManagement.UI
 	public sealed partial class CollectionsPreviewControl
 	{
 		private CollectionRevisionIdentity _preparedWabbajackRevision;
-		private string _preparedWabbajackSetupPath;
-		private string _preparedWabbajackSettingsDirectory;
+		private bool _preparedWabbajackSetupAvailable;
+
+		/// <summary>Resolves persisted Wabbajack provenance once when the displayed revision changes.</summary>
+		private bool HasWabbajackSetup(CollectionRevisionIdentity revision)
+		{
+			if (!revision.Equals(_preparedWabbajackRevision))
+			{
+				_preparedWabbajackSetupAvailable = _workflow.SetupPackages.IsWabbajackRevision(revision);
+				_preparedWabbajackRevision = revision;
+			}
+			return _preparedWabbajackSetupAvailable;
+		}
 
 		/// <summary>Retains a converted bundle and presents its existing installation/recovery controls.</summary>
 		internal async Task OpenPreparedWabbajackAsync(WabbajackConvertedCollection collection, string settingsDirectory)
@@ -31,12 +41,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			PreviewActivated(this, EventArgs.Empty);
 			try
 			{
-				NexusCollectionPreviewSnapshot retained = await Task.Run(() => _workflow.ImportAndRetainLocalBundle(preview, collection.BundlePath, token), token);
+				NexusCollectionPreviewSnapshot retained = await Task.Run(() =>
+				{
+					NexusCollectionPreviewSnapshot imported = _workflow.ImportAndRetainLocalBundle(preview, collection.BundlePath, token);
+					_workflow.SetupPackages.RetainWabbajackSetup(collection.Revision.Identity, collection.SetupPath);
+					return imported;
+				}, token);
 				if (!IsWorkflowContextCurrent(context, token)) return;
 				_snapshot = retained;
 				_preparedWabbajackRevision = collection.Revision.Identity;
-				_preparedWabbajackSetupPath = collection.SetupPath;
-				_preparedWabbajackSettingsDirectory = settingsDirectory;
+				_preparedWabbajackSetupAvailable = true;
 				RenderSnapshot(retained); BindMatchingRecovery();
 			}
 			finally { EndWorkflowWork(context); }

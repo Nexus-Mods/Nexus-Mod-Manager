@@ -43,8 +43,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionUiContextKind.IncomingCollection:
 					if (localCapture != null || associationId.HasValue)
 						throw new ArgumentException("An incoming Collection UI context cannot target a Local capture or installed association.", nameof(kind));
-					if (revision != null && revision.Collection.Origin != CollectionOrigin.NexusMods)
-						throw new ArgumentException("An incoming Collection UI context requires a Nexus revision identity when a revision is known.", nameof(revision));
+					// Incoming describes the installation workflow, including imported Local Collections such as Wabbajack profiles.
 					break;
 				case CollectionUiContextKind.InstalledCollection:
 					if (revision == null)

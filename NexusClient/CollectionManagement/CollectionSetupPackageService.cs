@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -9,6 +10,7 @@ using Newtonsoft.Json;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.Games.Witcher3;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.Util.Localization;
 
@@ -31,17 +33,84 @@ namespace Nexus.Client.CollectionManagement
 			_validator = new CollectionTargetOwnershipAuthorityValidator(storage, services);
 		}
 
+		private const string WabbajackSetupRole = "wabbajack-setup";
+
+		/// <summary>Identifies converted profiles from the persisted revision, including after reopening an installed Collection.</summary>
+		public bool IsWabbajackRevision(CollectionRevisionIdentity revision)
+		{
+			CollectionRevision stored = _store.Exists ? new CollectionsCatalogStore(_store).GetRevision(revision) : null;
+			return stored?.Notes != null && stored.Notes.StartsWith("Wabbajack: ", StringComparison.Ordinal);
+		}
+
+		/// <summary>Retains generated profile settings under the exact Collection revision instead of the mutable export path.</summary>
+		public void RetainWabbajackSetup(CollectionRevisionIdentity revision, string path)
+		{
+			CollectionsRetainedArtifact artifact = new CollectionsRetainedArtifactStore(_store).PublishFile(path);
+			BindWabbajackSetup(revision, artifact);
+		}
+
+		/// <summary>Opens revision-owned profile settings, recovering embedded or older companion packages when necessary.</summary>
+		public CollectionSetupPackage PreviewWabbajack(CollectionRevisionIdentity revision)
+		{
+			CollectionsRetainedArtifactStore artifacts = new CollectionsRetainedArtifactStore(_store);
+			CollectionsRetainedArtifactReferenceRecord reference = new CollectionsRetainedArtifactReferenceStore(_store).GetReferenceForOwnerRole(
+				CollectionsRetainedArtifactOwnerKind.Revision, CollectionsRevisionSourceStore.GetRevisionOwnerId(revision), WabbajackSetupRole);
+			string artifactId = reference?.ArtifactId;
+			if (artifactId == null)
+			{
+				using (Stream source = new CollectionsRevisionSourceStore(_store).OpenBundle(revision))
+				using (ZipArchive bundle = new ZipArchive(source, ZipArchiveMode.Read))
+				{
+					ZipArchiveEntry entry = bundle.GetEntry("wabbajack/setup.zip");
+					if (entry != null)
+						using (Stream input = entry.Open())
+						{
+							CollectionsRetainedArtifact artifact = artifacts.Publish(input);
+							BindWabbajackSetup(revision, artifact); artifactId = artifact.ArtifactId;
+						}
+				}
+				if (artifactId == null)
+				{
+					// Earlier exports kept the settings ZIP beside the converted Collection rather than inside its bundle.
+					CollectionsCatalogStore catalog = new CollectionsCatalogStore(_store);
+					string name = catalog.GetDefinition(revision.Collection).DisplayName;
+					string version = catalog.GetRevision(revision).RevisionLabel;
+					string fileName = string.Concat(("Wabbajack - " + name + " - " + version).Split(Path.GetInvalidFileNameChars())) + " - Setup.zip";
+					string legacyPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "NMM Wabbajack", fileName);
+					if (!File.Exists(legacyPath)) throw new FileNotFoundException(L("WabbajackSetupMissing", "This older Collection did not retain its settings ZIP. Recreate the Collection from the already downloaded Wabbajack list to attach its settings; the mods do not need downloading again."));
+					CollectionsRetainedArtifact artifact = artifacts.PublishFile(legacyPath);
+					BindWabbajackSetup(revision, artifact); artifactId = artifact.ArtifactId;
+				}
+			}
+			using (Stream input = artifacts.OpenRead(artifactId))
+				return PreparePreview(CollectionSetupPackageReader.Read(input, "Wabbajack profile settings.zip"), revision);
+		}
+
+		/// <summary>Uses the existing immutable artifact lifetime reference for the generated setup package.</summary>
+		private void BindWabbajackSetup(CollectionRevisionIdentity revision, CollectionsRetainedArtifact artifact)
+		{
+			new CollectionsRetainedArtifactReferenceStore(_store).AcquireExclusiveRoleReference(artifact.ArtifactId,
+				CollectionsRetainedArtifactOwnerKind.Revision, CollectionsRevisionSourceStore.GetRevisionOwnerId(revision), WabbajackSetupRole);
+		}
+
 		/// <summary>Inspects an archive against a selected revision without changing the user's game or settings.</summary>
 		public CollectionSetupPackage Preview(string archive, CollectionRevisionIdentity revision)
 		{
 			if (revision == null) throw new ArgumentNullException(nameof(revision));
+			return PreparePreview(CollectionSetupPackageReader.Read(archive), revision);
+		}
+
+		/// <summary>Resolves the active game's destinations for imported and retained setup archives.</summary>
+		private CollectionSetupPackage PreparePreview(CollectionSetupPackage package, CollectionRevisionIdentity revision)
+		{
 			GameStoragePathSet paths = Paths();
-			CollectionSetupPackage package = CollectionSetupPackageReader.Read(archive);
 			package.Revision = revision.ToString();
 			package.Target = Authority(paths).Target.Fingerprint;
 			package.GameDirectory = Path.GetFullPath(paths.GameInstallPath);
 			if (Witcher3ModSettingsLifecycleService.SupportsMode(paths.GameId))
 				package.DocumentsDirectory = Path.GetDirectoryName(Witcher3ModSettingsFileReader.GetFilePath(PersonalDirectory()));
+			else if (_services.ModManager.GameMode is GamebryoGameModeBase)
+				package.DocumentsDirectory = ((GamebryoGameModeBase)_services.ModManager.GameMode).UserGameDataPath;
 			Refresh(package);
 			return package;
 		}

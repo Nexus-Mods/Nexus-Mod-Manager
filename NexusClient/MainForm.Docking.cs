@@ -284,6 +284,9 @@
 				while (nextIndex < defaults.Length && !names.Contains(defaults[nextIndex])) nextIndex++;
 				names.Insert(nextIndex < defaults.Length ? names.IndexOf(defaults[nextIndex]) : names.Count, defaults[index]);
 			}
+			// Keep Wabbajack beside Collections even when restoring an earlier saved tab order.
+			if (names.Contains("CollectionsDocument") && names.Remove("WabbajackGalleryDocument"))
+				names.Insert(names.IndexOf("CollectionsDocument") + 1, "WabbajackGalleryDocument");
 			return names;
 		}
 

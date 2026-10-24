@@ -769,6 +769,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			foreach (JProperty property in entries.Properties())
 			{
 				string itemPath = path + "." + property.Name;
+				if (property.Value != null && property.Value.Type == JTokenType.String && property.Value.Value<string>() == String.Empty)
+				{
+					// Vortex applies a diff only when its source CRC matches. An empty CRC can never match.
+					System.Diagnostics.Trace.TraceWarning("Vortex patch skipped because its source CRC32 is empty: {0}", itemPath);
+					continue;
+				}
 				if (property.Value == null || property.Value.Type != JTokenType.String || String.IsNullOrWhiteSpace((string)property.Value))
 				{
 					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
@@ -787,7 +793,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					valid = false;
 				}
 			}
-			if (!valid)
+			if (!valid || patches.Count == 0)
 				return;
 			try
 			{
@@ -971,11 +977,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				JToken stepNameToken = stepObject["name"];
 				string stepName = stepNameToken == null || stepNameToken.Type == JTokenType.Null
 					? null : stepNameToken.Type == JTokenType.String ? stepNameToken.Value<string>() : null;
-				if ((stepNameToken != null && stepNameToken.Type != JTokenType.Null && stepNameToken.Type != JTokenType.String) ||
-					(stepName != null && stepName.Length > 0 && String.IsNullOrWhiteSpace(stepName)))
+				if (stepNameToken != null && stepNameToken.Type != JTokenType.Null && stepNameToken.Type != JTokenType.String)
 				{
 					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-						"member.installer-choices-invalid", "A Vortex FOMOD install-step name must be a string or null; whitespace-only names are not characterized.", stepPath + ".name"));
+						"member.installer-choices-invalid", "A Vortex FOMOD install-step name must be a string or null; labels are preserved for exact native matching.", stepPath + ".name"));
 					valid = false; continue;
 				}
 				JArray groupsToken = stepObject["groups"] as JArray;
@@ -1355,8 +1360,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			string tag = ReadString(reference, "tag");
 			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
 			string version = ReadString(reference, "versionMatch");
-			if (!String.IsNullOrEmpty(tag))
-			{ failure = "External priority reference tags are not retained by NMM native mod state."; return false; }
+
 			if (!String.IsNullOrEmpty(gameId) && !StringComparer.Ordinal.Equals(gameId, sourceDomain))
 			{ failure = "Cross-game external before/after endpoints are outside the characterized single-target model."; return false; }
 			if (!IsPortableFilenameIdentity(logical) || !IsPortableFilenameIdentity(expression) || !IsNormalizedOptionalString(fileMd5))
@@ -1375,7 +1379,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (!CollectionVortexVersionMatch.TryCreate(version, out matcher, out failure)) return false;
 			if (matcher.IsRange || matcher.IsPrefer)
 			{ failure = "Comparator/range/+prefer external before/after endpoint versions are not yet characterized by this bounded compatibility slice."; return false; }
-			normalized = new CollectionConflictReference(fileMd5, logical, expression, gameId, null, null, null, null, null, matcher);
+			normalized = new CollectionConflictReference(fileMd5, logical, expression, gameId, tag, null, null, null, null, matcher);
 			return true;
 		}
 
@@ -2554,10 +2558,27 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
-		/// <summary>Creates the pinned Skyrim Special Edition LOOT group graph, shared by Steam and GOG Collections.</summary>
+		/// <summary>Creates the supported pinned LOOT group graph for the Collection game.</summary>
 		private static Dictionary<string, List<string>> CreatePluginGroupDefaults(string gameDomain)
 		{
 			var groups = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			if (StringComparer.OrdinalIgnoreCase.Equals(gameDomain, "newvegas"))
+			{
+				// https://github.com/loot/falloutnv/blob/v0.21/masterlist.yaml, complete groups section.
+				groups.Add("DLC", new List<string>());
+				groups.Add("Fixes & Resources", new List<string> { "DLC" });
+				groups.Add("Add-ons & Expansions (Patches)", new List<string>());
+				groups.Add("Add-ons & Expansions", new List<string> { "Add-ons & Expansions (Patches)", "Fixes & Resources" });
+				groups.Add("Early Loaders", new List<string> { "Add-ons & Expansions" });
+				groups.Add("default", new List<string> { "Early Loaders" });
+				groups.Add("Interior Lighting Overhaul", new List<string> { "default" });
+				groups.Add("LOD", new List<string> { "Interior Lighting Overhaul" });
+				groups.Add("Cell Settings", new List<string> { "LOD" });
+				groups.Add("Weather & Lighting", new List<string> { "Cell Settings" });
+				groups.Add("Late Fixes & Changes", new List<string> { "Weather & Lighting" });
+				groups.Add("Dynamic Patches", new List<string> { "Late Fixes & Changes" });
+				return groups;
+			}
 			if (!StringComparer.OrdinalIgnoreCase.Equals(gameDomain, "skyrimspecialedition")) return groups;
 
 			// https://github.com/loot/skyrimse/blob/v0.21/masterlist.yaml, groups section.

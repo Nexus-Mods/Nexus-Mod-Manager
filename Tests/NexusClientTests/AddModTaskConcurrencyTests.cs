@@ -104,6 +104,48 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Archive-named legacy directories cannot become file destinations or be removed during import.</summary>
+		[Test]
+		public void ConfirmOverwrite_DirectoryCollision_SkipsOccupiedNamesAndPreservesExistingContent()
+		{
+			using (TemporaryDirectory temporary = new TemporaryDirectory())
+			using (ModBuilder builder = new ModBuilder(null, null, null))
+			{
+				string blocked = Path.Combine(temporary.Path, "mod.7z");
+				Directory.CreateDirectory(blocked);
+				string original = Path.Combine(blocked, "mod.7z");
+				File.WriteAllText(original, "existing download");
+				string occupiedFile = Path.Combine(temporary.Path, "mod (2).7z");
+				File.WriteAllText(occupiedFile, "another archive");
+				Directory.CreateDirectory(Path.Combine(temporary.Path, "mod (3).7z"));
+				string confirmedPath = null;
+				ConfirmOverwriteCallback confirm = (string path, out string selected) => { confirmedPath = path; selected = path; return true; };
+				MethodInfo method = typeof(ModBuilder).GetMethod("ConfirmOverwrite", BindingFlags.Instance | BindingFlags.NonPublic);
+				string destination = (string)method.Invoke(builder, new object[] { confirm, blocked });
+				Assert.AreEqual(Path.Combine(temporary.Path, "mod (4).7z"), destination);
+				Assert.AreEqual(destination, confirmedPath);
+				Assert.AreEqual("existing download", File.ReadAllText(original));
+				Assert.AreEqual("another archive", File.ReadAllText(occupiedFile));
+				Assert.IsTrue(Directory.Exists(Path.Combine(temporary.Path, "mod (3).7z")));
+			}
+		}
+
+		/// <summary>Ordinary archive collisions still reach the existing overwrite callback with the original path.</summary>
+		[Test]
+		public void ConfirmOverwrite_ExistingFile_PreservesCallbackDecision()
+		{
+			using (TemporaryDirectory temporary = new TemporaryDirectory())
+			using (ModBuilder builder = new ModBuilder(null, null, null))
+			{
+				string existing = Path.Combine(temporary.Path, "mod.7z");
+				File.WriteAllText(existing, "existing archive");
+				ConfirmOverwriteCallback confirm = (string path, out string selected) => { Assert.AreEqual(existing, path); selected = null; return false; };
+				MethodInfo method = typeof(ModBuilder).GetMethod("ConfirmOverwrite", BindingFlags.Instance | BindingFlags.NonPublic);
+				Assert.IsNull(method.Invoke(builder, new object[] { confirm, existing }));
+				Assert.AreEqual("existing archive", File.ReadAllText(existing));
+			}
+		}
+
 		/// <summary>
 		/// Retains the real Resume and import preflight while isolating persisted settings and UI observers.
 		/// </summary>

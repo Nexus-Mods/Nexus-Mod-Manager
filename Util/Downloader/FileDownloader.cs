@@ -250,7 +250,8 @@ namespace Nexus.Client.Util.Downloader
 		    foreach (var chrInvalid in Path.GetInvalidFileNameChars())
 				strFilename = strFilename.Replace(chrInvalid, '_');
 
-		    savePath = Path.Combine(savePath, strFilename);
+			// An explicit save path already includes the filename; only the default-name mode takes a directory.
+		    savePath = Path.Combine(useDefaultFileName ? savePath : Path.GetDirectoryName(savePath) ?? string.Empty, strFilename);
 
 			_savePath = savePath + ".partial";
 			_fileMetadataPath = savePath + ".parts";

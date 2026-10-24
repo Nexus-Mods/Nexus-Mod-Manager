@@ -425,6 +425,54 @@ namespace NexusClientTests
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-assignment-external"));
 		}
 
+		/// <summary>FNV masterlist groups retain transitive order even when intermediate groups have no assigned plugins.</summary>
+		[Test]
+		public void Normalize_NewVegasDynamicPatchesGroupRetainsMasterlistOrdering()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Weather\",\"version\":\"1\",\"optional\":false,\"domainName\":\"newvegas\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"DNWeathers.esp\",\"group\":\"Dynamic Patches\"},{\"name\":\"Base.esp\",\"group\":\"default\"},{\"name\":\"Fixes.esm\",\"group\":\"Fixes & Resources\"}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"newvegas\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("DNWeathers.esp", "Base.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("DNWeathers.esp", "Fixes.esm")));
+		}
+
+		/// <summary>Vortex skips an empty CRC declaration and continues applying other valid diffs for that mod.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Normalize_EmptyPatchCrcIsSkippedWhileValidPatchesRemain(bool includeValidPatch)
+		{
+			JObject member = JObject.Parse("{\"name\":\"Weather\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}");
+			JObject patches = new JObject { ["DNWeathers.override"] = "" };
+			if (includeValidPatch) patches["config/HDRWeatherAndColor.ini"] = "C0307BCB";
+			member["patches"] = patches;
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member.ToString(), "[]"), 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			NormalizedCollectionMember normalized = result.Manifest.Members.Single();
+			Assert.AreEqual(includeValidPatch, normalized.HasVortexBinaryPatches);
+			if (includeValidPatch)
+			{
+				Assert.AreEqual(1, normalized.VortexBinaryPatches.Items.Count);
+				Assert.AreEqual("C0307BCB", normalized.VortexBinaryPatches.Items.Single().SourceCrc32);
+			}
+		}
+
+		/// <summary>Stale external tags can use portable filename identities, while tag-only references remain unsupported.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Normalize_ExternalPriorityTagPreservesPortableFallback(bool includeFilename)
+		{
+			string member = "{\"name\":\"Base\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"tag\":\"base\"}}";
+			JObject reference = new JObject { ["tag"] = "stale-tag", ["fileMD5"] = "d41cad0f7ac181ffdd4c9ee0d606ca3a", ["versionMatch"] = "1.1.0" };
+			if (includeFilename) reference["fileExpression"] = "NVAO - Throwverhaul-91374-1-1-1744380118";
+			JArray rules = new JArray(new JObject { ["type"] = "before", ["source"] = new JObject { ["tag"] = "base" }, ["reference"] = reference });
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules.ToString()), 1);
+			Assert.AreEqual(includeFilename ? CollectionCompatibilityStatus.Supported : CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			if (includeFilename) Assert.AreEqual("stale-tag", result.Manifest.ExternalFilePriorityRules.Single().ExternalReference.Tag);
+		}
+
 		[Test]
 		public void Normalize_SkyrimMasterlistGroupsMergeCustomRulesAndPreserveTransitiveOrder()
 		{
@@ -1030,15 +1078,15 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_WhitespaceOnlyVortexFomodStepRemainsBlocked()
+		public void Normalize_WhitespaceOnlyVortexFomodStepPreservesExactLabel()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Legacy\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
 				"\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"  \",\"groups\":[]}]}}",
 				"[]");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.installer-choices-invalid"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual("  ", result.Manifest.Members.Single().VortexFomodSelection.Steps.Single().Name);
 		}
 
 		[Test]
