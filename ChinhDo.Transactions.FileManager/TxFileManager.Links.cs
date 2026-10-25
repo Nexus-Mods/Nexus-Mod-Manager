@@ -50,6 +50,9 @@
 		private static extern bool GetFileInformationByHandle(IntPtr hFile, out ByHandleFileInformation lpFileInformation);
 
 		private static readonly IntPtr InvalidHandleValue = new IntPtr(-1);
+		private const int ErrorInvalidFunction = 1;
+		private const int ErrorNotSameDevice = 17;
+		private const int ErrorNotSupported = 50;
 		private const int ErrorFileNotFound = 2;
 		private const int ErrorPathNotFound = 3;
 		private const int ErrorInvalidParameter = 87;
@@ -117,6 +120,22 @@
 
 			Snapshot(p_strLinkName);
 			return CreateHardLinkNative(GetIoPath(p_strLinkName), GetIoPath(p_strTargetPath), IntPtr.Zero);
+		}
+
+		/// <summary>
+		/// Creates a hard link, using a symbolic link only when the volume layout or filesystem cannot support hard links.
+		/// Other hard-link failures retain their original Windows error instead of changing deployment topology.
+		/// </summary>
+		public bool CreateFileLink(string p_strLinkName, string p_strTargetPath)
+		{
+			if (CreateHardLink(p_strLinkName, p_strTargetPath))
+				return true;
+
+			int error = Marshal.GetLastWin32Error();
+			if (error == ErrorNotSameDevice || error == ErrorInvalidFunction || error == ErrorNotSupported)
+				return CreateSymbolicLink(p_strLinkName, p_strTargetPath);
+
+			throw CreateLinkIOException("create", "hard", p_strLinkName, p_strTargetPath, error);
 		}
 
 		/// <summary>

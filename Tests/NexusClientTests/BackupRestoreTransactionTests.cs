@@ -26,6 +26,41 @@ namespace NexusClientTests
 	[TestFixture]
 	public class BackupRestoreTransactionTests
 	{
+		/// <summary>Same-volume deployment keeps hard-link topology and never masks an ordinary failure with symbolic-link creation.</summary>
+		[TestCase("success")]
+		[TestCase("missing-source")]
+		[TestCase("existing-destination")]
+		public void FileLink_SameVolumeUsesHardLinksAndReportsOriginalFailure(string scenario)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-LinkPolicy-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string source = Path.Combine(root, "source.dds");
+				string destination = Path.Combine(root, "destination.dds");
+				if (scenario != "missing-source") File.WriteAllText(source, "staged");
+				if (scenario == "existing-destination") File.WriteAllText(destination, "existing");
+				var files = new TxFileManager { TxEnabled = false };
+				if (scenario == "success")
+				{
+					Assert.That(files.CreateFileLink(destination, source), Is.True);
+					Assert.That(files.GetFileEntryKind(destination, source), Is.EqualTo(FileEntryKind.HardLink));
+				}
+				else
+				{
+					IOException error = Assert.Throws<IOException>(() => files.CreateFileLink(destination, source));
+					Assert.That(error.Message, Does.Contain("hard link"));
+					Assert.That(error.InnerException, Is.TypeOf<Win32Exception>());
+					int code = ((Win32Exception)error.InnerException).NativeErrorCode;
+					CollectionAssert.Contains(scenario == "missing-source" ? new[] { 2, 3 } : new[] { 80, 183 }, code);
+					Assert.That(files.GetFileEntryKind(destination, null), Is.EqualTo(
+						scenario == "missing-source" ? FileEntryKind.Absent : FileEntryKind.RegularFile));
+					if (scenario == "existing-destination") Assert.That(File.ReadAllText(destination), Is.EqualTo("existing"));
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Restores unrelated journal entries even when a deleted hard-link source prevents one rollback.</summary>
 		[Test]
 		public void FileRollback_MissingLinkSource_StillRestoresOtherFiles()

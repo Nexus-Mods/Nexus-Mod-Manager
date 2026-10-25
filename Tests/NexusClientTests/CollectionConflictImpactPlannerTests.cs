@@ -49,6 +49,41 @@ namespace NexusClientTests
 			Assert.IsFalse(preview.Files.Single().HasExactContentIdentity);
 		}
 
+		/// <summary>One source copied to multiple targets is hashed once per fresh pass, with no reuse across passes.</summary>
+		[Test]
+		public void EffectPreviewBuilder_OpenArchiveReadsEachSourceOncePerPass()
+		{
+			string path = Path.GetTempFileName();
+			try
+			{
+				File.WriteAllBytes(path, new byte[] { 1 });
+				int reads = 0;
+				IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+				{
+					if (method.Name == "GetFileStream") { reads++; return File.OpenRead(path); }
+					if (method.Name == "BeginReadOnlyTransaction") throw new InvalidOperationException("The native installer owns the open transaction.");
+					return null;
+				});
+				NormalizedCollectionMember member = CreateMember(0, "shared-source", 100, 200, 0);
+				var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+				var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot);
+				ModInstallationRecipeInput recipe = CreatePreviewRecipeInput(member, context,
+					new InstallModFileOperation("source.bin", "first.bin", ScriptedFileDeploymentDecision.ForDirect(true)),
+					new InstallModFileOperation("source.bin", "second.bin", ScriptedFileDeploymentDecision.ForDirect(true)));
+				IGameMode game = InterfaceStub<IGameMode>.Create((method, args) => null);
+				var builder = new CollectionMemberEffectPreviewBuilder();
+				CollectionMemberEffectPreview first = builder.BuildFromOpenArchive(resolved, recipe, game, mod, null, System.Threading.CancellationToken.None);
+				Assert.That(reads, Is.EqualTo(1));
+				Assert.That(first.Files.Count, Is.EqualTo(2));
+				Assert.That(first.Files.Select(file => file.ExpectedContentHash).Distinct().Count(), Is.EqualTo(1));
+				File.WriteAllBytes(path, new byte[] { 2 });
+				CollectionMemberEffectPreview second = builder.BuildFromOpenArchive(resolved, recipe, game, mod, null, System.Threading.CancellationToken.None);
+				Assert.That(reads, Is.EqualTo(2));
+				Assert.That(second.Files.First().ExpectedContentHash, Is.Not.EqualTo(first.Files.First().ExpectedContentHash));
+			}
+			finally { File.Delete(path); }
+		}
+
 		/// <summary>Preparation survives builder recreation; changed or invalid evidence and authoritative builds read the source again.</summary>
 		[TestCase("unchanged")]
 		[TestCase("changed")]

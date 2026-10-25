@@ -46,6 +46,11 @@ namespace NexusClientTests
 					archive.BeginReadOnlyTransaction(new Nexus.Client.Util.FileUtil());
 					try
 					{
+						string cachedPath;
+						using (FileStream stream = archive.GetFileStream("00000000.bin", tmp.Path)) cachedPath = stream.Name;
+						archive.BeginReadOnlyTransaction(new Nexus.Client.Util.FileUtil());
+						using (FileStream stream = archive.GetFileStream("00000000.bin", tmp.Path))
+							Assert.That(stream.Name, Is.EqualTo(cachedPath), "A second begin must reuse the solid archive's extracted cache.");
 						foreach (string entry in new[] { prefix + "/first/config.json", prefix + "/second/config.json", "00000000.bin", prefix + "/first/config.json" })
 							using (FileStream stream = archive.GetFileStream(entry, tmp.Path))
 							using (var reader = new StreamReader(stream))
@@ -74,9 +79,10 @@ namespace NexusClientTests
 				string replayPath = CreateLiveReplay(tmp.Path);
 				var installer = new RecipeExecutionTestInstaller(context, recipe);
 				int preparationCalls = 0;
-				installer.SetCollectionArchivePreparation(() =>
+				installer.SetCollectionArchivePreparation(openedMod =>
 				{
 					preparationCalls++;
+					Assert.That(openedMod, Is.SameAs(context.Mod));
 					Assert.That(installer.Registered, Is.False);
 					Assert.That(context.FileInstaller.InstallCallCount, Is.EqualTo(0));
 					Assert.That(File.Exists(replayPath), Is.True);

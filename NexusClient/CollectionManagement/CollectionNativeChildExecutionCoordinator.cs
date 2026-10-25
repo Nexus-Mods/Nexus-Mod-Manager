@@ -247,17 +247,21 @@ namespace Nexus.Client.CollectionManagement
 					// just as it does for reviews which already carry exact source hashes.
 					ModInstallationRecipeInput evidenceRecipe = archiveEvidenceRecipe;
 					CollectionMemberEffectPreview plannedPreview = reviewedPreview;
-					installer.SetCollectionArchivePreparation(() =>
+					installer.SetCollectionArchivePreparation(openedMod =>
 					{
 						cancellationToken.ThrowIfCancellationRequested();
 						CollectionMemberEffectPreview exactPreview = new CollectionMemberEffectPreviewBuilder()
-							.BuildFromOpenArchive(member, evidenceRecipe, _services.ModManager.GameMode, incomingMod,
+							.BuildFromOpenArchive(member, evidenceRecipe, _services.ModManager.GameMode, openedMod,
 								_services.PluginManager, cancellationToken);
 						exactPreview = ResolveExactSubmissionPreview(plannedPreview, exactPreview);
+						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+							"Collections.Workflow.PreparingInstallationRecords", "Preparing installation records: {0}", member.DisplayName), true);
 						CollectionNativeChildExecutionEvidence evidence = CaptureExecutionEvidence(member, exactPreview,
-							evidenceRecipe, incomingMod, paths.InstallInfoPath, _services.ModManager.GameMode);
+							evidenceRecipe, openedMod, paths.InstallInfoPath, _services.ModManager.GameMode);
 						if (recovery.ExecutionEvidence == null)
 						{
+							CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+								"Collections.Workflow.SavingInstallationRecords", "Saving installation records: {0}", member.DisplayName), true);
 							_manifestStore.SaveManifest(recovery.WithExecutionEvidence(evidence));
 							CollectionNativeChildRecoveryManifest retained = RequireRecoveryManifest(operation, child, plan);
 							if (retained.ExecutionEvidence == null || !ExecutionEvidenceEquals(retained.ExecutionEvidence, evidence))

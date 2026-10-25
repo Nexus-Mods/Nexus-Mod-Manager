@@ -414,6 +414,7 @@ namespace Nexus.Client.CollectionManagement
 
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			var files = new Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect>();
+			var freshlyReadSources = new Dictionary<string, CollectionPlannedFileEffect>(StringComparer.OrdinalIgnoreCase);
 			var iniEdits = new Dictionary<CollectionNativeIniKey, CollectionPlannedIniEffect>();
 			var gameValues = new Dictionary<string, CollectionPlannedGameValueEffect>(StringComparer.Ordinal);
 			var requestedPluginActivations = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -431,7 +432,7 @@ namespace Nexus.Client.CollectionManagement
 						files[target] = new CollectionPlannedFileEffect(target);
 					else
 						AddArchiveSourceFile(files, target, member.MemberKey, recipeInput, mod, installFile.SourcePath,
-							reusePreparationDigests, freshlyVerifiedArchiveFiles, cancellationToken);
+							reusePreparationDigests, freshlyVerifiedArchiveFiles, freshlyReadSources, cancellationToken);
 					AddImplicitPluginActivation(requestedPluginActivations, gameMode, pluginManager, target, installFile);
 					continue;
 				}
@@ -519,7 +520,8 @@ namespace Nexus.Client.CollectionManagement
 		private void AddArchiveSourceFile(IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> files,
 			ModDeploymentTarget target, CollectionMemberKey memberKey, ModInstallationRecipeInput recipeInput,
 			IMod mod, string sourcePath, bool reusePreparationDigests,
-			IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> freshlyVerifiedArchiveFiles, CancellationToken cancellationToken)
+			IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> freshlyVerifiedArchiveFiles,
+			IDictionary<string, CollectionPlannedFileEffect> freshlyReadSources, CancellationToken cancellationToken)
 		{
 			if (freshlyVerifiedArchiveFiles != null)
 			{
@@ -531,6 +533,13 @@ namespace Nexus.Client.CollectionManagement
 				return;
 			}
 
+			// Multiple destinations can use the same archive entry. Read it once per build, never reuse this proof across builds.
+			CollectionPlannedFileEffect sourceDigest;
+			if (freshlyReadSources.TryGetValue(sourcePath, out sourceDigest))
+			{
+				AddFile(files, target, sourceDigest.ExpectedContentHash, sourceDigest.ExpectedByteLength.Value);
+				return;
+			}
 			FileInfo before = null;
 			string cacheKey = null;
 			if (reusePreparationDigests && recipeInput.Validation != null && recipeInput.Validation.ExpectedContent != null)
@@ -555,6 +564,7 @@ namespace Nexus.Client.CollectionManagement
 					if (_archiveEntryDigests.TryGetValue(cacheKey, out cached) && cached.Matches(mod, before))
 					{
 						AddFile(files, target, cached.Hash, cached.SourceByteLength);
+						freshlyReadSources[sourcePath] = files[target];
 						return;
 					}
 				}
@@ -619,6 +629,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 			AddFile(files, target, hash, byteLength);
+			freshlyReadSources[sourcePath] = files[target];
 		}
 
 		private static ModDeploymentTarget ResolveTarget(IGameMode gameMode, IMod mod, string destinationPath, ModInstallRoot installRoot)

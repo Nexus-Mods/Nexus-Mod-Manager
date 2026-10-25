@@ -43,9 +43,6 @@
 
 	public partial class VirtualModActivator : IVirtualModActivator
 	{
-		[DllImport("kernel32.dll")]
-		static extern bool CreateSymbolicLink(string p_strLinkName, string p_strTargetPath, int dwFlags);
-
 		[DllImport("Kernel32.dll", CharSet = CharSet.Unicode)]
 		static extern bool CreateHardLink(string p_strLinkName, string p_strTargetPath, IntPtr lpSecurityAttributes);
 
@@ -2242,14 +2239,7 @@
 				}
 				else if (!DisableLinkCreation)
 				{
-					if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
-					{
-						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
-						else
-							strVirtualFileLink = string.Empty;
-					}
-					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
+					if (new TxFileManager { TxEnabled = false }.CreateFileLink(strVirtualFileLink, strActivatorFilePath))
 					{
 						if (!p_booIsRestoring)
 							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);

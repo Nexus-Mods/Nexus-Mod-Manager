@@ -371,7 +371,8 @@ namespace Nexus.Client.Util
 		/// <exception cref="ArgumentNullException">Thrown if <paramref name="p_futFileUtil"/> is <c>null</c>.</exception>
 		public void BeginReadOnlyTransaction(FileUtil p_futFileUtil)
 		{
-			if (m_szeReadOnlyExtractor == null)
+			// A solid archive keeps extracted paths rather than a live extractor. Reuse either read-only form.
+			if (!IsReadonly)
 			{
 				if (p_futFileUtil == null)
 					throw new ArgumentNullException("p_futFileUtil");

@@ -42,7 +42,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booNativeTransactionCommitted;
 		private bool m_booVirtualStorePersistenceRequired;
 		private bool m_booVirtualStorePersisted;
-		private Action _collectionArchivePreparation;
+		private Action<IMod> _collectionArchivePreparation;
 		private PreparedBasicInstallMapping m_preparedBasicMapping;
 		private Witcher3StandaloneMenuInstallPlan _standaloneWitcherMenuPlan;
 
@@ -234,8 +234,8 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
-		/// <summary>Attaches Collection evidence capture after native extraction and validation, before any native mutation.</summary>
-		internal void SetCollectionArchivePreparation(Action preparation)
+		/// <summary>Attaches Collection evidence capture using the installer's opened mod after extraction, before any native mutation.</summary>
+		internal void SetCollectionArchivePreparation(Action<IMod> preparation)
 		{
 			if (preparation == null) throw new ArgumentNullException(nameof(preparation));
 			if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Collection ||
@@ -346,7 +346,7 @@ namespace Nexus.Client.ModManagement
 								: remasteredReview.AuthorizeBasicUpgrade(upgrade.ReplacedMod, Mod, InstallContext);
 							m_preparedBasicMapping = PreparedBasicInstallMapping.Capture(Mod, GameMode, InstallContext, reviewed);
 						}
-						_collectionArchivePreparation?.Invoke();
+						_collectionArchivePreparation?.Invoke(Mod);
 						m_booNativeMutationStarted = true;
 						if (!IsRestoreRegistrationOnlyRecipe())
 							DeleteLiveScriptedReplayArtifacts();

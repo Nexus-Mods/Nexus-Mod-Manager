@@ -779,9 +779,7 @@ namespace Nexus.Client.ModManagement
 			if (DisableLinkCreation)
 				throw new InvalidOperationException("Virtual link creation is disabled for the current game mode.");
 
-			if (!MultiHDMode && p_tfmFileManager.CreateHardLink(p_strDeployedPath, p_strSourcePath))
-				return;
-			if (p_tfmFileManager.CreateSymbolicLink(p_strDeployedPath, p_strSourcePath))
+			if (p_tfmFileManager.CreateFileLink(p_strDeployedPath, p_strSourcePath))
 				return;
 
 			throw new IOException(string.Format("Failed to create a Virtual link for '{0}' at '{1}'.", p_strSourcePath, p_strDeployedPath));

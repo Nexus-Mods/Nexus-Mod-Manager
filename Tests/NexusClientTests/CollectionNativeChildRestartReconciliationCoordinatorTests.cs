@@ -514,6 +514,90 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Creates the detached ownership observation used to check the exact relink safety boundary.</summary>
+		/// <summary>Explicit failed-member recovery preserves completed mods and requires restored file contents even when the global fingerprint has drifted.</summary>
+		[TestCase("exact", true)]
+		[TestCase("partial-replay", true)]
+		[TestCase("no-replay", true)]
+		[TestCase("changed-game", false)]
+		[TestCase("foreign-replay", false)]
+		[TestCase("payload", false)]
+		[TestCase("registered", false)]
+		[TestCase("renamed-registration", false)]
+		[TestCase("virtual-registration", false)]
+		[TestCase("direct", false)]
+		public void FailedUnregisteredActivation_RecoversOnlyItsRestoredFileEffects(string scenario, bool accepted)
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				string deployed = Path.Combine(tmp.Path, "game.bin");
+				File.WriteAllBytes(deployed, new byte[] { 1, 2, 3 });
+				CollectionContentHash hash = CollectionContentHash.FromSha256(ComputeSha256(deployed));
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "mod.bin");
+				ModDeploymentTarget absent = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "new.bin");
+				var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("failed-member"),
+					CollectionRecipeIdentity.FromFingerprint("failed-recipe"), scenario == "direct" ? ModInstallMethod.Direct : ModInstallMethod.Virtual,
+					ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(target, hash, 3), new CollectionPlannedFileEffect(absent, hash, 3) },
+					new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+					new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+					new[] { new CollectionNativeFileContentEvidence(target, true, hash, 3), new CollectionNativeFileContentEvidence(absent, false, null, 0) },
+					new[] { new CollectionNativeFileContentEvidence(target, true, hash, 3), new CollectionNativeFileContentEvidence(absent, true, hash, 3) },
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					new[] { new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "files/mod.bin", "mod.bin", 0, null),
+						new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "files/new.bin", "new.bin", 0, null) });
+				CollectionTargetIdentity identity = CollectionTargetIdentity.FromFingerprint("failed-target");
+				var completed = new CollectionNativeModState(new NativeModInstanceIdentity(identity, "completed"),
+					Path.Combine(tmp.Path, "completed.7z"), "completed.7z", "10", "19", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Virtual);
+				var mods = new List<CollectionNativeModState> { completed };
+				if (scenario == "registered" || scenario == "renamed-registration")
+					mods.Add(new CollectionNativeModState(new NativeModInstanceIdentity(identity, "incoming"),
+						Path.Combine(tmp.Path, "incoming.7z"), scenario == "registered" ? "incoming.7z" : "renamed.7z",
+						"10", "20", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Virtual));
+				var owner = new CollectionNativeOwnerState("completed", null, CollectionNativeOwnerKind.NativeMod, null, null, null);
+				var state = new CollectionNativeStateIndex(identity, new CollectionNativeRootState[0], mods,
+					new[] { new CollectionNativeFileState(target, deployed, false, true, true, "completed", new[] { owner },
+						new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0]),
+						new CollectionNativeFileState(absent, Path.Combine(tmp.Path, "new.bin"), false, false, false, null,
+							new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0]) },
+					new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
+					CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],
+					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 771);
+				CollectionIdentity collection = CollectionIdentity.FromNexus("failed-collection");
+				var revision = CollectionRevisionIdentity.FromNexus(collection, "failed-revision", 1);
+				var native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(identity.Fingerprint, new ModInstallContext(preview.InstallMethod, ModInstallRoot.Data), "failed-recipe"));
+				var recovery = new CollectionNativeChildRecoveryManifest(CollectionOperationIdentity.CreateNew(), 1,
+					CollectionPlanIdentity.From(Guid.NewGuid(), 1), new CollectionOperationMemberReference(revision, preview.MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native, new CollectionCurrentStateFingerprint("native-state-index-v3", "previous"),
+					new CollectionRecoveryArtifact("incoming", hash, 3), null, null,
+					new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]), evidence);
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, tmp.Path);
+				Directory.CreateDirectory(Path.GetDirectoryName(replayPath));
+				if (scenario != "no-replay")
+				{
+					var cache = new ScriptedFileSelectionCache(replayPath);
+					cache.RecordSelection(scenario == "foreign-replay" ? "foreign.bin" : "files/mod.bin", "mod.bin");
+					if (scenario != "partial-replay") cache.RecordSelection("files/new.bin", "new.bin");
+				}
+				if (scenario == "payload") Directory.CreateDirectory(ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath));
+				if (scenario == "changed-game") File.WriteAllBytes(deployed, new byte[] { 3, 2, 1 });
+				byte[] before = File.ReadAllBytes(deployed);
+				byte[] replayBefore = File.Exists(replayPath) ? File.ReadAllBytes(replayPath) : null;
+				IGameMode gameMode = InterfaceStub<IGameMode>.Create((invoked, arguments) => null);
+				string detail;
+				Assert.AreNotEqual(recovery.PreparationStateFingerprint, state.Fingerprint);
+				Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryRecoverFailedUnregisteredFileActivation(
+					recovery, evidence, state, scenario == "virtual-registration" ? new[] { "incoming.7z" } : new[] { "completed.7z" },
+					tmp.Path, gameMode, out detail), detail);
+				if (accepted) Assert.IsFalse(File.Exists(replayPath));
+				else CollectionAssert.AreEqual(replayBefore, File.ReadAllBytes(replayPath));
+				CollectionAssert.AreEqual(before, File.ReadAllBytes(deployed));
+				Assert.IsFalse(File.Exists(Path.Combine(tmp.Path, "new.bin")));
+				Assert.AreSame(completed, state.Mods[completed.Identity]);
+				Assert.AreEqual(771, state.DeploymentCommitSequence);
+			}
+		}
+
 		private static CollectionNativeStateIndex CreateRelinkState(IEnumerable<CollectionNativeFileState> files)
 		{
 			return new CollectionNativeStateIndex(CollectionTargetIdentity.FromFingerprint("target-relink"),

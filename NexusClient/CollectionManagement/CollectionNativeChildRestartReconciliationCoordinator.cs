@@ -164,8 +164,14 @@ namespace Nexus.Client.CollectionManagement
 						getVirtualSource: _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner);
 					if (!committed && evidence == null && workflowMode == CollectionNativeChildWorkflowMode.Additive)
 						committed = TryVerifyRecordedCommittedState(recovery, child, plan, state, out verifiedNativeMod);
-					bool rolledBack = evidence != null && TryVerifyRolledBackState(recovery, evidence, state,
-						paths.InstallInfoPath, _services.ModManager.GameMode, out rolledBackFailure);
+					string stoppedActivationDetail = null;
+					bool stoppedActivationRecovered = !committed && evidence != null && repairRecipe != null &&
+						workflowMode == CollectionNativeChildWorkflowMode.Additive && reportedStatus == ModOperationReportedStatus.Failed &&
+						priorDurability == ModOperationDurability.Unknown && TryRecoverFailedUnregisteredFileActivation(recovery,
+							evidence, state, _services.ModManager.VirtualModActivator.ActiveModList,
+							paths.InstallInfoPath, _services.ModManager.GameMode, out stoppedActivationDetail);
+					bool rolledBack = stoppedActivationRecovered || (evidence != null && TryVerifyRolledBackState(recovery, evidence, state,
+						paths.InstallInfoPath, _services.ModManager.GameMode, out rolledBackFailure));
 					string virtualRelinkDetail = null;
 					if (workflowMode == CollectionNativeChildWorkflowMode.Additive && evidence != null &&
 						!committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
@@ -218,8 +224,8 @@ namespace Nexus.Client.CollectionManagement
 								getVirtualSource: _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner);
 						}
 					}
-					bool rollbackResidueRepaired = false;
-					string rollbackRepairDetail = null;
+					bool rollbackResidueRepaired = stoppedActivationRecovered;
+					string rollbackRepairDetail = stoppedActivationDetail;
 					if (evidence != null && !committed && !rolledBack && priorDurability == ModOperationDurability.Unknown)
 					{
 						rollbackResidueRepaired = TryRepairExactNewActivationRollbackResidue(recovery, evidence, state,
@@ -1452,6 +1458,70 @@ namespace Nexus.Client.CollectionManagement
 			finally
 			{
 				if (stagingCreated && stagingPath != null && File.Exists(stagingPath)) File.Delete(stagingPath);
+			}
+		}
+
+		/// <summary>Stops a failed first activation after proving its own effects were rolled back, without reverting unrelated state changes.</summary>
+		/// <remarks>The additive recovery caller completes StoppedPartial and requires a fresh review; it never resumes the old reviewed plan.</remarks>
+		internal static bool TryRecoverFailedUnregisteredFileActivation(CollectionNativeChildRecoveryManifest recovery,
+			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, IEnumerable<string> virtualRegistrations,
+			string installInfoDirectory, IGameMode gameMode, out string detail)
+		{
+			detail = null;
+			if (recovery == null || evidence == null || state == null || gameMode == null || virtualRegistrations == null ||
+				String.IsNullOrWhiteSpace(installInfoDirectory) || recovery.PreviousNativeMod != null || recovery.PreviousArchive != null ||
+				recovery.ScriptedReplay.ReplayFileExisted || recovery.ScriptedReplay.PayloadDirectoryExisted ||
+				evidence.IncomingReplayPreimage.ReplayFileExisted || evidence.IncomingReplayPreimage.PayloadDirectoryExisted ||
+				evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual || evidence.ReviewedEffects.Files.Count == 0 ||
+				evidence.ReviewedEffects.IniEdits.Count != 0 || evidence.ReviewedEffects.GameValues.Count != 0 ||
+				evidence.ReviewedEffects.PluginEffects.Count != 0 || evidence.ExpectedReplayOperations.Count == 0 ||
+				evidence.ExpectedReplayOperations.Any(x => x.Kind != ScriptedReplayOperationKind.ArchiveFile)) return false;
+
+			string fileName = Path.GetFileName(evidence.IncomingFileName);
+			if (state.Mods.Values.Any(mod => StringComparer.OrdinalIgnoreCase.Equals(mod.FileName, fileName) ||
+				(evidence.NexusFileId > 0 && StringComparer.Ordinal.Equals(mod.NexusFileId, evidence.NexusFileId.ToString(CultureInfo.InvariantCulture)) &&
+				 StringComparer.Ordinal.Equals(mod.NexusModId, evidence.NexusModId.ToString(CultureInfo.InvariantCulture)))) ||
+				virtualRegistrations.Any(name => StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(name), fileName))) return false;
+
+			try
+			{
+				string failure;
+				if (!VerifyFileEvidence(state, evidence.PreFileContents, gameMode, out failure))
+				{
+					detail = "The failed member's game files have not returned to their saved pre-install contents: " + failure;
+					return false;
+				}
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, installInfoDirectory);
+				if (Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath))) return false;
+				if (File.Exists(replayPath))
+				{
+					var cache = new ScriptedFileSelectionCache(replayPath);
+					IReadOnlyList<ScriptedReplayOperation> actual = cache.LoadReplayOperations();
+					IReadOnlyList<CollectionExpectedReplayOperation> missing;
+					bool matches = cache.HasCompleteReplay && actual != null &&
+						(actual.Count == evidence.ExpectedReplayOperations.Count
+							? VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out failure)
+							: TryGetMissingArchiveReplayOperations(evidence.ExpectedReplayOperations, actual, out missing));
+					if (!matches)
+					{
+						detail = "The failed member's leftover install record does not match its retained recipe; it was preserved.";
+						return false;
+					}
+					File.Delete(replayPath);
+				}
+				if (!VerifyReplayContentEvidence(evidence.IncomingFileName, installInfoDirectory, evidence.IncomingReplayPreimage, out failure))
+				{
+					detail = failure;
+					return false;
+				}
+				detail = "The failed file-only member has no native or Virtual registration and its game files match the saved pre-install contents. " +
+					"Any matching leftover install record is now absent. Completed mods and unrelated native state were preserved; a fresh review is required.";
+				return true;
+			}
+			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
+			{
+				detail = "Failed-member recovery could not finish: " + exception.Message;
+				return false;
 			}
 		}
 

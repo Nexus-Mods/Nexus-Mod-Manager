@@ -60,11 +60,11 @@ namespace Nexus.Client.CollectionManagement
 			if (installer == null || !Matches(installer.OperationIdentity, child.NativeOperation))
 				throw new InvalidOperationException("The interrupted mod could not be prepared for the exact reviewed activation.");
 			installer.AssignParentMutationLease(lease);
-			installer.SetCollectionArchivePreparation(() =>
+			installer.SetCollectionArchivePreparation(openedMod =>
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				CollectionMemberEffectPreview exact = new CollectionMemberEffectPreviewBuilder().BuildFromOpenArchive(
-					prepared.Member, input, game, incoming, _services.PluginManager, cancellationToken);
+					prepared.Member, input, game, openedMod, _services.PluginManager, cancellationToken);
 				exact = CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(prepared.EffectPreview, exact);
 				RequireRecoverableWitcherFiles(exact, state, game);
 				Witcher3CollectionRecordStore records = game.CreateCollectionRecordStore();
