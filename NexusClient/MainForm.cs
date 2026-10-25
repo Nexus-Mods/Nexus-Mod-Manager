@@ -1231,13 +1231,15 @@
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ModManagerControl.UninstalledAllMods"/> of the opening
-		/// of the ReaMe file.
+		/// Refreshes plugins and cleans profile records after bulk mod removal.
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">A <see cref="EventArgs"/> describing the event arguments.</param>
 		private void MmgModManagerControlUninstalledAllMods(object sender, EventArgs e)
 		{
+			if (ViewModel.UsesPlugins)
+				_pluginManagerControl.RefreshAfterNativeChanges();
+
 			if (ViewModel.ProfileManager?.CurrentProfile != null)
 			{
 				ViewModel.ProfileManager.PurgeProfileXMLInstalledFile();
