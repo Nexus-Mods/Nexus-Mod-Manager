@@ -1,5 +1,26 @@
 # NMM Community Edition release notes
 
+## Version 0.93.6
+
+- New Feature: Added preliminary, unofficial Wabbajack support, currently enabled for Fallout: New Vegas (supported added on request).
+- New Feature: Added CSharp and ModScript installer support to Collections.
+- New Feature: The title bar now always shows the NMM version and also displays the game version.
+- Bugfix: Improved Starfield Collection support and corrected its base-game file list.
+- Bugfix: Improved Fallout: New Vegas Collection support and tweaked its game mode.
+- Bugfix: Improved Collection compatibility with older games and mods.
+- Bugfix: Fixed Collection installation when base-game plugins had been moved in the load order.
+- Bugfix: Fixed Collection installation with empty installer options.
+- Bugfix: Fixed SFSE installation through both normal game-root installation and Collections.
+- Bugfix: Fixed script extender launchers not being selected as the default in the launch menu.
+- Bugfix: Fixed CSharp installer windows appearing behind the main NMM window.
+- Bugfix: Improved installation and uninstallation performance for mods containing many files.
+- Bugfix: Fixed transaction handling when creating hard links and symbolic links.
+- Bugfix: Fixed the plugin list not refreshing after some mod uninstalls.
+- Bugfix: Fixed visual feedback for active plugins.
+- Bugfix: Fixed a downloader crash and completed downloads incorrectly reporting failure.
+- Bugfix: Fixed installation of some text files.
+- Bugfix: Fixed Game Discovery preventing configuration of a managed game after it was reinstalled in a different folder.
+
 ## Version 0.93.5
 
 - New Feature: Added Italian, Ukrainian, Japanese, Russian, and Korean localizations.
