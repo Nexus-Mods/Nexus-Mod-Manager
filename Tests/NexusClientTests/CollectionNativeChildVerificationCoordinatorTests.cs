@@ -158,6 +158,8 @@ namespace NexusClientTests
 		[TestCase(ModInstallMethod.Virtual, "changed-fingerprint", false)]
 		[TestCase(ModInstallMethod.Virtual, "legacy", false)]
 		[TestCase(ModInstallMethod.Virtual, "reported-commit", false)]
+		[TestCase(ModInstallMethod.Virtual, "native-rollback", true)]
+		[TestCase(ModInstallMethod.Virtual, "native-rollback-changed-fingerprint", false)]
 		public void LiveRollback_RequiresExactRetainedPreState(ModInstallMethod method, string scenario, bool accepted)
 		{
 			string directory = Path.Combine(Path.GetTempPath(), "collection-live-rollback-" + Guid.NewGuid().ToString("N"));
@@ -195,7 +197,7 @@ namespace NexusClientTests
 				var manifest = new CollectionNativeChildRecoveryManifest(CollectionOperationIdentity.CreateNew(), 1,
 					CollectionPlanIdentity.From(Guid.NewGuid(), 1), new CollectionOperationMemberReference(revision, preview.MemberKey),
 					CollectionNativeChildAction.ActivateOrReinstall, native,
-					scenario == "changed-fingerprint" ? new CollectionCurrentStateFingerprint(state.Fingerprint.FormatVersion, "changed") : state.Fingerprint,
+					scenario.EndsWith("changed-fingerprint", StringComparison.Ordinal) ? new CollectionCurrentStateFingerprint(state.Fingerprint.FormatVersion, "changed") : state.Fingerprint,
 					new CollectionRecoveryArtifact("incoming", hash, before.Length), null, null,
 					new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
 					scenario == "legacy" ? null : evidence);
@@ -209,7 +211,8 @@ namespace NexusClientTests
 				}
 				IGameMode game = InterfaceStub<IGameMode>.Create((member, args) => null);
 				var reported = new ModOperationResult(native, ModOperationReportedStatus.Failed,
-					scenario == "reported-commit" ? ModOperationDurability.VerifiedCommitted : ModOperationDurability.Unknown, "overwrite rejected");
+					scenario == "reported-commit" ? ModOperationDurability.VerifiedCommitted :
+					scenario.StartsWith("native-rollback", StringComparison.Ordinal) ? ModOperationDurability.VerifiedRolledBack : ModOperationDurability.Unknown, "overwrite rejected");
 				Assert.That(CollectionNativeChildVerificationCoordinator.TryVerifyRolledBackState(reported, preview, manifest, state,
 					directory, game), Is.EqualTo(accepted));
 			}

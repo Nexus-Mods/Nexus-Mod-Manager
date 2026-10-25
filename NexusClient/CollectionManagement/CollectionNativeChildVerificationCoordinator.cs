@@ -540,8 +540,10 @@ namespace Nexus.Client.CollectionManagement
 			if (!state.Fingerprint.Equals(recovery.PreparationStateFingerprint))
 				return false;
 
-			// Native NotStarted is the only case where the worker itself proves that replay/file mutation was never entered.
-			if (reportedResult.Durability == ModOperationDurability.NotStarted)
+			// The exact native worker can confirm either no mutation or a completed transactional rollback.
+			// The reloaded fingerprint above must still agree before subsequent members can run.
+			if (reportedResult.Durability == ModOperationDurability.NotStarted ||
+				reportedResult.Durability == ModOperationDurability.VerifiedRolledBack)
 				return true;
 
 			// A native transaction that reports its registration boundary committed but fails exact recipe verification is ambiguous,

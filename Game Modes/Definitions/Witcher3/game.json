@@ -2,6 +2,21 @@
   "schemaVersion": 2,
   "modeId": "Witcher3",
   "name": "The Witcher 3",
+  "runtime": {
+    "schemaVersion": 1,
+    "nativeRootOwnershipProfile": "edition-root-ownership-v1",
+    "downloadRouting": {
+      "preference": "Witcher3DownloadOverride",
+      "defaultMode": "Witcher3",
+      "alternateMode": "Witcher3Remastered",
+      "incomingDomains": [
+        "witcher3"
+      ],
+      "useRememberedModeAsDefault": true,
+      "label": "Witcher 3",
+      "labelKey": "Mods.DownloadMode.Witcher3"
+    }
+  },
   "behaviorProfile": "generic",
   "legacyFallback": false,
   "gameExecutables": [

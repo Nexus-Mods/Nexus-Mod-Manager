@@ -40,6 +40,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booUsePromotedDeploymentPath;
 		private bool m_booNativeMutationStarted;
 		private bool m_booNativeTransactionCommitted;
+		private bool m_booNativeTransactionRolledBack;
 		private bool m_booVirtualStorePersistenceRequired;
 		private bool m_booVirtualStorePersisted;
 		private Action<IMod> _collectionArchivePreparation;
@@ -284,6 +285,7 @@ namespace Nexus.Client.ModManagement
 			bool booSuccess = false;
 			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strMessage = "The mod was not activated.";
+			TransactionScope nativeTransaction = null;
 			long collectionInstallationStarted = OperationIdentity != null && OperationIdentity.Origin == ModOperationOrigin.Collection
 				? Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.StartTiming() : 0;
 			
@@ -295,27 +297,26 @@ namespace Nexus.Client.ModManagement
 					// Startup discovery is not write authorization: counterpart ownership can
 					// change after the mode was opened. Check again under the native lease
 					// BEFORE replay deletion, registration or a native transaction.
-					if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+					if ((Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).NativeRootOwnershipProfile != null))
 						Witcher3RootOwnershipGuard.RequireNativeMutation(EnvironmentInfo, GameMode.ModeId,
 							GameMode.GameModeEnvironmentInfo.InstallationPath,
 							GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 					// The native lease is held, and the authority has been reloaded, but no
-					// native transaction has begun. Capture committed Witcher owners HERE:
+					// native transaction has begun. Capture committed native owners here:
 					// the generic snapshot reader rejects any ambient native transaction.
 					m_preparedBasicMapping = null;
 					_standaloneWitcherMenuPlan = null;
 					Witcher3NativeMutationReview remasteredReview = null;
-					if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
-						StringComparison.OrdinalIgnoreCase))
+					if (GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall)
 					{
 						if (OperationIdentity == null || (InstallationRecipeInput == null &&
 							(OperationIdentity.Origin != ModOperationOrigin.Manual || _collectionArchivePreparation != null)))
-							throw new InvalidDataException("Witcher 3 Remastered requires a reviewed basic mapping or an explicit Collection recipe.");
+							throw new InvalidDataException("This game requires a reviewed basic mapping or an explicit Collection recipe.");
 						remasteredReview = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
 							ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, GetRootMutationAuthority(mutationLease));
 						if (InstallationRecipeInput != null) remasteredReview.AuthorizeCollectionRecipe(InstallationRecipeInput);
 					}
-					using (TransactionScope tsTransaction = new TransactionScope())
+					using (TransactionScope tsTransaction = nativeTransaction = new TransactionScope())
 					{
 						if (!File.Exists(Mod.Filename))
 							throw new Exception("The selected file was not found: " + Mod.Filename);
@@ -352,6 +353,8 @@ namespace Nexus.Client.ModManagement
 							DeleteLiveScriptedReplayArtifacts();
 						RegisterMod();
 						booSuccess = RunScript(tfmFileManager);
+						if (!booSuccess && !String.IsNullOrWhiteSpace(PopupErrorMessage))
+							strMessage = PopupErrorMessage;
 						if (booSuccess)
 						{
 							tsTransaction.Complete();
@@ -430,7 +433,7 @@ namespace Nexus.Client.ModManagement
 				string detail = stbError.ToString();
 				if (e is Nexus.Client.CollectionManagement.CollectionTargetAuthorityException)
 					detail = e.Message;
-				else if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+				else if (GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall)
 					detail = e is Witcher3InstallException ? e.Message : LanguageManager.Get("Witcher3.Install.UnexpectedFailure",
 						"NMM could not complete this installation. Close the game and any tools using its files, then try again. If it still fails, include NMM's trace log in your bug report.");
 				strMessage = LanguageManager.Format("ModInstaller.InstallFailed", "The mod could not be installed.\n\n{0}", detail);
@@ -439,6 +442,7 @@ namespace Nexus.Client.ModManagement
 			}
 			finally
 			{
+				m_booNativeTransactionRolledBack = nativeTransaction != null && nativeTransaction.RolledBack;
 				try
 				{
 					Mod.EndReadOnlyTransaction();
@@ -484,12 +488,14 @@ namespace Nexus.Client.ModManagement
 		/// <remarks>
 		/// This deliberately verifies only the native registration/persistence boundary available at C3.7. Detailed
 		/// collection recipe/effect verification is performed by later collection planning/execution layers. Failure
-		/// after mutation begins remains unknown unless the native committed state can be positively verified.
+		/// after mutation begins remains unknown unless the native transaction confirms commitment or complete rollback.
 		/// </remarks>
 		protected virtual ModOperationDurability DetermineOperationDurability()
 		{
 			if (!m_booNativeMutationStarted)
 				return ModOperationDurability.NotStarted;
+			if (m_booNativeTransactionRolledBack && InstallationRecipeInput != null)
+				return ModOperationDurability.VerifiedRolledBack;
 			if (!m_booNativeTransactionCommitted || ModInstallLog == null)
 				return ModOperationDurability.Unknown;
 
@@ -550,6 +556,7 @@ namespace Nexus.Client.ModManagement
 		private void DeleteLiveScriptedReplayArtifacts()
 		{
 			ScriptedFileSelectionCache liveCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			new ScriptedReplayTransactionSnapshot(liveCache.FilePath);
 			ScriptedFileSelectionCache.DeleteArtifacts(liveCache.FilePath);
 		}
 
@@ -697,10 +704,10 @@ namespace Nexus.Client.ModManagement
 		protected bool RunScript(TxFileManager p_tfmFileManager)
 		{
 			// Recipe operations were reviewed under the live native lease. Ordinary manual
-			// packages continue to require the dedicated basic Mods/DLC mapping.
-			if (String.Equals(GameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) && InstallationRecipeInput == null &&
+			// packages continue to require the configured reviewed basic mapping.
+			if (GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall && InstallationRecipeInput == null &&
 				(GameMode as IReviewedBasicInstallMappingProvider == null || Mod.HasInstallScript || InstallContext.InstallRoot != ModInstallRoot.Data))
-				throw new InvalidDataException("Witcher 3 Remastered native writes require a reviewed ordinary basic Mods/DLC archive mapping.");
+				throw new InvalidDataException(GameModeRuntimePolicies.For(GameMode.ModeId).NativeInstallReviewMessage);
 
 			m_booUsedPromotedDeployment = false;
 			m_booUsePromotedDeploymentPath = InstallContext.Method == ModInstallMethod.Virtual &&
@@ -894,11 +901,10 @@ namespace Nexus.Client.ModManagement
 			// The native operation must use the same approved archive sources/destinations
 			// that were reviewed under its cross-process lease. A second independent
 			// package selection may not be substituted after authorization.
-			if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
-				StringComparison.OrdinalIgnoreCase))
+			if (GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall)
 			{
 				if (m_preparedBasicMapping == null)
-					throw new InvalidOperationException("Remastered basic install has no locked native ownership authorization.");
+					throw new InvalidOperationException("The reviewed basic install has no locked native ownership authorization.");
 			}
 			if ((GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
 			{

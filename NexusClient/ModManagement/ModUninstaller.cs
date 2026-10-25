@@ -202,7 +202,7 @@ namespace Nexus.Client.ModManagement
 				{
 					// A mode opened before another Witcher mode acquired native ownership
 					// must not uninstall against that other mode's physical game root.
-					if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+					if ((Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).NativeRootOwnershipProfile != null))
 						Witcher3RootOwnershipGuard.RequireNativeMutation(EnvironmentInfo, GameMode.ModeId,
 							GameMode.GameModeEnvironmentInfo.InstallationPath,
 							GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
@@ -220,12 +220,11 @@ namespace Nexus.Client.ModManagement
                     // The native lease has already reloaded authoritative target state. This
                     // shared path also covers ModDeleter, not just ordinary deactivation.
                     // No Virtual link or InstallLog registration may be changed before review.
-                    if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
-                        StringComparison.OrdinalIgnoreCase))
+                    if (Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall)
                     {
                         if (OperationIdentity == null || DisableVirtualFilesOnly)
                             throw new InvalidDataException(
-                                "Witcher 3 Remastered removal requires a complete reviewed native operation.");
+                                "This game requires a complete reviewed native removal operation.");
                         var review = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
                             ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, GetRootMutationAuthority(mutationLease));
                         bool collectionMember = OperationIdentity.Origin != ModOperationOrigin.Manual ||

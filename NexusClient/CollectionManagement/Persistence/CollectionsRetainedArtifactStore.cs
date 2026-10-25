@@ -750,7 +750,7 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 			if (info.Length != artifact.ByteLength)
 				return false;
 
-			if (IsVerifiedArtifactCached(artifact, info))
+			if (IsVerifiedArtifactCached(artifact, info) || (CanReuseSavedArchiveHashes && IsTrustedPreparationArtifactCached(artifact, info)))
 			{
 				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationCacheHit();
 				return true;
@@ -1121,6 +1121,18 @@ WHERE a.artifact_id=@artifact_id;";
 				}
 				sha256.TransformFinalBlock(new byte[0], 0, 0);
 				return ToHex(sha256.Hash);
+			}
+		}
+
+		/// <summary>Reuses an unchanged archive proof without promoting metadata trust into a full content-hash result.</summary>
+		private bool IsTrustedPreparationArtifactCached(CollectionsRetainedArtifact artifact, FileInfo info)
+		{
+			lock (_verificationCacheLock)
+			{
+				ArtifactVerificationStamp stamp;
+				return _trustedPreparationArtifacts.TryGetValue(artifact.ArtifactId, out stamp) &&
+					StringComparer.OrdinalIgnoreCase.Equals(stamp.FullPath, info.FullName) && stamp.ByteLength == info.Length &&
+					stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks && StringComparer.Ordinal.Equals(stamp.HashValue, artifact.ContentHash.Value);
 			}
 		}
 

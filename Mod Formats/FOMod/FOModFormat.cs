@@ -223,7 +223,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public IMod CreateMod(string p_strPath, IGameMode p_gmdGameMode, bool isResetCachePath)
 		{
 			// Format compliance is checked by ModRegistry before creation; repeating it here opens every archive during startup.
-			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, (p_gmdGameMode.ModeId.StartsWith("DragonAge", StringComparison.InvariantCultureIgnoreCase)), isResetCachePath, MetadataCache);
+			return new FOMod(p_strPath, this, p_gmdGameMode.StopFolders, Path.GetFileName(p_gmdGameMode.PluginDirectory), p_gmdGameMode.PluginExtensions, ModCacheManager, IScriptTypeRegistry, p_gmdGameMode.UsesPlugins, Nexus.Client.Games.GameModeRuntimePolicies.For(p_gmdGameMode.ModeId).SupportsNestedArchives, isResetCachePath, MetadataCache);
 		}
 
 		/// <summary>

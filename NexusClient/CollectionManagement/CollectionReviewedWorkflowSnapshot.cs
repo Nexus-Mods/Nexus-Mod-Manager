@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
@@ -1061,10 +1062,12 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Creates a result that distinguishes recovery status inspection from executable retained-input verification.</summary>
 		internal CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus status,
 			CollectionReviewedWorkflowSnapshot snapshot, CollectionNativeStateIndex currentState,
-			IEnumerable<CollectionMemberKey> remainingMembers, string message, bool hasVerifiedRetainedInputs)
+			IEnumerable<CollectionMemberKey> remainingMembers, string message, bool hasVerifiedRetainedInputs,
+			IReadOnlyDictionary<string, CollectionsRetainedArtifact> verifiedArtifacts = null)
 		{
 			Status = status; Snapshot = snapshot; CurrentState = currentState; Message = message ?? String.Empty;
 			HasVerifiedRetainedInputs = hasVerifiedRetainedInputs && status == CollectionReviewedWorkflowRehydrationStatus.Ready;
+			VerifiedArtifacts = verifiedArtifacts;
 			_remainingMembers = new ReadOnlyCollection<CollectionMemberKey>((remainingMembers ?? Enumerable.Empty<CollectionMemberKey>()).ToList());
 		}
 		public CollectionReviewedWorkflowRehydrationStatus Status { get; }
@@ -1074,6 +1077,8 @@ namespace Nexus.Client.CollectionManagement
 		public string Message { get; }
 		/// <summary>Gets whether this result verified retained installer inputs, rather than only inspecting recovery status.</summary>
 		public bool HasVerifiedRetainedInputs { get; }
+		/// <summary>Shares the artifacts already checked during this continuation with runtime reconstruction.</summary>
+		internal IReadOnlyDictionary<string, CollectionsRetainedArtifact> VerifiedArtifacts { get; }
 		public bool CanResume { get { return Status == CollectionReviewedWorkflowRehydrationStatus.Ready; } }
 	}
 
@@ -1091,6 +1096,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly Func<CollectionRevisionIdentity, CollectionRevisionSourceRecord> _sourceRecordLoader;
 		private readonly Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]> _manifestLoader;
 		private readonly Func<string, CollectionsRetainedArtifact> _artifactLoader;
+		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly Func<CollectionTargetIdentity, CollectionNativeStateIndex> _stateCapture;
 		private readonly Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> _recoveryManifestLoader;
 		private readonly Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> _checkpointManifestLoader;
@@ -1115,6 +1121,7 @@ namespace Nexus.Client.CollectionManagement
 				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetManifest),
 				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetCompletedCheckpointManifest))
 		{
+			_artifactStore = artifactStore;
 		}
 
 		/// <summary>Creates a read-only rehydrator over explicit durable-input and native-state loaders.</summary>
@@ -1198,6 +1205,17 @@ namespace Nexus.Client.CollectionManagement
 				!StringComparer.Ordinal.Equals(snapshot.ManifestSource.NormalizerVersion, NexusCollectionManifestNormalizer.NormalizerVersion))
 				return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "The Collection manifest schema/normalizer contract changed since review.");
 
+			var verifiedArtifacts = new Dictionary<string, CollectionsRetainedArtifact>(StringComparer.Ordinal);
+			Func<string, CollectionsRetainedArtifact> loadArtifact = id =>
+			{
+				CollectionsRetainedArtifact artifact;
+				if (!verifiedArtifacts.TryGetValue(id, out artifact))
+				{
+					artifact = _artifactLoader(id);
+					verifiedArtifacts.Add(id, artifact);
+				}
+				return artifact;
+			};
 			try
 			{
 				CollectionRevisionSourceRecord sourceRecord = _sourceRecordLoader(snapshot.Revision);
@@ -1205,10 +1223,20 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("The exact retained Collection revision source binding is missing or changed.");
 				if (verifyRetainedInputs)
 				{
+					if (_artifactStore != null)
+					{
+						var ids = new HashSet<string>(snapshot.PreparedRecipes.SelectMany(recipe => recipe.RetainedArtifactIds), StringComparer.Ordinal);
+						ids.UnionWith(snapshot.Phases.SelectMany(phase => phase.Members).Where(member => member.VerifiedArchive != null).Select(member => member.VerifiedArchive.ArtifactId));
+						ids.Add(sourceRecord.RawManifestArtifactId);
+						ISet<string> verified;
+						IReadOnlyDictionary<string, CollectionsRetainedArtifact> artifacts = _artifactStore.VerifyArtifacts(ids, CancellationToken.None, out verified);
+						if (!ids.SetEquals(verified)) throw new InvalidDataException("A retained artifact required by the reviewed workflow is missing or failed integrity verification.");
+						foreach (var artifact in artifacts) verifiedArtifacts.Add(artifact.Key, artifact.Value);
+					}
 					_manifestLoader(snapshot.Revision, snapshot.ManifestSource);
-					_artifactLoader(sourceRecord.RawManifestArtifactId);
+					loadArtifact(sourceRecord.RawManifestArtifactId);
 				}
-				ValidatePreparedDescriptors(snapshot, verifyRetainedInputs);
+				ValidatePreparedDescriptors(snapshot, verifyRetainedInputs, loadArtifact);
 			}
 			catch (NotSupportedException ex)
 			{
@@ -1258,10 +1286,11 @@ namespace Nexus.Client.CollectionManagement
 				.SelectMany(x => x.Members).Select(x => x.MemberKey).Where(remaining.Contains).ToList();
 			return new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready, snapshot, currentState, ordered,
 				verifyRetainedInputs ? "The exact reviewed workflow is safe to continue from the verified boundary." :
-				"The interrupted installation is reconciled. Installer inputs will be checked when installation continues.", verifyRetainedInputs);
+				"The interrupted installation is reconciled. Installer inputs will be checked when installation continues.", verifyRetainedInputs,
+				verifyRetainedInputs ? new ReadOnlyDictionary<string, CollectionsRetainedArtifact>(verifiedArtifacts) : null);
 		}
 
-		private void ValidatePreparedDescriptors(CollectionReviewedWorkflowSnapshot snapshot, bool verifyRetainedInputs)
+		private void ValidatePreparedDescriptors(CollectionReviewedWorkflowSnapshot snapshot, bool verifyRetainedInputs, Func<string, CollectionsRetainedArtifact> loadArtifact)
 		{
 			foreach (CollectionReviewedPreparedRecipeSnapshot recipe in snapshot.PreparedRecipes)
 			{
@@ -1278,7 +1307,7 @@ namespace Nexus.Client.CollectionManagement
 				bool foundExpectedArchive = false;
 				foreach (string artifactId in recipe.RetainedArtifactIds)
 				{
-					CollectionsRetainedArtifact artifact = _artifactLoader(artifactId);
+					CollectionsRetainedArtifact artifact = loadArtifact(artifactId);
 					if (artifact.ContentHash.Algorithm == CollectionContentHashAlgorithm.Sha256 &&
 						StringComparer.Ordinal.Equals(artifact.ContentHash.Value, recipe.Validation.ExpectedContent.Sha256) &&
 						artifact.ByteLength == recipe.Validation.ExpectedContent.ByteLength)
@@ -1288,7 +1317,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("A reviewed prepared recipe no longer references its exact immutable source archive.");
 				foreach (CollectionReviewedGeneratedFileSnapshot generated in recipe.GeneratedFiles)
 				{
-					bool foundGenerated = recipe.RetainedArtifactIds.Select(_artifactLoader).Any(artifact =>
+					bool foundGenerated = recipe.RetainedArtifactIds.Select(loadArtifact).Any(artifact =>
 						artifact.ContentHash.Algorithm == CollectionContentHashAlgorithm.Sha256 &&
 						StringComparer.Ordinal.Equals(artifact.ContentHash.Value, generated.Sha256) && artifact.ByteLength == generated.ByteLength);
 					if (!foundGenerated)

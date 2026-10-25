@@ -326,7 +326,7 @@ namespace Nexus.Client.GameStorage
 			{
 				return false;
 			}
-			catch (InvalidOperationException) when (Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
+			catch (InvalidOperationException) when ((Nexus.Client.Games.GameModeRuntimePolicies.For(paths.GameId).NativeRootOwnershipProfile != null))
 			{
 				return false;
 			}
@@ -582,8 +582,8 @@ namespace Nexus.Client.GameStorage
 			var result = Validate(paths, storageId, registry);
 
 			if (result.IsHealthy && !TryInitializeMetadata(paths, storageId, registry, result) &&
-				Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
-				throw new InvalidOperationException("Witcher 3 Game Storage metadata was not safely initialized: " +
+				(Nexus.Client.Games.GameModeRuntimePolicies.For(paths.GameId).NativeRootOwnershipProfile != null))
+				throw new InvalidOperationException("Game Storage metadata was not safely initialized: " +
 					result.ToUserMessage());
 		}
 
@@ -985,7 +985,7 @@ namespace Nexus.Client.GameStorage
                 string message = failure == null || failure.Items.Count == 0
                     ? "The proposed native storage authority could not be verified."
                     : failure.Items[0].Message;
-                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: " + message);
+                throw new InvalidOperationException("Game Storage write blocked: " + message);
             }
             // The read-only guard also checks on-disk manifests; the caller holds
             // the cross-process reservation so this is the authoritative recheck.
@@ -1009,10 +1009,10 @@ namespace Nexus.Client.GameStorage
                 if (read.Status == GameStorageMetadataReadStatus.Missing)
                     continue;
                 if (read.Status != GameStorageMetadataReadStatus.Valid)
-                    throw new InvalidOperationException("Witcher 3 Game Storage write blocked: an existing storage folder manifest cannot be verified at " + assignment.Value);
+                    throw new InvalidOperationException("Game Storage write blocked: an existing storage folder manifest cannot be verified at " + assignment.Value);
                 if (GetManifestBindings(read.Value).Any(binding =>
                     String.Equals(binding.GameId, counterpart, StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the other Witcher edition already claims " + assignment.Value);
+                    throw new InvalidOperationException("Game Storage write blocked: another game edition already claims " + assignment.Value);
             }
 
             string root = TryGetSharedStorageRoot(paths);
@@ -1020,16 +1020,16 @@ namespace Nexus.Client.GameStorage
             GameStorageMetadataReadResult<GameStorageRootManifest> rootRead = ReadRootManifestResult(root);
             if (rootRead.Status == GameStorageMetadataReadStatus.Missing) return;
             if (rootRead.Status != GameStorageMetadataReadStatus.Valid)
-                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the existing storage root manifest cannot be verified at " + root);
+                throw new InvalidOperationException("Game Storage write blocked: the existing storage root manifest cannot be verified at " + root);
             if (String.Equals(rootRead.Value.GameId, counterpart, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Witcher 3 Game Storage write blocked: the other Witcher edition already claims the storage root " + root);
+                throw new InvalidOperationException("Game Storage write blocked: another game edition already claims the storage root " + root);
         }
 
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
             // Shared publication boundary: invoked by recovery, initial setup, direct
             // initialization, and the legacy manifest repair. Never publish a second
-            // Witcher 3 native owner based solely on an earlier dialog/startup check.
+            // native root owner based solely on an earlier dialog/startup check.
             RequireWitcher3StorageWrite(paths);
             DateTime now = DateTime.UtcNow;
             WriteFolderManifests(paths, storageId, now);
@@ -1469,7 +1469,7 @@ namespace Nexus.Client.GameStorage
             if (entries.Count == 0)
                 return false;
 
-            if (Witcher3RootOwnershipGuard.IsWitcherMode(gameId))
+            if ((Nexus.Client.Games.GameModeRuntimePolicies.For(gameId).NativeRootOwnershipProfile != null))
             {
                 // Removing this binding would erase historical native ownership evidence
                 // used by the cross-mode guard. Even an apparently empty current folder

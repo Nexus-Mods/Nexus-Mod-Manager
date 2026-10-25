@@ -18,6 +18,40 @@ namespace NexusClientTests
 	{
 		private const string ManifestSha = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
+		/// <summary>Module-settings bytes can exceed the effect-count limit and must remain readable after interruption.</summary>
+		[TestCase(100000)]
+		[TestCase(100001)]
+		[TestCase(600000)]
+		public void RecoveryManifest_RoundTripsLargeGameValuePayload(int length)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				PlanContext context = CreatePlanContext(fixture, null, new CollectionNativeFileState[0]);
+				CollectionVerifiedArchive archive = CreateVerifiedArchive(fixture, context.Plan, context.Member.MemberKey, "incoming");
+				PreparedPlans plans = FinalizePlans(fixture, context, archive);
+				CollectionNativeChildPreparationResult prepared = fixture.Preparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
+				byte[] payload = Enumerable.Range(0, length).Select(index => (byte)(index % 251)).ToArray();
+				var effects = new CollectionMemberEffectPreview(plans.Preview.MemberKey, plans.Preview.RecipeIdentity,
+					plans.Preview.InstallMethod, plans.Preview.InstallRoot, plans.Preview.Files, plans.Preview.IniEdits,
+					new[] { new CollectionPlannedGameValueEffect("bg3-collection-order-v1|Public|collection-order", payload) },
+					plans.Preview.PluginEffects, plans.Preview.Issues);
+				var evidence = new CollectionNativeChildExecutionEvidence(new CollectionArtifactReference("nexus-mod-file", "game/100/200", null),
+					"incoming.7z", effects,
+					plans.Preview.Files.Select(file => new CollectionNativeFileContentEvidence(file.Target, false, null, 0)),
+					plans.Preview.Files.Select(file => new CollectionNativeFileContentEvidence(file.Target, true, CollectionContentHash.FromSha256(ManifestSha), 1)),
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					new CollectionExpectedReplayOperation[0]);
+				fixture.ManifestStore.SaveManifest(prepared.RecoveryManifest.WithExecutionEvidence(evidence));
+				CollectionNativeChildRecoveryManifest restored = fixture.ManifestStore.GetManifest(prepared.Operation, prepared.Child);
+				CollectionAssert.AreEqual(payload, restored.ExecutionEvidence.ReviewedEffects.GameValues.Single().Value);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void ArchiveOnly_PreparesDurableIntentAndIncomingRecoveryLeaseWithoutNativeSubmission()
 		{

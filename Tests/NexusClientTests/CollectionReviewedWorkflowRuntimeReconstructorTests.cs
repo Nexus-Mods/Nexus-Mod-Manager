@@ -93,6 +93,48 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>Approval reuses an unchanged prepared review but still rebuilds state-dependent runtime objects.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void Reconstruct_ReusesPreparedReviewAndInvalidatesChangedInstructions(bool seedPreparedReview)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { fixture.PreparedRecipe });
+				var reconstructor = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store);
+				ResolvedCollectionPlan rememberedPlan = fixture.Plan;
+				if (seedPreparedReview) reconstructor.RememberReview(snapshot, fixture.Plan, new[] { fixture.PreparedRecipe });
+				else rememberedPlan = reconstructor.ReconstructPlan(snapshot);
+				CollectionReviewedWorkflowSnapshot restored = CollectionReviewedWorkflowSnapshotCodec.Deserialize(CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					restored, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				CollectionReviewedWorkflowRuntime first = reconstructor.Reconstruct(rehydration);
+				CollectionReviewedWorkflowRuntime second = reconstructor.Reconstruct(rehydration);
+				Assert.AreSame(rememberedPlan, first.Plan);
+				if (seedPreparedReview) Assert.AreSame(fixture.PreparedRecipe, first.GetPreparedRecipe(fixture.Member.MemberKey));
+				Assert.AreSame(first.GetPreparedRecipe(fixture.Member.MemberKey), second.GetPreparedRecipe(fixture.Member.MemberKey));
+				Assert.AreSame(first.Plan, second.Plan);
+				Assert.AreNotSame(first, second);
+				Assert.AreNotSame(first.Matches, second.Matches);
+				Assert.AreNotSame(first.ImpactPlan, second.ImpactPlan);
+				Assert.Throws<InvalidOperationException>(() => reconstructor.Reconstruct(new CollectionReviewedWorkflowRehydrationResult(
+					CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, restored, fixture.State, null, "changed")));
+
+				var changedRecipe = new PreparedCollectionNativeRecipe(fixture.Member, PreparedCollectionNativeRecipeIdentity.FromFingerprint("changed-instructions"),
+					fixture.PreparedRecipe.RecipeInput, fixture.PreparedRecipe.EffectPreview, fixture.PreparedRecipe.SkipReadmeFiles, fixture.PreparedRecipe.RetainedArtifactIds);
+				CollectionReviewedWorkflowSnapshot changed = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { changedRecipe });
+				CollectionReviewedWorkflowRuntime rebuilt = reconstructor.Reconstruct(new CollectionReviewedWorkflowRehydrationResult(
+					CollectionReviewedWorkflowRehydrationStatus.Ready, changed, fixture.State, new[] { fixture.Member.MemberKey }, "ready"));
+				Assert.AreNotSame(rememberedPlan, rebuilt.Plan);
+				Assert.AreEqual(changedRecipe.PreparedNativeIdentity, rebuilt.GetPreparedRecipe(fixture.Member.MemberKey).PreparedNativeIdentity);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void Reconstruct_RoundTripsExactSimpleRecipeAndReviewedPlanningObjects()
 		{

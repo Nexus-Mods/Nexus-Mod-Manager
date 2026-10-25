@@ -275,19 +275,30 @@ namespace Nexus.Client.Games.DataDriven
 
         /// <summary>Keeps provider metadata out of ordinary file deployment.</summary>
         public override string GetModFormatAdjustedPath(IModFormat format, string path, bool ignoreIfPresent) =>
-            IsStructuredMetadataFile(path) ? String.Empty : base.GetModFormatAdjustedPath(format, path, ignoreIfPresent);
+            IsStructuredMetadataFile(path) ? String.Empty : AdjustConfiguredFileDestination(_definition.ModInstall, base.GetModFormatAdjustedPath(format, path, ignoreIfPresent));
 
         public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
         {
             if (IsStructuredMetadataFile(p_strPath)) return String.Empty;
             string baseAdjusted = base.GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_modMod, p_booIgnoreIfPresent);
-            return DataDrivenPathAdjustmentDispatcher.Adjust(
+            return AdjustConfiguredFileDestination(_definition.ModInstall, DataDrivenPathAdjustmentDispatcher.Adjust(
                 _definition.ModInstall == null ? null : _definition.ModInstall.PathAdjustmentProfile,
                 p_strPath,
                 baseAdjusted,
                 p_modMod,
                 GameVersion,
-                GameModeEnvironmentInfo.InstallationPath);
+                GameModeEnvironmentInfo.InstallationPath));
+        }
+
+        /// <summary>Applies exact configured destinations before the existing primary/secondary root selection.</summary>
+        internal static string AdjustConfiguredFileDestination(GameModeModInstallDefinition policy, string path)
+        {
+            if (policy?.FileDestinations == null || String.IsNullOrEmpty(path)) return path;
+            string normalized = path.Replace('/', '\\');
+            foreach (GameModeFileDestinationDefinition rule in policy.FileDestinations)
+                if (String.Equals(normalized, rule.SourcePath.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
+                    return rule.DestinationPath.Replace('/', '\\');
+            return path;
         }
 
         public override bool HardlinkRequiredFilesType(string p_strFileName)

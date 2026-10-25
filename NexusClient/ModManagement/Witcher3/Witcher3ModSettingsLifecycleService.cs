@@ -6,6 +6,7 @@ using System.Threading;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.GameStorage;
 using Nexus.Client.Games.Witcher3;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement.Witcher3
 {
@@ -32,6 +33,13 @@ namespace Nexus.Client.ModManagement.Witcher3
 		public Witcher3ModSettingsFileReadResult Settings { get; }
 		public Witcher3ModSettingsRecoveryInspection Recovery { get; }
 		public bool HasPendingPublication => Recovery.Status != Witcher3ModSettingsRecoveryStatus.None;
+
+		/// <summary>Supplies the game's localized recovery message without embedding it in shared startup code.</summary>
+		public string StartupRecoveryMessage => LanguageManager.Format("Startup.Witcher3.PendingPublication.Message",
+			"A previous Witcher 3 load-order file update needs review ({0}). NMM has not changed or repaired the file during startup. New load-order writes remain unavailable until the pending operation is resolved. Ordinary mod management is not blocked.", Recovery.Status);
+
+		/// <summary>Supplies the game-specific title for its pending publication.</summary>
+		public string StartupRecoveryTitle => LanguageManager.Get("Startup.Witcher3.PendingPublication.Title", "Witcher 3 load-order recovery");
 
 		/// <summary>
 		/// A read-only readiness hint for W3R.6. Publish independently probes the live edition

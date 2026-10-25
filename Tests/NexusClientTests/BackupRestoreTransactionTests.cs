@@ -26,6 +26,93 @@ namespace NexusClientTests
 	[TestFixture]
 	public class BackupRestoreTransactionTests
 	{
+		/// <summary>Cross-volume deployment copies bytes and participates in native rollback without creating a symbolic link.</summary>
+		[Test]
+		public void FileLink_CrossVolumeCopiesAndRollsBack()
+		{
+			string sourceRoot = Path.Combine(Path.GetTempPath(), "NMM-CopySource-" + Guid.NewGuid().ToString("N"));
+			string targetRoot = Path.Combine(TestContext.CurrentContext.WorkDirectory, "NMM-CopyTarget-" + Guid.NewGuid().ToString("N"));
+			if (String.Equals(Path.GetPathRoot(sourceRoot), Path.GetPathRoot(targetRoot), StringComparison.OrdinalIgnoreCase))
+				Assert.Ignore("This regression requires temp and test work directories on different volumes.");
+			Directory.CreateDirectory(sourceRoot);
+			Directory.CreateDirectory(targetRoot);
+			try
+			{
+				string source = Path.Combine(sourceRoot, "source.dds");
+				string target = Path.Combine(targetRoot, "target.dds");
+				File.WriteAllText(source, "staged texture");
+				var files = new TxFileManager();
+				var scope = new TransactionScope();
+				using (scope)
+				{
+					Assert.That(files.CreateFileLink(target, source), Is.True);
+					Assert.That(files.GetFileEntryKind(target, source), Is.EqualTo(FileEntryKind.RegularFile));
+					Assert.That(File.ReadAllText(target), Is.EqualTo("staged texture"));
+				}
+				Assert.That(scope.RolledBack, Is.True);
+				Assert.That(File.Exists(target), Is.False);
+				Assert.That(File.ReadAllText(source), Is.EqualTo("staged texture"));
+			}
+			finally { Directory.Delete(sourceRoot, true); Directory.Delete(targetRoot, true); }
+		}
+
+		/// <summary>Only successful rollback can authorize continuing after a failed native member.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void NativeScope_RollbackOutcomeRequiresEveryParticipant(bool fails)
+		{
+			var scope = new TransactionScope();
+			Transaction.Current.EnlistVolatile(InterfaceStub<IEnlistmentNotification>.Create((member, args) =>
+			{
+				if (member.Name == "Rollback" && fails) throw new IOException("rollback failed");
+				if (member.Name == "Rollback") ((Enlistment)args[0]).Done();
+				return null;
+			}), EnlistmentOptions.None);
+			if (fails) Assert.Throws<RollbackException>(() => scope.Dispose());
+			else scope.Dispose();
+			Assert.That(scope.RolledBack, Is.EqualTo(!fails));
+			Assert.That(Transaction.Current, Is.Null);
+		}
+
+		/// <summary>Failed installers restore replay XML and generated payloads together with native state.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void NativeReplaySnapshot_RollbackRestoresOriginalArtifacts(bool existing)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-ReplayRollback-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string replay = Path.Combine(root, "mod.xml");
+				string payloads = Nexus.Client.ModManagement.Scripting.ScriptedFileSelectionCache.GetPayloadDirectoryPath(replay);
+				if (existing)
+				{
+					File.WriteAllText(replay, "original");
+					Directory.CreateDirectory(payloads);
+					File.WriteAllText(Path.Combine(payloads, "original.bin"), "original payload");
+				}
+				var scope = new TransactionScope();
+				using (scope)
+				{
+					new Nexus.Client.ModManagement.Scripting.ScriptedReplayTransactionSnapshot(replay);
+					Nexus.Client.ModManagement.Scripting.ScriptedFileSelectionCache.DeleteArtifacts(replay);
+					File.WriteAllText(replay, "failed installer");
+					Directory.CreateDirectory(payloads);
+					File.WriteAllText(Path.Combine(payloads, "new.bin"), "new payload");
+				}
+				Assert.That(scope.RolledBack, Is.True);
+				Assert.That(File.Exists(replay), Is.EqualTo(existing));
+				Assert.That(Directory.Exists(payloads), Is.EqualTo(existing));
+				if (existing)
+				{
+					Assert.That(File.ReadAllText(replay), Is.EqualTo("original"));
+					Assert.That(File.ReadAllText(Path.Combine(payloads, "original.bin")), Is.EqualTo("original payload"));
+					Assert.That(File.Exists(Path.Combine(payloads, "new.bin")), Is.False);
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Same-volume deployment keeps hard-link topology and never masks an ordinary failure with symbolic-link creation.</summary>
 		[TestCase("success")]
 		[TestCase("missing-source")]

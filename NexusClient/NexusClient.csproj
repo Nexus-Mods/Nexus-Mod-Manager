@@ -217,7 +217,9 @@
     <Compile Include="CollectionManagement\CollectionArchiveComponentSelector.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3Data.cs" />
     <Compile Include="CollectionManagement\CollectionBaldursGate3Data.cs" />
-    <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.BaldursGate3.cs" />
+    <Compile Include="CollectionManagement\BaldursGate3CollectionPreparation.cs" />
+    <Compile Include="CollectionManagement\Witcher3CollectionPreparation.cs" />
+    <Compile Include="CollectionManagement\CollectionGamePreparation.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3InstallPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerSelectionStore.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerConditionEnvironment.cs" />
@@ -460,6 +462,7 @@
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionNxmDispatcher.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImportModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManifestNormalizer.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\CollectionGameManifestAdapter.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionDirectAcquisitionSourceProvider.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManualAcquisitionHintProvider.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImporter.cs" />
@@ -601,6 +604,7 @@
     <Compile Include="ModManagement\InstallationLog\InstallLog.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.ReadSnapshot.cs" />
     <Compile Include="ModManagement\ModInstaller.cs" />
+    <Compile Include="ModManagement\ScriptedReplayTransactionSnapshot.cs" />
     <Compile Include="ModManagement\ModInstallerFactory.cs" />
     <Compile Include="ModManagement\ModLinkInstaller.cs" />
     <Compile Include="ModManagement\ModManager.LocalRestoreIni.cs" />
@@ -1453,6 +1457,9 @@
     <Compile Include="ModManagement\ManagedContent\ExternalToolLaunchReview.cs" />
     <Compile Include="Games\DataDriven\DataDrivenToolLauncher.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeRuntimeConfiguration.cs" />
+    <Compile Include="Games\DataDriven\Witcher3DefinitionPolicy.cs" />
+    <Compile Include="Games\DataDriven\BaldursGate3DefinitionPolicy.cs" />
     <Compile Include="Games\DataDriven\GameModeManagedContentDefinition.cs" />
     <Compile Include="Games\DataDriven\GameModeStructuredEffectsDefinition.cs" />
     <Compile Include="Games\DataDriven\DataDrivenManagedContentGameMode.cs" />

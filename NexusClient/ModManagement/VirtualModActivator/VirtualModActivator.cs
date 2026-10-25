@@ -3418,7 +3418,7 @@
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ActivatingMod(IMod p_modMod, bool p_booDisabling, ConfirmActionMethod p_camConfirm)
 		{
-			if (String.Equals(GameMode.ModeId, Witcher3.Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+			if (Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).RequiresReviewedNativeInstall)
 				throw new NotSupportedException(LanguageManager.Get("Witcher3.Native.LinkToggleUnsupported",
 					"Witcher 3 Remastered requires the full install or remove workflow. Link-only enable/disable is not supported."));
 			if (p_booDisabling)

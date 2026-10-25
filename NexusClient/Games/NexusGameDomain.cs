@@ -16,19 +16,31 @@ namespace Nexus.Client.Games
 	/// <summary>Resolves configured catalog identities while preserving legacy game-domain aliases.</summary>
 	public static class NexusGameDomain
 	{
-		/// <summary>Recognizes only the two local Witcher 3 identities, without changing their storage or catalog IDs.</summary>
-		internal static bool IsWitcher3Mode(string modeId) => String.Equals(modeId, "Witcher3", StringComparison.OrdinalIgnoreCase) ||
-			String.Equals(modeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase);
-
-		/// <summary>Restricts the edition preference to links from the shared Witcher 3 catalog.</summary>
-		internal static bool IsWitcher3DownloadDomain(string domain) => !String.IsNullOrEmpty(domain) &&
-			String.Equals(GameDomainTranslator.DetermineGameDomain(domain), "witcher3", StringComparison.OrdinalIgnoreCase);
-
-		/// <summary>Uses a valid saved edition, then the active/remembered Witcher edition, preserving the legacy default otherwise.</summary>
-		internal static string ResolveWitcher3DownloadMode(string preference, string fallbackMode)
+		/// <summary>Whether a local mode explicitly selects an edition in a configured shared catalog.</summary>
+		internal static bool IsExplicitDownloadEditionMode(string modeId)
 		{
-			string selected = IsWitcher3Mode(preference) ? preference : IsWitcher3Mode(fallbackMode) ? fallbackMode : "Witcher3";
-			return String.Equals(selected, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) ? "Witcher3Remastered" : "Witcher3";
+			DataDriven.GameModeRuntimeConfiguration.EnsureLoaded();
+			GameModeDownloadRouting routing = GameModeRuntimePolicies.For(modeId).DownloadRouting;
+			return routing != null && routing.AlternateMode != null && !routing.LegacySelectionToggle;
+		}
+
+		/// <summary>Whether a catalog declares a non-session-switching edition preference.</summary>
+		internal static bool IsEditionChoiceDownloadDomain(string domain)
+		{
+			DataDriven.GameModeRuntimeConfiguration.EnsureLoaded();
+			return GameModeRuntimePolicies.All.Any(item => IsExplicitDownloadEditionMode(item.Key) &&
+				item.Value.DownloadRouting.IncomingDomains.Contains(GameDomainTranslator.DetermineGameDomain(domain), StringComparer.OrdinalIgnoreCase));
+		}
+
+		/// <summary>Resolves a declared edition using a valid preference, matching fallback, then its configured default.</summary>
+		internal static string ResolveDownloadEdition(string preference, string fallbackMode)
+		{
+			DataDriven.GameModeRuntimeConfiguration.EnsureLoaded();
+			var modes = GameModeRuntimePolicies.All.Where(item => IsExplicitDownloadEditionMode(item.Key)).ToArray();
+			var preferred = modes.FirstOrDefault(item => String.Equals(item.Key, preference, StringComparison.OrdinalIgnoreCase));
+			if (preferred.Value != null) return preferred.Key;
+			var fallback = modes.FirstOrDefault(item => String.Equals(item.Key, fallbackMode, StringComparison.OrdinalIgnoreCase));
+			return fallback.Value != null ? fallback.Key : modes.Length == 0 ? fallbackMode : modes[0].Value.DownloadRouting.DefaultMode;
 		}
 
 		/// <summary>Accepts a literal canonical slug, excluding URLs, paths and local-mode aliases.</summary>

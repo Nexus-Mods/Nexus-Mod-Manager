@@ -57,43 +57,7 @@
 	    /// <returns>The appropriate game mode.</returns>
 	    private string DetermineRequestedGameMode(string gameModeFromUri)
 	    {
-			if (NexusGameDomain.IsWitcher3DownloadDomain(gameModeFromUri))
-				return NexusGameDomain.ResolveWitcher3DownloadMode(_environmentInfo.Settings.Witcher3DownloadOverride,
-					_environmentInfo.Settings.RememberedGameMode);
-
-	        // Hack to allow Skyrim VR to use NMM links from the website.
-	        // If the default mode is Skyrim VR and a Skyrim SE link is opened, we rewrite the requested game mode.
-	        if ((gameModeFromUri.Equals("skyrimse", StringComparison.OrdinalIgnoreCase) || gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase)) 
-                && String.Equals(_environmentInfo.Settings.RememberedGameMode, "skyrimvr", StringComparison.OrdinalIgnoreCase))
-	        {
-	            return "SkyrimVR";
-	        }
-	        
-            // Hack to allow Fallout 4 VR to use NMM links from the website.
-	        // If the default mode is Fallout 4 VR and a Fallout 4 link is opened, we rewrite the requested game mode.
-            if (gameModeFromUri.Equals("fallout4", StringComparison.OrdinalIgnoreCase) && String.Equals(_environmentInfo.Settings.RememberedGameMode, "fallout4vr", StringComparison.OrdinalIgnoreCase))
-	        {
-	            return "Fallout4VR";
-	        }
-
-			// Work-around for new game ID's from Nexus.
-            if (gameModeFromUri.Equals("skyrimspecialedition", StringComparison.OrdinalIgnoreCase))
-			{
-				if (!string.IsNullOrEmpty(_environmentInfo.Settings.SkyrimSEDownloadOverride) && _environmentInfo.Settings.SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-					return "SkyrimGOG";
-				else
-					return "SkyrimSE";
-			}
-			else if (gameModeFromUri.Equals("newvegas", StringComparison.OrdinalIgnoreCase))
-			{
-				return "FalloutNV";
-			}
-			else if (gameModeFromUri.Equals("elderscrollsonline", StringComparison.OrdinalIgnoreCase))
-			{
-				return "TESO";
-			}
-
-			return gameModeFromUri;
+	        return Nexus.Client.Games.DataDriven.GameModeRuntimeConfiguration.RequestedMode(gameModeFromUri, _environmentInfo.Settings);
 	    }
 
         /// <summary>
@@ -197,9 +161,9 @@
 			    CheckIfDefaultGameModeIsInstalled(installedGames);
 
 				var selector = new GameModeSelector(supportedGames, installedGames, _environmentInfo);
-				// A saved Witcher edition must reach its own setup/IPC path, even if only the other edition is configured.
-				if (modToAdd != null && NexusGameDomain.IsWitcher3DownloadDomain(modToAdd.Host) &&
-					NexusGameDomain.IsWitcher3Mode(requestedGameMode)) downloadDestinationSelected = true;
+				// A configured download edition must reach its own setup/IPC path, even if only the other edition is configured.
+				if (modToAdd != null && NexusGameDomain.IsEditionChoiceDownloadDomain(modToAdd.Host) &&
+					NexusGameDomain.IsExplicitDownloadEditionMode(requestedGameMode)) downloadDestinationSelected = true;
 				if (!downloadDestinationSelected && modToAdd != null && modToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
 				{
 					IReadOnlyList<IGameModeDescriptor> destinations = NexusGameDomain.GetDestinations(modToAdd.Host, installedGames.RegisteredGameModes);
@@ -443,7 +407,7 @@
 					gameStorageService, _environmentInfo.PersonalDataFolderPath));
 			// W3R.5c: inspect the actual Documents file and interrupted publication at every
 			// game-mode entry. This is read-only; a user-approved recovery action comes later.
-			if (Witcher3ModSettingsLifecycleService.SupportsMode(gameMode.ModeId))
+			if (Nexus.Client.Games.GameModeRuntimePolicies.For(gameMode.ModeId).NativeRootOwnershipProfile != null)
 			{
 				var witcherLifecycle = new Witcher3ModSettingsLifecycleService(services,
 					gameStorageService, _environmentInfo.PersonalDataFolderPath);
@@ -451,13 +415,11 @@
 				var witcherState = witcherLifecycle.Refresh();
 				if (witcherState.HasPendingPublication)
 				{
-					Trace.TraceWarning("Witcher 3 mods.settings has a pending NMM publication: {0}",
+					Trace.TraceWarning("The game load-order file has a pending NMM publication: {0}",
 						witcherState.Recovery.Status);
 					MessageBox.Show(
-						LanguageManager.Format("Startup.Witcher3.PendingPublication.Message",
-							"A previous Witcher 3 load-order file update needs review ({0}). NMM has not changed or repaired the file during startup. New load-order writes remain unavailable until the pending operation is resolved. Ordinary mod management is not blocked.",
-							witcherState.Recovery.Status),
-						LanguageManager.Get("Startup.Witcher3.PendingPublication.Title", "Witcher 3 load-order recovery"),
+						witcherState.StartupRecoveryMessage,
+						witcherState.StartupRecoveryTitle,
 						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				}
 			}

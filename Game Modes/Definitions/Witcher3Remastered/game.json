@@ -3,6 +3,30 @@
   "modeId": "Witcher3Remastered",
   "nexusDomain": "witcher3",
   "name": "The Witcher 3 Remastered",
+  "runtime": {
+    "schemaVersion": 1,
+    "nativeRootOwnershipProfile": "edition-root-ownership-v1",
+    "collectionAdapter": "component-settings-v1",
+    "collectionDomain": "witcher3",
+    "collectionMemberTypes": [
+      "witcher3tl",
+      "witcher3dlc",
+      "witcher3menumodroot"
+    ],
+    "requiresReviewedNativeInstall": true,
+    "nativeInstallReviewMessage": "Witcher 3 Remastered native writes require a reviewed ordinary basic Mods/DLC archive mapping.",
+    "downloadRouting": {
+      "preference": "Witcher3DownloadOverride",
+      "defaultMode": "Witcher3",
+      "alternateMode": "Witcher3Remastered",
+      "incomingDomains": [
+        "witcher3"
+      ],
+      "useRememberedModeAsDefault": true,
+      "label": "Witcher 3 Remastered",
+      "labelKey": "Mods.DownloadMode.Witcher3Remastered"
+    }
+  },
   "behaviorProfile": "witcher3remastered",
   "legacyFallback": false,
   "gameExecutables": [

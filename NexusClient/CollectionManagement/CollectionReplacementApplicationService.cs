@@ -359,7 +359,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReviewedWorkflowRuntime additiveRuntime, CancellationToken cancellationToken)
 		{
 			var result = new List<PreparedCollectionNativeRecipe>();
-			ConfigureBaldursGate3Packages(plan, matches, additiveRuntime.PreparedRecipes, cancellationToken);
+			ConfigureGamePackages(plan, matches, additiveRuntime.PreparedRecipes, cancellationToken);
 			CollectionReplacementEnvironmentProjection projected = baseline;
 			var required = new HashSet<CollectionMemberKey>(diff.IncomingMembers.Where(x =>
 				x.Disposition == CollectionReplacementDiffDisposition.IncomingOnly || x.Disposition == CollectionReplacementDiffDisposition.ReinstallOrChange)
@@ -403,7 +403,7 @@ namespace Nexus.Client.CollectionManagement
 				x.Member.MemberKey.Equals(member.MemberKey) && x.InstallContext.InstallRoot == ModInstallRoot.GameRoot), false);
 			CollectionMemberMatchSet matches = frozenMatcher.MatchForReplacementExecution(review.Plan,
 				context.CurrentSetup.NativeState, review.VerifiedArchives, cancellationToken);
-			ConfigureBaldursGate3Packages(review.Plan, matches, review.PreparedRecipes, cancellationToken);
+			ConfigureGamePackages(review.Plan, matches, review.PreparedRecipes, cancellationToken);
 			foreach (CollectionMemberKey memberKey in context.RequiredMembers)
 			{
 				CollectionMemberMatchResult match = matches.Members.Single(x => x.Member.MemberKey.Equals(memberKey));
@@ -573,16 +573,16 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Keeps replacement and its execution recheck on the selected package inventory already reviewed by preparation.</summary>
-		private void ConfigureBaldursGate3Packages(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+		private void ConfigureGamePackages(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			IEnumerable<PreparedCollectionNativeRecipe> recipes, CancellationToken cancellationToken)
 		{
-			if (!String.Equals(_services.ModManager.GameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase)) return;
+			if (!Nexus.Client.Games.GameModeRuntimePolicies.For(_services.ModManager.GameMode.ModeId).CollectionOrderProvidesMetadata) return;
 			var installedKeys = new HashSet<string>(matches.Members.Where(match => match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible && match.MatchedNativeMod != null)
 				.Select(match => match.MatchedNativeMod.Identity.NativeModKey), StringComparer.OrdinalIgnoreCase);
 			IEnumerable<string> files = recipes.SelectMany(recipe => recipe.EffectPreview.Files.Select(file => file.Target.RelativePath));
 			files = files.Concat(_services.ModManager.ActiveMods.Where(mod => installedKeys.Contains(_services.ModManager.InstallationLog.GetModKey(mod)))
 				.SelectMany(mod => _services.ModManager.InstallationLog.GetInstalledModFiles(mod)));
-			_recipePreparer.ConfigureBaldursGate3PackageFiles(plan, files, cancellationToken);
+			_recipePreparer.ConfigureGamePackageFiles(plan, files, cancellationToken);
 		}
 
 		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,

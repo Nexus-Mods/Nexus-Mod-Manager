@@ -12,6 +12,7 @@ using Nexus.Client.Games;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
@@ -214,6 +215,8 @@ namespace Nexus.Client.CollectionManagement
 		private readonly object _preparationCacheLock = new object();
 		private ResolvedCollectionPlan _preparationCachePlan;
 		private Dictionary<string, PreparedCollectionNativeRecipe> _completedRecipeCache = new Dictionary<string, PreparedCollectionNativeRecipe>(StringComparer.Ordinal);
+		private readonly HashSet<string> _stateIndependentRecipeKeys = new HashSet<string>(StringComparer.Ordinal);
+		private readonly Dictionary<string, Tuple<IMod, string, long, long>> _managedPreparationInputs = new Dictionary<string, Tuple<IMod, string, long, long>>(StringComparer.Ordinal);
 		private readonly CollectionDependencyPhasePlanner _dependencyPlanner;
 		private readonly CollectionConflictImpactPlanner _impactPlanner;
 		private readonly CollectionOperationCoordinator _operationCoordinator;
@@ -503,6 +506,7 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				CollectionOperation ready = _operationCoordinator.MarkReadyForReview(operation.Identity,
 					plan, previous.DependencyPlan, impact, previous.PendingFileWinnerRecipes);
+				_runtimeReconstructor.RememberReview(snapshot, plan, previous.PendingFileWinnerRecipes);
 				List<CollectionVerifiedArchive> archives = acquisition.Members
 					.Where(x => x.VerifiedArchive != null).Select(x => x.VerifiedArchive).ToList();
 				var runtime = new CollectionReviewedWorkflowRuntime(snapshot, plan, acquisition.MatchSet,
@@ -1097,6 +1101,7 @@ namespace Nexus.Client.CollectionManagement
 				plan, dependencyPlan, impactPlan, recipes);
 			CollectionOperation ready = _operationCoordinator.MarkReadyForReview(planBuild.Operation.Identity,
 				plan, dependencyPlan, impactPlan, recipes);
+			_runtimeReconstructor.RememberReview(snapshot, plan, recipes);
 
 			// The exact review has just been built from the live C6.1 state and exact verified acquisition results in this
 			// process. Do not immediately round-trip through restart rehydration: that path intentionally performs full
@@ -1125,6 +1130,7 @@ namespace Nexus.Client.CollectionManagement
 			var retainedArtifactStore = new CollectionsRetainedArtifactStore(new CollectionsStore(targetPaths));
 			CollectionNativeStateIndex state = acquisition.PlanBuild.NativeState;
 			var inputs = new List<NativeRecipePreparationInput>();
+			var managedMods = new HashSet<IMod>(_services.ModManager.ManagedMods);
 			int informationIndex = 0;
 			int informationCount = dependencyPlan.Phases.SelectMany(x => x.Members)
 				.Count(x => x.Match.Disposition != CollectionMemberMatchDisposition.InstalledCompatible);
@@ -1149,7 +1155,7 @@ namespace Nexus.Client.CollectionManagement
 							throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
 						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 							"Collections.Workflow.ReadingMemberInformation", "Reading mod information: {0}", match.Member.DisplayName), true);
-						IMod managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken, plan.Policy.AutomaticallyInstall);
+						IMod managedMod = ResolvePreparationMod(match, archive, retainedArtifactStore, managedMods, cancellationToken, plan.Policy.AutomaticallyInstall);
 						CollectionNativeRecipePreparer.ValidateInstallerRouting(match.Member, managedMod);
 						CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
 							match.Member, managedMod, ResolveInstallContext(match), cancellationToken);
@@ -1168,8 +1174,8 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
-			CollectionMemberKey bg3SettingsOwner = null;
-			if (String.Equals(_services.ModManager.GameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase))
+			CollectionMemberKey settingsOwner = null;
+			if (Nexus.Client.Games.GameModeRuntimePolicies.For(_services.ModManager.GameMode.ModeId).CollectionOrderProvidesMetadata)
 			{
 				var installedKeys = new HashSet<string>(acquisition.Members.Where(item => item.Match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible && item.Match.MatchedNativeMod != null)
 					.Select(item => item.Match.MatchedNativeMod.Identity.NativeModKey), StringComparer.OrdinalIgnoreCase);
@@ -1177,8 +1183,8 @@ namespace Nexus.Client.CollectionManagement
 					? input.Match.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.ManagedMod.GetFileList());
 				packages = packages.Concat(_services.ModManager.ActiveMods.Where(mod => installedKeys.Contains(_services.ModManager.InstallationLog.GetModKey(mod)))
 					.SelectMany(mod => _services.ModManager.InstallationLog.GetInstalledModFiles(mod)));
-				if (_nativeRecipePreparer.ConfigureBaldursGate3PackageFiles(plan, packages, cancellationToken))
-					bg3SettingsOwner = plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey;
+				if (_nativeRecipePreparer.ConfigureGamePackageFiles(plan, packages, cancellationToken))
+					settingsOwner = plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey;
 			}
 
 			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
@@ -1217,7 +1223,7 @@ namespace Nexus.Client.CollectionManagement
 						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
 					PreparedCollectionNativeRecipe prepared;
-					bool preparesBg3Order = bg3SettingsOwner != null && bg3SettingsOwner.Equals(input.Match.Member.MemberKey);
+					bool preparesBg3Order = settingsOwner != null && settingsOwner.Equals(input.Match.Member.MemberKey);
 					string cacheKey = input.ContributesDeterministicMerge || preparesBg3Order
 						? null : GetPreparationCacheKey(input, skipReadme);
 					bool cached = false;
@@ -1244,8 +1250,10 @@ namespace Nexus.Client.CollectionManagement
 						StringComparer.Ordinal.Equals(cacheKey, GetPreparationCacheKey(input, skipReadme)))
 						lock (_preparationCacheLock)
 						{
-							if (completedRecipes.Count >= 2048) completedRecipes.Clear();
+							if (completedRecipes.Count >= 2048) { completedRecipes.Clear(); _stateIndependentRecipeKeys.Clear(); }
 							completedRecipes[cacheKey] = prepared;
+							if (!input.ManagedMod.HasInstallScript && !input.Match.Member.HasVortexFomodSelection && IsStateIndependentFileRecipe(prepared))
+								_stateIndependentRecipeKeys.Add(cacheKey);
 						}
 					recipes.Add(CollectionInstallRootCorrection.Prepare(prepared, state, input.Match.MatchedNativeMod,
 						_services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken));
@@ -1277,22 +1285,33 @@ namespace Nexus.Client.CollectionManagement
 				StringComparer.Ordinal.Equals(id, archiveId) || StringComparer.Ordinal.Equals(id, manifestId));
 		}
 
-		/// <summary>Retains successful file and FOMOD preparations across retries only while the complete planning context is unchanged.</summary>
+		/// <summary>Retains unchanged file preparations across retries, rebuilding state-dependent installers when native state changes.</summary>
 		private Dictionary<string, PreparedCollectionNativeRecipe> GetPreparationCache(ResolvedCollectionPlan plan)
 		{
 			lock (_preparationCacheLock)
 			{
 				if (_preparationCachePlan == null || !_preparationCachePlan.Target.Equals(plan.Target) ||
 					!_preparationCachePlan.Revision.Equals(plan.Revision) || !_preparationCachePlan.ManifestSource.Equals(plan.ManifestSource) ||
-					!_preparationCachePlan.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint) || !_preparationCachePlan.Policy.Equals(plan.Policy) ||
+					!_preparationCachePlan.Policy.Equals(plan.Policy) ||
 					!_preparationCachePlan.SelectedMembers.Select(x => x.MemberKey).SequenceEqual(plan.SelectedMembers.Select(x => x.MemberKey)))
 				{
-					_preparationCachePlan = plan;
 					_completedRecipeCache = new Dictionary<string, PreparedCollectionNativeRecipe>(StringComparer.Ordinal);
+					_stateIndependentRecipeKeys.Clear();
 				}
+				else if (!_preparationCachePlan.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint))
+				{
+					_completedRecipeCache = _completedRecipeCache.Where(entry => _stateIndependentRecipeKeys.Contains(entry.Key))
+						.ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+				}
+				_preparationCachePlan = plan;
 				return _completedRecipeCache;
 			}
 		}
+
+		/// <summary>Identifies ordinary file mappings that do not depend on installed settings, plugin state or overwrite decisions.</summary>
+		internal static bool IsStateIndependentFileRecipe(PreparedCollectionNativeRecipe prepared) =>
+			prepared.EffectPreview.IniEdits.Count == 0 && prepared.EffectPreview.GameValues.Count == 0 && prepared.EffectPreview.PluginEffects.Count == 0 &&
+			prepared.RecipeInput.NativeOperations.All(operation => operation is InstallModFileOperation && ((InstallModFileOperation)operation).DeploymentDecision == null);
 
 		/// <summary>Binds a reusable preparation to its exact archive, destination, recipe, and readme preference without reading payloads.</summary>
 		private static string GetPreparationCacheKey(NativeRecipePreparationInput input, bool skipReadme)
@@ -1414,6 +1433,31 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			return _services.ModManager.CapturePreferredInstallContext(ModInstallRoot.GameRoot);
+		}
+
+		/// <summary>Reuses an unchanged automatic library input without searching every other mod again on each retry.</summary>
+		private IMod ResolvePreparationMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
+			CollectionsRetainedArtifactStore store, ISet<IMod> managedMods, CancellationToken token, bool automatic)
+		{
+			string key = match.Member.MemberKey + "\0" + archive.Artifact.ArtifactId;
+			Tuple<IMod, string, long, long> previous;
+			string domain; long modId; long fileId;
+			bool repositoryFile = NexusCollectionModFileArtifactIdentity.TryParse(match.Member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId);
+			if (automatic && repositoryFile && match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired &&
+				_managedPreparationInputs.TryGetValue(key, out previous) && managedMods.Contains(previous.Item1))
+			{
+				var file = new FileInfo(CollectionArchiveContentMatcher.GetManagedArchivePath(previous.Item1));
+				if (file.Exists && StringComparer.OrdinalIgnoreCase.Equals(file.FullName, previous.Item2) && file.Length == previous.Item3 &&
+					file.LastWriteTimeUtc.Ticks == previous.Item4 && ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+						previous.Item1, _services.ModManager.SortOrderService, modId.ToString(CultureInfo.InvariantCulture), fileId.ToString(CultureInfo.InvariantCulture)))
+					return previous.Item1;
+			}
+			IMod mod = ResolveManagedMod(match, archive, store, token, automatic);
+			var current = new FileInfo(CollectionArchiveContentMatcher.GetManagedArchivePath(mod));
+			if (_managedPreparationInputs.Count >= 2048) _managedPreparationInputs.Clear();
+			_managedPreparationInputs[key] = Tuple.Create(mod, current.FullName, current.Length, current.LastWriteTimeUtc.Ticks);
+			managedMods.Add(mod);
+			return mod;
 		}
 
 		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,

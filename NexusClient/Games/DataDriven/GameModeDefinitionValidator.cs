@@ -65,17 +65,10 @@ namespace Nexus.Client.Games.DataDriven
 
             if (!DataDrivenDefinitionRules.IsIdentifier(definition.ModeId))
                 issues.Add(Error(definition, "modeId", "modeId is required and must begin with a letter and contain only letters, digits, '.', '_' or '-'."));
-            // The specific ModeId is reserved too: renaming the profile to 'generic' must
-            // never unlock its native installer or bypass edition-aware discovery.
-            if (string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.Ordinal))
-                issues.Add(Error(definition, "behaviorProfile", "Witcher3Remastered requires its dedicated edition-aware behavior profile."));
 
             if (definition.NexusDomain != null && !NexusGameDomain.IsValid(definition.NexusDomain))
                 issues.Add(Error(definition, "nexusDomain", "nexusDomain must be a canonical lowercase Nexus catalog slug of 1-64 letters, digits or hyphens, starting with a letter or digit."));
-            if (String.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
-                definition.NexusDomain != null && definition.NexusDomain != "witcher3")
-                issues.Add(Error(definition, "nexusDomain", "Witcher3Remastered must use the witcher3 Nexus catalog."));
+
 
             if (string.IsNullOrWhiteSpace(definition.Name))
                 issues.Add(Error(definition, "name", "name is required."));
@@ -112,7 +105,9 @@ namespace Nexus.Client.Games.DataDriven
             catch (ArgumentException error) { issues.Add(Error(definition, "packageFiles", error.Message)); }
             try { DataDrivenStructuredEffects.Create(definition); }
             catch (ArgumentException error) { issues.Add(Error(definition, "structuredEffects", error.Message)); }
-            ValidateWitcher3Remastered(definition, issues);
+            try { GameModeRuntimeConfiguration.Validate(definition); }
+            catch (ArgumentException error) { issues.Add(Error(definition, "runtime", error.Message)); }
+            Witcher3DefinitionPolicy.Validate(definition, issues);
             ValidateGamebryo(definition, issues);
 
             return issues;
@@ -159,30 +154,7 @@ namespace Nexus.Client.Games.DataDriven
             }
         }
 
-        private void ValidateWitcher3Remastered(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
-        {
-            if (!string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
-                return;
 
-            // The reserved native adapter has a fixed write scope and a separate release gate.
-            // JSON cannot select the generic installer or widen the reviewed native workflow.
-            if (!string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.Ordinal))
-                issues.Add(Error(definition, "modeId", "The witcher3remastered profile is reserved for the Witcher3Remastered ModeId."));
-            if (definition.GameExecutables == null || definition.GameExecutables.Length != 1 ||
-                !DataDrivenDefinitionRules.PathsEqual(definition.GameExecutables[0], @"bin\x64_dx12\witcher3.exe"))
-                issues.Add(Error(definition, "gameExecutables", "The Remastered edition must use only the DX12 executable."));
-            if (definition.ModInstall == null ||
-                !string.Equals(definition.ModInstall.PathAdjustmentProfile, "none", StringComparison.Ordinal) ||
-                definition.ModInstall.SupportsGameRootInstall != false ||
-                !string.IsNullOrWhiteSpace(definition.ModInstall.ManagedInstallationPath))
-                issues.Add(Error(definition, "modInstall", "The Remastered profile requires ordinary Data-root installation with path adjustment set to none."));
-            if (definition.Storage != null && definition.Storage.ShareModsStorageWith != null &&
-                definition.Storage.ShareModsStorageWith.Length > 0)
-                issues.Add(Error(definition, "storage.shareModsStorageWith", "Witcher3Remastered must not share native storage with another ModeId."));
-            if (definition.Launcher == null ||
-                !DataDrivenDefinitionRules.PathsEqual(definition.Launcher.DefaultExecutable, @"bin\x64_dx12\witcher3.exe"))
-                issues.Add(Error(definition, "launcher.defaultExecutable", "The Remastered launcher must be the DX12 executable."));
-        }
 
         private void ValidateProfile(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
         {
@@ -581,6 +553,14 @@ namespace Nexus.Client.Games.DataDriven
                 issues.Add(Error(definition, "modInstall.managedInstallationPath", "managedInstallationPath cannot use {UserGameData}."));
             ValidateExtensions(definition, definition.ModInstall.HardlinkRequiredExtensions, "modInstall.hardlinkRequiredExtensions", issues);
             ValidateExtensions(definition, definition.ModInstall.RealFileRequiredExtensions, "modInstall.realFileRequiredExtensions", issues);
+            if (definition.ModInstall.FileDestinations != null)
+            {
+                var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (GameModeFileDestinationDefinition rule in definition.ModInstall.FileDestinations)
+                    if (rule == null || !DataDrivenDefinitionRules.IsSafeRelativePath(rule.SourcePath, false) ||
+                        !DataDrivenDefinitionRules.IsSafeRelativePath(rule.DestinationPath, false) || !sources.Add(rule.SourcePath.Replace('/', '\\')))
+                        issues.Add(Error(definition, "modInstall.fileDestinations", "File destinations require unique source paths and safe relative source/destination paths."));
+            }
 			ValidateGameRootPackageRules(definition, issues);
         }
 

@@ -176,6 +176,7 @@ namespace Nexus.Client.Games
         private void RegisterDataDrivenGameModes(EnvironmentInfo environmentInfo, string definitionsPath)
         {
             var result = new GameModeDefinitionLoader().LoadFromDirectory(definitionsPath);
+            GameModeRuntimeConfiguration.Publish(result.Definitions);
             foreach (var issue in result.Issues)
                 Trace.WriteLine("GameMode definition " + issue);
 

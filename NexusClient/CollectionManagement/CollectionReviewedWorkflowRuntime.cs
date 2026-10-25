@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
@@ -78,6 +79,22 @@ namespace Nexus.Client.CollectionManagement
 		private readonly NexusCollectionManifestNormalizer _normalizer;
 		private readonly ModInstallationSimpleFileRecipeAdapter _simpleFileAdapter;
 		private readonly CollectionEffectiveSelectionBuilder _selectionBuilder;
+		private Tuple<string, ResolvedCollectionPlan, IReadOnlyList<PreparedCollectionNativeRecipe>> _cachedReview;
+
+		/// <summary>Retains the last immutable review built in this process; native state and retained inputs are still revalidated.</summary>
+		internal void RememberReview(CollectionReviewedWorkflowSnapshot snapshot, ResolvedCollectionPlan plan,
+			IEnumerable<PreparedCollectionNativeRecipe> recipes)
+		{
+			_cachedReview = Tuple.Create(ReviewCacheKey(snapshot), plan, (IReadOnlyList<PreparedCollectionNativeRecipe>)Array.AsReadOnly(recipes.ToArray()));
+		}
+
+		/// <summary>Keys reuse by all saved review bytes so selection, recipe, policy and conflict changes invalidate it.</summary>
+		private static string ReviewCacheKey(CollectionReviewedWorkflowSnapshot snapshot)
+		{
+			using (SHA256 sha = SHA256.Create())
+				return Convert.ToBase64String(sha.ComputeHash(CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot)));
+		}
+
 
 		/// <summary>Creates a runtime reconstructor over the durable Collections stores.</summary>
 		public CollectionReviewedWorkflowRuntimeReconstructor(CollectionsStore store)
@@ -120,12 +137,16 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Reviewed workflow runtime can be reconstructed only from a successful safe-boundary rehydration result.");
 
 			CollectionReviewedWorkflowSnapshot snapshot = rehydration.Snapshot;
-			ResolvedCollectionPlan plan = ReconstructPlan(snapshot);
-			Dictionary<CollectionMemberKey, CollectionVerifiedArchive> archives = ReconstructVerifiedArchives(plan, snapshot);
+			string cacheKey = ReviewCacheKey(snapshot);
+			Tuple<string, ResolvedCollectionPlan, IReadOnlyList<PreparedCollectionNativeRecipe>> cached = _cachedReview;
+			bool reuseReview = cached != null && StringComparer.Ordinal.Equals(cached.Item1, cacheKey);
+			ResolvedCollectionPlan plan = reuseReview ? cached.Item2 : ReconstructPlan(snapshot);
+			Dictionary<CollectionMemberKey, CollectionVerifiedArchive> archives = ReconstructVerifiedArchives(plan, snapshot, rehydration.VerifiedArtifacts);
 			CollectionMemberMatchSet matches = ReconstructMatches(plan, snapshot, rehydration.CurrentState, rehydration.RemainingMembers, archives);
 			CollectionDependencyPhasePlan dependencyPlan = ReconstructDependencyPlan(plan, matches, snapshot);
 			CollectionConflictImpactPlan impactPlan = ReconstructImpactPlan(plan, snapshot, rehydration.CurrentState);
-			List<PreparedCollectionNativeRecipe> recipes = ReconstructPreparedRecipes(plan, snapshot);
+			IReadOnlyList<PreparedCollectionNativeRecipe> recipes = reuseReview && cached.Item3 != null ? cached.Item3 : ReconstructPreparedRecipes(plan, snapshot);
+			if (!reuseReview || cached.Item3 == null) _cachedReview = Tuple.Create(cacheKey, plan, recipes);
 
 			var result = new CollectionReviewedWorkflowRuntime(snapshot, plan, matches, dependencyPlan, impactPlan,
 				rehydration.CurrentState, rehydration.RemainingMembers, recipes, archives.Values);
@@ -151,12 +172,19 @@ namespace Nexus.Client.CollectionManagement
 			if (revision == null)
 				throw new InvalidDataException("The exact Collection revision metadata required by the reviewed workflow is missing.");
 			byte[] rawManifest = _revisionSourceStore.LoadManifest(snapshot.Revision, snapshot.ManifestSource);
+			string cacheKey = ReviewCacheKey(snapshot);
+			Tuple<string, ResolvedCollectionPlan, IReadOnlyList<PreparedCollectionNativeRecipe>> cached = _cachedReview;
+			if (cached != null && StringComparer.Ordinal.Equals(cached.Item1, cacheKey)) return cached.Item2;
 			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifest, revision);
 			if (!normalized.Manifest.Revision.Equals(snapshot.Revision) || !normalized.Manifest.Source.Equals(snapshot.ManifestSource))
 				throw new InvalidDataException("The retained Collection manifest no longer reproduces the reviewed revision/source identity.");
 
 			CollectionEffectiveSelection effective = ReconstructEffectiveSelection(normalized.CapabilityReport, snapshot, rawManifest);
-			return BuildPlan(effective, snapshot);
+			ResolvedCollectionPlan plan = BuildPlan(effective, snapshot);
+			// Recovery may need the plan before an executable runtime. Keep it for the next
+			// review instead of normalizing the same selected closure again after reconciliation.
+			_cachedReview = Tuple.Create(cacheKey, plan, (IReadOnlyList<PreparedCollectionNativeRecipe>)null);
+			return plan;
 		}
 
 		private CollectionEffectiveSelection ReconstructEffectiveSelection(CollectionCapabilityReport normalizedCapability,
@@ -213,7 +241,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private Dictionary<CollectionMemberKey, CollectionVerifiedArchive> ReconstructVerifiedArchives(ResolvedCollectionPlan plan,
-			CollectionReviewedWorkflowSnapshot snapshot)
+			CollectionReviewedWorkflowSnapshot snapshot, IReadOnlyDictionary<string, CollectionsRetainedArtifact> verifiedArtifacts)
 		{
 			var result = new Dictionary<CollectionMemberKey, CollectionVerifiedArchive>();
 			foreach (CollectionReviewedPhaseMemberSnapshot phaseMember in snapshot.Phases.SelectMany(x => x.Members))
@@ -224,10 +252,12 @@ namespace Nexus.Client.CollectionManagement
 				Guid requestId = CollectionMemberAcquisitionCoordinator.CreateStableRequestId(plan.Identity, member.MemberKey);
 				CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(requestId, plan, member.MemberKey);
 				CollectionReviewedVerifiedArchiveSnapshot persisted = phaseMember.VerifiedArchive;
-				CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(persisted.ArtifactId);
+				CollectionsRetainedArtifact artifact;
+				if (verifiedArtifacts == null) artifact = _artifactStore.GetArtifact(persisted.ArtifactId);
+				else verifiedArtifacts.TryGetValue(persisted.ArtifactId, out artifact);
 				if (artifact == null || !artifact.ContentHash.Equals(persisted.ContentHash) || artifact.ByteLength != persisted.ByteLength ||
 					!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, artifact.ByteLength) ||
-					!_artifactStore.VerifyArtifact(artifact.ArtifactId))
+					(verifiedArtifacts == null && !_artifactStore.VerifyArtifact(artifact.ArtifactId)))
 					throw new InvalidDataException("A reviewed verified archive is missing, changed or failed retained-content verification.");
 
 				string ownerId = requestId.ToString("D");

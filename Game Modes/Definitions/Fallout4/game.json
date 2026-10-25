@@ -2,6 +2,16 @@
   "schemaVersion": 2,
   "modeId": "Fallout4",
   "name": "Fallout 4",
+  "runtime": {
+    "schemaVersion": 1,
+    "startupNotice": {
+      "preference": "ShowFallout4UpgradeDisclaimer",
+      "minimumVersion": "1.5.0.0",
+      "includeMinimumVersion": false,
+      "requiresObsoletePluginConfiguration": true,
+      "text": "We've detected that you are using Fallout 4 version 1.5 (or later) for the first time with NMM. In version 1.5, \nBethesda changed the way in which plugins were handled.\n\nBecause of this, any plugin you previously had enabled will be disabled in NMM and you will need to reactivate \nthem in order for your setup to work again.\n\nUnfortunately this is a side-effect of Bethesda's patching of Fallout 4 and nothing to do with us. Unless \nBethesda change the modding method again in future patches you will only need to do this reactivation once \n(e.g. this won't happen every time you start NMM in the future!).\n\nNOTE: If you are making use of NMM's profile system, simply go to the profile menu and select 'Import Load Order' \nfrom your profile, NMM will automatically reactivate all your plugins in the correct order for you.\n\nIf you are not using the profiling system, you will need to activate all your plugins again manually."
+    }
+  },
   "behaviorProfile": "gamebryo",
   "legacyFallback": false,
   "gameExecutables": [

@@ -2,6 +2,18 @@
   "schemaVersion": 2,
   "modeId": "BaldursGate3",
   "name": "Baldur's Gate 3",
+  "runtime": {
+    "schemaVersion": 1,
+    "collectionAdapter": "module-settings-v1",
+    "collectionDomain": "baldursgate3",
+    "collectionMemberTypes": [
+      "bg3-loose",
+      "bg3-replacer",
+      "bg3-bg3se",
+      "dinput"
+    ],
+    "collectionOrderProvidesMetadata": true
+  },
   "behaviorProfile": "baldursgate3",
   "legacyFallback": false,
   "gameExecutables": [
@@ -103,6 +115,9 @@
   },
   "modInstall": {
     "pathAdjustmentProfile": "none",
+      "fileDestinations": [
+        { "sourcePath": "DWrite.dll", "destinationPath": "bin\\DWrite.dll" }
+      ],
     "realFileRequiredExtensions": [
       ".exe",
       ".jar",

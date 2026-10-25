@@ -302,7 +302,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			JObject info = root["info"] as JObject;
 			List<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = NormalizePluginRelativeOrderRules(
 				root["pluginRules"], info == null ? null : NormalizeDomain(ReadString(info, "domainName")), allDeclaredIssues);
-			bool partialPluginStates = NormalizeStarfieldLoadOrder(root, ref pluginStates, pluginRelativeOrderRules, allDeclaredIssues);
+			bool partialPluginStates = CollectionGameManifestAdapter.ForManifest(root).NormalizeOrder(root, ref pluginStates, pluginRelativeOrderRules, allDeclaredIssues);
 
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
@@ -353,8 +353,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			draft.Version = ReadString(memberObject, "version");
 			JToken recipeToken = BuildRecipeToken(memberObject);
 			JObject manifestRoot = memberObject.Root as JObject;
-			if (sourceOrdinal == 0 && manifestRoot != null && CollectionBaldursGate3Data.IsManifest(manifestRoot) && manifestRoot["loadOrder"] is JArray && manifestRoot["loadOrder"].HasValues)
-				recipeToken = new JObject { ["member"] = recipeToken, ["bg3LoadOrder"] = manifestRoot["loadOrder"].DeepClone() };
+			if (manifestRoot != null)
+				recipeToken = CollectionGameManifestAdapter.ForManifest(manifestRoot).IncludeRecipeMetadata(manifestRoot, sourceOrdinal, recipeToken);
 			draft.RecipeIdentity = CollectionRecipeIdentity.FromFingerprint("sha256:" + ComputeSha256Hex(Canonicalize(recipeToken)));
 
 			JObject source = memberObject["source"] as JObject;
@@ -709,10 +709,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					string modType = ReadString(details, "type");
 					if (!string.IsNullOrWhiteSpace(modType))
 					{
-						if (String.Equals(ReadString(memberObject, "domainName"), "baldursgate3", StringComparison.OrdinalIgnoreCase) &&
-							new[] { "bg3-loose", "bg3-replacer", "bg3-bg3se", "dinput" }.Contains(modType, StringComparer.Ordinal))
+						if (CollectionGameManifestAdapter.SupportsMemberType(ReadString(memberObject, "domainName"), modType))
 						{
-							// BG3 uses its existing secondary game path; its ordinary root is AppData/Mods.
 							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
 						}
 						else if (modType.Equals("dinput", StringComparison.OrdinalIgnoreCase))
@@ -723,20 +721,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						{
 							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.VortexEnbGameRoot;
 						}
-						else if (String.Equals(ReadString(memberObject, "domainName"), "witcher3", StringComparison.OrdinalIgnoreCase) &&
-							new[] { "witcher3tl", "witcher3dlc", "witcher3menumodroot" }.Contains(modType, StringComparer.Ordinal))
-						{
-							// Witcher's ordinary Data root is the physical game root. The exact retained
-							// type remains recipe identity and is consumed by the Witcher native planner.
-							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
-						}
-						else if (String.Equals(ReadString(memberObject, "domainName"), "starfield", StringComparison.OrdinalIgnoreCase) &&
-							String.Equals(modType, "starfield-data-folder", StringComparison.Ordinal))
-						{
-							// Vortex's Data Folder type targets <game>/Data, the native Starfield Data root.
-							// Keep the type in the retained recipe, including FOMOD and explicit-file recipes.
-							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
-						}
+
 						else
 						{
 							issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
@@ -2324,95 +2309,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
-		/// <summary>Translates Starfield's file-based load order into native activation and relative-order intent.</summary>
-		private static bool NormalizeStarfieldLoadOrder(JObject root, ref List<CollectionDesiredPluginState> pluginStates,
-			List<CollectionPluginRelativeOrderRule> rules, List<CollectionCapabilityIssue> issues)
-		{
-			if (!IsStarfieldManifest(root) || root["loadOrder"] == null) return false;
-			JArray entries = root["loadOrder"] as JArray;
-			if (entries == null || entries.Count > 512)
-			{
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.starfield-load-order-invalid", "Starfield loadOrder must be an array of at most 512 plugin entries.", "$.loadOrder"));
-				return false;
-			}
-			if (entries.Count == 0) return false;
 
-			// Starfield exports a sparse file-based list independently of the Gamebryo plugins section.
-			// An empty plugins array must not turn every other contributed plugin off.
-			bool partial = pluginStates == null || pluginStates.Count == 0;
-			pluginStates = pluginStates ?? new List<CollectionDesiredPluginState>();
-			var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			var orderedNames = new List<string>();
-			var fields = new HashSet<string>(new[] { "id", "name", "enabled", "modId", "locked", "data" }, StringComparer.Ordinal);
-			for (int index = 0; index < entries.Count; index++)
-			{
-				string path = "$.loadOrder[" + index.ToString(CultureInfo.InvariantCulture) + "]";
-				JObject entry = entries[index] as JObject;
-				string name = null;
-				string id = null;
-				bool valid = entry != null && TryReadPluginRuleFileName(entry["name"], out name) &&
-					TryReadPluginRuleFileName(entry["id"], out id) && StringComparer.OrdinalIgnoreCase.Equals(name, id) &&
-					name.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 &&
-					new[] { ".esm", ".esp", ".esl" }.Contains(Path.GetExtension(name), StringComparer.OrdinalIgnoreCase) &&
-					entry["enabled"] != null && entry["enabled"].Type == JTokenType.Boolean;
-				if (valid)
-				{
-					valid = !entry.Properties().Any(x => !fields.Contains(x.Name)) &&
-						(entry["modId"] == null || entry["modId"].Type == JTokenType.String) &&
-						(entry["locked"] == null || entry["locked"].Type == JTokenType.Boolean);
-					JToken data = entry["data"];
-					if (data != null)
-					{
-						JObject metadata = data as JObject;
-						valid = valid && metadata != null && !metadata.Properties().Any(x => x.Name != "isInvalid") &&
-							(metadata["isInvalid"] == null || (metadata["isInvalid"].Type == JTokenType.Boolean && !(bool)metadata["isInvalid"]));
-					}
-				}
-				bool baseMaster = StringComparer.OrdinalIgnoreCase.Equals(name, "Starfield.esm");
-				if (valid)
-					valid = names.Add(name) && (baseMaster
-						? index == 0 && (bool)entry["enabled"]
-						: entry["locked"] == null || !(bool)entry["locked"]);
-				if (!valid)
-				{
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.starfield-load-order-invalid",
-						"A Starfield load-order entry has invalid, duplicate or uncharacterized plugin state/locking metadata.", path));
-					continue;
-				}
-				// Starfield.esm is engine-owned and already first under the native game policy.
-				// Vortex modId is machine-local display metadata, never evidence of NMM file ownership.
-				if (baseMaster) continue;
-				bool enabled = (bool)entry["enabled"];
-				CollectionDesiredPluginState existing = pluginStates.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(x.PluginName, name));
-				if (existing != null && existing.Enabled != enabled)
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.starfield-plugin-state-conflict", "plugins and loadOrder request conflicting enabled states.", path + ".enabled"));
-				else if (existing == null)
-					pluginStates.Add(new CollectionDesiredPluginState(name, enabled));
-				orderedNames.Add(name);
-			}
-			var uniqueRules = new HashSet<CollectionPluginRelativeOrderRule>(rules);
-			for (int later = 1; later < orderedNames.Count; later++)
-				for (int earlier = 0; earlier < later; earlier++)
-				{
-					// Preserve the selected subsequence even when an optional/intermediate plugin is absent.
-					var rule = new CollectionPluginRelativeOrderRule(orderedNames[later], orderedNames[earlier]);
-					if (uniqueRules.Add(rule)) rules.Add(rule);
-				}
-			if (HasPluginRelativeOrderCycle(rules))
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.plugin-rule-cycle", "Starfield loadOrder conflicts with the Collection's plugin rules.", "$.loadOrder"));
-			return partial;
-		}
 
-		/// <summary>Scopes the Vortex Starfield extension fields to their declared game.</summary>
-		private static bool IsStarfieldManifest(JObject root)
-		{
-			JObject info = root["info"] as JObject;
-			return info != null && String.Equals(ReadString(info, "domainName"), "starfield", StringComparison.OrdinalIgnoreCase);
-		}
+
 
 		/// <summary>Normalizes the characterized Vortex pluginRules subset into native relative plugin-order constraints.</summary>
 		private static List<CollectionPluginRelativeOrderRule> NormalizePluginRelativeOrderRules(JToken pluginRulesToken, string gameDomain, List<CollectionCapabilityIssue> issues)
@@ -2571,78 +2470,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		/// <summary>Creates the supported pinned LOOT group graph for the Collection game.</summary>
 		private static Dictionary<string, List<string>> CreatePluginGroupDefaults(string gameDomain)
 		{
-			var groups = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-			if (StringComparer.OrdinalIgnoreCase.Equals(gameDomain, "newvegas"))
-			{
-				// https://github.com/loot/falloutnv/blob/v0.21/masterlist.yaml, complete groups section.
-				groups.Add("DLC", new List<string>());
-				groups.Add("Fixes & Resources", new List<string> { "DLC" });
-				groups.Add("Add-ons & Expansions (Patches)", new List<string>());
-				groups.Add("Add-ons & Expansions", new List<string> { "Add-ons & Expansions (Patches)", "Fixes & Resources" });
-				groups.Add("Early Loaders", new List<string> { "Add-ons & Expansions" });
-				groups.Add("default", new List<string> { "Early Loaders" });
-				groups.Add("Interior Lighting Overhaul", new List<string> { "default" });
-				groups.Add("LOD", new List<string> { "Interior Lighting Overhaul" });
-				groups.Add("Cell Settings", new List<string> { "LOD" });
-				groups.Add("Weather & Lighting", new List<string> { "Cell Settings" });
-				groups.Add("Late Fixes & Changes", new List<string> { "Weather & Lighting" });
-				groups.Add("Dynamic Patches", new List<string> { "Late Fixes & Changes" });
-				return groups;
-			}
-			if (!StringComparer.OrdinalIgnoreCase.Equals(gameDomain, "skyrimspecialedition")) return groups;
-
-			// https://github.com/loot/skyrimse/blob/v0.21/masterlist.yaml, groups section.
-			// Pinned from masterlist blob 775bdd12a48662b749b936a7ae77c951c9bc014e (2026-07-31).
-			// Keep the entire graph, including unassigned intermediate groups: they carry
-			// transitive ordering. Never read a user's mutable LOOT installation here.
-			groups.Add("Main Plugins", new List<string>());
-			groups.Add("Creation Club", new List<string> { "Main Plugins" });
-			groups.Add("Unofficial Patches", new List<string> { "Creation Club" });
-			groups.Add("Script Fixes & Optimization", new List<string> { "Unofficial Patches" });
-			groups.Add("Fixes", new List<string> { "Script Fixes & Optimization" });
-			groups.Add("Resources & Frameworks", new List<string> { "Fixes" });
-			groups.Add("Early Loaders", new List<string> { "Resources & Frameworks" });
-			groups.Add("New Content", new List<string> { "Early Loaders" });
-			groups.Add("Underrides", new List<string> { "New Content" });
-			groups.Add("default", new List<string> { "Underrides" });
-			groups.Add("Low Priority Overrides", new List<string> { "default" });
-			groups.Add("Immersive Citizens", new List<string> { "Low Priority Overrides" });
-			groups.Add("Palaces Castles Enhanced", new List<string> { "Immersive Citizens" });
-			groups.Add("Races & Classes", new List<string> { "Palaces Castles Enhanced" });
-			groups.Add("Standing Stone Effects", new List<string> { "Races & Classes" });
-			groups.Add("Economy", new List<string> { "Races & Classes" });
-			groups.Add("Crafting", new List<string> { "Economy" });
-			groups.Add("Alchemy Overhauls", new List<string> { "Crafting" });
-			groups.Add("Skills & Perks", new List<string> { "Alchemy Overhauls" });
-			groups.Add("Vampire Gameplay Overhauls", new List<string> { "Skills & Perks" });
-			groups.Add("Core Mods", new List<string> { "Standing Stone Effects", "Vampire Gameplay Overhauls" });
-			groups.Add("Alternate Start", new List<string> { "Core Mods" });
-			groups.Add("Follower Frameworks", new List<string> { "Alternate Start" });
-			groups.Add("Cell Music", new List<string> { "Follower Frameworks" });
-			groups.Add("Cell Encounter Zones", new List<string> { "Cell Music" });
-			groups.Add("Cell Water", new List<string> { "Cell Encounter Zones" });
-			groups.Add("Cell Weather & Lighting", new List<string> { "Cell Water" });
-			groups.Add("Open Cities Skyrim", new List<string> { "Cell Weather & Lighting" });
-			groups.Add("High Priority Overrides", new List<string> { "Open Cities Skyrim" });
-			groups.Add("Late Loaders", new List<string> { "High Priority Overrides" });
-			groups.Add("Khajiit Speak", new List<string> { "Late Loaders" });
-			groups.Add("Leveled List Modifiers", new List<string> { "Khajiit Speak" });
-			groups.Add("Map Markers", new List<string> { "Leveled List Modifiers" });
-			groups.Add("Lux Interior Lighting", new List<string> { "Map Markers" });
-			groups.Add("City Worldspace Movers", new List<string> { "Lux Interior Lighting" });
-			groups.Add("Elianora's Breezehome Overhaul", new List<string> { "City Worldspace Movers" });
-			groups.Add("Winterhold Restored", new List<string> { "Elianora's Breezehome Overhaul" });
-			groups.Add("Water Overhauls", new List<string> { "Winterhold Restored" });
-			groups.Add("No Grass", new List<string> { "Water Overhauls" });
-			groups.Add("Torch Lighting", new List<string> { "No Grass" });
-			groups.Add("Player Character Dialogue", new List<string> { "Torch Lighting" });
-			groups.Add("Worldspace Settings", new List<string> { "Player Character Dialogue" });
-			groups.Add("Conflict Resolution Patches (Late)", new List<string> { "Worldspace Settings" });
-			groups.Add("Paper Maps", new List<string> { "Conflict Resolution Patches (Late)" });
-			groups.Add("Dynamic Patches", new List<string> { "Paper Maps" });
-			groups.Add("Late Fixes & Changes", new List<string> { "Dynamic Patches" });
-			groups.Add("Dynamic LOD", new List<string> { "Late Fixes & Changes" });
-			return groups;
+			Nexus.Client.Games.DataDriven.GameModeRuntimeConfiguration.EnsureLoaded();
+			Nexus.Client.Games.GameModeRuntimePolicy policy = Nexus.Client.Games.GameModeRuntimePolicies.All.Values.FirstOrDefault(value =>
+				String.Equals(value.CollectionDomain, gameDomain, StringComparison.OrdinalIgnoreCase) && value.CollectionPluginGroups != null);
+			return policy?.CollectionPluginGroups == null ? new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase) :
+				policy.CollectionPluginGroups.ToDictionary(group => group.Id, group => (group.After ?? new string[0]).ToList(), StringComparer.OrdinalIgnoreCase);
 		}
 
 		/// <summary>Merges Collection group constraints with supported game defaults and validates the resulting graph.</summary>
@@ -2847,7 +2679,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return !String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim());
 		}
 
-		private static bool HasPluginRelativeOrderCycle(IEnumerable<CollectionPluginRelativeOrderRule> rules)
+		internal static bool HasPluginRelativeOrderCycle(IEnumerable<CollectionPluginRelativeOrderRule> rules)
 		{
 			var outgoing = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 			var indegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -2876,7 +2708,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return visited != indegree.Count;
 		}
 
-		private static bool TryReadPluginRuleFileName(JToken token, out string value)
+		internal static bool TryReadPluginRuleFileName(JToken token, out string value)
 		{
 			value = token != null && token.Type == JTokenType.String ? (string)token : null;
 			return !String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim()) &&
@@ -3046,38 +2878,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			// Game extensions can emit an empty loadOrder even when no ordering behavior is requested.
 			JArray loadOrder = root["loadOrder"] as JArray;
 			bool emptyLoadOrder = loadOrder != null && loadOrder.Count == 0;
-			bool starfield = IsStarfieldManifest(root);
-			if (starfield && root["extensionVersion"] != null &&
-				(root["extensionVersion"].Type != JTokenType.String || String.IsNullOrWhiteSpace((string)root["extensionVersion"])))
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.starfield-extension-version-invalid", "Starfield extensionVersion must be a non-empty string.", "$.extensionVersion"));
-			// The extension exports this version as provenance; its importer does not use it to select installation behavior.
-			// https://github.com/Nexus-Mods/game-starfield/blob/master/src/migrations/collections.ts
-			bool bg3 = CollectionBaldursGate3Data.IsManifest(root);
-			if (bg3)
-			{
-				try { CollectionBaldursGate3Data.ReadLoadOrder(root); }
-				catch (Exception ex) when (ex is InvalidDataException || ex is ArgumentException || ex is InvalidCastException)
-				{
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.bg3-load-order-invalid", ex.Message, "$.loadOrder"));
-				}
-			}
-			bool witcher = CollectionWitcher3Data.IsWitcherManifest(root);
-			if (witcher)
-			{
-				try { CollectionWitcher3Data.Parse(root); }
-				catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is ArgumentException || ex is OverflowException)
-				{
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.witcher3-data-invalid", ex.Message, "$"));
-				}
-			}
+			ISet<string> extensionFields = CollectionGameManifestAdapter.ForManifest(root).Validate(root, issues);
 			foreach (JProperty property in root.Properties())
 			{
-				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && (emptyLoadOrder || bg3)) ||
-					(starfield && (property.Name == "loadOrder" || property.Name == "extensionVersion")) ||
-					(witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
+				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && emptyLoadOrder) || extensionFields.Contains(property.Name))
 					continue;
 				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 					"manifest.unknown-field", "The manifest contains an uncharacterized field; NMM will not assume it is cosmetic.", "$." + property.Name));

@@ -55,7 +55,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			cancellationToken.ThrowIfCancellationRequested();
 			IReadOnlyList<ScriptedInstallOperation> selectedOperations = captured;
-			captured = MapBaldursGate3CapturedFiles(plan, member, captured, mod, gameMode, cancellationToken);
+			captured = GetRetainedPreparationManifest(plan, cancellationToken).GameData.MapCaptured(member, captured, mod);
 			if (member.HasVortexFileOverrides)
 			{
 				var mappings = captured.OfType<InstallModFileOperation>().Select(file => new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath))
@@ -96,7 +96,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out patches, cancellationToken);
 			artifacts.AddRange(patches);
 			ValidateManagedModArchive(mod, archive, cancellationToken);
-			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
+			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
 			CollectionMemberEffectPreview preview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, plugins, cancellationToken);
 			if (!preview.IsComplete) throw new InvalidDataException("The captured installer effects could not be fully prepared.");
 			if (selectionArtifact == null) selectionArtifact = store.SaveOperations(plan, member, archive.Artifact, context, selectedOperations, cancellationToken);

@@ -97,10 +97,11 @@ namespace Nexus.Client
 			}
 			Trace.WriteLine(strSelectedGame);
 
-			if (!InstalledGameModes.IsRegistered(strSelectedGame) && strSelectedGame.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
+			GameModeDownloadRouting fallback = GameModeRuntimePolicies.For(strSelectedGame).DownloadRouting;
+			if (!InstalledGameModes.IsRegistered(strSelectedGame) && fallback?.FallbackMode != null)
 			{
-				strSelectedGame = "SkyrimSE";
-				EnvironmentInfo.Settings.SkyrimSEDownloadOverride = "strSelectedGame";
+				strSelectedGame = fallback.FallbackMode;
+				Games.DataDriven.GameModeRuntimeConfiguration.SetPreference(EnvironmentInfo.Settings, fallback.Preference, strSelectedGame);
 				EnvironmentInfo.Settings.Save();
 			}
 			

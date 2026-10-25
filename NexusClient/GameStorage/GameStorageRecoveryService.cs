@@ -182,7 +182,7 @@ namespace Nexus.Client.GameStorage
 				Status = GameStorageHealthStatus.Unknown,
 				IsRequired = true,
 				IsRecoverable = false,
-				Message = "Witcher 3 Game Storage is busy or requires recovery: " + reason
+				Message = "Game Storage is busy or requires recovery: " + reason
 			});
 			return health;
 		}
@@ -198,11 +198,11 @@ namespace Nexus.Client.GameStorage
         {
             failure = null;
             if (paths == null) return false;
-            if (!Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId)) return true;
+            if (!(Nexus.Client.Games.GameModeRuntimePolicies.For(paths.GameId).NativeRootOwnershipProfile != null)) return true;
 
             string reason = null;
             if (_environmentInfo == null)
-                reason = "A Witcher 3 storage transition cannot be verified without the active game settings.";
+                reason = "A game storage transition cannot be verified without the active game settings.";
             else
             {
                 try
@@ -229,7 +229,7 @@ namespace Nexus.Client.GameStorage
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
                     ex is ArgumentException || ex is NotSupportedException || ex is System.Security.SecurityException)
                 {
-                    reason = "The physical Witcher 3 owner cannot be checked: " + ex.Message;
+                    reason = "The physical game-root owner cannot be checked: " + ex.Message;
                 }
             }
             failure = new GameStorageHealthCheck { GameId = paths.GameId };
@@ -240,7 +240,7 @@ namespace Nexus.Client.GameStorage
                 Status = GameStorageHealthStatus.Unknown,
                 IsRequired = true,
                 IsRecoverable = false,
-                Message = "Witcher 3 recovery blocked to prevent duplicate native storage ownership: " + reason,
+                Message = "Game storage recovery blocked to prevent duplicate native storage ownership: " + reason,
                 SuggestedFixes = new List<string> {
                     "Select an independent physical game installation, or perform a separately verified native ownership migration."
                 }

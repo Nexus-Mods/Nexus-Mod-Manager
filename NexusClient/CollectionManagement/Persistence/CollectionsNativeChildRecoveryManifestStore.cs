@@ -582,7 +582,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				byte[] bytes = null;
 				if (reader.ReadBoolean())
 				{
-					int length = ReadBoundedCount(reader, "game-value-byte");
+					// Payload bytes are bounded by the manifest size, not the number of effects.
+					int length = reader.ReadInt32();
+					if (length < 0 || length > MaximumManifestBytes)
+						throw new InvalidDataException("The child recovery manifest contains an invalid game-value byte length.");
 					bytes = reader.ReadBytes(length);
 					if (bytes.Length != length) throw new EndOfStreamException();
 				}

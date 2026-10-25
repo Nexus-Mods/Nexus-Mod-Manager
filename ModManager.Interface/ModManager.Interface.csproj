@@ -90,6 +90,7 @@
     </Compile>
     <Compile Include="CategoriesInfo.cs" />
     <Compile Include="Games\GameLauncherBase.cs" />
+    <Compile Include="Games\GameModeRuntimePolicy.cs" />
     <Compile Include="Games\Witcher3\Witcher3EditionResolver.cs" />
     <Compile Include="Games\Witcher3\Witcher3InstallationProbe.cs" />
     <Compile Include="Games\Witcher3\Witcher3LaunchPlanner.cs" />

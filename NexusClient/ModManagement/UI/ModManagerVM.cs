@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
+using Nexus.Client.Games.DataDriven;
 using Nexus.UI.Controls;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -390,58 +391,29 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		public bool IsSkyrimSEGameMode
-		{
-			get
-			{
-				return ModManager.GameMode.ModeId.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase) || ModManager.GameMode.ModeId.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase);
-			}
-		}
+		public bool IsSkyrimSEGameMode { get { return GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).DownloadRouting?.LegacySelectionToggle == true; } }
 
 		/// <summary>Whether this game exposes an edition choice for a shared Nexus download catalog.</summary>
-		public bool HasDownloadModeChoice => IsSkyrimSEGameMode || NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId);
+		public bool HasDownloadModeChoice => GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).DownloadRouting?.AlternateMode != null;
 
 		/// <summary>Short destination label shown on the existing Download Mode toolbar button.</summary>
-		public string DownloadModeLabel
-		{
-			get
-			{
-				if (NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId))
-					return NexusGameDomain.ResolveWitcher3DownloadMode(Settings.Witcher3DownloadOverride, ModManager.GameMode.ModeId) == "Witcher3Remastered"
-						? LanguageManager.Get("Mods.DownloadMode.Witcher3Remastered", "Witcher 3 Remastered")
-						: LanguageManager.Get("Mods.DownloadMode.Witcher3", "Witcher 3");
-				return String.Equals(SkyrimSEDownloadOverride, "SkyrimSE", StringComparison.OrdinalIgnoreCase) ? "Steam" :
-					String.Equals(SkyrimSEDownloadOverride, "SkyrimGOG", StringComparison.OrdinalIgnoreCase) ? "GOG" : SkyrimSEDownloadModeDescriptor;
-			}
-		}
+		public string DownloadModeLabel { get { return GameModeRuntimeConfiguration.DownloadLabel(GameModeRuntimeConfiguration.DownloadMode(ModManager.GameMode.ModeId, Settings)); } }
 
 		/// <summary>Full local-edition description used by the toolbar hint and main-window status.</summary>
-		public string DownloadModeDescriptor => NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId)
-			? DownloadModeLabel : SkyrimSEDownloadModeDescriptor;
+		public string DownloadModeDescriptor => SkyrimSEDownloadModeDescriptor;
 
 		/// <summary>Explains which local game receives future Nexus links without changing the current game session.</summary>
 		public string DownloadModeFeedback => String.Format(_downloadModeFeedbackFormat, DownloadModeDescriptor);
 
-		public string SkyrimSEDownloadOverride
-		{
-			get
-			{
-				return Settings.SkyrimSEDownloadOverride ?? "SkyrimSE";
-			}
-		}
+		public string SkyrimSEDownloadOverride { get { return GameModeRuntimeConfiguration.DownloadMode(ModManager.GameMode.ModeId, Settings); } }
 
 		public string SkyrimSEDownloadModeDescriptor
 		{
 			get
 			{
-				if (string.IsNullOrEmpty(SkyrimSEDownloadOverride))
-					return string.Empty;
-				else if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-					return String.Format(_downloadModeGameModeFormat, "Skyrim SE");
-				else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-					return String.Format(_downloadModeGameModeFormat, "Skyrim GOG");
-				else
-					return string.Empty;
+				GameModeDownloadRouting routing = GameModeRuntimePolicies.For(SkyrimSEDownloadOverride).DownloadRouting;
+				return routing == null ? String.Empty : routing.FormatDescription
+					? String.Format(_downloadModeGameModeFormat, routing.Description) : DownloadModeLabel;
 			}
 		}
 
@@ -457,25 +429,12 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			get
 			{
-				if (IsSkyrimSEGameMode)
-				{
-					if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-					{
-						if (ModManager.GameMode.ModeId.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-							return new Icon(ModManager.GameMode.ModeTheme.Icon, 32, 32).ToBitmap();
-						else
-							return new Icon(Properties.Resources.SkyrimSE_logo, 32, 32).ToBitmap();
-					}
-					else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-					{
-						if (ModManager.GameMode.ModeId.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-							return new Icon(ModManager.GameMode.ModeTheme.Icon, 32, 32).ToBitmap();
-						else
-							return new Icon(Properties.Resources.SkyrimGOG_logo, 32, 32).ToBitmap();
-					}
-				}
-
-				return null;
+				if (!IsSkyrimSEGameMode) return null;
+				string selected = SkyrimSEDownloadOverride;
+				Icon icon = String.Equals(selected, ModManager.GameMode.ModeId, StringComparison.OrdinalIgnoreCase)
+					? ModManager.GameMode.ModeTheme.Icon
+					: Properties.Resources.ResourceManager.GetObject(GameModeRuntimePolicies.For(selected).DownloadRouting.IconResource) as Icon;
+				return icon == null ? null : new Icon(icon, 32, 32).ToBitmap();
 			}
 		}
 
@@ -544,11 +503,11 @@ namespace Nexus.Client.ModManagement.UI
 			CategoryManager = categories.Manager;
 			m_booIsCategoryInitialized = categories.Initialized;
 
-			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
-				SetSkyrimSEDownloadMode(ModManager.GameMode.ModeId);
-			if (NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId) && String.IsNullOrEmpty(Settings.Witcher3DownloadOverride))
+			GameModeDownloadRouting downloadRouting = GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).DownloadRouting;
+			if (downloadRouting?.Preference != null && String.IsNullOrEmpty(GameModeRuntimeConfiguration.GetPreference<string>(Settings, downloadRouting.Preference)))
 			{
-				Settings.Witcher3DownloadOverride = ModManager.GameMode.ModeId;
+				GameModeRuntimeConfiguration.SetPreference(Settings, downloadRouting.Preference,
+					(downloadRouting.UseRememberedModeAsDefault || downloadRouting.LegacySelectionToggle) ? ModManager.GameMode.ModeId : downloadRouting.DefaultMode);
 				Settings.Save();
 			}
 
@@ -934,7 +893,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
 
-			if (IsRemasteredMode && ActiveMods.Contains(p_modMod))
+			if (RequiresNativeReview && ActiveMods.Contains(p_modMod))
 			{
 				// Keep the old owner intact until the native lease has approved the complete replacement footprint.
 				StartReinstallMod(p_modMod, p_modUpgrade, p_micInstallContext, p_modMod);
@@ -1047,7 +1006,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (contexts.Values.Any(context => !EnsureInstallOperationAllowed(context)))
 				return;
 
-			if (IsRemasteredMode)
+			if (RequiresNativeReview)
 			{
 				foreach (IMod mod in p_lstMods)
 					ReinstallModWithContext(mod, null, contexts[mod]);
@@ -1144,7 +1103,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (p_booForceUninstall || (Result == DialogResult.Yes))
 			{
-				if (IsRemasteredMode && !p_booFilesOnly)
+				if (RequiresNativeReview && !p_booFilesOnly)
 				{
 					foreach (IMod mod in p_rolModList.ToList())
 						DeactivateMod(mod);
@@ -1172,7 +1131,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_booAllowCancel">Defines if the user is allowed to cancel</param>
 		public void MultiModInstall(List<IMod> p_lstModList, bool p_booAllowCancel)
 		{
-			if (IsRemasteredMode)
+			if (RequiresNativeReview)
 			{
 				foreach (IMod mod in p_lstModList)
 					if (!ActiveMods.Contains(mod)) ActivateMod(mod);
@@ -1256,9 +1215,8 @@ namespace Nexus.Client.ModManagement.UI
 				ModManager.InstallationLog.GetModInstallMethod(p_modMod) == ModInstallMethod.Direct;
 		}
 
-		/// <summary>Identifies the native-reviewed Remastered workflow without changing legacy game behavior.</summary>
-		private bool IsRemasteredMode => String.Equals(ModManager.GameMode.ModeId,
-			Witcher3.Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase);
+		/// <summary>Identifies configured native review requirements without changing legacy game behavior.</summary>
+		private bool RequiresNativeReview => GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).RequiresReviewedNativeInstall;
 
 		public void EnableMod(IMod p_modMod)
 		{
@@ -1271,7 +1229,7 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			}
 
-			if (IsRemasteredMode || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
+			if (RequiresNativeReview || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
 			{
 				// Reviewed Remastered mutations and record effects require the full native lifecycle.
 				if (ActiveMods.Contains(p_modMod)) ReinstallMod(p_modMod, null);
@@ -1288,7 +1246,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (IsInstalledDirectMod(Mod))
 					continue;
 
-				if (IsRemasteredMode || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
+				if (RequiresNativeReview || (ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null)
 				{
 					DeactivateMod(Mod);
 					continue;
@@ -1904,63 +1862,39 @@ namespace Nexus.Client.ModManagement.UI
 
 		public void SetSkyrimSEDownloadMode(string downloadModeId)
 		{
-			if (string.IsNullOrEmpty(Settings.SkyrimSEDownloadOverride))
-			{
-				if (downloadModeId.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-					Settings.SkyrimSEDownloadOverride = downloadModeId;
-				else
-					Settings.SkyrimSEDownloadOverride = "SkyrimSE";
-
-				Settings.Save();
-			}
-			else if (!Settings.SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-			{
-				Settings.SkyrimSEDownloadOverride = "SkyrimSE";
-				Settings.Save();
-			}
-			else if (Settings.SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-			{
-				Settings.SkyrimSEDownloadOverride = "SkyrimGOG";
-				Settings.Save();
-			}
+			GameModeDownloadRouting route = GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).DownloadRouting;
+			if (route?.LegacySelectionToggle != true) return;
+			string previous = GameModeRuntimeConfiguration.GetPreference<string>(Settings, route.Preference);
+			string selected = String.IsNullOrEmpty(previous)
+				? (downloadModeId == route.AlternateMode ? route.AlternateMode : route.DefaultMode)
+				: previous == route.DefaultMode ? route.AlternateMode : route.DefaultMode;
+			GameModeRuntimeConfiguration.SetPreference(Settings, route.Preference, selected);
+			Settings.Save();
 		}
 
 		public bool ToggleSkyrimSEDownloadMode()
 		{
-			string newDownloadGameModeId = string.Empty;
-			if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-				newDownloadGameModeId = "SkyrimGOG";
-			else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-				newDownloadGameModeId = "SkyrimSE";
-
-			if (!string.IsNullOrEmpty(newDownloadGameModeId))
-			{
-				SetSkyrimSEDownloadMode(newDownloadGameModeId);
-				SwitchingSkyrimDownloadMode?.Invoke(this, EventArgs.Empty);
-				DownloadModeChanged?.Invoke(this, EventArgs.Empty);
-				return true;
-			}
-
-			return false;
+			if (!IsSkyrimSEGameMode) return false;
+			SetSkyrimSEDownloadMode(SkyrimSEDownloadOverride);
+			SwitchingSkyrimDownloadMode?.Invoke(this, EventArgs.Empty);
+			DownloadModeChanged?.Invoke(this, EventArgs.Empty);
+			return true;
 		}
 
 		/// <summary>Switches only the shared-catalog download destination; it does not change game sessions or installed mods.</summary>
 		public bool ToggleDownloadMode()
 		{
-			if (!NexusGameDomain.IsWitcher3Mode(ModManager.GameMode.ModeId))
-				return IsSkyrimSEGameMode && ToggleSkyrimSEDownloadMode();
-			string previous = Settings.Witcher3DownloadOverride;
-			string current = NexusGameDomain.ResolveWitcher3DownloadMode(previous, ModManager.GameMode.ModeId);
+			GameModeDownloadRouting route = GameModeRuntimePolicies.For(ModManager.GameMode.ModeId).DownloadRouting;
+			if (route?.AlternateMode == null) return false;
+			if (route.LegacySelectionToggle) return ToggleSkyrimSEDownloadMode();
+			string previous = GameModeRuntimeConfiguration.GetPreference<string>(Settings, route.Preference);
+			string current = GameModeRuntimeConfiguration.DownloadMode(ModManager.GameMode.ModeId, Settings);
 			try
 			{
-				Settings.Witcher3DownloadOverride = current == "Witcher3Remastered" ? "Witcher3" : "Witcher3Remastered";
+				GameModeRuntimeConfiguration.SetPreference(Settings, route.Preference, current == route.DefaultMode ? route.AlternateMode : route.DefaultMode);
 				Settings.Save();
 			}
-			catch
-			{
-				Settings.Witcher3DownloadOverride = previous;
-				throw;
-			}
+			catch { GameModeRuntimeConfiguration.SetPreference(Settings, route.Preference, previous); throw; }
 			DownloadModeChanged?.Invoke(this, EventArgs.Empty);
 			return true;
 		}

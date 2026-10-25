@@ -10,7 +10,6 @@ using Newtonsoft.Json.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
-using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
@@ -173,16 +172,14 @@ namespace Nexus.Client.CollectionManagement
 				Normalized = normalized ?? throw new ArgumentNullException(nameof(normalized));
 				SourceRecord = sourceRecord ?? throw new ArgumentNullException(nameof(sourceRecord));
 				Root = JObject.Parse(Encoding.UTF8.GetString(normalized.GetRawManifestBytes()).TrimStart('\uFEFF'));
-				WitcherData = CollectionWitcher3Data.IsWitcherManifest(Root) ? CollectionWitcher3Data.Parse(Root) : null;
-				BaldursGate3Order = CollectionBaldursGate3Data.IsManifest(Root) ? CollectionBaldursGate3Data.ReadLoadOrder(Root) : null;
+				GameData = CollectionGamePreparation.ForManifest(Root);
 			}
 
 			internal CollectionManifestSourceSnapshot Source { get; }
 			internal NexusCollectionManifestNormalizationResult Normalized { get; }
 			internal CollectionRevisionSourceRecord SourceRecord { get; }
 			internal JObject Root { get; }
-			internal CollectionWitcher3Data WitcherData { get; }
-			internal JArray BaldursGate3Order { get; }
+			internal CollectionGamePreparation GameData { get; }
 		}
 
 		/// <summary>Creates the initial Collection-to-native recipe preparation service over the existing C4/C5/C6 seams.</summary>
@@ -290,7 +287,7 @@ namespace Nexus.Client.CollectionManagement
 				if (member == null)
 					throw new ArgumentNullException(nameof(member));
 				if (mod == null) throw new ArgumentNullException(nameof(mod));
-				RequireSupportedWitcherInstaller(member, mod, gameMode);
+				RequireSupportedInstaller(member, mod, gameMode);
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
@@ -339,7 +336,7 @@ namespace Nexus.Client.CollectionManagement
 				if (member == null) throw new ArgumentNullException(nameof(member));
 				if (mod == null) throw new ArgumentNullException(nameof(mod));
 				if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
-				RequireSupportedWitcherInstaller(member, mod, gameMode);
+				RequireSupportedInstaller(member, mod, gameMode);
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
@@ -406,21 +403,15 @@ namespace Nexus.Client.CollectionManagement
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
-			if (retainedManifest.WitcherData != null && !String.Equals(gameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
-				(retainedManifest.Root["loadOrder"] != null || retainedManifest.Root["mergedData"] != null ||
-				!String.IsNullOrEmpty((string)(retainedManifest.Root["mods"]?[member.SourceOrdinal]?["details"]?["type"]))))
-				throw new NotSupportedException("This Collection's Witcher-specific order, merge data and package types require the Witcher 3 Remastered native adapter.");
-			if (String.Equals(gameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase))
-			{
-				if (member.HasVortexBinaryPatches || member.HasVortexFileOverrides)
-					throw new NotSupportedException("Witcher Collection binary patches and file-override recipes require their own selected-output preparation.");
-				if (replacement)
-					throw new NotSupportedException("Witcher Collection settings are not projected through the replacement environment; use the additive installation workflow.");
-				return PrepareWitcherExact(identityPlan ?? plan, member, verifiedArchive, mod, gameMode, installContext,
+			retainedManifest.GameData.ValidatePreparation(member, gameMode, replacement);
+			if (retainedManifest.GameData.RequiresCustomPlan(gameMode))
+				return PrepareCustomExact(identityPlan ?? plan, member, verifiedArchive, mod, gameMode, installContext,
 					retainedManifest, skipReadmeFiles, pluginManager, cancellationToken);
-			}
 
-			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods, includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory);
+			// Collection-owned metadata replaces optional per-archive metadata after file planning.
+			bool usesCollectionMetadata = GameModeRuntimePolicies.For(gameMode.ModeId).CollectionOrderProvidesMetadata && retainedManifest.GameData.HasOwnedMetadata;
+			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods,
+				includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory, !usesCollectionMetadata);
 			if (!basicResult.IsSupported)
 			{
 				throw new NotSupportedException(String.Format("The Collection member cannot use the characterized basic/simple adapter: {0} ({1}).",
@@ -444,7 +435,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyBasicGameSpecificValues(basicResult.Plan, translated);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
+			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
@@ -456,14 +447,12 @@ namespace Nexus.Client.CollectionManagement
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal), gameRootArchiveBaseDirectory);
 		}
 
-		/// <summary>Prepares bounded Witcher files and structured records through the native reviewed-effect adapter.</summary>
-		private PreparedCollectionNativeRecipe PrepareWitcherExact(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
+		/// <summary>Prepares adapter-owned files and structured records through the native reviewed-effect adapter.</summary>
+		private PreparedCollectionNativeRecipe PrepareCustomExact(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
 			CollectionVerifiedArchive archive, IMod mod, IGameMode gameMode, ModInstallContext context,
 			RetainedPreparationManifest retained, bool skipReadmeFiles, IPluginManager plugins, CancellationToken cancellationToken)
 		{
-			if (!(gameMode is Nexus.Client.Games.DataDriven.DataDrivenWitcher3RemasteredGameMode) || retained.WitcherData == null)
-				throw new InvalidDataException("Witcher Collection preparation requires the dedicated native adapter and retained Witcher source.");
-			IReadOnlyList<ScriptedInstallOperation> operations = CollectionWitcher3InstallPlanner.Build(plan, member, mod, context, retained.Root, retained.WitcherData, cancellationToken);
+			IReadOnlyList<ScriptedInstallOperation> operations = retained.GameData.BuildOperations(plan, member, mod, gameMode, context, cancellationToken);
 			var paths = new List<ModInstallationRecipePath>(); var declared = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var artifacts = new List<string> { retained.SourceRecord.RawManifestArtifactId, archive.Artifact.ArtifactId };
 			foreach (ScriptedInstallOperation operation in operations)
@@ -488,11 +477,11 @@ namespace Nexus.Client.CollectionManagement
 			ModInstallationRecipeInput translated = _simpleFileAdapter.TranslatePreparedPlan(input, operations);
 			ValidateManagedModArchive(mod, archive, cancellationToken);
 			CollectionMemberEffectPreview preview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, plugins, cancellationToken);
-			if (!preview.IsComplete) throw new InvalidDataException("Witcher Collection effects could not be fully characterized.");
+			if (!preview.IsComplete) throw new InvalidDataException("The configured Collection effects could not be fully characterized.");
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
-				writer.Write("nmm-ce.witcher3-prepared/1"); writer.Write(plan.Target.Fingerprint);
+				writer.Write(retained.GameData.PreparedIdentityFormat); writer.Write(plan.Target.Fingerprint);
 				writer.Write(plan.ManifestSource.ContentHash.Value); writer.Write(plan.CurrentStateFingerprint.FormatVersion); writer.Write(plan.CurrentStateFingerprint.Value);
 				writer.Write(member.RecipeIdentity.Fingerprint); writer.Write((int)member.MemberKey.Kind); writer.Write(member.MemberKey.Value); writer.Write(member.SourceOrdinal);
 				writer.Write(member.ArtifactChoice.SelectedArtifact.Scheme); writer.Write(member.ArtifactChoice.SelectedArtifact.StableId);
@@ -509,13 +498,13 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		/// <summary>Prevents generic installer branches from bypassing Witcher folder-order and menu preparation.</summary>
-		private static void RequireSupportedWitcherInstaller(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode)
-		{
-			if (String.Equals(gameMode?.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
-				(member.HasVortexFileList || member.HasVortexFomodSelection || mod.HasInstallScript))
-				throw new NotSupportedException("This Witcher Collection package requires scripted or selected-file installation; its folder order and menu effects cannot be reproduced by the basic Witcher adapter.");
-		}
+		/// <summary>Uses the configured native adapter's restrictions on scripted and selected-file installation.</summary>
+		private static void RequireSupportedInstaller(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode) =>
+			CollectionGamePreparation.ForMode(gameMode).RequireSupportedInstaller(member, mod);
+
+		/// <summary>Retains selected package inventory for the configured collection-owned settings provider.</summary>
+		internal bool ConfigureGamePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files, CancellationToken token) =>
+			GetRetainedPreparationManifest(plan, token).GameData.ConfigurePackageFiles(plan, files);
 
 
 		private PreparedCollectionNativeRecipe PrepareVortexFileListExact(ResolvedCollectionPlan plan,
@@ -575,7 +564,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
+			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
@@ -727,7 +716,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
+			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
@@ -1313,7 +1302,7 @@ namespace Nexus.Client.CollectionManagement
 			var reader = new VortexBinaryPatchBundleReader(_revisionSourceStore);
 			IDictionary<string, byte[]> payloads = reader.Read(plan.Revision, member, cancellationToken);
 			var patches = member.VortexBinaryPatches.Items.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
-			bool bg3 = CollectionBaldursGate3Data.IsManifest(GetRetainedPreparationManifest(plan, cancellationToken).Root);
+			CollectionGamePreparation gameData = GetRetainedPreparationManifest(plan, cancellationToken).GameData;
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var operations = new List<ScriptedInstallOperation>();
 			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
@@ -1321,12 +1310,8 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				InstallModFileOperation file = operation as InstallModFileOperation;
 				CollectionVortexBinaryPatch patch = null;
-				if (file != null && !patches.TryGetValue(file.DestinationPath, out patch) && bg3)
-				{
-					int separator = file.DestinationPath.IndexOf('\\');
-					if (separator > 0 && (file.DestinationPath.StartsWith("Data\\", StringComparison.OrdinalIgnoreCase) || file.DestinationPath.StartsWith("bin\\", StringComparison.OrdinalIgnoreCase)))
-						patches.TryGetValue(file.DestinationPath.Substring(separator + 1), out patch);
-				}
+				if (file != null && !patches.TryGetValue(file.DestinationPath, out patch))
+					patches.TryGetValue(gameData.ComparablePath(file.DestinationPath), out patch);
 				if (patch == null)
 				{
 					operations.Add(operation);
@@ -1356,16 +1341,12 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private ModInstallationSimpleFileRecipe ApplyVortexFileOverrides(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
-			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext, bool mapBaldursGate3Files = true)
+			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext, bool mapGameFiles = true)
 		{
 			if (member == null) throw new ArgumentNullException(nameof(member));
 			if (recipe == null) throw new ArgumentNullException(nameof(recipe));
-			if (mapBaldursGate3Files && String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase))
-			{
-				JObject root = GetRetainedPreparationManifest(plan, CancellationToken.None).Root;
-				if (CollectionBaldursGate3Data.IsManifest(root))
-					recipe = CollectionBaldursGate3Data.MapFiles(recipe, (string)root["mods"]?[member.SourceOrdinal]?["details"]?["type"], mod.GetFileList());
-			}
+			if (mapGameFiles)
+				recipe = GetRetainedPreparationManifest(plan, CancellationToken.None).GameData.MapFiles(member, recipe, mod);
 			if (!member.HasVortexFileOverrides) return recipe;
 
 			var suppressedDestinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1409,11 +1390,8 @@ namespace Nexus.Client.CollectionManagement
 			bool absolute = IsVortexAbsolutePath(normalizedOverride);
 			if (!absolute)
 			{
-				if (String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase) && target.Root == ModDeploymentRoot.Secondary)
-				{
-					int separator = targetRelative.IndexOf('\\');
-					if (separator >= 0 && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, targetRelative.Substring(separator + 1))) return true;
-				}
+				if (target.Root == ModDeploymentRoot.Secondary && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride,
+					CollectionGamePreparation.ForMode(gameMode).ComparablePath(targetRelative))) return true;
 				return StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, targetRelative) ||
 					(!String.IsNullOrEmpty(portableGamePath) && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, portableGamePath));
 			}

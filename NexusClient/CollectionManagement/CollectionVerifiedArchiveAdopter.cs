@@ -26,6 +26,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 		private readonly CollectionsAcquisitionStore _acquisitionStore;
+		private readonly Dictionary<string, CollectionVerifiedArchive> _reusableArchives = new Dictionary<string, CollectionVerifiedArchive>(StringComparer.Ordinal);
 
 		/// <summary>
 		/// Creates an archive reuse/adoption coordinator over existing native archive discovery and Collections retained storage.
@@ -73,6 +74,15 @@ namespace Nexus.Client.CollectionManagement
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
 
+			CollectionVerifiedArchive previous;
+			string cacheKey = AcquisitionCacheKey(request);
+			lock (_reusableArchives) _reusableArchives.TryGetValue(cacheKey, out previous);
+			if (previous != null && previous.Request.SelectedArtifact.Equals(request.SelectedArtifact) &&
+				previous.Request.Requirement == request.Requirement && (!IsMetadataTrusted(previous.VerificationBasis) || skipExistingArchiveMd5))
+			{
+				try { return RebindVerified(previous, request, cancellationToken); }
+				catch (IOException) { lock (_reusableArchives) _reusableArchives.Remove(cacheKey); }
+			}
 			string referenceRole = CreateReferenceRole(request.SelectedArtifact);
 			string ownerId = request.RequestId.ToString("D");
 			if (skipExistingArchiveMd5)
@@ -632,6 +642,10 @@ namespace Nexus.Client.CollectionManagement
 			return _referenceStore.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, ownerId, role);
 		}
 
+		/// <summary>Retains one bounded set of exact acquisition results across new preparation plans.</summary>
+		private static string AcquisitionCacheKey(CollectionAcquisitionRequest request) => String.Join("\0",
+			request.Target.Fingerprint, request.Revision.ToString(), request.MemberKey.ToString(), request.RecipeIdentity.Fingerprint);
+
 		private CollectionVerifiedArchive Protect(CollectionAcquisitionRequest request, CollectionsRetainedArtifact artifact,
 			string ownerId, string role, CollectionVerifiedArchiveSourceKind sourceKind,
 			CollectionArchiveVerificationBasis verificationBasis)
@@ -653,7 +667,13 @@ namespace Nexus.Client.CollectionManagement
 			// Metadata trust must never become a cached provider/MD5 verification for future default-mode preparations.
 			if (_acquisitionStore != null && !trustedMetadata)
 				_acquisitionStore.MarkVerified(request, artifact.ArtifactId);
-			return new CollectionVerifiedArchive(request, artifact, reference, sourceKind, verificationBasis);
+			var result = new CollectionVerifiedArchive(request, artifact, reference, sourceKind, verificationBasis);
+			lock (_reusableArchives)
+			{
+				if (_reusableArchives.Count >= 2048) _reusableArchives.Clear();
+				_reusableArchives[AcquisitionCacheKey(request)] = result;
+			}
+			return result;
 		}
 
 		private static bool MatchesRequestedIdentity(CollectionManagedArchiveCandidate candidate,

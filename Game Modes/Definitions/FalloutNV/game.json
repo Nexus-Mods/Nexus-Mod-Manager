@@ -2,6 +2,30 @@
   "schemaVersion": 2,
   "modeId": "FalloutNV",
   "name": "Fallout: New Vegas",
+  "runtime": {
+    "schemaVersion": 1,
+    "downloadRouting": {
+      "defaultMode": "FalloutNV",
+      "incomingDomains": [
+        "newvegas"
+      ]
+    },
+    "collectionDomain": "newvegas",
+    "collectionPluginGroups": [
+      {"id": "DLC", "after": []},
+      {"id": "Fixes & Resources", "after": ["DLC"]},
+      {"id": "Add-ons & Expansions (Patches)", "after": []},
+      {"id": "Add-ons & Expansions", "after": ["Add-ons & Expansions (Patches)", "Fixes & Resources"]},
+      {"id": "Early Loaders", "after": ["Add-ons & Expansions"]},
+      {"id": "default", "after": ["Early Loaders"]},
+      {"id": "Interior Lighting Overhaul", "after": ["default"]},
+      {"id": "LOD", "after": ["Interior Lighting Overhaul"]},
+      {"id": "Cell Settings", "after": ["LOD"]},
+      {"id": "Weather & Lighting", "after": ["Cell Settings"]},
+      {"id": "Late Fixes & Changes", "after": ["Weather & Lighting"]},
+      {"id": "Dynamic Patches", "after": ["Late Fixes & Changes"]}
+    ]
+  },
   "behaviorProfile": "gamebryo",
   "legacyFallback": false,
   "gameExecutables": [

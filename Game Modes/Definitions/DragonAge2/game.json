@@ -2,6 +2,10 @@
   "schemaVersion": 2,
   "modeId": "DragonAge2",
   "name": "Dragon Age 2",
+  "runtime": {
+    "schemaVersion": 1,
+    "supportsNestedArchives": true
+  },
   "behaviorProfile": "generic",
   "legacyFallback": true,
   "gameExecutables": [

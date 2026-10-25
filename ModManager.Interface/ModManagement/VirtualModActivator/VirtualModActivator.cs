@@ -1871,14 +1871,7 @@
 				}
 				else if (!DisableLinkCreation)
 				{
-					if (!MultiHDMode && (CreateHardLink(strVirtualFileLink, strActivatorFilePath, IntPtr.Zero)))
-					{
-						if (!p_booIsRestoring)
-							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
-						else
-							strVirtualFileLink = string.Empty;
-					}
-					else if (CreateSymbolicLink(strVirtualFileLink, strActivatorFilePath, 0))
+					if (new TxFileManager { TxEnabled = false }.CreateFileLink(strVirtualFileLink, strActivatorFilePath))
 					{
 						if (!p_booIsRestoring)
 							AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);

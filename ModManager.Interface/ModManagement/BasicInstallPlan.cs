@@ -336,6 +336,15 @@ namespace Nexus.Client.ModManagement
 			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
 			string gameRootArchiveBaseDirectory)
 		{
+			return Build(mod, gameMode, installContext, skipReadme, filesToInstall, activeMods, includeDeterministicModFileMergeOutput,
+				gameRootArchiveBaseDirectory, true);
+		}
+
+		/// <summary>Allows a reviewed recipe to supply special-file game values separately while retaining native file selection.</summary>
+		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
+			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
+			string gameRootArchiveBaseDirectory, bool includeSpecialFileGameValues)
+		{
 			if (mod == null)
 				throw new ArgumentNullException(nameof(mod));
 			if (gameMode == null)
@@ -374,7 +383,7 @@ namespace Nexus.Client.ModManagement
 				files = deterministicSpecialFiles.Select(path => new KeyValuePair<string, string>(path, null)).ToList();
 
 				IDeterministicSpecialFileGameValuePlanProvider gameValueProvider = gameMode as IDeterministicSpecialFileGameValuePlanProvider;
-				if (gameValueProvider != null)
+				if (gameValueProvider != null && includeSpecialFileGameValues)
 				{
 					try
 					{

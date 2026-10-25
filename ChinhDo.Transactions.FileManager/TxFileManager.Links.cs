@@ -23,6 +23,8 @@
 	/// </summary>
 	public partial class TxFileManager
 	{
+		private bool _copyFallbackReported;
+
 		[DllImport("Kernel32.dll", EntryPoint = "CreateHardLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
 		private static extern bool CreateHardLinkNative(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
@@ -123,7 +125,7 @@
 		}
 
 		/// <summary>
-		/// Creates a hard link, using a symbolic link only when the volume layout or filesystem cannot support hard links.
+		/// Creates a hard link, copying the file when the volume layout or filesystem cannot support hard links.
 		/// Other hard-link failures retain their original Windows error instead of changing deployment topology.
 		/// </summary>
 		public bool CreateFileLink(string p_strLinkName, string p_strTargetPath)
@@ -133,7 +135,18 @@
 
 			int error = Marshal.GetLastWin32Error();
 			if (error == ErrorNotSameDevice || error == ErrorInvalidFunction || error == ErrorNotSupported)
-				return CreateSymbolicLink(p_strLinkName, p_strTargetPath);
+			{
+				if (!_copyFallbackReported)
+				{
+					System.Diagnostics.Trace.TraceWarning("Hard-link creation failed for '{0}' -> '{1}'. Win32 error {2}: {3}. Using file copies for unsupported hard links.",
+						p_strLinkName, p_strTargetPath, error, new Win32Exception(error).Message);
+					_copyFallbackReported = true;
+				}
+				if (GetFileEntryState(p_strLinkName, null) != FileEntryKind.Absent)
+					throw CreateLinkIOException("create", "hard", p_strLinkName, p_strTargetPath, error);
+				Copy(p_strTargetPath, p_strLinkName, false);
+				return true;
+			}
 
 			throw CreateLinkIOException("create", "hard", p_strLinkName, p_strTargetPath, error);
 		}

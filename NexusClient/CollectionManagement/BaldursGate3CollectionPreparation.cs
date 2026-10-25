@@ -13,15 +13,27 @@ using Nexus.Client.ModManagement.Scripting.Operations;
 
 namespace Nexus.Client.CollectionManagement
 {
-	public sealed partial class CollectionNativeRecipePreparer
+	/// <summary>Interprets BG3 package inventory, module settings and secondary deployment paths.</summary>
+	internal sealed class BaldursGate3CollectionPreparation : CollectionGamePreparation
 	{
+		private readonly JObject _root;
+		private readonly JArray _order;
 		private CollectionPlanIdentity _baldursGate3PackagePlan;
 		private HashSet<string> _baldursGate3PackageFiles;
 
-		/// <summary>Uses the selected archives' package inventory, including selected members already installed.</summary>
-		internal bool ConfigureBaldursGate3PackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files, CancellationToken cancellationToken)
+		/// <summary>Reads retained BG3 metadata once per retained manifest.</summary>
+		internal BaldursGate3CollectionPreparation(JObject root)
 		{
-			JArray order = GetRetainedPreparationManifest(plan, cancellationToken).BaldursGate3Order;
+			_root = root;
+			_order = root == null ? null : CollectionBaldursGate3Data.ReadLoadOrder(root);
+		}
+
+		internal override bool HasOwnedMetadata => _order != null && _order.Count > 0;
+
+		/// <summary>Uses the selected archives' package inventory, including selected members already installed.</summary>
+		internal override bool ConfigurePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files)
+		{
+			JArray order = _order;
 			if (order == null || order.Count == 0) return false;
 			_baldursGate3PackageFiles = new HashSet<string>(files.Where(path => String.Equals(Path.GetExtension(path), ".pak", StringComparison.OrdinalIgnoreCase))
 				.Select(path => Path.GetFileName(path.Replace('/', '\\'))), StringComparer.OrdinalIgnoreCase);
@@ -30,11 +42,10 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Retains curator module ordering as one native-owned value instead of per-archive metadata appends.</summary>
-		private ModInstallationRecipeInput ApplyBaldursGate3Settings(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
-			ModInstallationRecipeInput translated, IGameMode gameMode, CancellationToken cancellationToken)
+		internal override ModInstallationRecipeInput ApplySettings(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
+			ModInstallationRecipeInput translated, IGameMode gameMode)
 		{
-			if (!String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase)) return translated;
-			JArray order = GetRetainedPreparationManifest(plan, cancellationToken).BaldursGate3Order;
+			JArray order = _order;
 			if (order == null || order.Count == 0) return translated;
 			StructuredXmlRecordRule rule = (gameMode as IStructuredXmlRecordProvider)?.StructuredRecords;
 			if (rule == null) throw new NotSupportedException("BG3 Collection load order requires the configured native module-settings provider.");
@@ -54,11 +65,10 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Applies the same secondary roots to retained C# installer file operations.</summary>
-		private IReadOnlyList<ScriptedInstallOperation> MapBaldursGate3CapturedFiles(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
-			IReadOnlyList<ScriptedInstallOperation> captured, IMod mod, IGameMode gameMode, CancellationToken cancellationToken)
+		internal override IReadOnlyList<ScriptedInstallOperation> MapCaptured(ResolvedCollectionMemberPlan member,
+			IReadOnlyList<ScriptedInstallOperation> captured, IMod mod)
 		{
-			if (!String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase)) return captured;
-			JObject root = GetRetainedPreparationManifest(plan, cancellationToken).Root;
+			JObject root = _root;
 			if (!CollectionBaldursGate3Data.IsManifest(root)) return captured;
 			string type = (string)root["mods"]?[member.SourceOrdinal]?["details"]?["type"];
 			bool extender = CollectionBaldursGate3Data.UsesExtenderInstaller(type, mod.GetFileList());
@@ -74,5 +84,17 @@ namespace Nexus.Client.CollectionManagement
 			}
 			return result.AsReadOnly();
 		}
+		/// <inheritdoc />
+		internal override ModInstallationSimpleFileRecipe MapFiles(ResolvedCollectionMemberPlan member, ModInstallationSimpleFileRecipe recipe, IMod mod) =>
+			CollectionBaldursGate3Data.MapFiles(recipe, (string)_root["mods"]?[member.SourceOrdinal]?["details"]?["type"], mod.GetFileList());
+
+		/// <inheritdoc />
+		internal override string ComparablePath(string path)
+		{
+			int separator = path.IndexOf('\\');
+			return separator > 0 && (path.StartsWith("Data\\", StringComparison.OrdinalIgnoreCase) || path.StartsWith("bin\\", StringComparison.OrdinalIgnoreCase))
+				? path.Substring(separator + 1) : path;
+		}
+
 	}
 }

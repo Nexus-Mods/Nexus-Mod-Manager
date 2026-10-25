@@ -2,6 +2,23 @@
   "schemaVersion": 2,
   "modeId": "Starfield",
   "name": "Starfield",
+  "runtime": {
+    "schemaVersion": 1,
+    "collectionAdapter": "plugin-order-v1",
+    "collectionDomain": "starfield",
+    "collectionMemberTypes": [
+      "starfield-data-folder"
+    ],
+    "consoleBatchCommands": [
+      "SetINISetting",
+      "SetGS",
+      "SaveIniFiles",
+      "player.setav",
+      "cgf"
+    ],
+    "consoleBatchNoArgumentCommand": "SaveIniFiles",
+    "consoleBatchRuleId": "starfield-console-batch"
+  },
   "behaviorProfile": "gamebryo",
   "legacyFallback": false,
   "gameExecutables": [

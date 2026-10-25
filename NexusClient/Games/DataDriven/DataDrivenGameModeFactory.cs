@@ -176,8 +176,7 @@ namespace Nexus.Client.Games.DataDriven
                     throw new InvalidOperationException("The declared managed-content capabilities cannot fall back to another behavior profile.");
                 // Runtime evidence for the bounded native workflow is still required for release.
                 // Optional features are outside that release scope. Never fall through to a generic host.
-                if (string.Equals(_definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(_definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
+                if (Witcher3DefinitionPolicy.IsNativeHost(_definition))
                 {
                     if (!RemasteredNativeActivationApproved)
                     {
@@ -256,6 +255,7 @@ namespace Nexus.Client.Games.DataDriven
                 throw new ArgumentNullException(nameof(environmentInfo));
 
             GameModeDefinitionLoadResult loadResult = new GameModeDefinitionLoader().LoadFromDirectory(definitionsDirectory);
+            GameModeRuntimeConfiguration.Publish(loadResult.Definitions);
             foreach (GameModeDefinition definition in loadResult.Definitions)
             {
                 bool hasExistingFactory = registry.IsRegistered(definition.ModeId);

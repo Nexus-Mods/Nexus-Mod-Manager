@@ -93,8 +93,7 @@
 			}
 
 			// Honor the existing release gate before provisioning any storage.
-			if (String.Equals(factory.GameModeDescriptor.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
-				StringComparison.OrdinalIgnoreCase) && !Witcher3RemasteredReleasePolicy.NativeActivationApproved)
+			if (GameModeRuntimePolicies.For(factory.GameModeDescriptor.ModeId).RequiresReviewedNativeInstall && !Witcher3RemasteredReleasePolicy.NativeActivationApproved)
 			{
 				message = Witcher3RemasteredReleasePolicy.CreateActivationBlockMessage().Message;
 				return false;

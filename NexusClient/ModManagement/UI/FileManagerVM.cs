@@ -364,7 +364,7 @@
             // File Manager switches are not native installer tasks. Their legacy path is
             // retained for other games; Witcher mutations must pass the shared root
             // authority boundary and must never reuse a pre-reload owner service.
-            if (Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId))
+            if ((Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).NativeRootOwnershipProfile != null))
             {
                 string reviewedRelativePath = row.RelativePath;
                 ModDeploymentTarget reviewedTarget = row.DeploymentTarget;
@@ -436,7 +436,7 @@
                 using (CollectionTargetMutationLease lease = CollectionManualNativeMutationBoundary.AcquireFileManagerMutation(manager))
                 {
                     if (!ReferenceEquals(manager, _modManagerViewModel.ModManager) ||
-                        !Witcher3RootOwnershipGuard.IsWitcherMode(manager.GameMode.ModeId))
+                        !(Nexus.Client.Games.GameModeRuntimePolicies.For(manager.GameMode.ModeId).NativeRootOwnershipProfile != null))
                         throw new InvalidOperationException("The active Witcher 3 manager changed during owner selection.");
 
                     var currentRow = new FileManagerRow

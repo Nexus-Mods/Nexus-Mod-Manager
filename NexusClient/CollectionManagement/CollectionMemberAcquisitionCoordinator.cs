@@ -228,7 +228,7 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 					"Collections.Workflow.CheckingMemberArchive", "Checking mod archive ({0}/{1}): {2}",
-					archivePosition, initial.Members.Count, match.Member.DisplayName), true);
+					archivePosition, initial.Members.Count, match.Member.DisplayName), false);
 				CollectionAcquisitionRequest request = CreateRequest(plan, match.Member.MemberKey);
 				requests.Add(match.Member.MemberKey, request);
 				CollectionMemberAcquisitionState previous;
@@ -242,7 +242,7 @@ namespace Nexus.Client.CollectionManagement
 					if (verified.VerificationBasis == CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash)
 						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 							"Collections.Workflow.ReusingMemberArchiveHash", "Reusing saved archive hash ({0}/{1}): {2}",
-							archivePosition, initial.Members.Count, match.Member.DisplayName), true);
+							archivePosition, initial.Members.Count, match.Member.DisplayName), false);
 					verifiedArchives.Add(verified);
 				}
 			}

@@ -2,6 +2,16 @@
   "schemaVersion": 2,
   "modeId": "SkyrimVR",
   "name": "Skyrim VR",
+  "runtime": {
+    "schemaVersion": 1,
+    "downloadRouting": {
+      "defaultMode": "SkyrimVR",
+      "incomingDomains": [
+        "skyrimspecialedition"
+      ],
+      "preferRememberedMode": true
+    }
+  },
   "behaviorProfile": "gamebryo",
   "legacyFallback": false,
   "gameExecutables": [

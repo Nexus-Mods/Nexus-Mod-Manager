@@ -637,52 +637,7 @@
 
 		public string RequiresStartupWarning()
 		{
-			if (GameMode.ModeId.Equals("Fallout4", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (EnvironmentInfo.Settings.ShowFallout4UpgradeDisclaimer)
-				{
-					if (GameMode.GameVersion > new Version(1, 5, 0, 0))
-					{
-						EnvironmentInfo.Settings.ShowFallout4UpgradeDisclaimer = false;
-						EnvironmentInfo.Settings.Save();
-
-						if (GameMode.LoadOrderManager.ObsoleteConfigFiles)
-						{
-							string strWarning = "We've detected that you are using Fallout 4 version 1.5 (or later) for the first time with NMM. In version 1.5, " + Environment.NewLine +
-								"Bethesda changed the way in which plugins were handled." + Environment.NewLine + Environment.NewLine +
-								"Because of this, any plugin you previously had enabled will be disabled in NMM and you will need to reactivate " + Environment.NewLine +
-								"them in order for your setup to work again." + Environment.NewLine + Environment.NewLine +
-								"Unfortunately this is a side-effect of Bethesda's patching of Fallout 4 and nothing to do with us. Unless " + Environment.NewLine +
-								"Bethesda change the modding method again in future patches you will only need to do this reactivation once " + Environment.NewLine + "(e.g. this won't happen every time you start NMM in the future!)." + Environment.NewLine + Environment.NewLine +
-								"NOTE: If you are making use of NMM's profile system, simply go to the profile menu and select 'Import Load Order' " + Environment.NewLine +
-								"from your profile, NMM will automatically reactivate all your plugins in the correct order for you." + Environment.NewLine + Environment.NewLine +
-								"If you are not using the profiling system, you will need to activate all your plugins again manually.";
-
-							return strWarning;
-						}
-					}
-				}
-			}
-			else if (GameMode.ModeId.Equals("Cyberpunk2077", StringComparison.InvariantCultureIgnoreCase))
-			{
-				if (EnvironmentInfo.Settings.ShowCP2077UpgradeDisclaimer)
-				{
-					if (GameMode.GameVersion >= new Version(1, 2))
-					{
-						EnvironmentInfo.Settings.ShowCP2077UpgradeDisclaimer = false;
-						EnvironmentInfo.Settings.Save();
-
-						string strWarning = "We've detected that you are using Cyberpunk 2077 version 1.2 (or later) for the first time with NMM. In version 1.2, " + Environment.NewLine +
-							"CDPR changed the folder where mod files are installed." + Environment.NewLine + Environment.NewLine +
-							"Older NMM versions tried to disable every active Cyberpunk 2077 mod at this point. NMM will no longer do that automatically." + Environment.NewLine + Environment.NewLine +
-							"Your existing files will be left in place. Please verify your Cyberpunk 2077 mod folder settings and reinstall or reactivate affected mods manually if your setup needs to be moved to the new folder." + Environment.NewLine;
-
-						return strWarning;
-					}
-				}
-			}
-
-			return string.Empty;
+			return Nexus.Client.Games.DataDriven.GameModeRuntimeConfiguration.StartupNotice(GameMode, EnvironmentInfo.Settings);
 		}
 
 		#endregion

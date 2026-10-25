@@ -2,6 +2,15 @@
   "schemaVersion": 2,
   "modeId": "Cyberpunk2077",
   "name": "Cyberpunk 2077",
+  "runtime": {
+    "schemaVersion": 1,
+    "startupNotice": {
+      "preference": "ShowCP2077UpgradeDisclaimer",
+      "minimumVersion": "1.2",
+      "includeMinimumVersion": true,
+      "text": "We've detected that you are using Cyberpunk 2077 version 1.2 (or later) for the first time with NMM. In version 1.2, \nCDPR changed the folder where mod files are installed.\n\nOlder NMM versions tried to disable every active Cyberpunk 2077 mod at this point. NMM will no longer do that automatically.\n\nYour existing files will be left in place. Please verify your Cyberpunk 2077 mod folder settings and reinstall or reactivate affected mods manually if your setup needs to be moved to the new folder.\n"
+    }
+  },
   "behaviorProfile": "generic",
   "legacyFallback": false,
   "gameExecutables": [

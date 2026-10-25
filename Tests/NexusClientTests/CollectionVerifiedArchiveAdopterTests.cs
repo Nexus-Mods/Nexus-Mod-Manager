@@ -422,6 +422,34 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>A retry rebinds the same unchanged archive without rediscovering the entire managed library.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void TryAdopt_RetryReusesUnchangedArchiveWithoutLibraryDiscovery(bool metadataTrust)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Stores stores = CreateStores(root);
+				string path = Path.Combine(root, "existing.7z");
+				File.WriteAllBytes(path, Encoding.UTF8.GetBytes("existing library archive"));
+				var source = new RecordingArchiveSource(new[] { new CollectionManagedArchiveCandidate("nexus-mod-file", StableArtifactId, path, false) });
+				var verifier = new RecordingVerifier { Handler = (artifact, stream) => true };
+				var adopter = new CollectionVerifiedArchiveAdopter(source, verifier, stores.Artifacts, stores.References, stores.Acquisitions);
+				CollectionVerifiedArchive first = adopter.TryAdopt(CreateRequest(null), CancellationToken.None, metadataTrust);
+				Assert.That(first, Is.Not.Null);
+				int discoveries = source.CallCount;
+				int verifications = verifier.CallCount;
+				source.ThrowOnFind = true;
+				CollectionVerifiedArchive retry = adopter.TryAdopt(CreateRequest(null), CancellationToken.None, metadataTrust);
+				Assert.That(retry.Artifact, Is.EqualTo(first.Artifact));
+				Assert.That(source.CallCount, Is.EqualTo(discoveries));
+				Assert.That(verifier.CallCount, Is.EqualTo(verifications));
+				if (metadataTrust) Assert.That(retry.VerificationBasis, Is.EqualTo(first.VerificationBasis));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[TestCase(true, false, 0)]
 		[TestCase(false, false, 1)]
 		[TestCase(true, true, 1)]

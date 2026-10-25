@@ -66,6 +66,9 @@ namespace Nexus.Transactions
 			m_booCompleted = true;
 		}
 
+		/// <summary>Gets whether this scope successfully rolled back its owned transaction.</summary>
+		public bool RolledBack { get; private set; }
+
 		#region IDisposable Members
 
 		/// <summary>
@@ -79,7 +82,10 @@ namespace Nexus.Transactions
 			try
 			{
 				if (!m_booCompleted)
+				{
 					m_trnTransaction.Rollback();
+					RolledBack = m_booOwnsTransaction && m_trnTransaction.TransactionInformation.Status == TransactionStatus.Aborted;
+				}
 			}
 			finally
 			{

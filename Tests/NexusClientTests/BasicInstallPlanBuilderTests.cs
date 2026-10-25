@@ -146,6 +146,30 @@ namespace NexusClientTests
 			CollectionAssert.AreEqual(expected, result.Plan.GameSpecificValues[0].Value);
 		}
 
+		/// <summary>Collection-owned module records bypass placeholder archive metadata without weakening ordinary planning.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Build_SeparatelyProvidedGameValues_DoNotReadArchiveMetadata(bool collectionProvidesValues)
+		{
+			bool metadataRead = false;
+			IGameMode gameMode = CreateGameMode(specialFile: true, deterministicSpecialFiles: new[] { "payload.pak" },
+				onSpecialGameValues: () => { metadataRead = true; throw new InvalidDataException("Structured record metadata requires a GUID identity."); });
+			IMod mod = CreateMod("PlaceholderInfo.zip", "info.json", "payload.pak");
+			var builder = new BasicInstallPlanBuilder();
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			BasicInstallPlanResult result = collectionProvidesValues
+				? builder.Build(mod, gameMode, context, false, null, null, true, null, false)
+				: builder.Build(mod, gameMode, context, false);
+			Assert.That(metadataRead, Is.EqualTo(!collectionProvidesValues));
+			Assert.That(result.IsSupported, Is.EqualTo(collectionProvidesValues));
+			if (collectionProvidesValues)
+			{
+				Assert.That(result.Plan.Files.Single().SourcePath, Is.EqualTo("payload.pak"));
+				Assert.That(result.Plan.GameSpecificValues, Is.Empty);
+			}
+			else Assert.That(result.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation));
+		}
+
 		[Test]
 		public void Build_ModFileMerge_FailsClosedWithoutExecutingMerge()
 		{
@@ -401,7 +425,7 @@ namespace NexusClientTests
 			Action onSpecialInstall = null, Action onMerge = null, bool remapVirtualStorage = false,
 			IEnumerable<string> deterministicSpecialFiles = null, DeterministicModFileMergePlan deterministicMergePlan = null,
 			bool hasSecondaryInstallPath = false, Func<IMod, string, bool> checkSecondaryInstall = null,
-			IEnumerable<BasicInstallGameSpecificValue> deterministicSpecialGameValues = null)
+			IEnumerable<BasicInstallGameSpecificValue> deterministicSpecialGameValues = null, Action onSpecialGameValues = null)
 		{
 			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
@@ -421,6 +445,7 @@ namespace NexusClientTests
 					case "GetDeterministicSpecialFileInstallPlan":
 						return deterministicSpecialFiles;
 					case "GetDeterministicSpecialFileGameValues":
+						onSpecialGameValues?.Invoke();
 						return deterministicSpecialGameValues ?? new BasicInstallGameSpecificValue[0];
 					case "IsDeterministicSpecialFileGameValueKey": return args[0] is string;
 					case "get_RequiresModFileMerge":

@@ -40,6 +40,7 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeGamebryoDefinition Gamebryo { get; set; }
         public GameModeManagedContentDefinition ManagedContent { get; set; }
         public GameModeStructuredEffectsDefinition StructuredEffects { get; set; }
+        public GameModeRuntimePolicy Runtime { get; set; }
         public GameModePackageFilesDefinition PackageFiles { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
 
@@ -322,9 +323,18 @@ namespace Nexus.Client.Games.DataDriven
         public string ManagedInstallationPath { get; set; }
         public string[] HardlinkRequiredExtensions { get; set; }
         public string[] RealFileRequiredExtensions { get; set; }
+        /// <summary>Gets or sets exact archive paths routed automatically to a game-relative destination.</summary>
+        public List<GameModeFileDestinationDefinition> FileDestinations { get; set; }
         public bool? SupportsGameRootInstall { get; set; }
 		/// <summary>Gets or sets optional signatures identifying packages installed beside the game executable.</summary>
 		public List<GameModeGameRootPackageRuleDefinition> GameRootPackageRules { get; set; }
+    }
+
+    /// <summary>Maps one exact normalized archive path onto an automatic installation destination.</summary>
+    public sealed class GameModeFileDestinationDefinition
+    {
+        public string SourcePath { get; set; }
+        public string DestinationPath { get; set; }
     }
 
 	/// <summary>Describes a declarative game-root package signature in a per-game definition.</summary>

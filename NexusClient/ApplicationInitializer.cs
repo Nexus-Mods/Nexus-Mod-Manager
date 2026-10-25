@@ -186,7 +186,7 @@
 		#endregion
 
         /// <summary>
-        /// Blocks a second independently managed Witcher 3 mode from opening the same physical
+        /// Blocks a second independently managed game edition from opening the same physical
         /// installation or native InstallInfo. No automatic log reassignment/migration is safe.
         /// This is a startup boundary, not a replacement for per-operation native ownership rules.
         /// </summary>
@@ -194,7 +194,7 @@
             string installInfoPath, out ViewMessage errorMessage)
         {
             errorMessage = null;
-            if (!Witcher3RootOwnershipGuard.IsWitcherMode(modeId))
+            if (!(Nexus.Client.Games.GameModeRuntimePolicies.For(modeId).NativeRootOwnershipProfile != null))
                 return true;
 
             Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
@@ -203,16 +203,16 @@
                 return true;
 
             string otherModeId = Witcher3RootOwnershipGuard.CounterpartModeId(modeId);
-            string message = "NMM cannot open this Witcher 3 game mode safely. " + decision.Reason +
+            string message = "NMM cannot open this game mode safely. " + decision.Reason +
                 Environment.NewLine + Environment.NewLine +
                 "Current mode: " + modeId + Environment.NewLine +
                 "Other mode: " + otherModeId + Environment.NewLine +
                 "Game directory: " + (gamePath ?? "(unknown)") + Environment.NewLine + Environment.NewLine +
                 "No files or InstallLog records have been transferred. Use separate physical game installations " +
                 "or a future explicitly reviewed ownership migration. Do not copy or delete either mode's InstallLog.";
-            Trace.TraceWarning("Witcher 3 root ownership preflight blocked initialization: " +
+            Trace.TraceWarning("Game-root ownership preflight blocked initialization: " +
                 decision.Status + " - " + decision.Reason);
-            errorMessage = new ViewMessage(message, null, "Witcher 3 ownership protection", MessageBoxIcon.Error);
+            errorMessage = new ViewMessage(message, null, "Game-root ownership protection", MessageBoxIcon.Error);
             return false;
         }
 
@@ -270,8 +270,7 @@
 		{
             // Share the compiled release decision with direct factory callers. Reject before
             // delayed settings, Game Storage provisioning or native services are changed.
-            if (String.Equals(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
-                Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase) &&
+            if (Nexus.Client.Games.GameModeRuntimePolicies.For(p_gmfGameModeFactory.GameModeDescriptor.ModeId).RequiresReviewedNativeInstall &&
                 !Witcher3RemasteredReleasePolicy.NativeActivationApproved)
             {
                 p_vwmErrorMessage = Witcher3RemasteredReleasePolicy.CreateActivationBlockMessage();

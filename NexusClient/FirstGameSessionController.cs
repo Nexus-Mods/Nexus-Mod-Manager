@@ -105,10 +105,10 @@
 			if (_pendingNxm != null)
 			{
 				// Resolve through the same Nexus-game domain map used by the live listener.
-				// Witcher uses its separate download preference; other shared catalogs retain explicit destination selection.
+				// Configured edition choices retain their separate download preference.
 				var destinations = NexusGameDomain.GetDestinations(_pendingNxm.Host,
 					_shell.GameDiscoveryRegistry.RegisteredGameModes);
-				bool witcherDestination = NexusGameDomain.IsWitcher3DownloadDomain(_pendingNxm.Host) && NexusGameDomain.IsWitcher3Mode(selected);
+				bool editionDestination = NexusGameDomain.IsEditionChoiceDownloadDomain(_pendingNxm.Host) && NexusGameDomain.IsExplicitDownloadEditionMode(selected);
 				// Legacy game modes do not opt into explicit Nexus-domain routing.
 				// Preserve their existing -game/NXM alias selection in that case.
 				if (destinations.Count == 0 && String.IsNullOrWhiteSpace(selected))
@@ -117,9 +117,9 @@
 						"No supported game corresponds to this Nexus link."));
 					return;
 				}
-				if (destinations.Count == 1 && !witcherDestination)
+				if (destinations.Count == 1 && !editionDestination)
 					selected = destinations[0].ModeId;
-				else if (destinations.Count > 1 && !witcherDestination && !destinations.Any(d => String.Equals(d.ModeId, selected, StringComparison.OrdinalIgnoreCase)))
+				else if (destinations.Count > 1 && !editionDestination && !destinations.Any(d => String.Equals(d.ModeId, selected, StringComparison.OrdinalIgnoreCase)))
 				{
 					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.ChooseLinkDestination",
 						"Select a compatible game for the incoming Nexus link. The link has not been downloaded."));

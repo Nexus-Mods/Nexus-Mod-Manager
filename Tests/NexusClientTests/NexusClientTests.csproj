@@ -334,6 +334,7 @@
     <Compile Include="GameDiscoveryStartupIntentTests.cs" />
     <Compile Include="NexusLinkHandoffTests.cs" />
     <Compile Include="Witcher3DownloadModeTests.cs" />
+    <Compile Include="GameModeRuntimePolicyTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />
@@ -493,5 +494,9 @@
       <Link>Fixtures\witcher3_logo.ico</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <Content Include="..\..\Game Modes\Definitions\**\*">
+      <Link>GameModes\Definitions\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

@@ -61,7 +61,7 @@ namespace Nexus.Client.CollectionManagement
 					!String.Equals(manager.GameMode.ModeId, paths.GameId, StringComparison.OrdinalIgnoreCase))
 					throw new CollectionTargetOwnershipAuthorityException(
 						CollectionTargetOwnershipAuthorityFailureKind.TargetChanged,
-						"The active native service graph does not match this Witcher 3 mutation target.");
+						"The active native service graph does not match this native mutation target.");
 				// Use the reserved target's actual paths, including the proposed VirtualInstall
 				// directory. Settings captured before Game Storage relocation are not authority.
 				Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForStorageTransition(
@@ -70,13 +70,13 @@ namespace Nexus.Client.CollectionManagement
 				if (!decision.AllowsNativeMutation)
 					throw new CollectionTargetOwnershipAuthorityException(
 						CollectionTargetOwnershipAuthorityFailureKind.Witcher3CounterpartAuthorityConflict,
-						"Witcher 3 native ownership is not exclusive (" + decision.Status + "): " + decision.Reason);
+						"Native root ownership is not exclusive (" + decision.Status + "): " + decision.Reason);
 			};
 		}
 
 		private void ValidateWitcher3Counterpart(GameStoragePathSet paths)
 		{
-			if (_witcher3NativeMutationPreflight != null && Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
+			if (_witcher3NativeMutationPreflight != null && (Nexus.Client.Games.GameModeRuntimePolicies.For(paths.GameId).NativeRootOwnershipProfile != null))
 				_witcher3NativeMutationPreflight(paths);
 		}
 
@@ -130,7 +130,7 @@ namespace Nexus.Client.CollectionManagement
 					"The live game/storage authority changed after the mutation target was resolved. Mutation is blocked until the target is resolved again.");
 			}
 
-			// Target identity alone cannot authorize a second Witcher mode to reuse this
+			// Target identity alone cannot authorize a second game edition to reuse this
 			// game's native files. Check before reload, which may perform crash recovery.
 			ValidateWitcher3Counterpart(paths);
 

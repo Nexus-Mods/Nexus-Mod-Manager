@@ -81,7 +81,7 @@ namespace NexusClientTests
 		{
 			_preference = preference;
 			_rememberedMode = remembered;
-			string expected = NexusGameDomain.ResolveWitcher3DownloadMode(preference, remembered);
+			string expected = NexusGameDomain.ResolveDownloadEdition(preference, remembered);
 			foreach (string link in new[] { "nxm://witcher3/mods/123/files/456", "nxm://witcher3/collections/test/revisions/1" })
 			{
 				var intent = GameDiscoveryStartupIntent.Parse(new[] { link }, RequestedMode);
