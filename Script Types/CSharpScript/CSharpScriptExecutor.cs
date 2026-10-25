@@ -110,6 +110,15 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 					return true;
 				}
 			}
+			catch (Exception ex)
+			{
+				if (m_csfFunctions.IsCollectionCapture)
+				{
+					Trace.TraceError("C# Collection installer preparation failed: {0}", ex);
+					Trace.Flush();
+				}
+				throw;
+			}
 			finally
 			{
 				m_csfFunctions.TaskStarted -= Functions_TaskStarted;

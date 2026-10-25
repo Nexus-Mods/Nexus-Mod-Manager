@@ -618,51 +618,56 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		{
 			try
 			{
+				IBackgroundTask task = (IBackgroundTask)sender;
+				if (Task.IsCompleted || !ReferenceEquals(task, _startedTask))
+					return;
+				// File tasks raise several notifications per file. Marshal only visible changes,
+				// so thousands of small files do not block on thousands of identical grid refreshes.
+				string progress = GetTaskProgressUpdate(task, e.PropertyName, Progress);
+				if (progress == null)
+					return;
 				Control invokeTarget = _control;
 				if ((invokeTarget != null) && invokeTarget.InvokeRequired)
 				{
-					invokeTarget.Invoke((Action<IBackgroundTask, string>)HandleChangedTaskProperty, (IBackgroundTask)sender, e.PropertyName);
+					invokeTarget.Invoke((Action<IBackgroundTask, string>)ApplyTaskProgress, task, progress);
 					return;
 				}
-				HandleChangedTaskProperty((IBackgroundTask)sender, e.PropertyName);
+				ApplyTaskProgress(task, progress);
 			}
 			catch { }
 		}
 
-		private void HandleChangedTaskProperty(IBackgroundTask task, string propertyName)
+		/// <summary>Returns changed display text, or null when a task notification needs no UI update.</summary>
+		internal static string GetTaskProgressUpdate(IBackgroundTask task, string propertyName, string currentProgress)
 		{
-			if (Task.IsCompleted || !ReferenceEquals(task, _startedTask))
+			string progress = null;
+			if (task is NativeModStatePreparationTask)
+			{
+				if (propertyName == nameof(IBackgroundTask.OverallMessage))
+					progress = task.OverallMessage ?? String.Empty;
+			}
+			else if (task is BasicUninstallTask)
+			{
+				if (propertyName == nameof(IBackgroundTask.ItemProgress) && task.ItemProgress > 0 && task.ItemProgressMaximum > 0)
+					progress = String.Format(UninstallingProgressFormat, (task.ItemProgress * 100) / task.ItemProgressMaximum);
+			}
+			else if (propertyName == nameof(IBackgroundTask.OverallProgress) && task.OverallProgressMaximum > 0)
+			{
+				long percentage = (task.OverallProgress * 100) / task.OverallProgressMaximum;
+				progress = task is PrepareModTask
+					? String.Format(UnpackingProgressFormat, percentage / 2)
+					: String.Format(InstallingProgressFormat, (percentage / 2) + 50);
+			}
+			return String.Equals(progress, currentProgress, StringComparison.Ordinal) ? null : progress;
+		}
+
+		/// <summary>Applies a visible update only while its task is still the active stage.</summary>
+		private void ApplyTaskProgress(IBackgroundTask task, string progress)
+		{
+			if (Task.IsCompleted || !ReferenceEquals(task, _startedTask) || String.Equals(Progress, progress, StringComparison.Ordinal))
 				return;
-			try
-			{
-				if (task is NativeModStatePreparationTask)
-				{
-					if (propertyName == nameof(IBackgroundTask.OverallMessage))
-						Progress = task.OverallMessage;
-				}
-				else if (task is BasicUninstallTask)
-				{
-					if ((propertyName == nameof(IBackgroundTask.ItemProgress)) && (task.ItemProgress > 0))
-						Progress = String.Format(UninstallingProgressFormat, (task.ItemProgress * 100) / task.ItemProgressMaximum);
-				}
-				else if (task is PrepareModTask)
-				{
-					if (propertyName == nameof(IBackgroundTask.OverallProgress))
-						Progress = String.Format(UnpackingProgressFormat, ((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2);
-				}
-				else
-				{
-					if (propertyName == nameof(IBackgroundTask.OverallProgress))
-						Progress = String.Format(InstallingProgressFormat, (((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + 50);
-				}
-				_control.RefreshRow(this);
-			}
-			catch (NullReferenceException)
-			{
-			}
-			catch (ArgumentOutOfRangeException)
-			{
-			}
+			Progress = progress;
+			_control.RefreshRow(this);
 		}
 
 		private void SetField<T>(ref T field, T value, string propertyName)

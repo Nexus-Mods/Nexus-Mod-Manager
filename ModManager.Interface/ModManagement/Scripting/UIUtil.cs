@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Permissions;
 using System.Threading;
@@ -57,6 +60,49 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		#endregion
+
+		/// <summary>Associates a script's own dialog with NMM without moving its sandboxed controls onto NMM's UI thread.</summary>
+		public void AttachScriptWindow(IntPtr window)
+		{
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+				IntPtr owner = IntPtr.Zero;
+				SyncContext.Send(ignored =>
+				{
+					Form form = Form.ActiveForm;
+					if (form == null)
+						foreach (Form candidate in Application.OpenForms)
+							if (candidate.Visible) { form = candidate; break; }
+					if (form != null) owner = form.Handle;
+				}, null);
+				if (owner == IntPtr.Zero || window == IntPtr.Zero || owner == window)
+					return;
+
+				// Change ownership on the script thread after the UI callback returns, avoiding a cross-thread window-message deadlock.
+				if (IntPtr.Size == 8) SetWindowLongPtr(window, -8, owner);
+				else SetWindowLong(window, -8, owner.ToInt32());
+				SetForegroundWindow(window);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Could not associate the scripted installer window with NMM: {0}", ex.Message);
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+		}
+
+		[DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+		private static extern IntPtr SetWindowLongPtr(IntPtr window, int index, IntPtr value);
+
+		[DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+		private static extern int SetWindowLong(IntPtr window, int index, int value);
+
+		[DllImport("user32.dll")]
+		[return: MarshalAs(UnmanagedType.Bool)]
+		private static extern bool SetForegroundWindow(IntPtr window);
 
 		#region Message Box
 

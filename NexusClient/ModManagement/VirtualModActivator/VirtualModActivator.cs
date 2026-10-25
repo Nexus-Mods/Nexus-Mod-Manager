@@ -2425,7 +2425,7 @@
 			if (p_modMod != null)
 			{
 				p_modMod.PlaceInModLoadOrder = p_modMod.NewPlaceInModLoadOrder;
-				p_modMod.UpdateInfo(p_modMod, true);
+				UpdateModInfoNowOrDefer(p_modMod);
 			}
 		}
 

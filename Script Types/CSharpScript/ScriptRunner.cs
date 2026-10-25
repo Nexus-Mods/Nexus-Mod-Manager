@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
@@ -56,22 +58,34 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <c>false</c> otherwise.</returns>
 		public bool Execute(byte[] p_bteScript)
 		{
-			Application.EnableVisualStyles();
-			Application.SetCompatibleTextRenderingDefault(false);
-			Control.CheckForIllegalCrossThreadCalls = false;
-						
-			Assembly asmScript = Assembly.Load(p_bteScript);
-
-			object s = asmScript.CreateInstance("Script");
-			//s = new Script();
-			if (s == null)
-			{
-				m_csfFunctions.MessageBox("C# Script did not contain a 'Script' class in the root namespace.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				return false;
-			}
-
+			EventHandler attachWindows = null;
 			try
 			{
+				Application.EnableVisualStyles();
+				Application.SetCompatibleTextRenderingDefault(false);
+				Control.CheckForIllegalCrossThreadCalls = false;
+				if (m_csfFunctions != null && m_csfFunctions.IsCollectionCapture)
+				{
+					var attached = new HashSet<Form>();
+					attachWindows = (sender, args) =>
+					{
+						foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+							if (form.Visible && !form.IsDisposed && attached.Add(form))
+								m_csfFunctions.AttachInstallerWindow(form.Handle);
+					};
+					Application.Idle += attachWindows;
+				}
+
+				Assembly asmScript = Assembly.Load(p_bteScript);
+
+				object s = asmScript.CreateInstance("Script");
+				//s = new Script();
+				if (s == null)
+				{
+					m_csfFunctions.MessageBox("C# Script did not contain a 'Script' class in the root namespace.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return false;
+				}
+
 				MethodInfo mifMethod = null;
 				for (Type tpeScriptType = s.GetType(); mifMethod == null; tpeScriptType = tpeScriptType.BaseType)
 					mifMethod = tpeScriptType.GetMethod("Setup", new Type[] { typeof(CSharpScriptFunctionProxy) });
@@ -80,6 +94,9 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			}
 			catch (Exception ex)
 			{
+				if (m_csfFunctions != null && m_csfFunctions.IsCollectionCapture)
+					throw new InvalidOperationException("The C# installer failed while preparing Collection choices.", ex);
+
 				StringBuilder stbException = new StringBuilder(ex.ToString());
 				while (ex.InnerException != null)
 				{
@@ -89,6 +106,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				string strMessage = "An exception occured in the script.";
 				m_csfFunctions.ExtendedMessageBox(strMessage, "Error", stbException.ToString(), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return false;
+			}
+			finally
+			{
+				if (attachWindows != null) Application.Idle -= attachWindows;
 			}
 		}
 	}

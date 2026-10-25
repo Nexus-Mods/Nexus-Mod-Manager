@@ -122,29 +122,29 @@ namespace Nexus.Client.ModManagement
 			return selection;
 		}
 
-		/// <summary>Captures native C# choices or numbered archive components on the application's existing UI thread.</summary>
+		/// <summary>Captures scripted choices on the preparation worker, or numbered archive components on the UI thread.</summary>
 		internal IReadOnlyList<ScriptedInstallOperation> CaptureCollectionInstallerOperations(IMod mod, ModInstallContext context,
 			IModInstallationConditionEnvironment conditionEnvironment, CancellationToken cancellationToken)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
+			if (mod.HasInstallScript)
+			{
+				// Match ordinary C# installation: the sandbox owns its windows on the worker thread.
+				// Sharing NMM's UI thread can re-enter host window hooks from the restricted AppDomain.
+				var adapter = mod.InstallScript.Type as IModInstallationScriptPlanningAdapter;
+				if (adapter == null) throw new NotSupportedException("This script type cannot capture Collection installer operations.");
+				var installers = new InstallerGroup(new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), null,
+					new IniInstaller(mod, InstallationLog, VirtualModActivator, null, null), null, m_pmgPluginManager,
+					context, null, null, null);
+				return adapter.CaptureOperations(mod, GameMode, EnvironmentInfo, VirtualModActivator, installers,
+					conditionEnvironment, m_scxUIContext, cancellationToken);
+			}
+
 			IReadOnlyList<ScriptedInstallOperation> operations = null;
 			Exception failure = null;
 			SendOrPostCallback collect = ignored =>
 			{
-				try
-				{
-					if (!mod.HasInstallScript)
-						operations = CollectionArchiveComponentSelector.Select(mod, cancellationToken);
-					else
-					{
-						var adapter = mod.InstallScript.Type as IModInstallationScriptPlanningAdapter;
-						if (adapter == null) throw new NotSupportedException("This script type cannot capture Collection installer operations.");
-						var installers = new InstallerGroup(new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), null,
-							new IniInstaller(mod, InstallationLog, VirtualModActivator, null, null), null, m_pmgPluginManager,
-							context, null, null, null);
-						operations = adapter.CaptureOperations(mod, GameMode, EnvironmentInfo, VirtualModActivator, installers,
-							conditionEnvironment, m_scxUIContext, cancellationToken);
-					}
-				}
+				try { operations = CollectionArchiveComponentSelector.Select(mod, cancellationToken); }
 				catch (Exception ex) { failure = ex; }
 			};
 			if (m_scxUIContext == null || ReferenceEquals(SynchronizationContext.Current, m_scxUIContext)) collect(null);

@@ -106,6 +106,7 @@ namespace Nexus.Client.ModManagement
                 bool hasPromotedTargets = _deploymentManager != null && _deploymentManager.HasPromotedTargets;
                 IModLinkInstaller modLinkInstaller = hasPromotedTargets ? null : _virtualModActivator.GetModLinkInstaller();
                 int processedFileCount = 0;
+                using (_virtualModActivator.BeginVirtualLinkUpdateBatch(result.FileCount))
                 using (IEnumerator<string> fileEnumerator = files.GetEnumerator())
                 {
                     while (true)

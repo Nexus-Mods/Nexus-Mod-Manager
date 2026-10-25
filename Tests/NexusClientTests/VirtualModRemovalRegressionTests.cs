@@ -29,6 +29,28 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>Transactional removal publishes one link-list reset while preserving unrelated native ownership.</summary>
+		[Test]
+		public void NativeUninstall_BatchesLinkNotificationsAndPreservesOtherMod()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod removed = fixture.CreateMod("RemovedBatch");
+				fixture.Install(removed, "first.txt", "first");
+				fixture.Install(removed, "second.txt", "second");
+				IMod retained = fixture.CreateMod("RetainedBatch");
+				fixture.Install(retained, "retained.txt", "retained");
+				int notifications = 0;
+				fixture.Activator.VirtualLinks.CollectionChanged += (sender, args) => notifications++;
+
+				Assert.That(fixture.Uninstall(removed).Succeeded, Is.True);
+
+				Assert.That(notifications, Is.EqualTo(1));
+				Assert.That(fixture.Activator.GetVirtualTargetsForMod(removed), Is.Empty);
+				Assert.That(fixture.Activator.GetVirtualTargetsForMod(retained).Count, Is.EqualTo(1));
+			}
+		}
+
 		/// <summary>Checks incremental Collection verification against a full native capture after a real overwrite.</summary>
 		[TestCase(ModInstallRoot.Data)]
 		[TestCase(ModInstallRoot.GameRoot)]

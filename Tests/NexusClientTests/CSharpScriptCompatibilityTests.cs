@@ -243,6 +243,61 @@ public class Script : CSharpBaseScript
             }
         }
 
+        /// <summary>Custom installer windows initialize on the preparation worker and survive repeated sandbox recreation.</summary>
+        [Test]
+        public void CollectionCapture_WorkerCreatesCustomFormAndUnloads()
+        {
+            const string code = @"
+using System.Drawing;
+using System.Windows.Forms;
+public class Script : CSharpBaseScript
+{
+    public bool OnActivate()
+    {
+        using (Form form = CreateCustomForm())
+        {
+            form.MinimumSize = new Size(640, 480);
+            return form.Handle != System.IntPtr.Zero && Screen.FromControl(form).WorkingArea.Width > 0;
+        }
+    }
+}";
+            for (int i = 0; i < 2; i++)
+                Assert.That(ExecuteCollectionScriptOnWorker(code), Is.True);
+        }
+
+        /// <summary>Constructor and activation failures reach Collection error reporting instead of a sandbox error dialog.</summary>
+        [TestCase("public Script() { throw new System.InvalidOperationException(\"constructor failure\"); }")]
+        [TestCase("public bool OnActivate() { throw new System.InvalidOperationException(\"activation failure\"); }")]
+        public void CollectionCapture_WorkerReportsScriptException(string member)
+        {
+            string code = "public class Script : CSharpBaseScript { " + member + " }";
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() => ExecuteCollectionScriptOnWorker(code));
+            Assert.That(failure.Message, Does.Contain("preparing Collection choices"));
+            Assert.That(failure.InnerException, Is.Not.Null);
+            Assert.That(failure.ToString(), Does.Contain("failure"));
+        }
+
+        /// <summary>Uses the production capture sandbox on an MTA worker, as the Collection preparation workflow does.</summary>
+        private static bool ExecuteCollectionScriptOnWorker(string code)
+        {
+            return System.Threading.Tasks.Task.Run(() =>
+            {
+                using (var temporaryDirectory = new TemporaryDirectory())
+                {
+                    var context = new ScriptProxyContext(temporaryDirectory.Path, "123", false, false, null);
+                    string scratch = Path.Combine(temporaryDirectory.Path, "Scratch");
+                    Directory.CreateDirectory(scratch);
+                    IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+                        method.Name == "get_TemporaryPath" ? scratch : null);
+                    var proxy = new CSharpScriptFunctionProxy(context.Mod, context.GameMode, environment, context.VirtualModActivator, context.Installers, null);
+                    typeof(CSharpScriptFunctionProxy).GetMethod("BeginCollectionCapture", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Invoke(proxy, new object[] { null });
+                    var executor = new CSharpScriptExecutor(context.GameMode, environment, proxy, typeof(CSharpBaseScript), context.VirtualPath);
+                    return executor.DoExecute(new CSharpScript(new CSharpScriptType(), code));
+                }
+            }).GetAwaiter().GetResult();
+        }
+
         /// <summary>
         /// Compiles the supplied script and asserts that the compatibility compiler accepted it.
         /// </summary>

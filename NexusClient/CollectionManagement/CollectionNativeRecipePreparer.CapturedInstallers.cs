@@ -129,16 +129,18 @@ namespace Nexus.Client.CollectionManagement
 				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
 				if (file != null || generated != null)
 				{
-					string destination = new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination,
-						file == null ? generated.DestinationPath : file.DestinationPath).Path;
+					string destination = NormalizeCapturedPath(ModInstallationRecipePathKind.Destination,
+						file == null ? generated.DestinationPath : file.DestinationPath);
 					if (generated != null && String.IsNullOrEmpty(generated.PreparationSourcePath))
 					{
 						string scriptSource = mod.InstallScript.Type.FileNames.Select(name => Path.Combine("fomod", name)).First(archiveSources.Contains);
 						files[destination] = new GenerateDataFileOperation(destination, generated.Data, scriptSource);
 						continue;
 					}
-					files[destination] = file == null ? operation : new InstallModFileOperation(
-						new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, file.SourcePath).Path, destination);
+					files[destination] = file == null
+						? (ScriptedInstallOperation)new GenerateDataFileOperation(destination, generated.Data,
+							NormalizeCapturedPath(ModInstallationRecipePathKind.ArchiveSource, generated.PreparationSourcePath))
+						: new InstallModFileOperation(NormalizeCapturedPath(ModInstallationRecipePathKind.ArchiveSource, file.SourcePath), destination);
 					continue;
 				}
 				if (operation is SetPluginActivationOperation) continue;
@@ -162,6 +164,17 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("The C# installer uses a native operation that cannot yet be retained in a Collection: " + operation.GetType().Name);
 			}
 			return files.OrderBy(file => file.Key, StringComparer.OrdinalIgnoreCase).Select(file => file.Value).Concat(values).ToList().AsReadOnly();
+		}
+
+		/// <summary>Canonicalizes script separator duplication before applying the existing relative-path contract.</summary>
+		private static string NormalizeCapturedPath(ModInstallationRecipePathKind kind, string path)
+		{
+			if (path != null)
+			{
+				path = path.Replace('\\', '/');
+				while (path.Contains("//")) path = path.Replace("//", "/");
+			}
+			return new ModInstallationRecipePath(kind, path).Path;
 		}
 
 		/// <summary>Uses the scripted archive inventory so metadata-hidden installer files remain valid sources.</summary>

@@ -467,21 +467,24 @@ namespace Nexus.Client.ModManagement
 
 			var absentPaths = new List<string>();
 			int processedTargetCount = 0;
-			foreach (ModDeploymentTarget target in targets)
+			using (installMethod == ModInstallMethod.Virtual ? new VirtualModDeploymentBatch(m_vmaVirtualModActivator, 0) : null)
 			{
+				foreach (ModDeploymentTarget target in targets)
+				{
+					ThrowIfUninstallCancelled(p_fncCancellationRequested);
+					if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
+						RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
+					else if (installMethod == ModInstallMethod.Virtual)
+						RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
+
+					processedTargetCount++;
+					p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
+				}
+
 				ThrowIfUninstallCancelled(p_fncCancellationRequested);
-				if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
-					RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
-				else if (installMethod == ModInstallMethod.Virtual)
-					RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
-
-				processedTargetCount++;
-				p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
+				if (installMethod == ModInstallMethod.Virtual)
+					m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
 			}
-
-			ThrowIfUninstallCancelled(p_fncCancellationRequested);
-			if (installMethod == ModInstallMethod.Virtual)
-				m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
 			return absentPaths;
 		}
 

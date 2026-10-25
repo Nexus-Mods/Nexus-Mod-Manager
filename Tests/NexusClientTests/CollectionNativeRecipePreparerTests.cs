@@ -273,13 +273,14 @@ namespace NexusClientTests
 				byte[] settings = Encoding.UTF8.GetBytes("[Settings]\r\nEnabled=1\r\n");
 				fixture.Preparer.CaptureInstallerOperations = (mod, context, environment, token) => new ScriptedInstallOperation[]
 				{
-					new InstallModFileOperation(@"core\example.bin", @"meshes\example.bin"),
-					new GenerateDataFileOperation(@"config\example.ini", settings),
+					new InstallModFileOperation("core//example.bin", "meshes//example.bin"),
+					new GenerateDataFileOperation("config//example.ini", settings),
 					new EditIniOperation("fallout.ini", "General", "Example", "1")
 				};
 				PreparedCollectionNativeRecipe first = fixture.Preparer.PrepareExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive,
 					fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
 				Assert.That(first.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single().DestinationPath, Is.EqualTo(@"meshes\example.bin"));
+				Assert.That(first.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>().Single().DestinationPath, Is.EqualTo(@"config\example.ini"));
 				CollectionAssert.AreEqual(settings, first.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>().Single().Data);
 				Assert.That(CollectionReviewedPreparedRecipeSnapshot.From(first).EffectPreview.IniEdits.Count, Is.EqualTo(1));
 				var restarted = new CollectionNativeRecipePreparer(new CollectionsStore(root));
@@ -288,6 +289,22 @@ namespace NexusClientTests
 					fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
 				Assert.That(second.PreparedNativeIdentity, Is.EqualTo(first.PreparedNativeIdentity));
 				CollectionAssert.AreEquivalent(first.RetainedArtifactIds, second.RetainedArtifactIds);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Separator normalization never turns an absolute path or parent traversal into a valid relative destination.</summary>
+		[TestCase("../outside.dds")]
+		[TestCase("//server/share/file.dds")]
+		[TestCase("C://outside.dds")]
+		public void CapturedInstaller_StillRejectsPathsOutsideDeploymentRoot(string destination)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "captured-paths", @"core\example.bin");
+				Assert.Throws<InvalidDataException>(() => CollectionNativeRecipePreparer.NormalizeCapturedOperations(
+					new ScriptedInstallOperation[] { new InstallModFileOperation(@"core\example.bin", destination) }, fixture.Mod));
 			}
 			finally { Directory.Delete(root, true); }
 		}

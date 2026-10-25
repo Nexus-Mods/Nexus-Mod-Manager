@@ -63,6 +63,12 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			return IsCollectionCapture ? null : VirtualModActivator.BeginModInfoUpdateBatch();
 		}
 
+		/// <summary>Lets the trusted host associate a custom script dialog with NMM's main window.</summary>
+		internal void AttachInstallerWindow(IntPtr window)
+		{
+			if (UIManager != null) UIManager.AttachScriptWindow(window);
+		}
+
 		#region File Management
 
 		/// <summary>
