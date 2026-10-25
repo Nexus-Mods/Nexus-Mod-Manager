@@ -553,6 +553,11 @@ namespace Nexus.Client.Games.DataDriven
                 issues.Add(Error(definition, "modInstall.managedInstallationPath", "managedInstallationPath cannot use {UserGameData}."));
             ValidateExtensions(definition, definition.ModInstall.HardlinkRequiredExtensions, "modInstall.hardlinkRequiredExtensions", issues);
             ValidateExtensions(definition, definition.ModInstall.RealFileRequiredExtensions, "modInstall.realFileRequiredExtensions", issues);
+            ValidateExtensions(definition, definition.ModInstall.FlattenFileExtensions, "modInstall.flattenFileExtensions", issues);
+            ValidateExtensions(definition, definition.ModInstall.PrimaryFileExtensions, "modInstall.primaryFileExtensions", issues);
+            foreach (string[] names in new[] { definition.ModInstall.ExcludedArchiveDirectories, definition.ModInstall.ExcludedFileNamePrefixes })
+                if (names != null && names.Any(name => String.IsNullOrWhiteSpace(name) || name.IndexOfAny(new[] { '/', '\\' }) >= 0))
+                    issues.Add(Error(definition, "modInstall", "Excluded archive directory names and file-name prefixes must be non-empty names without path separators."));
             if (definition.ModInstall.FileDestinations != null)
             {
                 var sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

@@ -16,6 +16,42 @@ namespace NexusClientTests
 	[TestFixture, NonParallelizable]
 	public class GameModeRuntimePolicyTests
 	{
+		/// <summary>Rejects packaging artifacts before a nested package can lose its enclosing directory.</summary>
+		[TestCase(@"__MACOSX\Wrapper\Example.pak", true)]
+		[TestCase("Wrapper/__macosx/._Example.pak", true)]
+		[TestCase(@"Wrapper\._Example.pak", true)]
+		[TestCase(@"Wrapper\Example.pak", false)]
+		public void ConfiguredArchiveFilters_RejectPackagingArtifacts(string path, bool excluded)
+		{
+			var policy = new GameModeModInstallDefinition { ExcludedArchiveDirectories = new[] { "__MACOSX" }, ExcludedFileNamePrefixes = new[] { "._" } };
+			Assert.That(DataDrivenGameMode.IsConfiguredArchiveFileExcluded(policy, path), Is.EqualTo(excluded));
+		}
+
+		/// <summary>Restricts the primary directory to packages while preserving secondary native and loose payloads.</summary>
+		[TestCase("Example.pak", false, "Example.pak")]
+		[TestCase("Readme.txt", false, "")]
+		[TestCase("order.lsx", false, "")]
+		[TestCase(@"Data\Public\texture.dds", true, @"Data\Public\texture.dds")]
+		[TestCase(@"bin\NativeMods\loader.dll", true, @"bin\NativeMods\loader.dll")]
+		public void ConfiguredPrimaryExtensions_KeepOnlyPackages(string path, bool secondary, string expected)
+		{
+			var policy = new GameModeModInstallDefinition { PrimaryFileExtensions = new[] { ".pak" } };
+			Assert.That(DataDrivenGameMode.FilterConfiguredPrimaryFile(policy, path, secondary), Is.EqualTo(expected));
+		}
+
+		/// <summary>Flattens configured packages without changing loose assets, native loaders or recorded absolute paths.</summary>
+		[TestCase(@"Mods\Example\Example.pak", "Example.pak")]
+		[TestCase("Wrapper/Packages/Example.PAK", "Example.PAK")]
+		[TestCase("Example.pak", "Example.pak")]
+		[TestCase(@"Data\Generated\Public\texture.dds", @"Data\Generated\Public\texture.dds")]
+		[TestCase(@"bin\NativeMods\loader.dll", @"bin\NativeMods\loader.dll")]
+		[TestCase(@"C:\Recorded\Mods\Old\Example.pak", @"C:\Recorded\Mods\Old\Example.pak")]
+		public void ConfiguredPackageLayout_FlattensOnlyConfiguredRelativeFiles(string source, string expected)
+		{
+			var policy = new GameModeModInstallDefinition { FlattenFileExtensions = new[] { ".pak" } };
+			Assert.That(DataDrivenGameMode.AdjustConfiguredFileDestination(policy, source), Is.EqualTo(expected));
+		}
+
 		/// <summary>Maps a flat loader while preserving an already routed path and unrelated DLLs.</summary>
 		[TestCase("DWrite.dll", @"bin\DWrite.dll")]
 		[TestCase("dwrite.DLL", @"bin\DWrite.dll")]

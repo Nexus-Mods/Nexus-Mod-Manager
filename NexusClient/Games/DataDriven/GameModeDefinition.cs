@@ -325,6 +325,12 @@ namespace Nexus.Client.Games.DataDriven
         public string[] RealFileRequiredExtensions { get; set; }
         /// <summary>Gets or sets exact archive paths routed automatically to a game-relative destination.</summary>
         public List<GameModeFileDestinationDefinition> FileDestinations { get; set; }
+        /// <summary>Gets or sets package extensions installed directly in the primary mod directory.</summary>
+        public string[] FlattenFileExtensions { get; set; }
+        /// <summary>Gets or sets the extensions accepted in the primary mod directory; secondary paths keep their own layout.</summary>
+        public string[] PrimaryFileExtensions { get; set; }
+        public string[] ExcludedArchiveDirectories { get; set; }
+        public string[] ExcludedFileNamePrefixes { get; set; }
         public bool? SupportsGameRootInstall { get; set; }
 		/// <summary>Gets or sets optional signatures identifying packages installed beside the game executable.</summary>
 		public List<GameModeGameRootPackageRuleDefinition> GameRootPackageRules { get; set; }

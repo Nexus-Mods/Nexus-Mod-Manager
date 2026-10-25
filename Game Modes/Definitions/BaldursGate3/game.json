@@ -115,6 +115,10 @@
   },
   "modInstall": {
     "pathAdjustmentProfile": "none",
+      "flattenFileExtensions": [ ".pak" ],
+      "primaryFileExtensions": [ ".pak" ],
+      "excludedArchiveDirectories": [ "__MACOSX" ],
+      "excludedFileNamePrefixes": [ "._" ],
       "fileDestinations": [
         { "sourcePath": "DWrite.dll", "destinationPath": "bin\\DWrite.dll" }
       ],

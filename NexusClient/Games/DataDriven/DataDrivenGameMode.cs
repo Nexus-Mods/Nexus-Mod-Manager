@@ -274,31 +274,54 @@ namespace Nexus.Client.Games.DataDriven
             String.Equals(path, StructuredRecords.MetadataFile, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Keeps provider metadata out of ordinary file deployment.</summary>
-        public override string GetModFormatAdjustedPath(IModFormat format, string path, bool ignoreIfPresent) =>
-            IsStructuredMetadataFile(path) ? String.Empty : AdjustConfiguredFileDestination(_definition.ModInstall, base.GetModFormatAdjustedPath(format, path, ignoreIfPresent));
+        public override string GetModFormatAdjustedPath(IModFormat format, string path, bool ignoreIfPresent)
+        {
+            if (IsStructuredMetadataFile(path) || IsConfiguredArchiveFileExcluded(_definition.ModInstall, path)) return String.Empty;
+            string adjusted = AdjustConfiguredFileDestination(_definition.ModInstall, base.GetModFormatAdjustedPath(format, path, ignoreIfPresent));
+            return FilterConfiguredPrimaryFile(_definition.ModInstall, adjusted, _definition.ModInstall?.PrimaryFileExtensions != null && HasSecondaryInstallPath && CheckSecondaryInstall(null, adjusted));
+        }
 
         public override string GetModFormatAdjustedPath(IModFormat p_mftModFormat, string p_strPath, IMod p_modMod, bool p_booIgnoreIfPresent)
         {
-            if (IsStructuredMetadataFile(p_strPath)) return String.Empty;
+            if (IsStructuredMetadataFile(p_strPath) || IsConfiguredArchiveFileExcluded(_definition.ModInstall, p_strPath)) return String.Empty;
             string baseAdjusted = base.GetModFormatAdjustedPath(p_mftModFormat, p_strPath, p_modMod, p_booIgnoreIfPresent);
-            return AdjustConfiguredFileDestination(_definition.ModInstall, DataDrivenPathAdjustmentDispatcher.Adjust(
+            string adjusted = AdjustConfiguredFileDestination(_definition.ModInstall, DataDrivenPathAdjustmentDispatcher.Adjust(
                 _definition.ModInstall == null ? null : _definition.ModInstall.PathAdjustmentProfile,
                 p_strPath,
                 baseAdjusted,
                 p_modMod,
                 GameVersion,
                 GameModeEnvironmentInfo.InstallationPath));
+            return FilterConfiguredPrimaryFile(_definition.ModInstall, adjusted, _definition.ModInstall?.PrimaryFileExtensions != null && HasSecondaryInstallPath && CheckSecondaryInstall(p_modMod, adjusted));
         }
 
-        /// <summary>Applies exact configured destinations before the existing primary/secondary root selection.</summary>
+        /// <summary>Rejects configured packaging artifacts before wrapper stripping or destination flattening loses their source directory.</summary>
+        internal static bool IsConfiguredArchiveFileExcluded(GameModeModInstallDefinition policy, string path)
+        {
+            if (policy == null || String.IsNullOrEmpty(path) || Path.IsPathRooted(path)) return false;
+            string normalized = path.Replace('/', '\\');
+            if (policy.ExcludedArchiveDirectories != null && normalized.Split('\\').Any(part =>
+                policy.ExcludedArchiveDirectories.Contains(part, StringComparer.OrdinalIgnoreCase))) return true;
+            string name = Path.GetFileName(normalized);
+            return policy.ExcludedFileNamePrefixes?.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) == true;
+        }
+
+        /// <summary>Filters primary-root payloads while preserving secondary files and previously recorded absolute paths.</summary>
+        internal static string FilterConfiguredPrimaryFile(GameModeModInstallDefinition policy, string path, bool secondary) =>
+            policy?.PrimaryFileExtensions == null || secondary || String.IsNullOrEmpty(path) || Path.IsPathRooted(path) ||
+            policy.PrimaryFileExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase) ? path : String.Empty;
+
+        /// <summary>Applies configured file destinations and flat package layout before primary/secondary root selection.</summary>
         internal static string AdjustConfiguredFileDestination(GameModeModInstallDefinition policy, string path)
         {
-            if (policy?.FileDestinations == null || String.IsNullOrEmpty(path)) return path;
+            if (policy == null || String.IsNullOrEmpty(path) || Path.IsPathRooted(path)) return path;
             string normalized = path.Replace('/', '\\');
-            foreach (GameModeFileDestinationDefinition rule in policy.FileDestinations)
-                if (String.Equals(normalized, rule.SourcePath.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
-                    return rule.DestinationPath.Replace('/', '\\');
-            return path;
+            if (policy.FileDestinations != null)
+                foreach (GameModeFileDestinationDefinition rule in policy.FileDestinations)
+                    if (String.Equals(normalized, rule.SourcePath.Replace('/', '\\'), StringComparison.OrdinalIgnoreCase))
+                        return rule.DestinationPath.Replace('/', '\\');
+            return policy.FlattenFileExtensions?.Contains(Path.GetExtension(normalized), StringComparer.OrdinalIgnoreCase) == true
+                ? Path.GetFileName(normalized) : path;
         }
 
         public override bool HardlinkRequiredFilesType(string p_strFileName)
