@@ -66,6 +66,9 @@ Name: associateFomodFiles; Description: &Associate *.FOMOD files with {#MyAppSet
 Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 
 #define RetiredGameModeDlls "Fallout3.dll,Fallout4.dll,FalloutNV.dll,Oblivion.dll,OblivionRemastered.dll,Skyrim.dll,SkyrimGOG.dll,SkyrimSE.dll,Starfield.dll,Enderal.dll,EnderalSE.dll,Fallout4VR.dll,SkyrimVR.dll"
+#define RetiredGameModeConfigs "Fallout3.dll.config,Fallout4.dll.config,FalloutNV.dll.config,Oblivion.dll.config,OblivionRemastered.dll.config,Skyrim.dll.config,SkyrimGOG.dll.config,SkyrimSE.dll.config,Starfield.dll.config,Enderal.dll.config,EnderalSE.dll.config,Fallout4VR.dll.config,SkyrimVR.dll.config"
+; Filter stale development files without excluding game data XML or runtime dependencies.
+#define NonRuntimeFiles "*.pdb,*.tmp,*.log,*.vshost.*,nunit.*,Microsoft.Testing.*,Microsoft.TestPlatform.*,Microsoft.VisualStudio.TestPlatform.*,Microsoft.ApplicationInsights.*,DevExpress.*.xml,Newtonsoft.Json.xml,SevenZipSharp.xml,System.Data.SQLite.xml,CSharpScript.xml"
 
 [InstallDelete]
 ; Remove documentation replaced by plain-text licenses and generated release notes.
@@ -116,14 +119,14 @@ Type: files; Name: "{app}\SkyrimVR.dll"
 Type: files; Name: "{app}\GameModes\SkyrimVR.dll"
 
 [Files]
-Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
-Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
-Source: "..\Stage\Release\*.dll"; Excludes: "{#RetiredGameModeDlls}"; DestDir: {app}; Flags: ignoreversion
-Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\Languages\*"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\*.exe"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\*.config"; Excludes: "{#NonRuntimeFiles},{#RetiredGameModeConfigs}"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\*.dll"; Excludes: "{#NonRuntimeFiles},{#RetiredGameModeDlls}"; DestDir: {app}; Flags: ignoreversion
+Source: "..\Stage\Release\data\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\Languages\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; Excludes: "{#NonRuntimeFiles},Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls},{#RetiredGameModeConfigs}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ModFormats\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: {group}\{#MyAppSetupName}; Filename: {app}\{#MyExeName}; WorkingDir: {app}
