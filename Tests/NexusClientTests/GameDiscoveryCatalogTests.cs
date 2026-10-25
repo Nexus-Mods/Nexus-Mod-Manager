@@ -295,6 +295,9 @@ namespace NexusClientTests
 			var entry = Single(settings, "Old");
 			Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
 			Assert.That(entry.HasLegacyStoragePaths, Is.True);
+			Assert.That(entry.SavedModFolder, Is.EqualTo(settings.ModFolder["Old"]));
+			Assert.That(entry.SavedInstallInfoFolder, Is.EqualTo(settings.InstallInfoFolder["Old"]));
+			Assert.That(entry.SavedVirtualFolder, Is.EqualTo(settings.VirtualFolder["Old"]));
 			Assert.That(entry.CompletedSetup, Is.False);
 			Assert.That(entry.NeedsAttention, Is.False);
 			Assert.That(settings.CompletedSetup, Has.Count.EqualTo(0));

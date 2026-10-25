@@ -1216,6 +1216,17 @@
 				lines.Add(String.Empty);
 				lines.Add(L("GameDiscovery.SavedExePath", "Saved executable path") + ": " + entry.SavedExecutablePath);
 			}
+			if (entry.Collection == GameDiscoveryCollection.Managed)
+			{
+				string notSelected = L("GameDiscovery.NotSelected", "Not selected");
+				lines.Add(String.Empty);
+				lines.Add(L("GameStorage.FolderRole.Mods", "Mods") + ": " +
+					(String.IsNullOrWhiteSpace(entry.SavedModFolder) ? notSelected : entry.SavedModFolder));
+				lines.Add(L("GameStorage.FolderRole.InstallInfo", "Install Info") + ": " +
+					(String.IsNullOrWhiteSpace(entry.SavedInstallInfoFolder) ? notSelected : entry.SavedInstallInfoFolder));
+				lines.Add(L("GameStorage.FolderRole.VirtualInstall", "Virtual Install") + ": " +
+					(String.IsNullOrWhiteSpace(entry.SavedVirtualFolder) ? notSelected : entry.SavedVirtualFolder));
+			}
 			if (entry.Candidates.Count > 1)
 			{
 				lines.Add(String.Empty);

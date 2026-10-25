@@ -39,13 +39,17 @@ namespace Nexus.Client.Games
 			string savedInstallationPath, string savedExecutablePath, bool completedSetup,
 			bool hasLegacyStoragePaths, bool needsAttention, bool startupDefault,
 			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates, DateTime? lastPlayedUtc = null,
-			IReadOnlyList<string> missingRequiredFiles = null)
+			IReadOnlyList<string> missingRequiredFiles = null, string savedModFolder = null,
+			string savedInstallInfoFolder = null, string savedVirtualFolder = null)
 		{
 			ModeId = modeId;
 			Name = name;
 			Collection = collection;
 			SavedInstallationPath = savedInstallationPath;
 			SavedExecutablePath = savedExecutablePath;
+			SavedModFolder = savedModFolder;
+			SavedInstallInfoFolder = savedInstallInfoFolder;
+			SavedVirtualFolder = savedVirtualFolder;
 			CompletedSetup = completedSetup;
 			HasLegacyStoragePaths = hasLegacyStoragePaths;
 			NeedsAttention = needsAttention;
@@ -60,6 +64,12 @@ namespace Nexus.Client.Games
 		public GameDiscoveryCollection Collection { get; }
 		public string SavedInstallationPath { get; }
 		public string SavedExecutablePath { get; }
+		/// <summary>Gets the saved Mods folder without inferring or changing its location.</summary>
+		public string SavedModFolder { get; }
+		/// <summary>Gets the saved InstallInfo folder.</summary>
+		public string SavedInstallInfoFolder { get; }
+		/// <summary>Gets the configured Virtual folder as retained in per-game settings.</summary>
+		public string SavedVirtualFolder { get; }
 		public bool CompletedSetup { get; }
 		public bool HasLegacyStoragePaths { get; }
 		/// <summary>Shallow settings evidence only; not a filesystem/storage health verdict.</summary>
@@ -161,7 +171,8 @@ namespace Nexus.Client.Games
 				collection = GameDiscoverySectionPreference.GetCollection(settings, id, missingFiles.Count > 0, collection);
 				result.Add(new GameDiscoveryEntry(id, mode.Name, collection, installedPath,
 					executablePath, completedSetup, legacyStorageComplete, needsAttention, startupDefault,
-					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id), missingFiles));
+					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id), missingFiles,
+					modFolder, installInfo, virtualFolder));
 			}
 
 			var savedIds = new HashSet<string>(installedIds, StringComparer.OrdinalIgnoreCase);
