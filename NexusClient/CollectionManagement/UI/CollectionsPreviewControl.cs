@@ -308,6 +308,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 
 			public string DisplayName { get; private set; }
+			public string ModPageLink { get; set; }
 			public bool Selected { get; set; }
 			public string Requirement { get; private set; }
 			public string Selection { get { return Selected ? L("Collections.Member.Selected", "Selected") : L("Collections.Member.Unselected", "Not selected"); } }
@@ -969,6 +970,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_membersView.OptionsBehavior.Editable = false;
 			_membersView.OptionsView.ColumnAutoWidth = true;
 			_membersView.MouseDown += MembersView_MouseDown;
+			_membersView.MouseMove += MembersView_MouseMove;
+			_membersView.RowCellClick += MembersView_RowCellClick;
 			_membersGrid.KeyDown += MembersGrid_KeyDown;
 			_membersView.FocusedRowChanged += MembersView_FocusedRowChanged;
 			_membersView.CellValueChanged += MembersView_CellValueChanged;
@@ -980,6 +983,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			checkColumn.ColumnEdit = memberCheck;
 			checkColumn.OptionsColumn.FixedWidth = true;
 			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.DisplayName), L("Collections.Columns.ModName", "Mod"), 320);
+			var memberLink = new RepositoryItemHyperLinkEdit();
+			_membersGrid.RepositoryItems.Add(memberLink);
+			GridColumn pageColumn = AddCollectionGridColumn(_membersView, nameof(MemberGridRow.ModPageLink), L("Collections.Member.OpenPage", "Go to mod page"), 150);
+			pageColumn.ColumnEdit = memberLink;
+			pageColumn.OptionsColumn.FixedWidth = true;
 			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Requirement), L("Collections.Columns.Requirement", "Requirement"), 88);
 			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Selection), L("Collections.Columns.Selection", "Selection"), 82).Visible = false;
 			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Compatibility), L("Collections.Columns.Compatibility", "Compatibility"), 112);
@@ -6097,7 +6105,13 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Opens the selected member's page without requiring installation or changing its selection.</summary>
 		private void OpenMemberPage_Click(object sender, EventArgs e)
 		{
-			Uri page = GetSelectedMemberPageUri();
+			OpenMemberPage(GetSelectedNormalizedMember());
+		}
+
+		/// <summary>Shares browser launching and error handling between the inline link and the member menu.</summary>
+		private void OpenMemberPage(NormalizedCollectionMember member)
+		{
+			Uri page = GetMemberPageUri(member);
 			if (page == null) return;
 			try { Process.Start(page.AbsoluteUri); }
 			catch (Exception ex)
@@ -6111,7 +6125,12 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Uses the canonical Nexus identity or the exact selected member's manual-acquisition page.</summary>
 		private Uri GetSelectedMemberPageUri()
 		{
-			NormalizedCollectionMember member = GetSelectedNormalizedMember();
+			return GetMemberPageUri(GetSelectedNormalizedMember());
+		}
+
+		/// <summary>Resolves the same supported page for any row without changing the member selection.</summary>
+		private Uri GetMemberPageUri(NormalizedCollectionMember member)
+		{
 			if (member == null) return null;
 			string domain; long modId; long fileId;
 			if (NexusCollectionModFileArtifactIdentity.TryParse(member.Artifact, out domain, out modId, out fileId))
@@ -6159,9 +6178,34 @@ namespace Nexus.Client.CollectionManagement.UI
 			ToggleMemberSelection(hit.RowHandle);
 		}
 
+		/// <summary>Opens an inline page link with one click while leaving the optional-mod checkbox unchanged.</summary>
+		private void MembersView_RowCellClick(object sender, RowCellClickEventArgs e)
+		{
+			if (e.Button != MouseButtons.Left || e.Column == null || e.Column.FieldName != nameof(MemberGridRow.ModPageLink)) return;
+			MemberGridRow row = _membersView.GetRow(e.RowHandle) as MemberGridRow;
+			if (row != null) OpenMemberPage(row.Member);
+		}
+
+		/// <summary>Shows the link cursor only for members with an available mod page.</summary>
+		private void MembersView_MouseMove(object sender, MouseEventArgs e)
+		{
+			var hit = _membersView.CalcHitInfo(e.Location);
+			MemberGridRow row = hit.InRowCell && hit.Column != null && hit.Column.FieldName == nameof(MemberGridRow.ModPageLink)
+				? _membersView.GetRow(hit.RowHandle) as MemberGridRow : null;
+			_membersGrid.Cursor = row != null && !String.IsNullOrEmpty(row.ModPageLink) ? Cursors.Hand : Cursors.Default;
+		}
+
 		/// <summary>Supports Space on a focused optional checkbox without opening an editor.</summary>
 		private void MembersGrid_KeyDown(object sender, KeyEventArgs e)
 		{
+			if (e.KeyCode == Keys.Enter && e.Modifiers == Keys.None && _membersView.FocusedColumn != null &&
+				_membersView.FocusedColumn.FieldName == nameof(MemberGridRow.ModPageLink))
+			{
+				e.Handled = true;
+				e.SuppressKeyPress = true;
+				OpenMemberPage_Click(sender, EventArgs.Empty);
+				return;
+			}
 			if (e.KeyCode != Keys.Space || e.Modifiers != Keys.None || _membersView.FocusedColumn == null ||
 				_membersView.FocusedColumn.FieldName != nameof(MemberGridRow.Selected)) return;
 			e.Handled = true;
@@ -6347,6 +6391,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RenderMembers(NexusCollectionPreviewSnapshot snapshot, string selectedToken, int previousTopIndex)
 		{
+			_membersView.Columns[nameof(MemberGridRow.ModPageLink)].Width = TextRenderer.MeasureText(
+				L("Collections.Member.OpenPage", "Go to mod page"), _membersGrid.Font).Width + 24;
 			_membersView.BeginDataUpdate();
 			_suppressMemberCheckEvents = true;
 			int focusedIndex = -1;
@@ -6396,7 +6442,11 @@ namespace Nexus.Client.CollectionManagement.UI
 						member.IsRequired ? L("Collections.Member.Required", "Required") : L("Collections.Member.Optional", "Optional"),
 						managedMember != null && _managedAssociationPresentation.Association.State == CollectionAssociationState.Applied
 							? (managedMember.HasDetectedDrift ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Supported"))
-							: FormatCompatibility(memberReport.Status), artifactText, managedStateText) { ManagedMember = managedMember });
+							: FormatCompatibility(memberReport.Status), artifactText, managedStateText)
+					{
+						ManagedMember = managedMember,
+						ModPageLink = GetMemberPageUri(member) == null ? String.Empty : L("Collections.Member.OpenPage", "Go to mod page")
+					});
 					if (StringComparer.Ordinal.Equals(token, selectedToken))
 						focusedIndex = _memberRows.Count - 1;
 					visibleCount++;

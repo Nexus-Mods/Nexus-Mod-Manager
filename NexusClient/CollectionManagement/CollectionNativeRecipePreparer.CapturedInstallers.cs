@@ -55,11 +55,12 @@ namespace Nexus.Client.CollectionManagement
 			}
 			cancellationToken.ThrowIfCancellationRequested();
 			IReadOnlyList<ScriptedInstallOperation> selectedOperations = captured;
+			captured = MapBaldursGate3CapturedFiles(plan, member, captured, mod, gameMode, cancellationToken);
 			if (member.HasVortexFileOverrides)
 			{
 				var mappings = captured.OfType<InstallModFileOperation>().Select(file => new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath))
 					.Concat(captured.OfType<GenerateDataFileOperation>().Select(file => new ModInstallationSimpleFileMapping(file.PreparationSourcePath, file.DestinationPath)));
-				ModInstallationSimpleFileRecipe filtered = ApplyVortexFileOverrides(member, new ModInstallationSimpleFileRecipe(mappings, true), gameMode, mod, context);
+				ModInstallationSimpleFileRecipe filtered = ApplyVortexFileOverrides(plan, member, new ModInstallationSimpleFileRecipe(mappings, true), gameMode, mod, context, false);
 				var destinations = new HashSet<string>(filtered.Mappings.Select(file => file.DestinationPath), StringComparer.OrdinalIgnoreCase);
 				captured = captured.Where(operation => operation is InstallModFileOperation
 					? destinations.Contains(((InstallModFileOperation)operation).DestinationPath)
@@ -95,6 +96,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out patches, cancellationToken);
 			artifacts.AddRange(patches);
 			ValidateManagedModArchive(mod, archive, cancellationToken);
+			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
 			CollectionMemberEffectPreview preview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, plugins, cancellationToken);
 			if (!preview.IsComplete) throw new InvalidDataException("The captured installer effects could not be fully prepared.");
 			if (selectionArtifact == null) selectionArtifact = store.SaveOperations(plan, member, archive.Artifact, context, selectedOperations, cancellationToken);

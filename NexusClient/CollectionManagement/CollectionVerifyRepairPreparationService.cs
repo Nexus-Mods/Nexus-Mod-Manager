@@ -161,6 +161,8 @@ namespace Nexus.Client.CollectionManagement
 						contributesMerge, isBindingUpdate, installContext));
 				}
 
+				if (String.Equals(_services.ModManager.GameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase))
+					nativePreparer.ConfigureBaldursGate3PackageFiles(resolvedPlan, preparationInputs.SelectMany(input => input.Member.HasVortexFileList ? input.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.LiveMod.GetFileList()), cancellationToken);
 				IList<IMod> activeMods = _services.ModManager.ActiveMods.ToList();
 				CollectionMemberKey mergeOwner = ResolveDeterministicMergeOwner(state, preparationInputs, activeMods);
 				if (preparationInputs.Count(x => x.ContributesDeterministicMerge) > 1 && mergeOwner == null)

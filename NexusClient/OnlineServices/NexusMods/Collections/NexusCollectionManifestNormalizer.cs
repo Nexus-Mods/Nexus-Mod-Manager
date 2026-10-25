@@ -351,7 +351,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			draft.DisplayName = NormalizeDisplayValue(ReadString(memberObject, "name"));
 			draft.Version = ReadString(memberObject, "version");
-			draft.RecipeIdentity = CollectionRecipeIdentity.FromFingerprint("sha256:" + ComputeSha256Hex(Canonicalize(BuildRecipeToken(memberObject))));
+			JToken recipeToken = BuildRecipeToken(memberObject);
+			JObject manifestRoot = memberObject.Root as JObject;
+			if (sourceOrdinal == 0 && manifestRoot != null && CollectionBaldursGate3Data.IsManifest(manifestRoot) && manifestRoot["loadOrder"] is JArray && manifestRoot["loadOrder"].HasValues)
+				recipeToken = new JObject { ["member"] = recipeToken, ["bg3LoadOrder"] = manifestRoot["loadOrder"].DeepClone() };
+			draft.RecipeIdentity = CollectionRecipeIdentity.FromFingerprint("sha256:" + ComputeSha256Hex(Canonicalize(recipeToken)));
 
 			JObject source = memberObject["source"] as JObject;
 			if (source == null)
@@ -705,7 +709,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					string modType = ReadString(details, "type");
 					if (!string.IsNullOrWhiteSpace(modType))
 					{
-						if (modType.Equals("dinput", StringComparison.OrdinalIgnoreCase))
+						if (String.Equals(ReadString(memberObject, "domainName"), "baldursgate3", StringComparison.OrdinalIgnoreCase) &&
+							new[] { "bg3-loose", "bg3-replacer", "bg3-bg3se", "dinput" }.Contains(modType, StringComparer.Ordinal))
+						{
+							// BG3 uses its existing secondary game path; its ordinary root is AppData/Mods.
+							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.Default;
+						}
+						else if (modType.Equals("dinput", StringComparison.OrdinalIgnoreCase))
 						{
 							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.VortexDInputGameRoot;
 						}
@@ -3043,6 +3053,16 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					"manifest.starfield-extension-version-invalid", "Starfield extensionVersion must be a non-empty string.", "$.extensionVersion"));
 			// The extension exports this version as provenance; its importer does not use it to select installation behavior.
 			// https://github.com/Nexus-Mods/game-starfield/blob/master/src/migrations/collections.ts
+			bool bg3 = CollectionBaldursGate3Data.IsManifest(root);
+			if (bg3)
+			{
+				try { CollectionBaldursGate3Data.ReadLoadOrder(root); }
+				catch (Exception ex) when (ex is InvalidDataException || ex is ArgumentException || ex is InvalidCastException)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.bg3-load-order-invalid", ex.Message, "$.loadOrder"));
+				}
+			}
 			bool witcher = CollectionWitcher3Data.IsWitcherManifest(root);
 			if (witcher)
 			{
@@ -3055,7 +3075,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 			foreach (JProperty property in root.Properties())
 			{
-				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && emptyLoadOrder) ||
+				if (RootFields.Contains(property.Name) || (property.Name == "loadOrder" && (emptyLoadOrder || bg3)) ||
 					(starfield && (property.Name == "loadOrder" || property.Name == "extensionVersion")) ||
 					(witcher && (property.Name == "loadOrder" || property.Name == "mergedData")))
 					continue;

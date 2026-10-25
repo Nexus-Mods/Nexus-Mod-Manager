@@ -8,6 +8,7 @@ using System.Xml;
 using ChinhDo.Transactions;
 using Newtonsoft.Json;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
@@ -113,20 +114,20 @@ namespace Nexus.Client.Games.DataDriven
         /// <summary>Identifies game-specific keys owned by the deterministic BG3 special-install contract.</summary>
         public override bool IsDeterministicSpecialFileGameValueKey(string p_strKey)
         {
-            return StructuredRecords == null ? DataDrivenBaldursGate3ModSettingsValue.IsSupportedKey(p_strKey) : base.IsDeterministicSpecialFileGameValueKey(p_strKey);
+            return StructuredRecords == null ? DataDrivenBaldursGate3ModSettingsValue.IsSupportedKey(p_strKey) : new BaldursGate3CollectionRecordStore(StructuredRecords).IsSupportedKey(p_strKey);
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            if (StructuredRecords != null) return base.GetGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_futFileUtility, p_dlgOverwriteConfirmationDelegate);
+            if (StructuredRecords != null) return new StructuredGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            if (StructuredRecords != null) return base.GetGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_futFileUtility, p_dlgOverwriteConfirmationDelegate);
+            if (StructuredRecords != null) return new StructuredGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
 

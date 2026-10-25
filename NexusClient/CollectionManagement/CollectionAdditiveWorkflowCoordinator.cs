@@ -1168,6 +1168,19 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
+			CollectionMemberKey bg3SettingsOwner = null;
+			if (String.Equals(_services.ModManager.GameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase))
+			{
+				var installedKeys = new HashSet<string>(acquisition.Members.Where(item => item.Match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible && item.Match.MatchedNativeMod != null)
+					.Select(item => item.Match.MatchedNativeMod.Identity.NativeModKey), StringComparer.OrdinalIgnoreCase);
+				IEnumerable<string> packages = inputs.SelectMany(input => input.Match.Member.HasVortexFileList
+					? input.Match.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.ManagedMod.GetFileList());
+				packages = packages.Concat(_services.ModManager.ActiveMods.Where(mod => installedKeys.Contains(_services.ModManager.InstallationLog.GetModKey(mod)))
+					.SelectMany(mod => _services.ModManager.InstallationLog.GetInstalledModFiles(mod)));
+				if (_nativeRecipePreparer.ConfigureBaldursGate3PackageFiles(plan, packages, cancellationToken))
+					bg3SettingsOwner = plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey;
+			}
+
 			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
 				"Collections.Workflow.PreparingMods", "Preparing mods..."), true);
 			NativeRecipePreparationInput mergeOwner = inputs.LastOrDefault(x => x.ContributesDeterministicMerge);
@@ -1204,7 +1217,8 @@ namespace Nexus.Client.CollectionManagement
 						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
 					PreparedCollectionNativeRecipe prepared;
-					string cacheKey = input.ContributesDeterministicMerge
+					bool preparesBg3Order = bg3SettingsOwner != null && bg3SettingsOwner.Equals(input.Match.Member.MemberKey);
+					string cacheKey = input.ContributesDeterministicMerge || preparesBg3Order
 						? null : GetPreparationCacheKey(input, skipReadme);
 					bool cached = false;
 					prepared = null;
@@ -1215,7 +1229,7 @@ namespace Nexus.Client.CollectionManagement
 						cached ? "Reusing prepared mod: {0}" : "Preparing installation instructions: {0}", input.Match.Member.DisplayName), !cached);
 					// Dependency-only expansion keeps the captured target and exact existing artifacts unchanged.
 					// Reuse ordinary file previews; merge composition and installer conditions still require fresh planning.
-					if (!cached && (reusableRecipes == null || input.ContributesDeterministicMerge || input.Match.Member.HasVortexFomodSelection || input.ManagedMod.HasInstallScript ||
+					if (!cached && (reusableRecipes == null || input.ContributesDeterministicMerge || preparesBg3Order || input.Match.Member.HasVortexFomodSelection || input.ManagedMod.HasInstallScript ||
 						!reusableRecipes.TryGetValue(input.Match.Member.MemberKey, out prepared) ||
 						prepared.InstallContext.Method != input.InstallContext.Method || prepared.InstallContext.InstallRoot != input.InstallContext.InstallRoot))
 						prepared = _nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,

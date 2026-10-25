@@ -184,6 +184,7 @@
     <Compile Include="Witcher3ModSettingsPublisherTests.cs" />
     <Compile Include="Witcher3ModSettingsLifecycleTests.cs" />
     <Compile Include="Witcher3CollectionSupportTests.cs" />
+    <Compile Include="BaldursGate3CollectionSupportTests.cs" />
     <Compile Include="Witcher3StandaloneMenuInstallTests.cs" />
     <Compile Include="Witcher3LoadOrderEditorSessionTests.cs" />
     <Compile Include="Witcher3LoadOrderExtendedEditorTests.cs" />

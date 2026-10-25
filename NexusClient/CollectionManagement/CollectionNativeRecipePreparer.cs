@@ -174,6 +174,7 @@ namespace Nexus.Client.CollectionManagement
 				SourceRecord = sourceRecord ?? throw new ArgumentNullException(nameof(sourceRecord));
 				Root = JObject.Parse(Encoding.UTF8.GetString(normalized.GetRawManifestBytes()).TrimStart('\uFEFF'));
 				WitcherData = CollectionWitcher3Data.IsWitcherManifest(Root) ? CollectionWitcher3Data.Parse(Root) : null;
+				BaldursGate3Order = CollectionBaldursGate3Data.IsManifest(Root) ? CollectionBaldursGate3Data.ReadLoadOrder(Root) : null;
 			}
 
 			internal CollectionManifestSourceSnapshot Source { get; }
@@ -181,6 +182,7 @@ namespace Nexus.Client.CollectionManagement
 			internal CollectionRevisionSourceRecord SourceRecord { get; }
 			internal JObject Root { get; }
 			internal CollectionWitcher3Data WitcherData { get; }
+			internal JArray BaldursGate3Order { get; }
 		}
 
 		/// <summary>Creates the initial Collection-to-native recipe preparation service over the existing C4/C5/C6 seams.</summary>
@@ -431,7 +433,7 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe simpleRecipe = basicResult.Plan.CreateSimpleFileRecipe();
-			simpleRecipe = ApplyVortexFileOverrides(member, simpleRecipe, gameMode, mod, installContext);
+			simpleRecipe = ApplyVortexFileOverrides(plan, member, simpleRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation validation = CreateValidation(verifiedArchive.Artifact, installContext, simpleRecipe);
 			var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity preparationOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
@@ -442,6 +444,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyBasicGameSpecificValues(basicResult.Plan, translated);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
+			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
@@ -565,13 +568,14 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileListPlan(replicatedTranslated);
-			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
+			frozenRecipe = ApplyVortexFileOverrides(plan, member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
 			ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
+			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
@@ -715,7 +719,7 @@ namespace Nexus.Client.CollectionManagement
 
 			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode);
 			ValidateCharacterizedFomodInstallRootBehavior(member, frozenRecipe);
-			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
+			frozenRecipe = ApplyVortexFileOverrides(plan, member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
 			var finalFingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, finalFingerprint);
@@ -723,6 +727,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
+			translated = ApplyBaldursGate3Settings(plan, member, translated, gameMode, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
@@ -1308,14 +1313,21 @@ namespace Nexus.Client.CollectionManagement
 			var reader = new VortexBinaryPatchBundleReader(_revisionSourceStore);
 			IDictionary<string, byte[]> payloads = reader.Read(plan.Revision, member, cancellationToken);
 			var patches = member.VortexBinaryPatches.Items.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
+			bool bg3 = CollectionBaldursGate3Data.IsManifest(GetRetainedPreparationManifest(plan, cancellationToken).Root);
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var operations = new List<ScriptedInstallOperation>();
 			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				InstallModFileOperation file = operation as InstallModFileOperation;
-				CollectionVortexBinaryPatch patch;
-				if (file == null || !patches.TryGetValue(file.DestinationPath, out patch))
+				CollectionVortexBinaryPatch patch = null;
+				if (file != null && !patches.TryGetValue(file.DestinationPath, out patch) && bg3)
+				{
+					int separator = file.DestinationPath.IndexOf('\\');
+					if (separator > 0 && (file.DestinationPath.StartsWith("Data\\", StringComparison.OrdinalIgnoreCase) || file.DestinationPath.StartsWith("bin\\", StringComparison.OrdinalIgnoreCase)))
+						patches.TryGetValue(file.DestinationPath.Substring(separator + 1), out patch);
+				}
+				if (patch == null)
 				{
 					operations.Add(operation);
 					continue;
@@ -1343,11 +1355,17 @@ namespace Nexus.Client.CollectionManagement
 			return translated.WithTransformedNativePlan(operations);
 		}
 
-		private static ModInstallationSimpleFileRecipe ApplyVortexFileOverrides(ResolvedCollectionMemberPlan member,
-			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext)
+		private ModInstallationSimpleFileRecipe ApplyVortexFileOverrides(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
+			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext, bool mapBaldursGate3Files = true)
 		{
 			if (member == null) throw new ArgumentNullException(nameof(member));
 			if (recipe == null) throw new ArgumentNullException(nameof(recipe));
+			if (mapBaldursGate3Files && String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase))
+			{
+				JObject root = GetRetainedPreparationManifest(plan, CancellationToken.None).Root;
+				if (CollectionBaldursGate3Data.IsManifest(root))
+					recipe = CollectionBaldursGate3Data.MapFiles(recipe, (string)root["mods"]?[member.SourceOrdinal]?["details"]?["type"], mod.GetFileList());
+			}
 			if (!member.HasVortexFileOverrides) return recipe;
 
 			var suppressedDestinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1391,6 +1409,11 @@ namespace Nexus.Client.CollectionManagement
 			bool absolute = IsVortexAbsolutePath(normalizedOverride);
 			if (!absolute)
 			{
+				if (String.Equals(gameMode.ModeId, "BaldursGate3", StringComparison.OrdinalIgnoreCase) && target.Root == ModDeploymentRoot.Secondary)
+				{
+					int separator = targetRelative.IndexOf('\\');
+					if (separator >= 0 && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, targetRelative.Substring(separator + 1))) return true;
+				}
 				return StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, targetRelative) ||
 					(!String.IsNullOrEmpty(portableGamePath) && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, portableGamePath));
 			}

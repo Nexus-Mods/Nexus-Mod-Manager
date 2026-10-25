@@ -86,7 +86,9 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			bool originalOwner = !String.IsNullOrEmpty(currentOwner) && StringComparer.OrdinalIgnoreCase.Equals(currentOwner, _installLog.OriginalValuesKey);
 
 			// A reviewed Collection operation may not silently absorb a physical change that happened after review.
-			if (exists && !BytesEqual(current, value) && !sameOwner)
+			// The reviewed BG3 order intentionally replaces the prior module order, whose bytes are retained below.
+			bool replacesOrder = Store is BaldursGate3CollectionRecordStore && uuid == BaldursGate3CollectionRecordStore.Identity;
+			if (exists && !BytesEqual(current, value) && !sameOwner && !replacesOrder)
 				throw new InvalidOperationException("The reviewed structured record changed before native execution.");
 			if (!exists && !String.IsNullOrEmpty(currentOwner) && !sameOwner && !originalOwner)
 				throw new InvalidOperationException("InstallLog owns a structured record that is no longer present in the profile manifest.");

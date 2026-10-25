@@ -216,6 +216,8 @@
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.CapturedInstallers.cs" />
     <Compile Include="CollectionManagement\CollectionArchiveComponentSelector.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3Data.cs" />
+    <Compile Include="CollectionManagement\CollectionBaldursGate3Data.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.BaldursGate3.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3InstallPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerSelectionStore.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerConditionEnvironment.cs" />
@@ -634,6 +636,7 @@
     <Compile Include="ModManagement\ManagedContent\IniOrderPublisher.cs" />
     <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordRule.cs" />
     <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordStore.cs" />
+    <Compile Include="ModManagement\ManagedContent\BaldursGate3CollectionRecordStore.cs" />
     <Compile Include="ModManagement\ManagedContent\StructuredGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
     <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs">
