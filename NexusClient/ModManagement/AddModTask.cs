@@ -388,6 +388,9 @@
 		/// </remarks>
 		public Guid QueueOperationId { get; private set; }
 
+		/// <summary>Keeps exact Collection download bytes instead of importing only an embedded FOMOD.</summary>
+		internal bool PreserveEmbeddedFomodArchive { get; set; }
+
 		/// <summary>
 		/// Gets the current Descriptor source path.
 		/// </summary>
@@ -1332,6 +1335,7 @@
 			else
 			{
 				var mbrModBuilder = new ModBuilder(_gameMode.GameModeEnvironmentInfo, _environmentInfo, new NexusFileUtil(_environmentInfo));
+				mbrModBuilder.PreserveEmbeddedFomodArchive = PreserveEmbeddedFomodArchive;
 				mbrModBuilder.PropertyChanged += ModBuilder_PropertyChanged;
 				mbrModBuilder.TaskEnded += ModBuilder_TaskEnded;
 				lock (_runningTasks)

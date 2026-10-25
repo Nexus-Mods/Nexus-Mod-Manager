@@ -1,6 +1,7 @@
 ﻿using System;
 using System.CodeDom.Compiler;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security;
 using System.Security.Permissions;
@@ -270,6 +271,20 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			pstGrantSet.AddPermission(new UIPermission(UIPermissionClipboard.NoClipboard));
 			pstGrantSet.AddPermission(new UIPermission(UIPermissionWindow.AllWindows));
 			pstGrantSet.AddPermission(new MediaPermission(MediaPermissionImage.SafeImage));
+
+			if (m_csfFunctions.IsCollectionCapture)
+			{
+				// Collection preparation records NMM calls; arbitrary script IO may read the game but writes stay in scratch.
+				string[] roots = { m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory,
+					m_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory, m_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
+					m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory,
+					m_strVirtualActivatorPath };
+				foreach (string path in roots.Concat(m_gmdGameMode.WritablePaths))
+					if (!String.IsNullOrWhiteSpace(path))
+						pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read | FileIOPermissionAccess.PathDiscovery, path));
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.AllAccess, m_eifEnvironmentInfo.TemporaryPath));
+				return AppDomain.CreateDomain("ScriptRunnerDomain", eviSecurityInfo, adsInfo, pstGrantSet);
+			}
 
 			//add the specific permissions the script will need
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, m_gmdGameMode.GameModeEnvironmentInfo.ModDirectory));

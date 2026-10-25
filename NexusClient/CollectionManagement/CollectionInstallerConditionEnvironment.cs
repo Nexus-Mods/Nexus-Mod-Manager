@@ -21,7 +21,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			_gameMode = gameMode;
 			_coverage = state.PluginCoverage;
-			_plugins = state.Plugins.Values.ToDictionary(x => x.FileName, x => x.Active, StringComparer.OrdinalIgnoreCase);
+			// Native snapshots retain absolute plugin paths; XML file dependencies use filenames.
+			_plugins = state.Plugins.Values.ToDictionary(x => Path.GetFileName(x.FileName.Replace('/', Path.DirectorySeparatorChar)), x => x.Active, StringComparer.OrdinalIgnoreCase);
 			_files = new HashSet<ModDeploymentTarget>();
 			foreach (PreparedCollectionNativeRecipe recipe in previousRecipes)
 				foreach (CollectionPlannedFileEffect file in recipe.EffectPreview.Files)

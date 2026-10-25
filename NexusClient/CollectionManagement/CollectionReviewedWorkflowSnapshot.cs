@@ -610,6 +610,11 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("The reviewed-workflow v2 executable descriptor currently supports only the characterized simple-file adapter.");
 			foreach (var operation in recipe.RecipeInput.NativeOperations)
 			{
+				EditIniOperation ini = operation as EditIniOperation;
+				if (ini != null && recipe.EffectPreview.IniEdits.Any(effect =>
+					effect.Key.Equals(new CollectionNativeIniKey(ini.SettingsFileName, ini.Section, ini.Key)) &&
+					StringComparer.Ordinal.Equals(effect.Value, ini.Value)))
+					continue; // INI effects already have a typed, versioned representation in the retained preview.
 				InstallModFileOperation file = operation as InstallModFileOperation;
 				if (file != null && file.DeploymentDecision == null)
 				{
@@ -634,9 +639,9 @@ namespace Nexus.Client.CollectionManagement
 					gameValues.Add(new CollectionReviewedGameSpecificValueSnapshot(gameValue.Key, gameValue.Value));
 					continue;
 				}
-				throw new NotSupportedException("A reviewed simple-file recipe can persist only unresolved exact file operations, retained generated files, or resolved exact game-specific values.");
+				throw new NotSupportedException("A reviewed native recipe can persist only exact file operations, retained generated files, INI edits, or resolved game-specific values.");
 			}
-			if (mappings.Count + generated.Count + gameValues.Count == 0)
+			if (mappings.Count + generated.Count + gameValues.Count + recipe.EffectPreview.IniEdits.Count == 0)
 				throw new InvalidDataException("A reviewed recipe requires at least one reproducible native file or configuration operation.");
 
 			return new CollectionReviewedPreparedRecipeSnapshot(recipe.Member.MemberKey, recipe.Member.SourceOrdinal,
@@ -651,6 +656,8 @@ namespace Nexus.Client.CollectionManagement
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
 		private const int BinaryVersion = 10;
+		// The wire layout is unchanged; version 11 requires replaying the typed INI effects retained in prepared recipes.
+		private const int IniOperationBinaryVersion = 11;
 		private const int LegacyBinaryVersion = 2;
 		// Large Collections retain each file in mappings, validation paths, previews and winner records.
 		// Use the same bounds for writing and reading to avoid publishing reviews the codec cannot reopen.
@@ -665,7 +672,7 @@ namespace Nexus.Client.CollectionManagement
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
-				writer.Write(BinaryVersion);
+				writer.Write(snapshot.PreparedRecipes.Any(recipe => recipe.EffectPreview.IniEdits.Count > 0) ? IniOperationBinaryVersion : BinaryVersion);
 				WritePlanIdentity(writer, snapshot.Identity);
 				WriteRevision(writer, snapshot.Revision);
 				writer.Write(snapshot.Target.Fingerprint);
@@ -707,7 +714,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != 9 && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != IniOperationBinaryVersion && binaryVersion != BinaryVersion && binaryVersion != 9 && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -1265,7 +1272,7 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.Ordinal.Equals(recipe.Validation.Capabilities[0].CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityId) ||
 					recipe.Validation.Capabilities[0].Version != ModInstallationSimpleFileRecipeAdapter.CapabilityVersion)
 					throw new NotSupportedException("The reviewed native recipe capability contract changed and must be re-prepared.");
-				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count + recipe.GameSpecificValues.Count == 0)
+				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count + recipe.GameSpecificValues.Count + recipe.EffectPreview.IniEdits.Count == 0)
 					throw new NotSupportedException("The reviewed native recipe predates executable file-operation persistence and must be re-prepared.");
 				if (!verifyRetainedInputs) continue;
 				bool foundExpectedArchive = false;

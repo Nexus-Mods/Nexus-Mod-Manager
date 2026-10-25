@@ -59,7 +59,7 @@ namespace Nexus.Client.ModManagement
 			return recipeInput.WithNativePlan(plan.Operations);
 		}
 
-		/// <summary>Attaches a bounded prepared file/generated/value plan, including configuration-only Collection members.</summary>
+		/// <summary>Attaches a bounded prepared file/generated/INI/value plan, including configuration-only Collection members.</summary>
 		/// <remarks>Generated content and structured values are already represented by the durable reviewed-workflow contract.
 		/// This entry point consumes exactly the declared path set and never accepts executable installer operations.</remarks>
 		public ModInstallationRecipeInput TranslatePreparedPlan(ModInstallationRecipeInput input, IEnumerable<ScriptedInstallOperation> operations)
@@ -74,6 +74,9 @@ namespace Nexus.Client.ModManagement
 			var values = new HashSet<string>(StringComparer.Ordinal);
 			foreach (ScriptedInstallOperation operation in copied)
 			{
+				EditIniOperation ini = operation as EditIniOperation;
+				if (ini != null && !String.IsNullOrWhiteSpace(ini.SettingsFileName) && !String.IsNullOrWhiteSpace(ini.Key))
+					continue;
 				InstallModFileOperation file = operation as InstallModFileOperation;
 				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
 				EditGameSpecificValueOperation value = operation as EditGameSpecificValueOperation;

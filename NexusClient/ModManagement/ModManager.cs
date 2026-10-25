@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.ModManagement.InstallationLog;
     using Nexus.Client.ModManagement.Operations;
     using Nexus.Client.ModManagement.Scripting;
+    using Nexus.Client.ModManagement.Scripting.Operations;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
     using Nexus.Client.Mods.Formats.FOMod;
@@ -119,6 +120,38 @@ namespace Nexus.Client.ModManagement
 			if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
 			cancellationToken.ThrowIfCancellationRequested();
 			return selection;
+		}
+
+		/// <summary>Captures native C# choices or numbered archive components on the application's existing UI thread.</summary>
+		internal IReadOnlyList<ScriptedInstallOperation> CaptureCollectionInstallerOperations(IMod mod, ModInstallContext context,
+			IModInstallationConditionEnvironment conditionEnvironment, CancellationToken cancellationToken)
+		{
+			IReadOnlyList<ScriptedInstallOperation> operations = null;
+			Exception failure = null;
+			SendOrPostCallback collect = ignored =>
+			{
+				try
+				{
+					if (!mod.HasInstallScript)
+						operations = CollectionArchiveComponentSelector.Select(mod, cancellationToken);
+					else
+					{
+						var adapter = mod.InstallScript.Type as IModInstallationScriptPlanningAdapter;
+						if (adapter == null) throw new NotSupportedException("This script type cannot capture Collection installer operations.");
+						var installers = new InstallerGroup(new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), null,
+							new IniInstaller(mod, InstallationLog, VirtualModActivator, null, null), null, m_pmgPluginManager,
+							context, null, null, null);
+						operations = adapter.CaptureOperations(mod, GameMode, EnvironmentInfo, VirtualModActivator, installers,
+							conditionEnvironment, m_scxUIContext, cancellationToken);
+					}
+				}
+				catch (Exception ex) { failure = ex; }
+			};
+			if (m_scxUIContext == null || ReferenceEquals(SynchronizationContext.Current, m_scxUIContext)) collect(null);
+			else m_scxUIContext.Send(collect, null);
+			if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+			cancellationToken.ThrowIfCancellationRequested();
+			return operations;
 		}
 
 		#region events

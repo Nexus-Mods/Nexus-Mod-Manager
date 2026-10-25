@@ -121,6 +121,21 @@ namespace Nexus.Client.ModManagement.Scripting
 
 		#region Installation Session Configuration
 
+		/// <summary>Gets whether this proxy records operations for a Collection review instead of deploying them.</summary>
+		protected bool IsCapturingInstallation { get; private set; }
+
+		/// <summary>Gets the read-only dependency baseline supplied by the owning Collection.</summary>
+		protected IModInstallationConditionEnvironment CapturedConditionEnvironment { get; private set; }
+
+		/// <summary>Uses the existing projected read-after-write state while retaining operations for later installation.</summary>
+		protected void BeginInstallationCapture(IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			IsCapturingInstallation = true;
+			CapturedConditionEnvironment = conditionEnvironment;
+			ConfigureInstallationSession(ScriptedInstallationSessionMode.Deferred,
+				new ScriptedInstallationProjectedState(Mod, GameMode, Installers, conditionEnvironment));
+		}
+
 		/// <summary>
 		/// Attempts to switch the current script proxy to deferred installation planning with projected-state support.
 		/// </summary>
@@ -156,6 +171,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		public void CompleteInstallation()
 		{
+			if (IsCapturingInstallation) return;
 			ExecuteWithFullTrust(() =>
 			{
 				InstallationSession.CompleteExecution();
@@ -196,7 +212,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		protected bool IsDeferredInstallationEnabled
 		{
-			get { return InstallationSession.Mode == ScriptedInstallationSessionMode.Deferred; }
+			get { return InstallationSession.Mode == ScriptedInstallationSessionMode.Deferred && !IsCapturingInstallation; }
 		}
 
 		/// <summary>
@@ -293,6 +309,18 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <c>false</c> otherwise.</returns>
 		public bool PerformBasicInstall()
 		{
+			if (IsCapturingInstallation)
+			{
+				BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(Mod, GameMode, Installers.InstallContext, false);
+				if (!result.IsSupported) throw new NotSupportedException(result.Message);
+				foreach (BasicInstallPlanFile file in result.Plan.Files)
+					InstallationSession.Submit(new InstallModFileOperation(file.SourcePath, file.DestinationPath));
+				foreach (BasicInstallGeneratedFile generated in result.Plan.GeneratedFiles)
+					InstallationSession.Submit(new GenerateDataFileOperation(generated.DestinationPath, generated.Data, generated.SourcePath));
+				foreach (BasicInstallGameSpecificValue value in result.Plan.GameSpecificValues)
+					InstallationSession.Submit(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+				return true;
+			}
 			return ExecuteWithFullTrust(() => InstallationSession.Submit(new PerformBasicInstallOperation()));
 		}
 

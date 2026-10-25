@@ -112,7 +112,8 @@ namespace Nexus.Client.CollectionManagement
 			var bindingUpdates = new List<CollectionMemberBinding>();
 			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore, true)
 			{
-				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions,
+				CaptureInstallerOperations = _services.ModManager.CaptureCollectionInstallerOperations
 			};
 			var adopter = new CollectionVerifiedArchiveAdopter(new ModManagerCollectionManagedArchiveSource(_services.ModManager),
 				new NexusCollectionArchiveIdentityVerifier(repository), _artifactStore, _referenceStore);

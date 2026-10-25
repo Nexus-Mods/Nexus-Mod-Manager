@@ -11,6 +11,7 @@ using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.CSharpScript;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.ModManagement.Scripting.XmlScript;
 using Nexus.Client.Mods;
@@ -230,6 +231,82 @@ namespace NexusClientTests
 				Fixture fixture = CreateFreshInstallerFixture(root, "boundary-no-prompt");
 				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Do not prompt after review."); };
 				Assert.Throws<InvalidOperationException>(() => PrepareFreshInstaller(fixture, fixture.Preparer, true));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>NVAC-style dependencies match base masters even when native snapshots retain absolute paths.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void InstallerEnvironment_NormalizesCapturedPluginPaths(bool active)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "plugin-basename", "file.bin");
+				var plugin = new CollectionNativePluginState(@"C:\Game\Data\FalloutNV.esm", active, 0, 0, "00",
+					PluginParseStatus.Parsed, PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, true, 0,
+					new string[0], new CollectionNativePluginDiagnostic[0]);
+				CollectionNativeStateIndex state = CreateState(fixture.Target, 0, new[] { plugin });
+				var environment = new CollectionInstallerConditionEnvironment(state, fixture.GameMode,
+					fixture.Plan.CapabilityReport.Manifest, new PreparedCollectionNativeRecipe[0]);
+				bool observed;
+				Assert.That(environment.TryGetPluginRegistered("FalloutNV.esm", out observed) && observed, Is.True);
+				Assert.That(environment.TryGetPluginActive("FalloutNV.esm", out observed), Is.True);
+				Assert.That(observed, Is.EqualTo(active));
+				Assert.That(environment.RegisteredPlugins, Is.EqualTo(new[] { "FalloutNV.esm" }));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Captured C# files and generated settings survive restart without opening the installer again.</summary>
+		[Test]
+		public void Prepare_CapturedCSharpPlanIsRetainedAndReused()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var script = new CSharpScript(new CSharpScriptType(), "class Script {}");
+				Fixture fixture = CreateFixtureCore(root, "captured-csharp", null,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, script,
+					new[] { @"core\example.bin", @"fomod\script.cs" });
+				byte[] settings = Encoding.UTF8.GetBytes("[Settings]\r\nEnabled=1\r\n");
+				fixture.Preparer.CaptureInstallerOperations = (mod, context, environment, token) => new ScriptedInstallOperation[]
+				{
+					new InstallModFileOperation(@"core\example.bin", @"meshes\example.bin"),
+					new GenerateDataFileOperation(@"config\example.ini", settings),
+					new EditIniOperation("fallout.ini", "General", "Example", "1")
+				};
+				PreparedCollectionNativeRecipe first = fixture.Preparer.PrepareExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive,
+					fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
+				Assert.That(first.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single().DestinationPath, Is.EqualTo(@"meshes\example.bin"));
+				CollectionAssert.AreEqual(settings, first.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>().Single().Data);
+				Assert.That(CollectionReviewedPreparedRecipeSnapshot.From(first).EffectPreview.IniEdits.Count, Is.EqualTo(1));
+				var restarted = new CollectionNativeRecipePreparer(new CollectionsStore(root));
+				restarted.CaptureInstallerOperations = (mod, context, environment, token) => { throw new AssertionException("Do not reopen a confirmed C# installer."); };
+				PreparedCollectionNativeRecipe second = restarted.PrepareExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive,
+					fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
+				Assert.That(second.PreparedNativeIdentity, Is.EqualTo(first.PreparedNativeIdentity));
+				CollectionAssert.AreEquivalent(first.RetainedArtifactIds, second.RetainedArtifactIds);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Numbered component selection strips the chosen root and excludes unselected optional patches.</summary>
+		[Test]
+		public void NumberedComponents_KeepSelectedCoreAndExplicitPatches()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "numbered-components", @"00 Core\config\Tutorial Killer\FalloutNV.ini",
+					@"00 Core\Immersion.esp", @"01 Optional Patch\Patch.esp");
+				Assert.That(CollectionArchiveComponentSelector.GetComponents(fixture.Mod), Is.EqualTo(new[] { "00 Core", "01 Optional Patch" }));
+				IReadOnlyList<ScriptedInstallOperation> core = CollectionArchiveComponentSelector.CreateOperations(fixture.Mod, new[] { "00 Core" });
+				Assert.That(core.OfType<InstallModFileOperation>().Select(file => file.DestinationPath),
+					Is.EquivalentTo(new[] { @"config\Tutorial Killer\FalloutNV.ini", "Immersion.esp" }));
+				Assert.That(CollectionArchiveComponentSelector.CreateOperations(fixture.Mod, new[] { "00 Core", "01 Optional Patch" })
+					.OfType<InstallModFileOperation>().Select(file => file.DestinationPath), Does.Contain("Patch.esp"));
 			}
 			finally { Directory.Delete(root, true); }
 		}
@@ -1794,6 +1871,7 @@ namespace NexusClientTests
 					case "get_FileName": return Path.GetFileName(modArchivePath);
 					case "get_HasInstallScript": return installScript != null;
 					case "get_InstallScript": return installScript;
+					case "ContainsFile": return fileList.Contains((string)args[0], StringComparer.OrdinalIgnoreCase);
 					case "GetFileList":
 						return args.Length != 0 && args[0] is string
 							? fileList.Where(path => path.StartsWith(((string)args[0]).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)).ToList()
@@ -1943,11 +2021,13 @@ namespace NexusClientTests
 			return InterfaceStub<IEnvironmentInfo>.Create((method, args) => null);
 		}
 
-		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, long deploymentCommitSequence)
+		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, long deploymentCommitSequence,
+			IEnumerable<CollectionNativePluginState> plugins = null)
 		{
 			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0],
 				new CollectionNativeModState[0], new CollectionNativeFileState[0], new CollectionNativeIniState[0],
-				new CollectionNativeGameValueState[0], new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
+				new CollectionNativeGameValueState[0], plugins ?? new CollectionNativePluginState[0],
+				plugins == null ? CollectionNativeStateCoverage.NotApplicable : CollectionNativeStateCoverage.Complete,
 				new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0],
 				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], deploymentCommitSequence);
 		}

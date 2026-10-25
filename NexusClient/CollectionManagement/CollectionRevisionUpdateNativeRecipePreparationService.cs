@@ -32,6 +32,7 @@ namespace Nexus.Client.CollectionManagement
 			_nativeRecipePreparer = nativeRecipePreparer ?? throw new ArgumentNullException(nameof(nativeRecipePreparer));
 			if (_services.ModManager == null) throw new InvalidOperationException("Revision-update native preparation requires the active ModManager.");
 			_nativeRecipePreparer.SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions;
+			_nativeRecipePreparer.CaptureInstallerOperations = _services.ModManager.CaptureCollectionInstallerOperations;
 		}
 
 		public PreparedCollectionNativeRecipe Prepare(CollectionRevisionUpdatePlan updatePlan,

@@ -142,7 +142,7 @@ namespace Nexus.Client.CollectionManagement
 	/// can be frozen to the same durable simple-file contract. Characterized exact Vortex fileOverrides are applied as per-output
 	/// suppression before effect preview; patches and non-file FOMOD effects remain fail-closed.
 	/// </remarks>
-	public sealed class CollectionNativeRecipePreparer
+	public sealed partial class CollectionNativeRecipePreparer
 	{
 		private const string PreparedIdentityFormat = "nmm-ce.collections.prepared-native-recipe/1";
 		private const int RetainedManifestCacheLimit = 8;
@@ -156,6 +156,9 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionMemberEffectPreviewBuilder _effectPreviewBuilder;
 		/// <summary>Runs the native choice-only wizard supplied by the active application's UI boundary.</summary>
 		internal Func<IMod, IModInstallationConditionEnvironment, CancellationToken, ModInstallationFomodSelectionRecipe> SelectInstallerOptions { get; set; }
+
+		/// <summary>Captures native C# installer actions or an explicit numbered-component selection.</summary>
+		internal Func<IMod, ModInstallContext, IModInstallationConditionEnvironment, CancellationToken, IReadOnlyList<ScriptedInstallOperation>> CaptureInstallerOperations { get; set; }
 
 		private readonly object _retainedManifestCacheLock = new object();
 		private readonly Dictionary<CollectionRevisionIdentity, RetainedPreparationManifest> _retainedManifestCache =
@@ -289,6 +292,9 @@ namespace Nexus.Client.CollectionManagement
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
+				if (RequiresCapturedInstaller(member, mod, gameMode))
+					return PrepareCapturedInstaller(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, installerEnvironment, allowInstallerInteraction, cancellationToken, identityPlan);
 				if (!member.HasVortexFomodSelection && !mod.HasInstallScript)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
@@ -335,6 +341,9 @@ namespace Nexus.Client.CollectionManagement
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+				if (RequiresCapturedInstaller(member, mod, gameMode))
+					return PrepareCapturedInstaller(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, conditionEnvironment, allowInstallerInteraction, cancellationToken);
 				if (!member.HasVortexFomodSelection && !mod.HasInstallScript)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
@@ -580,7 +589,8 @@ namespace Nexus.Client.CollectionManagement
 			if (member == null) throw new ArgumentNullException(nameof(member));
 			if (mod == null) throw new ArgumentNullException(nameof(mod));
 			if (member.HasVortexFileList || member.HasVortexFomodSelection) return;
-			if (mod.HasInstallScript && !(mod.InstallScript.Type is IModInstallationFomodInteractiveAdapter))
+			if (mod.HasInstallScript && !(mod.InstallScript.Type is IModInstallationFomodInteractiveAdapter) &&
+				!(mod.InstallScript.Type is IModInstallationScriptPlanningAdapter))
 				throw new NotSupportedException("This mod's script type cannot yet provide native Collection installer choices.");
 		}
 

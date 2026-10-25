@@ -7,6 +7,8 @@ using System.Text;
 using System.Linq;
 using Nexus.Client;
 using Nexus.Client.Games;
+using Nexus.Client.CollectionManagement;
+using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
@@ -1318,6 +1320,124 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Collection imports keep the outer download while cold and warm installers read its embedded FOMOD.</summary>
+		[TestCase(false, false)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void Archive_EmbeddedFomodPreservesCollectionDownload(bool preserveContainer, bool warmCache)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-embedded-fomod-" + Guid.NewGuid().ToString("N"));
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			string modsDirectory = Path.Combine(root, "Mods");
+			Directory.CreateDirectory(modsDirectory);
+			try
+			{
+				byte[] payload = Encoding.UTF8.GetBytes("embedded plugin");
+				var scriptType = new XmlScriptType();
+				XmlScript script = ScriptWithSingleGroup(scriptType, OptionGroupType.SelectExactlyOne,
+					Option("Install", OptionType.Required, File("example.esp", "example.esp", 0)));
+				byte[] embedded;
+				using (var stream = new MemoryStream())
+				{
+					using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, true))
+					{
+						WriteInstallerRootEntry(zip, "example.esp", payload);
+						WriteInstallerRootEntry(zip, "fomod/info.xml", Encoding.UTF8.GetBytes("<fomod><Name>Embedded</Name></fomod>"));
+						WriteInstallerRootEntry(zip, "fomod/ModuleConfig.xml", Encoding.UTF8.GetBytes(scriptType.SaveScript(script)));
+					}
+					embedded = stream.ToArray();
+				}
+				string download = Path.Combine(root, "download.zip");
+				using (var stream = System.IO.File.Create(download))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+					WriteInstallerRootEntry(zip, "wrapped/example.fomod", embedded);
+				byte[] original = System.IO.File.ReadAllBytes(download);
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_TemporaryPath" ? root : null);
+				IGameModeEnvironmentInfo gameEnvironment = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_ModDirectory" ? modsDirectory : null);
+				IModFormat format = InterfaceStub<IModFormat>.Create((method, args) =>
+					method.Name == "get_Extension" ? (object)".fomod" :
+					method.Name == "get_Name" ? "FOMOD" :
+					method.Name == "CheckFormatCompliance" ? (object)FormatConfidence.Compatible : null);
+				IModFormatRegistry formats = InterfaceStub<IModFormatRegistry>.Create((method, args) =>
+					method.Name == "get_Formats" ? new List<IModFormat> { format } : null);
+				IList<string> imported;
+				using (var builder = new ModBuilder(gameEnvironment, environment, new FileUtil()))
+				{
+					builder.PreserveEmbeddedFomodArchive = preserveContainer;
+					object[] arguments = { formats, download, null, true, null };
+					imported = (IList<string>)typeof(ModBuilder).GetMethod("DoFromArchive", BindingFlags.Instance | BindingFlags.NonPublic)
+						.Invoke(builder, arguments);
+				}
+				string managed = Path.Combine(modsDirectory, preserveContainer ? "download.zip" : "example.fomod");
+				Assert.That(imported, Is.EqualTo(new[] { managed }));
+				Assert.That(Directory.GetFiles(modsDirectory), Is.EqualTo(new[] { managed }));
+				CollectionAssert.AreEqual(preserveContainer ? original : embedded, System.IO.File.ReadAllBytes(managed));
+				IModCacheManager cacheManager = InterfaceStub<IModCacheManager>.Create((method, args) =>
+					method.Name == "get_ModCacheDirectory" ? cacheDirectory :
+					method.Name == "get_EnvironmentInfo" ? (object)environment : null);
+				IScriptTypeRegistry registry = InterfaceStub<IScriptTypeRegistry>.Create((method, args) =>
+					method.Name == "get_Types" ? new List<IScriptType> { scriptType } : null);
+				if (warmCache)
+					new FOMod(managed, null, new[] { "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				var mod = new FOMod(managed, null, new[] { "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				Assert.That(mod.Filename, Is.EqualTo(managed));
+				Assert.That(mod.ModArchivePath, Is.EqualTo(managed));
+				Assert.That(mod.HasInstallScript, Is.True);
+				Assert.That(mod.GetFileList(), Does.Contain("example.esp"));
+				CollectionAssert.AreEqual(payload, mod.GetFile("example.esp"));
+				string output = Path.Combine(root, "installed", "example.esp");
+				mod.CopyFilesTo(new Dictionary<string, string> { { "example.esp", output } }, System.Threading.CancellationToken.None, null);
+				CollectionAssert.AreEqual(payload, System.IO.File.ReadAllBytes(output));
+				CollectionAssert.AreEqual(preserveContainer ? original : embedded, System.IO.File.ReadAllBytes(managed));
+			}
+			finally
+			{
+				ReleaseInstallerRootMetadataDatabase(cacheDirectory);
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Component mappings retain original numbered roots when legacy FOMOD discovery aliases an optional patch as the root.</summary>
+		[Test]
+		public void Archive_NumberedComponentsPreserveLegacySourceAliases()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-numbered-components-" + Guid.NewGuid().ToString("N"));
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(root);
+			try
+			{
+				byte[] payload = Encoding.UTF8.GetBytes("main configuration");
+				string archivePath = Path.Combine(root, "components.zip");
+				using (var stream = new FileStream(archivePath, FileMode.Create))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+				{
+					WriteInstallerRootEntry(zip, "00 Core/config/Tutorial Killer/FalloutNV.ini", payload);
+					WriteInstallerRootEntry(zip, "00 Core/Main.esp", payload);
+					WriteInstallerRootEntry(zip, "01 Optional Patch/Patch.esp", Encoding.UTF8.GetBytes("optional"));
+				}
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_TemporaryPath" ? root : null);
+				IModCacheManager cache = InterfaceStub<IModCacheManager>.Create((method, args) =>
+					method.Name == "get_ModCacheDirectory" ? cacheDirectory :
+					method.Name == "get_EnvironmentInfo" ? (object)environment : null);
+				IScriptTypeRegistry registry = InterfaceStub<IScriptTypeRegistry>.Create((method, args) =>
+					method.Name == "get_Types" ? new List<IScriptType>() : null);
+				var mod = new FOMod(archivePath, null, new[] { "Meshes" }, "Data", new[] { ".esp" }, cache, registry, true, false);
+				Assert.That(CollectionArchiveComponentSelector.GetComponents(mod), Is.EqualTo(new[] { "00 Core", "01 Optional Patch" }));
+				IReadOnlyList<ScriptedInstallOperation> selected = CollectionArchiveComponentSelector.CreateOperations(mod, new[] { "00 Core" });
+				Assert.That(selected.OfType<InstallModFileOperation>().Select(file => file.DestinationPath),
+					Is.EquivalentTo(new[] { @"config\Tutorial Killer\FalloutNV.ini", "Main.esp" }));
+				InstallModFileOperation ini = selected.OfType<InstallModFileOperation>().Single(file => file.DestinationPath.EndsWith("FalloutNV.ini"));
+				CollectionAssert.AreEqual(payload, mod.GetFile(ini.SourcePath));
+			}
+			finally
+			{
+				ReleaseInstallerRootMetadataDatabase(cacheDirectory);
+				Directory.Delete(root, true);
+			}
+		}
 		/// <summary>Writes one archive entry for the real installer-root regression fixture.</summary>
 		private static void WriteInstallerRootEntry(ZipArchive archive, string name, byte[] bytes)
 		{

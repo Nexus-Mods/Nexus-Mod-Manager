@@ -213,6 +213,8 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.CapturedInstallers.cs" />
+    <Compile Include="CollectionManagement\CollectionArchiveComponentSelector.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3Data.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3InstallPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionInstallerSelectionStore.cs" />

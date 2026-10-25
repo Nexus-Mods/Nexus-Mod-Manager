@@ -302,6 +302,18 @@ namespace Nexus.Client.Games.Gamebryo
 		/// </summary>
 		/// <value>The path to the per user game data.</value>
 		public abstract string UserGameDataPath { get; }
+
+		/// <summary>Recognizes this game's configured script extender among exact outputs already prepared by a Collection.</summary>
+		public bool IsScriptExtenderPrepared(IModInstallationConditionEnvironment environment)
+		{
+			if (environment == null) return false;
+			foreach (string executable in ScriptExtenderExecutables)
+			{
+				bool exists;
+				if (environment.TryGetDataFileExists(ModDeploymentRoot.GameRoot, executable, out exists) && exists) return true;
+			}
+			return false;
+		}
         		
 		/// <summary>
 		/// Gets the max allowed number of active plugins.

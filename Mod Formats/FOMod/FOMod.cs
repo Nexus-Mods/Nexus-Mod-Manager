@@ -6,6 +6,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	using System.Drawing;
 	using System.IO;
 	using System.Linq;
+	using System.Security.Cryptography;
 	using System.Text;
 	using System.Text.RegularExpressions;
 	using System.Threading;
@@ -31,6 +32,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		#region Fields
 
 		private string _nestedFilePath;
+		private bool _hasNestedFomod;
 		private Archive _archiveFile;
 		private readonly FOModArchiveMetadataCache _metadataCache;
 		private readonly Dictionary<string, string> _movedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -326,7 +328,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public string ScreenshotPath { get; private set; }
 
 		/// <inheritdoc />
-		public string Filename => string.IsNullOrEmpty(_nestedFilePath) ? ModArchivePath : _nestedFilePath;
+		public string Filename => _hasNestedFomod || string.IsNullOrEmpty(_nestedFilePath) ? ModArchivePath : _nestedFilePath;
 
 		/// <inheritdoc />
 		public string ModArchivePath { get; }
@@ -402,7 +404,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			ScriptTypeRegistry = scriptTypeRegistry;
 			_usesPlugins = usePlugins;
 
-			var checkNested = nestedArchives;
+			var checkNested = true;
 			var checkPrefix = true;
 			var checkScript = true;
 			string strCheckPrefix = null;
@@ -443,7 +445,14 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				_downloadDate = File.GetLastWriteTime(ModArchivePath);
 			}
 
-			if (checkNested && nestedArchives)
+			if (checkNested && !String.Equals(Path.GetExtension(filePath), ".fomod", StringComparison.OrdinalIgnoreCase))
+			{
+				string[] embedded = ArchiveFile.GetFiles("", "*.fomod", true);
+				if (embedded.Length == 1)
+					LoadEmbeddedFomod(embedded[0], modCacheManager.ModCacheDirectory);
+			}
+
+			if (checkNested && nestedArchives && !_hasNestedFomod)
 			{
 				#region Temporary fix for nested .dazip files
 
@@ -504,6 +513,25 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		#endregion
 
 		#region Initialization
+
+		/// <summary>Reads an embedded FOMOD without replacing the managed download or its repository identity.</summary>
+		private void LoadEmbeddedFomod(string entry, string cacheDirectory)
+		{
+			byte[] payload = ArchiveFile.GetFileContents(entry);
+			string payloadHash;
+			using (SHA256 sha256 = SHA256.Create())
+				payloadHash = BitConverter.ToString(sha256.ComputeHash(payload)).Replace("-", String.Empty);
+			string directory = Path.Combine(cacheDirectory, "EmbeddedFOMods", payloadHash);
+			Directory.CreateDirectory(directory);
+			string path = Path.Combine(directory, "payload.fomod");
+			if (!File.Exists(path))
+				FileUtil.WriteAllBytes(path, payload);
+			_archiveFile = new Archive(path);
+			_nestedFilePath = path;
+			_hasNestedFomod = true;
+			_archiveEventsAttached = false;
+			AttachArchiveEvents();
+		}
 
 		private Archive ArchiveFile
 		{

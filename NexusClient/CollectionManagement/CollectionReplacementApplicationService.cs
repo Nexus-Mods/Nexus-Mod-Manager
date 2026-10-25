@@ -144,7 +144,8 @@ namespace Nexus.Client.CollectionManagement
 				new CollectionsRevisionSourceStore(_store), _artifactStore, _referenceStore, new Nexus.Client.OnlineServices.NexusMods.Collections.NexusCollectionManifestNormalizer(),
 				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionMemberEffectPreviewBuilder(_store))
 			{
-				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions,
+				CaptureInstallerOperations = _services.ModManager.CaptureCollectionInstallerOperations
 			};
 			_nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);

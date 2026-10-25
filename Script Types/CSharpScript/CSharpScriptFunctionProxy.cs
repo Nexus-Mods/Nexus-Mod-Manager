@@ -5,6 +5,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.ModManagement.Scripting.Operations;
 
 namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 {
@@ -13,6 +14,17 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 	/// </summary>
 	public class CSharpScriptFunctionProxy : ScriptFunctionProxy
 	{
+		/// <summary>Gets whether this executor is preparing a Collection without native deployment.</summary>
+		internal bool IsCollectionCapture { get { return IsCapturingInstallation; } }
+
+		/// <summary>Gets the operations confirmed by the script, including generated configuration files.</summary>
+		internal IReadOnlyList<ScriptedInstallOperation> CapturedOperations { get { return InstallationSession.Plan.Operations; } }
+
+		/// <summary>Enables projected reads and operation capture before the native C# installer runs.</summary>
+		internal void BeginCollectionCapture(IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			BeginInstallationCapture(conditionEnvironment);
+		}
 		/// <summary>
 		/// Gets whether a Direct/promoted deployment failure occurred even if the sandboxed script swallowed the exception.
 		/// </summary>
@@ -48,7 +60,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		/// <returns>A scope that flushes the deferred metadata update when disposed.</returns>
 		internal IDisposable BeginModInfoUpdateBatch()
 		{
-			return VirtualModActivator.BeginModInfoUpdateBatch();
+			return IsCollectionCapture ? null : VirtualModActivator.BeginModInfoUpdateBatch();
 		}
 
 		#region File Management

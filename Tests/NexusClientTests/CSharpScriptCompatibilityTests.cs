@@ -1,5 +1,6 @@
 using System;
 using System.CodeDom.Compiler;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Security;
@@ -8,6 +9,8 @@ using System.Threading;
 using Nexus.Client;
 using Nexus.Client.Games.Fallout3.Scripting.CSharpScript;
 using Nexus.Client.ModManagement.Scripting.CSharpScript;
+using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -174,6 +177,69 @@ public class Script : CSharpBaseScript
                 // A second complete execution verifies that the production cleanup path unloaded the first sandbox cleanly.
                 Assert.That(executor.DoExecute(script), Is.True);
                 Assert.That(context.FileInstaller.FinalizeCallCount, Is.EqualTo(2));
+            }
+        }
+
+        /// <summary>Collection capture preserves script read-after-write behavior without installing or finalizing native files.</summary>
+        [Test]
+        public void CollectionCapture_RecordsFilesAndGeneratedSettingsWithoutDeployment()
+        {
+            using (var temporaryDirectory = new TemporaryDirectory())
+            {
+                var context = new ScriptProxyContext(temporaryDirectory.Path, "123", false, false, null, null,
+                    Nexus.Client.ModManagement.ModInstallMethod.Virtual, true);
+                byte[] payload = { 1, 2, 3 };
+                context.AddModFile("payload.bin", payload);
+                var proxy = new CSharpScriptFunctionProxy(context.Mod, context.GameMode, null, context.VirtualModActivator, context.Installers, null);
+                typeof(CSharpScriptFunctionProxy).GetMethod("BeginCollectionCapture", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(proxy, new object[] { null });
+                Assert.That(proxy.CopyDataFile("payload.bin", @"config\payload.bin"), Is.True);
+                Assert.That(proxy.DataFileExists(@"config\payload.bin"), Is.True);
+                CollectionAssert.AreEqual(payload, proxy.GetExistingDataFile(@"config\payload.bin"));
+                Assert.That(proxy.GenerateDataFile(@"config\generated.ini", payload), Is.True);
+                proxy.CompleteInstallation();
+                var captured = (IReadOnlyList<ScriptedInstallOperation>)typeof(CSharpScriptFunctionProxy)
+                    .GetProperty("CapturedOperations", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(proxy);
+                Assert.That(captured.Count, Is.EqualTo(2));
+                Assert.That(captured[0], Is.TypeOf<InstallModFileOperation>());
+                Assert.That(captured[1], Is.TypeOf<GenerateDataFileOperation>());
+                Assert.That(context.FileInstaller.InstallCallCount, Is.Zero);
+                Assert.That(context.FileInstaller.FinalizeCallCount, Is.Zero);
+                Assert.That(context.LinkCallCount, Is.Zero);
+                Assert.That(File.Exists(Path.Combine(context.GameMode.InstallationPath, @"config\payload.bin")), Is.False);
+            }
+        }
+
+        /// <summary>A script cannot bypass capture with a direct filesystem write into the game during preparation.</summary>
+        [Test]
+        public void CollectionCapture_SandboxDeniesDirectGameWrites()
+        {
+            using (var temporaryDirectory = new TemporaryDirectory())
+            {
+                var context = new ScriptProxyContext(temporaryDirectory.Path, "123", false, false, null);
+                string scratch = Path.Combine(temporaryDirectory.Path, "Scratch");
+                Directory.CreateDirectory(scratch);
+                IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+                    method.Name == "get_TemporaryPath" ? scratch : null);
+                var proxy = new CSharpScriptFunctionProxy(context.Mod, context.GameMode, environment, context.VirtualModActivator, context.Installers, null);
+                typeof(CSharpScriptFunctionProxy).GetMethod("BeginCollectionCapture", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(proxy, new object[] { null });
+                string destination = Path.Combine(context.GameMode.InstallationPath, "unreviewed.txt");
+                string code = @"
+using System.IO;
+using System.Security;
+public class Script : CSharpBaseScript
+{
+    public bool OnActivate()
+    {
+        try { File.WriteAllText(@""__PATH__"", ""unreviewed""); return false; }
+        catch (SecurityException) { return true; }
+    }
+}".Replace("__PATH__", destination.Replace("\"", "\"\""));
+                var type = new CSharpScriptType();
+                var executor = new CSharpScriptExecutor(context.GameMode, environment, proxy, typeof(CSharpBaseScript), context.VirtualPath);
+                Assert.That(executor.DoExecute(new CSharpScript(type, code)), Is.True);
+                Assert.That(File.Exists(destination), Is.False);
             }
         }
 

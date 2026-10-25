@@ -55,6 +55,14 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_pmgPluginManager = p_igpInstallers.PluginManager;
 		}
 
+		/// <summary>Combines read-only native file and INI services with the Collection's effective plugin baseline.</summary>
+		public ScriptedInstallationProjectedState(IMod mod, IGameMode gameMode, InstallerGroup installers,
+			IModInstallationConditionEnvironment conditionEnvironment)
+			: this(mod, gameMode, installers)
+		{
+			m_iceConditionEnvironment = conditionEnvironment;
+		}
+
 		/// <summary>
 		/// Initializes a projected-state view limited to additive plugin-condition evaluation.
 		/// </summary>
@@ -370,6 +378,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		public bool DataFileExists(string p_strPath)
 		{
 			string strPath = GetAdjustedDataPath(p_strPath);
+			if (m_iceConditionEnvironment != null && m_igpInstallers != null)
+			{
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(m_gmdGameMode, m_modMod, p_strPath, m_igpInstallers.InstallContext.InstallRoot);
+				bool exists;
+				if (m_iceConditionEnvironment.TryGetDataFileExists(target.Root, target.RelativePath, out exists) && exists) return true;
+			}
 			return m_dicProjectedFiles.ContainsKey(strPath) || m_igpInstallers.DataFileUtility.DataFileExists(strPath);
 		}
 

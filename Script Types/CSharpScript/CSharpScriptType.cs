@@ -6,6 +6,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using System.CodeDom.Compiler;
 using System.Threading;
+using Nexus.Client.ModManagement.Scripting.Operations;
 
 namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 {
@@ -16,8 +17,23 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 	/// This is the script that allows scripting using the C# language. It is meant
 	/// to be the most advanced and flexible script.
 	/// </remarks>
-	public class CSharpScriptType : IScriptType
+	public class CSharpScriptType : IScriptType, IModInstallationScriptPlanningAdapter
 	{
+		/// <summary>Collects confirmed native C# installer actions without deploying files or changing native state.</summary>
+		public IReadOnlyList<ScriptedInstallOperation> CaptureOperations(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IVirtualModActivator activator, InstallerGroup installers, IModInstallationConditionEnvironment conditionEnvironment,
+			SynchronizationContext uiContext, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			CSharpScriptFunctionProxy proxy = GetScriptFunctionProxy(mod, gameMode, environmentInfo, activator, installers, uiContext);
+			proxy.BeginCollectionCapture(conditionEnvironment);
+			var executor = new CSharpScriptExecutor(gameMode, environmentInfo, proxy, BaseScriptType, activator.VirtualPath);
+			if (!executor.DoExecute(mod.InstallScript))
+				throw new OperationCanceledException("The C# installer was cancelled or did not finish successfully.", cancellationToken);
+			cancellationToken.ThrowIfCancellationRequested();
+			return proxy.CapturedOperations;
+		}
+
 		private static List<string> m_lstFileNames = new List<string>() { "script.cs" };
 
 		#region IScriptType Members

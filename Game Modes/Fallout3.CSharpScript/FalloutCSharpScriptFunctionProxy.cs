@@ -64,7 +64,9 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <returns><c>true</c> if a script extender is installed; <c>false</c> otherwise.</returns>
 		public bool ScriptExtenderPresent()
 		{
-			return ((GamebryoGameModeBase)GameMode).ScriptExtenderVersion != null;
+			var gameMode = (GamebryoGameModeBase)GameMode;
+			return (IsCapturingInstallation && gameMode.IsScriptExtenderPrepared(CapturedConditionEnvironment)) ||
+				gameMode.ScriptExtenderVersion != null;
 		}
 
 		#endregion

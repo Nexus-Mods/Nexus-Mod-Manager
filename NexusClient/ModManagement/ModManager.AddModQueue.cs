@@ -152,6 +152,8 @@ namespace Nexus.Client.ModManagement
 					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", SanitizeDownloadUri(p_uriPath)));
 					Guid queueOperationId = p_gudQueueOperationId ?? Guid.NewGuid();
 					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, m_mmgModManager.SortOrderService, queueOperationId);
+					// Explicitly correlated producers belong to Collection acquisition and retain provider archive identity.
+					amtModAdder.PreserveEmbeddedFomodArchive = p_gudQueueOperationId.HasValue;
 					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 					amtModAdder.IsRemote = booIsRemote;
 					m_dicActiveTasks[p_uriPath] = amtModAdder;

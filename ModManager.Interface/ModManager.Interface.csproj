@@ -244,6 +244,7 @@
     <Compile Include="ModManagement\Scripting\ScriptedFileSelectionCache.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationSession.cs" />
     <Compile Include="ModManagement\Scripting\ScriptFunctionProxy.cs" />
+    <Compile Include="ModManagement\IModInstallationScriptPlanningAdapter.cs" />
     <Compile Include="ModManagement\Scripting\SelectOption.cs" />
     <Compile Include="ModManagement\Scripting\UIUtil.cs" />
     <Compile Include="ModManagement\Scripting\UI\SelectForm.cs">

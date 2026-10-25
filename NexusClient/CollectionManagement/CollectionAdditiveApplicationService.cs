@@ -469,7 +469,8 @@ namespace Nexus.Client.CollectionManagement
 
 			var nativeRecipePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, artifactStore, referenceStore)
 			{
-				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions,
+				CaptureInstallerOperations = _services.ModManager.CaptureCollectionInstallerOperations
 			};
 			var dependencyPlanner = new CollectionDependencyPhasePlanner();
 			var impactPlanner = new CollectionConflictImpactPlanner();

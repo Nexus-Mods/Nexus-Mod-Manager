@@ -342,7 +342,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("A reviewed prepared recipe no longer matches its reconstructed selected member.");
 				if (!StringComparer.Ordinal.Equals(persisted.Validation.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId) ||
 					persisted.Validation.AdapterVersion != ModInstallationSimpleFileRecipeAdapter.AdapterVersion ||
-					persisted.SimpleFileMappings.Count + persisted.GeneratedFiles.Count + persisted.GameSpecificValues.Count == 0)
+					persisted.SimpleFileMappings.Count + persisted.GeneratedFiles.Count + persisted.GameSpecificValues.Count + persisted.EffectPreview.IniEdits.Count == 0)
 					throw new NotSupportedException("The reviewed native recipe cannot be reproduced by the current characterized simple-file/generated-file contract.");
 
 				foreach (string artifactId in persisted.RetainedArtifactIds)
@@ -362,6 +362,8 @@ namespace Nexus.Client.CollectionManagement
 					nativeOperations.Add(new GenerateDataFileOperation(generated.DestinationPath, LoadGeneratedBytes(persisted, generated), generated.SourcePath));
 				foreach (CollectionReviewedGameSpecificValueSnapshot value in persisted.GameSpecificValues)
 					nativeOperations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+				foreach (CollectionPlannedIniEffect ini in persisted.EffectPreview.IniEdits)
+					nativeOperations.Add(new EditIniOperation(ini.Key.File, ini.Key.Section, ini.Key.Key, ini.Value));
 				ModInstallationRecipeInput translated = _simpleFileAdapter.TranslatePreparedPlan(input, nativeOperations);
 				result.Add(new PreparedCollectionNativeRecipe(member,
 					PreparedCollectionNativeRecipeIdentity.FromFingerprint(persisted.PreparedNativeFingerprint), translated,
