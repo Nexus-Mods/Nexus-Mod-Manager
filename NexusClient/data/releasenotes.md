@@ -1,5 +1,27 @@
 # NMM Community Edition release notes
 
+## Version 0.93.7
+
+- New Feature: Added Portuguese localization.
+- New Feature: Added an option to reset the setup of an already configured game.
+- New Feature: Managed games now show their Mods, Install Info, and Virtual Install folder paths in Game Discovery.
+- Bugfix: Improved Baldur's Gate 3 mod and Collection installation support.
+- Bugfix: Fixed Baldur's Gate 3 Script Extender installation.
+- Bugfix: Fixed Collections being blocked when some optional mods were deselected.
+- Bugfix: Improved Collection recovery performance and fixed cached reviews not being reused during rollback.
+- Bugfix: Fixed Collection downloads not being recognized when hosted under a different game.
+- Bugfix: Fixed external launcher support for Collections.
+- Bugfix: Fixed failed hardlink creation incorrectly falling back to symbolic links.
+- Bugfix: Fixed Oblivion's bundled categories and improved support for its Mod Script installers.
+- Bugfix: Fixed the Plugins list not refreshing after using Uninstall All Active Mods.
+- Bugfix: Fixed a crash when switching profiles, including its rollback path.
+- Bugfix: Fixed the Mods grid's search filter losing focus while downloads added new mods.
+- Bugfix: Fixed Wabbajack tab backgrounds not following the active skin, including High Contrast.
+- Bugfix: Updated all existing localizations.
+- Bugfix: Removed the obsolete Nexus Mods forum reference from the crash dialog and made the GitHub reporting link clickable.
+- Bugfix: Made additional adjustments to the Baldur's Gate 3 and Witcher 3 game modes.
+- Bugfix: Removed unnecessary files from the installer package.
+
 ## Version 0.93.6
 
 - New Feature: Added preliminary, unofficial Wabbajack support, currently enabled for Fallout: New Vegas (supported added on request).
