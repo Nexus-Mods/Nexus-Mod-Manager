@@ -2428,9 +2428,10 @@
             RequestManagedPluginsRefresh();
         }
 
-        private void ViewModelExportFailed(object sender, EventArgs e)
+        private void ViewModelExportFailed(object sender, ExportFailedEventArgs e)
         {
-            XtraMessageBox.Show(this, LanguageManager.Get("Plugins.Export.Failed.Message", "The current load order could not be exported."), LanguageManager.Get("Plugins.Export.Failed.Title", "Export Failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            XtraMessageBox.Show(this, LanguageManager.Get("Plugins.Export.Failed.Message", "The current load order could not be exported.") +
+                Environment.NewLine + Environment.NewLine + e.Message, LanguageManager.Get("Plugins.Export.Failed.Title", "Export Failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ViewModelExportSucceeded(object sender, EventArgs e)

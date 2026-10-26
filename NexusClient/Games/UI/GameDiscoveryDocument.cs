@@ -489,7 +489,7 @@
 			_candidatePanel.Controls.Add(candidateLayout);
 			card.Controls.Add(_candidatePanel, 0, 10);
 
-			var evidencePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder };
+			var evidencePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, MinimumSize = new Size(0, 145) };
 			var evidenceLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
 			evidenceLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
 			evidenceLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -781,9 +781,27 @@
 			int width = Math.Max(active ? 1120 : 760, _viewport.ClientSize.Width - 20);
 			int height = Math.Max(1, _viewport.ClientSize.Height - 8);
 			_canvas.Width = Math.Min(active ? 1640 : 1180, width);
-			_canvas.Height = Math.Max(770, Math.Min(855, height));
+			_canvas.Height = Math.Max(GetMinimumCanvasHeight(), Math.Min(855, height));
 			_canvas.Left = Math.Max(0, (_viewport.ClientSize.Width - _canvas.Width) / 2);
 			_canvas.Top = 0;
+		}
+
+		/// <summary>Reserves discovery evidence below the visible actions, allowing the viewport to scroll instead of clipping it.</summary>
+		private int GetMinimumCanvasHeight()
+		{
+			if (_detailLayout == null) return 770;
+			Control evidence = _detailLayout.GetControlFromPosition(0, 12);
+			Control detailCard = _detailLayout.Parent;
+			if (evidence == null || detailCard == null || detailCard.Parent == null) return 770;
+			Control mainArea = detailCard.Parent;
+			int detailHeight = (int)Math.Ceiling(_detailLayout.RowStyles.Cast<RowStyle>()
+				.Where(row => row.SizeType == SizeType.Absolute).Sum(row => row.Height));
+			detailHeight += evidence.MinimumSize.Height + evidence.Margin.Vertical + _detailLayout.Margin.Vertical +
+				detailCard.Padding.Vertical + detailCard.Margin.Vertical + mainArea.Margin.Vertical;
+			int headerHeight = _canvas.GetRowHeights()[0];
+			int fixedRowsHeight = (int)Math.Ceiling(_canvas.RowStyles.Cast<RowStyle>()
+				.Where(row => row.SizeType == SizeType.Absolute).Sum(row => row.Height));
+			return Math.Max(770, _canvas.Padding.Vertical + headerHeight + fixedRowsHeight + detailHeight);
 		}
 
 		private static string L(string key, string fallback) => LanguageManager.Get(key, fallback);
@@ -1321,6 +1339,7 @@
 			_detailLayout.RowStyles[9].Height = showLocate || showReset ? 42 : 0;
 			_detailLayout.RowStyles[10].Height = showCandidates ? 83 : 0;
 			_installations.Enabled = readyForAction && (canConfigure || hasDetectedReplacement && !activeMissing) && _installations.Properties.Items.Count > 0;
+			ResizeCanvas();
 		}
 
 		internal void SelectMode(string modeId)

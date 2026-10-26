@@ -346,6 +346,43 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Growing the bottom panes must scroll the catalog instead of collapsing the selected game's evidence.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		[Apartment(ApartmentState.STA)]
+		public void DiscoveryDetails_RemainReadableWhenViewportShrinks(bool missing)
+		{
+			using (var document = new GameDiscoveryDocument())
+			{
+				GameDiscoveryEntry entry = missing
+					? new GameDiscoveryEntry("FalloutNV", "FalloutNV", GameDiscoveryCollection.Managed,
+						@"C:\OldGame\Data", @"C:\OldGame", true, true, false, false,
+						new[] { new GameDiscoveryInstallationCandidate("FalloutNV", @"D:\NewGame", "Steam") },
+						missingRequiredFiles: new[] { "game.exe" })
+					: Entry();
+				document.SetCatalog(new GameDiscoveryCatalog(new[] { entry }, new string[0]));
+				document.SetActiveManagedGame("FalloutNV");
+				document.SelectMode("FalloutNV");
+				document.StartPosition = FormStartPosition.Manual;
+				document.Location = new Point(-20000, -20000);
+				document.ShowInTaskbar = false;
+				document.Show();
+				MemoEdit details = (MemoEdit)typeof(GameDiscoveryDocument).GetField("_details", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				Control canvas = (Control)typeof(GameDiscoveryDocument).GetField("_canvas", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				PanelControl viewport = (PanelControl)typeof(GameDiscoveryDocument).GetField("_viewport", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(document);
+				foreach (int height in new[] { 900, 650, 450, 900 })
+				{
+					document.Size = new Size(1200, height);
+					Application.DoEvents();
+					Assert.That(details.Height, Is.GreaterThanOrEqualTo(80), "Discovery details collapsed at viewport height " + height);
+					Assert.That(details.Parent.ClientRectangle.Contains(details.Bounds), Is.True);
+					Assert.That(canvas.Height, Is.GreaterThan(viewport.ClientSize.Height), "The page should scroll to its evidence.");
+					Assert.That(details.Text, Is.Not.Empty);
+				}
+				document.Close();
+			}
+		}
+
 		private string CachePath => Path.Combine(_root, "game-discovery-statistics.json");
 
 		/// <summary>Writes a versioned test document.</summary>

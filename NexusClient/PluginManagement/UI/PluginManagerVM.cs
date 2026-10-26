@@ -13,6 +13,7 @@ using Nexus.Client.Util.Collections;
 using Nexus.Client.Util.Localization;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -876,23 +877,17 @@ namespace Nexus.Client.PluginManagement.UI
 			if (string.IsNullOrEmpty(p_strFilename) || !CurrentGameMode.UsesPlugins)
 				return;
 
-			StreamWriter swWriter = null;
 			try
 			{
-				swWriter = new StreamWriter(p_strFilename, false);
-
-				int intExportedPluginCount = ExportLoadOrder(swWriter);
+				int intExportedPluginCount;
+				using (StreamWriter swWriter = new StreamWriter(p_strFilename, false))
+					intExportedPluginCount = ExportLoadOrder(swWriter);
 
 				OnExportSucceeded(p_strFilename, intExportedPluginCount);
 			}
 			catch (Exception ex)
 			{
 				OnExportFailed(p_strFilename, ex);
-			}
-			finally
-			{
-				if (swWriter != null)
-					swWriter.Dispose();
 			}
 		}
 
@@ -953,6 +948,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_exError">The error that occurred.</param>
 		protected void OnExportFailed(Exception p_exError)
 		{
+			Trace.TraceError("Plugin export to clipboard failed for game '{0}': {1}", CurrentGameMode.ModeId, p_exError);
 			if (ExportFailed != null)
 				ExportFailed(this, new ExportFailedEventArgs(p_exError));
 		}
@@ -964,6 +960,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_exError">The error that occurred.</param>
 		protected void OnExportFailed(string p_strFilename, Exception p_exError)
 		{
+			Trace.TraceError("Plugin export to '{0}' failed for game '{1}': {2}", p_strFilename, CurrentGameMode.ModeId, p_exError);
 			if (ExportFailed != null)
 				ExportFailed(this, new ExportFailedEventArgs(p_strFilename, p_exError));
 		}
