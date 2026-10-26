@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
@@ -170,6 +171,8 @@ namespace Nexus.Client.ModManagement
 			}
 
 			NativeModStatePreparationTask preparationTask = new NativeModStatePreparationTask();
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			Trace.TraceInformation("Native mod mutation: acquiring target reservation and checking installed state.");
 			OnTaskStarted(preparationTask);
 			bool succeeded = false;
 			try
@@ -187,6 +190,8 @@ namespace Nexus.Client.ModManagement
 			}
 			finally
 			{
+				Trace.TraceInformation("Native mod mutation: target preparation finished in {0} ms; succeeded={1}.",
+					stopwatch.ElapsedMilliseconds, succeeded);
 				preparationTask.Complete(succeeded);
 			}
 		}

@@ -29,6 +29,60 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>Checks unrelated ownership once per registration regardless of how many active files it owns.</summary>
+		[TestCase(1)]
+		[TestCase(128)]
+		public void ActiveLinksCheck_ResolvesUnrelatedMetadataOncePerCall(int linkCount)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod requested = fixture.CreateMod("Requested");
+				IMod unrelated = fixture.CreateMod("Unrelated");
+				fixture.InstallLog.AddActiveMod(requested, ModInstallRoot.Data, ModInstallMethod.Virtual);
+				fixture.InstallLog.AddActiveMod(unrelated, ModInstallRoot.Data, ModInstallMethod.Virtual);
+				var originalInfo = new VirtualModInfo("10", "100", "Unrelated", Path.GetFileName(unrelated.Filename), "1.0");
+				int fileNameReads = 0;
+				IVirtualModInfo observedInfo = InterfaceStub<IVirtualModInfo>.Create((method, args) =>
+				{
+					if (method.Name == "get_ModFileName") fileNameReads++;
+					return method.Invoke(originalInfo, args);
+				});
+				for (int index = 0; index < linkCount; index++)
+					fixture.Activator.VirtualLinks.Add(new VirtualModLink("Unrelated\\" + index, "File" + index, 0, true, observedInfo, ModInstallRoot.Data));
+
+				Assert.That(fixture.Activator.CheckHasActiveLinks(requested), Is.False);
+				Assert.That(fileNameReads, Is.LessThanOrEqualTo(8), "Owner resolution must not repeat for every unrelated file.");
+
+				var requestedInfo = new VirtualModInfo("20", "200", "Requested", Path.GetFileName(requested.Filename), "1.0");
+				var requestedLink = new VirtualModLink("Requested\\file", "Requested.txt", 0, false, requestedInfo, ModInstallRoot.Data);
+				fixture.Activator.VirtualLinks.Add(requestedLink);
+				Assert.That(fixture.Activator.CheckHasActiveLinks(requested), Is.False);
+				requestedLink.Active = true;
+				Assert.That(fixture.Activator.CheckHasActiveLinks(requested), Is.True);
+				requestedLink.Active = false;
+				Assert.That(fixture.Activator.CheckHasActiveLinks(requested), Is.False);
+			}
+		}
+
+		/// <summary>Retains footprint-based legacy upgrade recovery when archive and download identities have changed.</summary>
+		[Test]
+		public void ActiveLinksCheck_PreservesLegacyUpgradeMatching()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("UpgradedArchive");
+				((InstallLog.DummyMod)mod).Id = "42";
+				((InstallLog.DummyMod)mod).DownloadId = "200";
+				fixture.Install(mod, "Legacy.txt", "legacy");
+				IVirtualModLink link = fixture.Activator.VirtualLinks.Single();
+				link.ModInfo = new VirtualModInfo("42", "100", "PreviousArchive", "PreviousArchive.7z", "1.0");
+
+				Assert.That(fixture.Activator.CheckHasActiveLinks(mod), Is.True);
+				link.Active = false;
+				Assert.That(fixture.Activator.CheckHasActiveLinks(mod), Is.False);
+			}
+		}
+
 		/// <summary>Transactional removal publishes one link-list reset while preserving unrelated native ownership.</summary>
 		[Test]
 		public void NativeUninstall_BatchesLinkNotificationsAndPreservesOtherMod()

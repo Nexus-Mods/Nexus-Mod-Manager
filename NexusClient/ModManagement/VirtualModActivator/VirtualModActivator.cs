@@ -3227,7 +3227,24 @@
 				return false;
 
 			string strModFileName = Path.GetFileName(p_modMod.Filename);
-			return m_tslVirtualModList.Any(x => x != null && x.Active && VirtualModLinkMatchesMod(x, p_modMod, strModFileName));
+			var matchesByModInfo = new Dictionary<IVirtualModInfo, bool>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
+			foreach (IVirtualModLink link in m_tslVirtualModList)
+			{
+				if (link == null || !link.Active || link.ModInfo == null)
+					continue;
+
+				bool matches;
+				if (!matchesByModInfo.TryGetValue(link.ModInfo, out matches))
+				{
+					// Legacy owner recovery can inspect the entire library. Resolve each registration
+					// once per check, including misses, rather than once for every deployed file.
+					matches = VirtualModInfoBelongsToMod(link.ModInfo, p_modMod, strModFileName);
+					matchesByModInfo.Add(link.ModInfo, matches);
+				}
+				if (matches)
+					return true;
+			}
+			return false;
 		}
 
 		private static bool VirtualModInfoMatchesMod(IVirtualModInfo p_vmiModInfo, IMod p_modMod, string p_strModFileName)

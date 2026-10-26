@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using System.IO;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
@@ -195,11 +196,13 @@ namespace Nexus.Client.ModManagement
 			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strErrorMessage = String.Empty;
 			IReadOnlyCollection<string> removedDeploymentPaths = null;
+			Stopwatch stopwatch = Stopwatch.StartNew();
 			try
 			{
 				using (var mutationLease = AcquireMutationLease())
 				lock (objUninstallLock)
 				{
+					TraceUninstallPhase("checking managed files", stopwatch);
 					// A mode opened before another Witcher mode acquired native ownership
 					// must not uninstall against that other mode's physical game root.
 					if ((Nexus.Client.Games.GameModeRuntimePolicies.For(GameMode.ModeId).NativeRootOwnershipProfile != null))
@@ -283,6 +286,7 @@ namespace Nexus.Client.ModManagement
 							{
 								MixedModDeploymentRemovalTask removalTask = new MixedModDeploymentRemovalTask(Mod, DeploymentManager, tfmFileManager);
 								OnTaskStarted(removalTask);
+								TraceUninstallPhase("removing deployed files", stopwatch);
 								deploymentRemovalSucceeded = removalTask.Execute();
 								removedDeploymentPaths = removalTask.AbsentPaths;
 								booCancelled = removalTask.Status == TaskStatus.Cancelled || removalTask.Status == TaskStatus.Cancelling;
@@ -303,10 +307,12 @@ namespace Nexus.Client.ModManagement
 
 							if (deploymentRemovalSucceeded)
 							{
+								TraceUninstallPhase("removing installed files and configuration edits", stopwatch);
 								booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
 								if (booSuccess)
 								{
 									ModInstallLog.RemoveMod(Mod);
+									TraceUninstallPhase("committing ownership changes", stopwatch);
 									tsTransaction.Complete();
 									Mod.InstallDate = null;
 								}
@@ -316,6 +322,7 @@ namespace Nexus.Client.ModManagement
 
 					if (booSuccess)
 					{
+						TraceUninstallPhase("publishing deployment and profile changes", stopwatch);
 						VirtualModActivator.PublishPendingDeploymentChanges();
 						ProfileManager?.UpdateCurrentDeploymentManifest();
 						DeleteXMLInstalledFile(Mod);
@@ -343,6 +350,7 @@ namespace Nexus.Client.ModManagement
 				booSuccess = false;
 			}
 
+			TraceUninstallPhase("verifying completion", stopwatch);
 			if (booCancelled)
 			{
 				reportedStatus = ModOperationReportedStatus.Cancelled;
@@ -359,6 +367,12 @@ namespace Nexus.Client.ModManagement
 				OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), false,
 					"The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			}
+		}
+
+		/// <summary>Identifies the phase and elapsed time of native removal without logging every file.</summary>
+		private void TraceUninstallPhase(string phase, Stopwatch stopwatch)
+		{
+			Trace.TraceInformation("Mod uninstall '{0}': entering {1} at {2} ms.", ModFileName, phase, stopwatch.ElapsedMilliseconds);
 		}
 
 		/// <summary>

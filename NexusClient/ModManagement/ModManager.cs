@@ -1102,17 +1102,23 @@ namespace Nexus.Client.ModManagement
 
 		public void ReinitializeInstallLog(string p_strInstallLogPath)
 		{
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			Trace.TraceInformation("Native state reload: loading InstallLog.");
 			var previousInstallLog = InstallationLog;
 			var replacementInstallLog = previousInstallLog.ReInitialize(p_strInstallLogPath);
 			InstallationLog = replacementInstallLog;
+			Trace.TraceInformation("Native state reload: InstallLog loaded at {0} ms; refreshing Sort bindings.", stopwatch.ElapsedMilliseconds);
 			RebindSortOrderActiveModsTracking(previousInstallLog);
+			Trace.TraceInformation("Native state reload: Sort bindings refreshed at {0} ms; loading Virtual topology.", stopwatch.ElapsedMilliseconds);
 			m_vmaVirtualModActivator.ReinitializeInstallLog(InstallationLog);
+			Trace.TraceInformation("Native state reload: Virtual topology loaded at {0} ms; rebinding native services.", stopwatch.ElapsedMilliseconds);
 			m_mdmDeploymentManager = new ModDeploymentManager(InstallationLog, m_vmaVirtualModActivator, GameMode);
 			InstallerFactory = new ModInstallerFactory(GameMode, EnvironmentInfo, m_futFileUtility, m_scxUIContext, InstallationLog, m_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
 			if (m_ipmProfileManager != null)
 				InstallerFactory.SetProfileManager(m_ipmProfileManager);
 			m_macModActivator = null;
 			NativeStateReinitialized(this, EventArgs.Empty);
+			Trace.TraceInformation("Native state reload: completed in {0} ms.", stopwatch.ElapsedMilliseconds);
 		}
 
 		#region Mod Activation/Deactivation
