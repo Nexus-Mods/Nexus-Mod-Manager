@@ -57,6 +57,7 @@
 			_shell.ConfigureGameRequested += OnConfigureRequested;
 			_shell.ConfirmGameInstallationRequested += OnConfirmInstallationRequested;
 			_shell.LocateGameRequested += OnLocateRequested;
+			_shell.ResetGameSetupRequested += OnResetSetupRequested;
 			_shell.ManageGameRequested += OnManageRequested;
 			_shell.StartupDefaultGameRequested += OnStartupDefaultRequested;
 			_shell.GameCatalogReady += OnCatalogReady;
@@ -178,6 +179,50 @@
 					return;
 				}
 				ConfigureGame(e.ModeId, chooser.SelectedPath, true);
+			}
+		}
+
+		/// <summary>Reopens setup after closing an idle active session without removing game or mod files.</summary>
+		private void OnResetSetupRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
+		{
+			if (_disposed || _teardownFailed || _shell.IsFirstSessionLoading) return;
+			GameDiscoveryEntry entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
+				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
+			if (entry == null || entry.Collection != GameDiscoveryCollection.Managed) return;
+			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
+				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase) && !TryLeaveCurrentGame()) return;
+
+			bool ownsSetupMutex;
+			using (var setupMutex = new Mutex(true,
+				String.Format("{0}-{1}-GameModeMutex", CommonData.ModManagerName, entry.ModeId), out ownsSetupMutex))
+			{
+				if (!ownsSetupMutex)
+				{
+					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.GameAlreadyRunning",
+						"This game is already managed by another NMM process."));
+					return;
+				}
+				try
+				{
+					CollectionTargetMutationLease reservation;
+					if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out reservation))
+					{
+						_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.StorageBusy",
+							"A mod or Collection operation is running. Finish it before saving Game Storage."));
+						return;
+					}
+					using (reservation) GameDiscoveryConfigurationService.ResetSetup(_environment.Settings, entry.ModeId);
+					_shell.ReprojectGameDiscoveryCatalog();
+					_shell.SelectGameInDiscovery(entry.ModeId);
+					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupReset",
+						"Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved."));
+				}
+				catch (Exception exception) when (!(exception is OutOfMemoryException))
+				{
+					Trace.TraceError("Could not reset game setup for {0}: {1}", entry.ModeId, exception);
+					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupFailed", "Game Storage could not be configured.") + " " + exception.Message);
+				}
+				finally { setupMutex.ReleaseMutex(); }
 			}
 		}
 
@@ -304,11 +349,12 @@
 				// A non-modal owned progress window retains legacy ShowView/ShowMessage,
 				// login, writability and overwrite delegates. Game Storage remains an
 				// explicitly owned modal configuration/recovery prompt when requested.
+				TaskEndedEventArgs initializationResult;
 				do
 				{
 					initializer = new ApplicationInitializer(_environment, _fonts, _deletedDll);
 					_shell.SetGameLoadProgress(0, 18, LanguageManager.Get("GameDiscovery.Phase.Settings", "Preparing game settings"));
-					await InitializeWithOwnedPresenterAsync(initializer, factory);
+					initializationResult = await InitializeWithOwnedPresenterAsync(initializer, factory);
 					if (initializer.Status == InitializationTaskStatus.Retrying)
 						_bootstrapper.ReleaseSessionServices(initializer.Services);
 				} while (initializer.Status == InitializationTaskStatus.Retrying);
@@ -316,13 +362,25 @@
 				if (initializer.Status != InitializationTaskStatus.Complete)
 				{
 					bool setupCancelled = initializer.GameStorageSetupWasCancelled;
+					ViewMessage failure = initializationResult.ReturnValue as ViewMessage;
+					string failureMessage = failure?.Message ?? initializationResult.Message;
+					string tracePath = setupCancelled ? null : SaveGameLoadFailureTrace(entry.ModeId,
+						initializer.OverallMessage, failureMessage, failure?.Details);
+					string loadMessage = setupCancelled
+						? LanguageManager.Get("GameDiscovery.ConfigurationCancelled", "Game Storage configuration was cancelled.")
+						: LanguageManager.Get("GameDiscovery.LoadFailed", "Game initialization failed. Select the game to retry.");
+					if (!setupCancelled)
+					{
+						loadMessage += Environment.NewLine + (String.IsNullOrWhiteSpace(failureMessage)
+							? initializer.OverallMessage : failureMessage);
+						if (!String.IsNullOrWhiteSpace(tracePath))
+							loadMessage += Environment.NewLine + tracePath;
+					}
 					_bootstrapper.ReleaseSessionServices(initializer.Services);
 					initializer = null;
 					_gate.Finish(entry.ModeId, false);
 					_shell.ReprojectGameDiscoveryCatalog();
-					_shell.SetGameLoadMessage(setupCancelled
-						? LanguageManager.Get("GameDiscovery.ConfigurationCancelled", "Game Storage configuration was cancelled.")
-						: LanguageManager.Get("GameDiscovery.LoadFailed", "Game initialization failed. Select the game to retry."));
+					_shell.SetGameLoadMessage(loadMessage);
 					return;
 				}
 
@@ -365,6 +423,8 @@
 			catch (Exception exception) when (!(exception is OutOfMemoryException))
 			{
 				Trace.TraceError("First game session entry failed: {0}", exception);
+				string tracePath = SaveGameLoadFailureTrace(entry.ModeId, initializer?.OverallMessage,
+					exception.Message, exception.ToString());
 				// Once a VM is bound, native services cannot be released while its controls
 				// may still contain handles. Keep the shell open for a clean process exit.
 				if (_shell.HasBoundGameViewModel)
@@ -381,7 +441,8 @@
 				{
 					if (_gate.State == GameSessionEntryGate.EntryState.Loading)
 						_gate.Finish(entry.ModeId, false);
-					_shell.SetGameLoadMessage(exception.Message);
+					_shell.SetGameLoadMessage(exception.Message + (String.IsNullOrWhiteSpace(tracePath)
+						? String.Empty : Environment.NewLine + tracePath));
 				}
 			}
 			finally
@@ -450,7 +511,28 @@
 			}
 		}
 
-		private async Task InitializeWithOwnedPresenterAsync(ApplicationInitializer initializer, IGameModeFactory factory)
+		/// <summary>Saves the existing trace for a failed game entry without closing the shell.</summary>
+		private string SaveGameLoadFailureTrace(string modeId, string phase, string message, string details)
+		{
+			try
+			{
+				Trace.TraceError("Game initialization failed: mode={0}, phase={1}. {2}{3}{4}",
+					modeId, phase, message, Environment.NewLine, details);
+				HeaderlessTextWriterTraceListener listener = Trace.Listeners["DefaultListener"] as HeaderlessTextWriterTraceListener;
+				if (listener == null) return null;
+				if (!listener.TraceIsForced) listener.SaveToFile();
+				else listener.Flush();
+				return listener.FilePath;
+			}
+			catch (Exception exception) when (!(exception is OutOfMemoryException))
+			{
+				Trace.TraceWarning("Could not save the game initialization trace: {0}", exception);
+				return null;
+			}
+		}
+
+		/// <summary>Waits for the presenter to display the final result before releasing it.</summary>
+		private async Task<TaskEndedEventArgs> InitializeWithOwnedPresenterAsync(ApplicationInitializer initializer, IGameModeFactory factory)
 		{
 			var completion = new TaskCompletionSource<TaskEndedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
 			EventHandler<TaskEndedEventArgs> handler = (sender, args) =>
@@ -464,7 +546,6 @@
 				}
 				catch (InvalidOperationException) { }
 			};
-			initializer.TaskEnded += handler;
 			System.ComponentModel.PropertyChangedEventHandler progress = (sender, args) =>
 			{
 				if ((!String.Equals(args.PropertyName, "OverallProgress", StringComparison.Ordinal) &&
@@ -488,9 +569,12 @@
 				using (var presenter = new ApplicationInitializationForm(initializer))
 				{
 					presenter.ShowInTaskbar = false;
+					// Subscribe after the presenter so it displays the failure before the
+					// shell continuation can dispose it and discard the result.
+					initializer.TaskEnded += handler;
 					initializer.Initialize(factory, SynchronizationContext.Current);
 					presenter.Show(_shell); // Show, never ShowDialog: the main shell stays usable.
-					await completion.Task;
+					return await completion.Task;
 				}
 			}
 			finally
@@ -635,6 +719,7 @@
 			_shell.ConfigureGameRequested -= OnConfigureRequested;
 			_shell.ConfirmGameInstallationRequested -= OnConfirmInstallationRequested;
 			_shell.LocateGameRequested -= OnLocateRequested;
+			_shell.ResetGameSetupRequested -= OnResetSetupRequested;
 			_shell.GameCatalogReady -= OnCatalogReady;
 			ReleaseNativeSession();
 		}

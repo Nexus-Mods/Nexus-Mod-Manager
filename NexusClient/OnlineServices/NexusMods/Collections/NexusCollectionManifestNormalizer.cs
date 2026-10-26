@@ -1827,7 +1827,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				}
 			}
 
-			foreach (string field in new[] { "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			foreach (string field in new[] { "id", "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
 			{
 				JToken token = reference[field];
 				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
@@ -1892,9 +1892,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			// Vortex testModReference treats a matching archive MD5 without a repository reference as decisive.
 			// Display names and version spellings may differ between the mod page and the exported installed archive.
-			// Only a unique hash bypasses metadata; repository/local-ID constraints and ambiguous matches retain their existing checks.
+			// Retained members have no Vortex-local ID. As with Vortex archive lookups, an exported
+			// local ID does not prevent a unique portable hash match; ID-only references still cannot bind.
 			string exactMd5 = ReadString(reference, "fileMD5");
-			if (repo == null && (reference["id"] == null || reference["id"].Type == JTokenType.Null) &&
+			if (repo == null &&
 				exactMd5 != null && exactMd5.Length == 32 && exactMd5.All(Uri.IsHexDigit))
 			{
 				string gameId = NormalizeDomain(ReadString(reference, "gameId"));

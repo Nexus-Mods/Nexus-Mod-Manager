@@ -199,6 +199,7 @@ namespace Nexus.Client.Wabbajack.UI
 			foreach (CheckEdit check in new[] { _unofficial, _nsfw, _excludeMods })
 				check.CheckedChanged += CheckFilter_CheckedChanged;
 			ShowSelectedList();
+			WabbajackUi.ApplySkinSurfaces(this);
 		}
 
 		/// <summary>Gets whether the active game explicitly enables the shared gallery.</summary>
@@ -221,6 +222,7 @@ namespace Nexus.Client.Wabbajack.UI
 		public void ApplyDisplaySettings(DevExpressDisplaySettings settings)
 		{
 			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+			WabbajackUi.ApplySkinSurfaces(this);
 			_activity.RefreshIcon();
 			_unofficialSupportWarning.RefreshIcon();
 			_modAuthorWarning.ImageOptions.Image = NmmIconProvider.GetBitmap(NmmIconAction.Warning, NmmIconProvider.CurrentIconSize, false);
@@ -401,6 +403,7 @@ namespace Nexus.Client.Wabbajack.UI
 			_detailGroup.Controls.Add(preparation);
 			using (DevExpressDisplaySettings display = DevExpressDisplaySettings.CreateFromSettings(_viewModel.EnvironmentInfo.Settings))
 				DevExpressDisplaySettingsApplier.ApplyToControlTree(preparation, display);
+			WabbajackUi.ApplySkinSurfaces(preparation);
 		}
 		/// <summary>Starts one user operation with cancellation and ordinary action state.</summary>
 		private void BeginOperation(string message)

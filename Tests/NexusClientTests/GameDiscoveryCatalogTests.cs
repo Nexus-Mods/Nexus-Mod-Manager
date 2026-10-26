@@ -70,6 +70,46 @@ namespace NexusClientTests
 			Assert.That(settings.CompletedSetup["Example"], Is.True);
 		}
 
+		/// <summary>Resetting a present game reopens setup without discarding its paths or native files, including on save failure.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ResetSetup_PreservesExistingInstallationAndStorage(bool failSave)
+		{
+			var settings = NewSettings();
+			settings.InstallationPaths["Example"] = _gameRoot;
+			settings.ExecutablePaths["Example"] = _gameRoot;
+			settings.CompletedSetup["Example"] = true;
+			settings.CompletedSetup["Other"] = true;
+			settings.ModFolder["Example"] = Path.Combine(_gameRoot, "ModArchives");
+			settings.InstallInfoFolder["Example"] = Path.Combine(_gameRoot, "InstallInfo");
+			settings.VirtualFolder["Example"] = Path.Combine(_gameRoot, "StagedMods");
+			string[] files = Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories);
+			ISettings memorySettings = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				if (method.Name == "Save")
+				{
+					if (failSave) throw new IOException("Simulated save failure");
+					return null;
+				}
+				return method.Invoke(settings, args);
+			});
+			if (failSave)
+				Assert.Throws<IOException>(() => GameDiscoveryConfigurationService.ResetSetup(memorySettings, "Example"));
+			else
+				GameDiscoveryConfigurationService.ResetSetup(memorySettings, "Example");
+
+			GameDiscoveryEntry entry = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Example") }, settings, null).Entries.Single();
+			Assert.That(entry.Collection, Is.EqualTo(failSave ? GameDiscoveryCollection.Managed : GameDiscoveryCollection.ToConfigure));
+			Assert.That(settings.CompletedSetup["Example"], Is.EqualTo(failSave));
+			Assert.That(settings.CompletedSetup["Other"], Is.True);
+			Assert.That(settings.InstallationPaths["Example"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ExecutablePaths["Example"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ModFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "ModArchives")));
+			Assert.That(settings.InstallInfoFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "InstallInfo")));
+			Assert.That(settings.VirtualFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "StagedMods")));
+			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EquivalentTo(files));
+		}
+
 		/// <summary>Confirming a moved game updates only its installation and keeps legacy storage pending review.</summary>
 		[TestCase(false)]
 		[TestCase(true)]

@@ -193,7 +193,7 @@
 				return;
 			}
 
-			gridView.RefreshData();
+			_gridModListSurface.RefreshData();
 			gridView.InvalidateRows();
 			gridView.Invalidate();
 			_categoryModListSurface?.InvalidateRows();

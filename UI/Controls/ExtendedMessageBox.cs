@@ -20,6 +20,30 @@ namespace Nexus.UI.Controls
 	{
 		#region Show Methods
 
+		/// <summary>Shows a plain-text message with clickable web addresses without interpreting other text as markup.</summary>
+		public static DialogResult ShowWithLinks(Control parent, string message, string caption, string details, MessageBoxButtons buttons, MessageBoxIcon icon)
+		{
+			using (ExtendedMessageBox box = new ExtendedMessageBox())
+			{
+				box.Init(message, caption, details, buttons, icon, false);
+				box.albPrompt.AllowHtmlString = true;
+				box.albPrompt.Text = Regex.Replace(WebUtility.HtmlEncode(message ?? String.Empty), @"https?://[^\s<>]+",
+					match => "<href=\"" + match.Value + "\">" + match.Value + "</href>");
+				box.albPrompt.HyperlinkClick += (sender, args) =>
+				{
+					Uri address;
+					if (!Uri.TryCreate(args.Link, UriKind.Absolute, out address) ||
+						(address.Scheme != Uri.UriSchemeHttps && address.Scheme != Uri.UriSchemeHttp)) return;
+					try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true }); }
+					catch (System.ComponentModel.Win32Exception exception)
+					{
+						XtraMessageBox.Show(box, exception.Message, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+					}
+				};
+				return Show(box, parent);
+			}
+		}
+
 		/// <summary>
 		/// Shows the message box.
 		/// </summary>

@@ -27,6 +27,7 @@
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureGameRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfirmGameInstallationRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateGameRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ResetGameSetupRequested;
 		internal event EventHandler GameCatalogReady;
 		internal GameModeRegistry GameDiscoveryRegistry => _gameDiscoveryRegistry;
 		internal GameDiscoveryCatalog GameDiscoveryCatalog => _gameDiscoveryDocument?.Catalog;
@@ -170,6 +171,7 @@
 			_gameDiscoveryDocument.ConfigureRequested += (sender, args) => ConfigureGameRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.ConfirmInstallationRequested += (sender, args) => ConfirmGameInstallationRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.LocateRequested += (sender, args) => LocateGameRequested?.Invoke(this, args);
+			_gameDiscoveryDocument.ResetSetupRequested += (sender, args) => ResetGameSetupRequested?.Invoke(this, args);
 			_gameDiscoveryDocument.MoveRequested += (sender, args) => MoveMissingGameToSection(args);
 		}
 

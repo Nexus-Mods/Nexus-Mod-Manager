@@ -19,6 +19,13 @@
 		private readonly GridView _gridView;
 		private readonly IList<IMod> _mods;
 		private readonly string _modNameFieldName;
+		private bool _pendingDataSourceRefresh;
+		private bool _pendingDataRefresh;
+		private bool _deferredRefreshQueued;
+
+		/// <summary>Protects the filter row across editor creation, typing and transitions between filter columns.</summary>
+		internal bool IsAutoFilterEditing => _gridView.FocusedRowHandle == GridControl.AutoFilterRowHandle &&
+			(_gridView.ActiveEditor != null || _gridControl.ContainsFocus);
 
 		/// <summary>
 		/// Initializes the flat Mods surface around the extracted DevExpress grid control.
@@ -37,6 +44,8 @@
 
 			_gridView.FocusedRowChanged += GridView_SelectionChanged;
 			_gridView.SelectionChanged += GridView_SelectionChanged;
+			_gridView.HiddenEditor += (sender, args) => QueueDeferredRefresh();
+			_gridControl.Leave += (sender, args) => QueueDeferredRefresh();
 		}
 
 		/// <summary>
@@ -117,6 +126,11 @@
 		/// </summary>
 		public void RefreshMod(IMod mod, string propertyName)
 		{
+			if (IsAutoFilterEditing)
+			{
+				_pendingDataRefresh = true;
+				return;
+			}
 			if (!String.IsNullOrEmpty(propertyName))
 			{
 				var column = _gridView.Columns[propertyName];
@@ -174,6 +188,13 @@
 		/// </summary>
 		public void RefreshDataSource()
 		{
+			if (IsAutoFilterEditing)
+			{
+				_pendingDataSourceRefresh = true;
+				return;
+			}
+			_pendingDataSourceRefresh = false;
+			_pendingDataRefresh = false;
 			_gridControl.RefreshDataSource();
 		}
 
@@ -182,7 +203,41 @@
 		/// </summary>
 		public void RefreshData()
 		{
+			if (IsAutoFilterEditing)
+			{
+				_pendingDataRefresh = true;
+				return;
+			}
+			if (_pendingDataSourceRefresh)
+			{
+				RefreshDataSource();
+				return;
+			}
+			_pendingDataRefresh = false;
 			_gridView.RefreshData();
+		}
+
+		/// <summary>Coalesces download-driven refreshes after the native filter editor has finished committing.</summary>
+		private void QueueDeferredRefresh()
+		{
+			if (_deferredRefreshQueued || (!_pendingDataSourceRefresh && !_pendingDataRefresh) ||
+				_viewControl.IsDisposed || _viewControl.Disposing || !_viewControl.IsHandleCreated) return;
+			_deferredRefreshQueued = true;
+			// Yield once for DevExpress to post its filter commit, then reconcile behind it.
+			_viewControl.BeginInvoke(new Action(() =>
+			{
+				if (_viewControl.IsDisposed || _viewControl.Disposing) return;
+				_viewControl.BeginInvoke(new Action(ApplyDeferredRefresh));
+			}));
+		}
+
+		/// <summary>Applies one pending refresh after filtering, without interrupting another active editor.</summary>
+		private void ApplyDeferredRefresh()
+		{
+			_deferredRefreshQueued = false;
+			if (_viewControl.IsDisposed || _viewControl.Disposing || IsAutoFilterEditing || _gridView.ActiveEditor != null) return;
+			if (_pendingDataSourceRefresh) RefreshDataSource();
+			else if (_pendingDataRefresh) RefreshData();
 		}
 
 		/// <summary>
@@ -222,6 +277,7 @@
 		/// </summary>
 		private void GridView_SelectionChanged(object sender, EventArgs e)
 		{
+			QueueDeferredRefresh();
 			SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 	}

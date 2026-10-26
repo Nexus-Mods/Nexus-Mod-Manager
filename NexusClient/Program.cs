@@ -504,14 +504,14 @@
 
 			string promptMessage = LanguageManager.Format(
 				"Crash.Unhandled.Message",
-				"{0} has encountered an error and needs to close.{1}A Trace Log file was created at:{1}{2}{1}Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):{1}{3}{1}If you can't find a solution, please make a bug report and attach the TraceLog file here:{1}{4}{1}{1}Do you want to open the TraceLog folder?{1}",
-				CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, Links.FAQs, Links.Instance.Issues);
+				"{0} has encountered an error and needs to close.{1}A Trace Log file was created at:{1}{2}{1}{1}Please report the issue on GitHub and attach the TraceLog file:{1}{4}{1}{1}Do you want to open the TraceLog folder?{1}",
+				CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, String.Empty, Links.Instance.Issues);
 			try
 			{
 				//the extended message box contains an activex control wich must be run in an STA thread,
 				// we can't control what thread this gets called on, so create one if we need to
 				string strException = LanguageManager.Get("Crash.Unhandled.DetailsHeader", "The following information is in the Trace Log:") + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
-				ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), strException, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+				ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.ShowWithLinks(null, promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), strException, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
 
 				ApartmentState astState = ApartmentState.Unknown;
 				Thread.CurrentThread.TrySetApartmentState(astState);

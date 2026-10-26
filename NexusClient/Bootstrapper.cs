@@ -279,9 +279,9 @@
                         }
                         var promptMessage = LanguageManager.Format(
                             "Startup.AlreadyRunning.Diagnostics",
-                            "{0} was unable to start. It appears another instance of {0} is already running.{1}A Trace Log file was created at:{1}{2}{1}Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):{1}{3}{1}If you can't find a solution, please make a bug report and attach the TraceLog file here:{1}{4}{1}",
-                            CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, Links.FAQs, Links.Instance.Issues);
-						MessageBox.Show(promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            "{0} was unable to start. It appears another instance of {0} is already running.{1}A Trace Log file was created at:{1}{2}{1}{1}Please report the issue on GitHub and attach the TraceLog file:{1}{4}{1}",
+                            CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, String.Empty, Links.Instance.Issues);
+						ExtendedMessageBox.ShowWithLinks(null, promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), null, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 					    return false;
 					}

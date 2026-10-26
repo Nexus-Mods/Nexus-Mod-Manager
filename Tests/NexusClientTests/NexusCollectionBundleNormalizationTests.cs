@@ -439,6 +439,22 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("DNWeathers.esp", "Fixes.esm")));
 		}
 
+		/// <summary>Oblivion masterlist groups support retained Collection assignments without declaring default groups again.</summary>
+		[Test]
+		public void Normalize_OblivionMasterlistGroupsPreserveLateFixesAndLodOrdering()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"oblivion\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"Creature Spawn Chance Fix.esp\",\"group\":\"Late Fixes & Changes\",\"after\":[\"Through the Valleys Patch.esp\"]},{\"name\":\"WorldMapsForAllWorldspaces.esp\",\"group\":\"default\"},{\"name\":\"GeneratedLOD.esp\",\"group\":\"LOD\"}],\"groups\":[]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"oblivion\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("Creature Spawn Chance Fix.esp", "WorldMapsForAllWorldspaces.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("GeneratedLOD.esp", "Creature Spawn Chance Fix.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("GeneratedLOD.esp", "WorldMapsForAllWorldspaces.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("Creature Spawn Chance Fix.esp", "Through the Valleys Patch.esp")));
+		}
+
 		/// <summary>Vortex skips an empty CRC declaration and continues applying other valid diffs for that mod.</summary>
 		[TestCase(false)]
 		[TestCase(true)]
@@ -1778,8 +1794,9 @@ namespace NexusClientTests
 			Assert.AreEqual("Bundled - Module 05 settings (v1)", result.Manifest.ExternalFilePriorityRules.Single().ExternalReference.FileExpression);
 		}
 
-		[Test]
-		public void Normalize_GeneratedReferenceExpressionCanBindAnotherCollectionMemberByExactMd5()
+		[TestCase(null)]
+		[TestCase("curator-local-archive-id")]
+		public void Normalize_GeneratedReferenceExpressionCanBindAnotherCollectionMemberByExactMd5(string localId)
 		{
 			const string hudMd5 = "3871060641dc09aa27fe80442fe51d73";
 			string members =
@@ -1787,11 +1804,41 @@ namespace NexusClientTests
 				"{\"name\":\"Bundled settings\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":10,\"fileExpression\":\"Bundled settings\",\"tag\":\"settingsTag\"}}";
 			string rules = "[{\"type\":\"after\",\"source\":{\"fileExpression\":\"Bundled settings\",\"versionMatch\":\"*\",\"tag\":\"settingsTag\"},\"reference\":{\"fileExpression\":\"FallUI - HUD-51813-1-7-1-1668637124\",\"fileMD5\":\"" + hudMd5 + "\",\"versionMatch\":\"1.7.1\",\"logicalFileName\":\"FallUI - HUD\"}}]";
 
+			if (localId != null)
+			{
+				JArray exportedRules = JArray.Parse(rules);
+				exportedRules[0]["reference"]["id"] = localId;
+				rules = exportedRules.ToString();
+			}
 			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
 			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
 			Assert.AreEqual(0, result.Manifest.ExternalFilePriorityRules.Count);
+			CollectionFilePriorityRule priority = result.Manifest.FilePriorityRules.Single();
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, priority.LowerPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, priority.HigherPriorityMemberKey);
+		}
+
+		/// <summary>Curator-local IDs cannot bind a priority endpoint without matching portable archive identity.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Normalize_LocalPriorityIdCannotReplaceMissingOrMismatchedArchiveHash(bool includeWrongHash)
+		{
+			string members =
+				"{\"name\":\"Base\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"logicalFilename\":\"Base\",\"tag\":\"base-tag\"}}," +
+				"{\"name\":\"Patch\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":30,\"fileId\":40,\"tag\":\"patch-tag\"}}";
+			JObject reference = new JObject { ["id"] = "Base-10-1" };
+			if (includeWrongHash)
+			{
+				reference["fileMD5"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+				reference["logicalFileName"] = "Base";
+				reference["fileExpression"] = "Base-10-1";
+			}
+			JArray rules = new JArray(new JObject { ["type"] = "after", ["source"] = new JObject { ["tag"] = "patch-tag" }, ["reference"] = reference });
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules.ToString()), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(issue => issue.Code == "manifest.mod-rule-reference-unresolved"));
 		}
 
 		[Test]

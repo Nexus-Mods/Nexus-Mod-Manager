@@ -2,6 +2,28 @@
   "schemaVersion": 2,
   "modeId": "Oblivion",
   "name": "Oblivion",
+  "runtime": {
+    "schemaVersion": 1,
+    "collectionDomain": "oblivion",
+    "collectionPluginGroups": [
+      {"id": "Main Game Master", "after": []},
+      {"id": "Very Early Loaders", "after": ["Main Game Master"]},
+      {"id": "Unofficial Patches", "after": []},
+      {"id": "DLC", "after": ["Very Early Loaders", "Unofficial Patches"]},
+      {"id": "Underrides", "after": ["Very Early Loaders"]},
+      {"id": "Early Loaders", "after": ["DLC"]},
+      {"id": "default", "after": ["Early Loaders", "Underrides"]},
+      {"id": "Overrides", "after": ["default"]},
+      {"id": "Landscape", "after": ["Overrides"]},
+      {"id": "Cities", "after": ["Landscape"]},
+      {"id": "Imperial City", "after": ["Cities"]},
+      {"id": "Late Patches", "after": ["Imperial City"]},
+      {"id": "Worldspace Settings", "after": ["Late Patches"]},
+      {"id": "Dynamic Patches", "after": ["Worldspace Settings"]},
+      {"id": "Late Fixes & Changes", "after": ["Dynamic Patches"]},
+      {"id": "LOD", "after": ["Late Fixes & Changes"]}
+    ]
+  },
   "behaviorProfile": "gamebryo",
   "legacyFallback": false,
   "gameExecutables": [

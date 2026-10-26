@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using DevExpress.Utils;
 using DevExpress.XtraEditors;
@@ -216,6 +217,16 @@ namespace Nexus.Client.Wabbajack.UI
 			label.Appearance.Options.UseTextOptions = true;
 			if (heading) label.Appearance.FontStyleDelta = FontStyle.Bold;
 			return label;
+		}
+
+		/// <summary>Matches standard layout surfaces to the skin used by their DevExpress labels and editors.</summary>
+		internal static void ApplySkinSurfaces(Control root)
+		{
+			if (root == null || root.IsDisposed) return;
+			Control[] children = root.Controls.Cast<Control>().ToArray();
+			if (root is TableLayoutPanel || root is WabbajackActionRow || root is XtraScrollableControl || root is ManagedFontDockContent)
+				DevExpressDisplaySettingsApplier.ApplySkinSurface(root);
+			foreach (Control child in children) ApplySkinSurfaces(child);
 		}
 
 		/// <summary>Formats gallery byte sizes consistently.</summary>

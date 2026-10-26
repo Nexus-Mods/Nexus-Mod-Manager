@@ -107,6 +107,43 @@
 			Assert.That(_surface.SelectedMods, Is.EquivalentTo(selected));
 		}
 
+		/// <summary>Background registrations and metadata refreshes wait until the filter row releases its active editor.</summary>
+		[Test]
+		public void RefreshWhileFiltering_PreservesEditorAndAppliesPendingDownloadsAfterLeaving()
+		{
+			GridView view = _control.GridView;
+			view.OptionsBehavior.Editable = true;
+			view.OptionsView.ShowAutoFilterRow = true;
+			_control.GridControl.Focus();
+			view.FocusedColumn = view.Columns["ModName"];
+			view.FocusedRowHandle = DevExpress.XtraGrid.GridControl.AutoFilterRowHandle;
+			view.ShowEditor();
+			DevExpress.XtraEditors.TextEdit editor = view.ActiveEditor as DevExpress.XtraEditors.TextEdit;
+			Assert.That(editor, Is.Not.Null);
+			editor.EditValue = "Mod";
+			editor.SelectionStart = 1;
+			editor.SelectionLength = 1;
+			for (int index = 0; index < 3; index++)
+			{
+				_mods.Add(new InstallLog.DummyMod("Mod downloaded " + index, "new" + index + ".zip", new Version(1, 0), "1.0", "1.0", String.Empty));
+				_surface.RefreshDataSource();
+				_surface.RefreshData();
+				_surface.RefreshMod(_mods[0], "ModName");
+			}
+			Assert.That(view.FocusedRowHandle, Is.EqualTo(DevExpress.XtraGrid.GridControl.AutoFilterRowHandle));
+			Assert.That(view.ActiveEditor, Is.SameAs(editor));
+			Assert.That(editor.EditValue, Is.EqualTo("Mod"));
+			Assert.That(editor.SelectionStart, Is.EqualTo(1));
+			Assert.That(editor.SelectionLength, Is.EqualTo(1));
+
+			view.CloseEditor();
+			view.FocusedRowHandle = 0;
+			PaintPendingUpdates();
+			PaintPendingUpdates();
+			Assert.That(view.DataRowCount, Is.EqualTo(_mods.Count));
+			Assert.That(_surface.IsAutoFilterEditing, Is.False);
+		}
+
 		/// <summary>Retains the existing full sort refresh when the changed property is a sort key.</summary>
 		[Test]
 		public void RefreshMod_LatestSortUsesUpdatedVersionValues()

@@ -1130,7 +1130,7 @@
 				return null;
 
 			ModManager.VirtualModActivator.DisableLinkCreation = true;
-			var modsToDeactivate = new ReadOnlyObservableList<IMod>(rollbackPlan.ModsToDeactivate);
+			var modsToDeactivate = new ReadOnlyObservableList<IMod>(new ThreadSafeObservableList<IMod>(rollbackPlan.ModsToDeactivate));
 			return ModManager.ProfileSwitchSetup(
 				modsToDeactivate,
 				rollbackPlan.ModsToInstall,
@@ -1441,7 +1441,7 @@
 			}
 
 			ModManager.VirtualModActivator.DisableLinkCreation = true;
-			var modsToDeactivate = new ReadOnlyObservableList<IMod>(deploymentPlan.ModsToDeactivate);
+			var modsToDeactivate = new ReadOnlyObservableList<IMod>(new ThreadSafeObservableList<IMod>(deploymentPlan.ModsToDeactivate));
 			ModManagerVM.ProfileSwitchSetup(modsToDeactivate, deploymentPlan.ModsToInstall, profileSwitchToken.Profile, currentProfile);
 		}
 

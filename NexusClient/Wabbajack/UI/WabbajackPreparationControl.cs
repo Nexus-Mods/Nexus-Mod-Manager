@@ -85,6 +85,7 @@ namespace Nexus.Client.Wabbajack.UI
 			layout.Controls.Add(heading, 0, 0); layout.Controls.Add(steps, 0, 1); layout.Controls.Add(_sources, 0, 2); layout.Controls.Add(navigation, 0, 3); Controls.Add(layout);
 			_profiles.SelectedIndexChanged += (sender, args) => InvalidateSources(); _downloads.EditValueChanged += (sender, args) => InvalidateSources(); _output.EditValueChanged += (sender, args) => InvalidateSources();
 			UpdateActions();
+			WabbajackUi.ApplySkinSurfaces(this);
 		}
 
 		/// <summary>Runs one preparation step and retains diagnostic context on failure.</summary>

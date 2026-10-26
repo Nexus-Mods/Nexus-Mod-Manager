@@ -979,7 +979,7 @@
 		/// </summary>
 		private void RestoreModGridViewState(ModGridViewState state, bool restoreFocusByVisibleIndex)
 		{
-			if (state == null)
+			if (state == null || _gridModListSurface.IsAutoFilterEditing)
 				return;
 
 			bool wasRestoring = _restoringGridLayout;
@@ -1028,7 +1028,7 @@
 		/// </summary>
 		private void RestoreModGridVisualPosition(ModGridViewState state)
 		{
-			if (state == null || gridView.RowCount <= 0)
+			if (state == null || gridView.RowCount <= 0 || _gridModListSurface.IsAutoFilterEditing)
 				return;
 
 			bool wasRestoring = _restoringGridLayout;
@@ -1436,7 +1436,8 @@
 		private void FocusFirstVisibleDataRow(int generation, IModListSurface expectedSurface)
 		{
 			if (IsDisposed || generation != _focusFirstVisibleGeneration ||
-				!ReferenceEquals(expectedSurface, _activeModListSurface))
+				!ReferenceEquals(expectedSurface, _activeModListSurface) ||
+				(ReferenceEquals(_activeModListSurface, _gridModListSurface) && _gridModListSurface.IsAutoFilterEditing))
 			{
 				return;
 			}
@@ -3934,6 +3935,7 @@
 			long editorSession = ++_editorSessionGeneration;
 			if (gridView.FocusedRowHandle == DevExpress.XtraGrid.GridControl.AutoFilterRowHandle)
 			{
+				InvalidateQueuedFocusFirstVisibleDataRow();
 				InvalidateSortNumberEditSession();
 				e.Cancel = false;
 				return;
@@ -3967,7 +3969,7 @@
 
 		private void GridView_ShownEditor(object sender, EventArgs e)
 		{
-			if (_editingSortNumber) return;
+			if (_editingSortNumber || gridView.FocusedRowHandle == DevExpress.XtraGrid.GridControl.AutoFilterRowHandle) return;
 
 			_renameActiveEditor = gridView.ActiveEditor as Control;
 			if (_renameActiveEditor != null)

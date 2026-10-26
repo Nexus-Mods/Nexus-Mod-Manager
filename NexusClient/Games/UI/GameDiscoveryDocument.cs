@@ -31,6 +31,7 @@
 		private readonly SimpleButton _primaryAction;
 		private readonly SimpleButton _startupDefault;
 		private readonly SimpleButton _locate;
+		private readonly SimpleButton _resetSetup;
 		private readonly TableLayoutPanel _locateActions;
 		private readonly TableLayoutPanel _recoveryPanel;
 		private readonly LabelControl _recoveryHint;
@@ -101,6 +102,7 @@
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfigureRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ConfirmInstallationRequested;
 		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> LocateRequested;
+		internal event EventHandler<GameDiscoveryGameRequestedEventArgs> ResetSetupRequested;
 		internal event EventHandler<GameDiscoverySectionRequestedEventArgs> MoveRequested;
 		internal GameDiscoveryCatalog Catalog => _catalog;
 
@@ -442,7 +444,20 @@
 			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
 			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-			_locateActions.Controls.Add(_locate, 0, 0);
+			_resetSetup = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false,
+				Text = L("GameDiscovery.ResetSetup", "Reset game setup"),
+				ToolTip = L("GameDiscovery.ResetSetupHint", "Return this game to To configure. Saved paths, installed mods and game files are preserved.") };
+			NmmIconProvider.BindDialogButton(_resetSetup, NmmIconAction.Reset);
+			_resetSetup.Click += (sender, args) =>
+			{
+				GameDiscoveryEntry entry = SelectedEntry;
+				if (_resetSetup.Enabled && entry != null && entry.Collection == GameDiscoveryCollection.Managed)
+					ResetSetupRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
+			};
+			var locationActions = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Margin = Padding.Empty };
+			locationActions.Controls.Add(_locate);
+			locationActions.Controls.Add(_resetSetup);
+			_locateActions.Controls.Add(locationActions, 0, 0);
 			card.Controls.Add(_locateActions, 0, 9);
 
 			_candidatePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Visible = false };
@@ -1287,6 +1302,9 @@
 			_primaryAction.Enabled = readyForAction && !missing && entry != null && (canManage || canConfigure && hasCandidate || canLocate);
 			_locate.Text = L("GameDiscovery.Locate", "Locate game...");
 			bool showLocate = missing || (canConfigure && hasCandidate);
+			bool showReset = entry != null && entry.Collection == GameDiscoveryCollection.Managed && !missing;
+			_resetSetup.Visible = showReset;
+			_resetSetup.Enabled = readyForAction && showReset;
 			_locate.Visible = showLocate;
 			_locate.Enabled = readyForAction && canLocate;
 			// Storage configuration belongs to To configure; Supported only confirms an installation.
@@ -1300,7 +1318,7 @@
 			_locateActions.ColumnStyles[0].Width = showConfirmation ? 50 : 100;
 			_locateActions.ColumnStyles[1].Width = showConfirmation ? 50 : 0;
 			// Visible reflects ancestor visibility during hidden-tab binding; size rows from the intended state.
-			_detailLayout.RowStyles[9].Height = showLocate ? 42 : 0;
+			_detailLayout.RowStyles[9].Height = showLocate || showReset ? 42 : 0;
 			_detailLayout.RowStyles[10].Height = showCandidates ? 83 : 0;
 			_installations.Enabled = readyForAction && (canConfigure || hasDetectedReplacement && !activeMissing) && _installations.Properties.Items.Count > 0;
 		}

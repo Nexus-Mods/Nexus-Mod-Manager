@@ -66,6 +66,29 @@
 			return true;
 		}
 
+		/// <summary>Returns a configured game to setup while preserving its paths, settings and native storage.</summary>
+		internal static void ResetSetup(ISettings settings, string modeId)
+		{
+			if (settings == null) throw new ArgumentNullException(nameof(settings));
+			if (String.IsNullOrWhiteSpace(modeId)) throw new ArgumentException("A game mode is required.", nameof(modeId));
+			lock (settings)
+			{
+				bool previousSetup;
+				bool hadSetup = settings.CompletedSetup.TryGetValue(modeId, out previousSetup);
+				var previousSections = settings.GameDiscoverySections;
+				settings.CompletedSetup[modeId] = false;
+				settings.GameDiscoverySections = CopySettings(previousSections);
+				settings.GameDiscoverySections[modeId] = nameof(GameDiscoveryCollection.ToConfigure);
+				try { settings.Save(); }
+				catch
+				{
+					RestoreSetting(settings.CompletedSetup, modeId, hadSetup, previousSetup);
+					settings.GameDiscoverySections = previousSections;
+					throw;
+				}
+			}
+		}
+
 		/// <summary>Copies a per-game setting dictionary so a failed save can restore the original state.</summary>
 		private static PerGameModeSettings<T> CopySettings<T>(PerGameModeSettings<T> source)
 		{
