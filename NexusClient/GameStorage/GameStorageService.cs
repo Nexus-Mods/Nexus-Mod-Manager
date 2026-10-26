@@ -900,13 +900,13 @@ namespace Nexus.Client.GameStorage
             if (lastKnownGood == null || HasNewerConfirmedStoragePaths(paths, lastKnownGood))
                 return;
 
-            if (lastKnownGood.LastKnownArchiveCount > 0 && Directory.Exists(paths.ModsPath) && CountModArchives(paths.ModsPath) == 0)
+            if (lastKnownGood.LastKnownArchiveCount > 0 && Directory.Exists(paths.ModsPath) && CountModArchives(paths.ModsPath, 1) == 0)
                 Add(result, GameStorageFolderRole.Mods, paths.ModsPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyMods.Message", "The Mods folder is empty, but the previous known-good folder contained mod archives."), LanguageManager.Format("GameStorage.Health.PreviousModsPath", "Previous Mods folder: {0}", lastKnownGood.ModsPath));
 
             if (lastKnownGood.LastKnownInstallLogPresent && Directory.Exists(paths.InstallInfoPath) && !InstallLog.HasPersistedLog(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
                 Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyInstallInfo.Message", "The InstallInfo folder lacks an Install Log, but the previous known-good storage had one."), LanguageManager.Format("GameStorage.Health.PreviousInstallInfoPath", "Previous InstallInfo folder: {0}", lastKnownGood.InstallInfoPath));
 
-            if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountVirtualInstallPayloadFiles(paths.VirtualInstallPath) == 0)
+            if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountVirtualInstallPayloadFiles(paths.VirtualInstallPath, 1) == 0)
                 Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyVirtualInstall.Message", "The VirtualInstall folder is empty, but the previous known-good folder contained staged files."), LanguageManager.Format("GameStorage.Health.PreviousVirtualInstallPath", "Previous VirtualInstall folder: {0}", lastKnownGood.VirtualInstallPath));
         }
 
@@ -2008,14 +2008,17 @@ namespace Nexus.Client.GameStorage
             return path.Substring(root.TrimEnd(Path.DirectorySeparatorChar).Length + 1);
         }
 
-        private int CountModArchives(string path)
+        /// <summary>Counts archives for saved storage metadata, or stops at the first match for an emptiness check.</summary>
+        private int CountModArchives(string path, int maximumCount = Int32.MaxValue)
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                 return 0;
             string[] extensions = { ".zip", ".7z", ".rar", ".fomod", ".omod" };
             try
             {
-                return Directory.EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly).Count(x => extensions.Contains(Path.GetExtension(x), StringComparer.OrdinalIgnoreCase));
+                return Directory.EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(x => extensions.Contains(Path.GetExtension(x), StringComparer.OrdinalIgnoreCase))
+                    .Take(maximumCount).Count();
             }
             catch
             {
@@ -2024,9 +2027,9 @@ namespace Nexus.Client.GameStorage
         }
 
         /// <summary>
-        /// Counts staged VirtualInstall payload files while excluding NMM Game Storage metadata.
+        /// Counts staged payloads up to the metadata sampling limit, or only the first match when checking emptiness.
         /// </summary>
-        private int CountVirtualInstallPayloadFiles(string path)
+        private int CountVirtualInstallPayloadFiles(string path, int maximumCount = 101)
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                 return 0;
@@ -2035,7 +2038,7 @@ namespace Nexus.Client.GameStorage
                 string manifestPath = Path.GetFullPath(Path.Combine(path, GameStorageConstants.FolderManifestFileName));
                 return Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
                     .Where(x => !string.Equals(Path.GetFullPath(x), manifestPath, StringComparison.OrdinalIgnoreCase))
-                    .Take(101)
+                    .Take(maximumCount)
                     .Count();
             }
             catch

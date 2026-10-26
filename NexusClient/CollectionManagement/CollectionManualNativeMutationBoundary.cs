@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
 
@@ -119,16 +120,22 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reloads reserved native state for either a mod worker or an untracked-file cleanup.</summary>
 		private CollectionTargetMutationLease AcquireCore(ModInstallerBase operation)
 		{
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			Trace.TraceInformation("Manual native preparation: resolving game and storage identity.");
 			Tuple<CollectionTargetAuthority, GameStoragePathSet> target = _targetProvider();
 			if (target == null || target.Item1 == null || target.Item2 == null)
 				throw new InvalidOperationException("Manual native mutation coordination could not resolve the active canonical target.");
 
+			Trace.TraceInformation("Manual native preparation: target resolved at {0} ms; acquiring reservation.", stopwatch.ElapsedMilliseconds);
 			CollectionTargetMutationLease lease = _mutationLeaseManager.Acquire(target.Item1);
 			bool handedOff = false;
 			try
 			{
+				Trace.TraceInformation("Manual native preparation: reservation acquired at {0} ms; validating native authority.", stopwatch.ElapsedMilliseconds);
 				_validateAndReload(lease, target.Item1, target.Item2);
+				Trace.TraceInformation("Manual native preparation: authority validated at {0} ms; rebinding operation.", stopwatch.ElapsedMilliseconds);
 				if (operation != null) _rebindNativeOperation(operation);
+				Trace.TraceInformation("Manual native preparation: operation ready at {0} ms.", stopwatch.ElapsedMilliseconds);
 				handedOff = true;
 				return lease;
 			}

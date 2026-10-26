@@ -156,6 +156,38 @@ namespace NexusClientTests
             Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.VirtualInstall && x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.False);
         }
 
+        /// <summary>Emptiness probes retain archive filtering, exclude folder manifests and never replace saved inventory counts.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ValidateStorage_EmptinessProbesPreserveSavedCountsAndIgnoreMetadata(bool empty)
+        {
+            var paths = CreateStorage("Cyberpunk2077", "EmptyProbe", withArchive: true, withVirtualFile: true);
+            for (int index = 0; index < 120; index++)
+            {
+                File.WriteAllText(Path.Combine(paths.ModsPath, "Archive" + index + ".7z"), "archive");
+                File.WriteAllText(Path.Combine(paths.VirtualInstallPath, "Data", "File" + index + ".esp"), "payload");
+            }
+            _service.InitializeMetadataForStorage(paths);
+            string registryBefore = File.ReadAllText(_service.RegistryPath);
+            GameStorageRegistryEntry saved = JsonConvert.DeserializeObject<GameStorageRegistry>(registryBefore).KnownStorages.Single();
+            Assert.That(saved.LastKnownArchiveCount, Is.EqualTo(121));
+            Assert.That(saved.LastKnownVirtualFileCount, Is.EqualTo(101));
+            if (empty)
+            {
+                foreach (string archive in Directory.EnumerateFiles(paths.ModsPath, "*.7z")) File.Delete(archive);
+                foreach (string payload in Directory.EnumerateFiles(Path.Combine(paths.VirtualInstallPath, "Data"), "*.esp")) File.Delete(payload);
+                File.WriteAllText(Path.Combine(paths.ModsPath, "Notes.txt"), "Not a mod archive.");
+            }
+
+            GameStorageHealthCheck health = _service.ValidateStorage(paths);
+
+            Assert.That(health.Items.Any(item => item.Role == GameStorageFolderRole.Mods &&
+                item.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.EqualTo(empty));
+            Assert.That(health.Items.Any(item => item.Role == GameStorageFolderRole.VirtualInstall &&
+                item.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.EqualTo(empty));
+            Assert.That(File.ReadAllText(_service.RegistryPath), Is.EqualTo(registryBefore));
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void ValidateStorage_LegacyVirtualInstallCollision_IsNotRepairedUntilPreparation(bool prepareForMutation)

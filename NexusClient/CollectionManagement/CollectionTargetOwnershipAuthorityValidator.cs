@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Diagnostics;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Witcher3;
@@ -112,6 +113,8 @@ namespace Nexus.Client.CollectionManagement
 			ValidateLease(mutationLease, authority);
 			if (paths == null)
 				throw new ArgumentNullException(nameof(paths));
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			Trace.TraceInformation("Native authority validation: rechecking game and storage identity; reload={0}.", reloadNativeState);
 
 			CollectionTargetAuthority liveAuthority;
 			try
@@ -129,6 +132,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.TargetChanged,
 					"The live game/storage authority changed after the mutation target was resolved. Mutation is blocked until the target is resolved again.");
 			}
+			Trace.TraceInformation("Native authority validation: storage identity checked at {0} ms.", stopwatch.ElapsedMilliseconds);
 
 			// Target identity alone cannot authorize a second game edition to reuse this
 			// game's native files. Check before reload, which may perform crash recovery.
@@ -147,6 +151,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			string installLogPath = Path.Combine(installInfoIdentity.CanonicalPath, "InstallLog.xml");
+			Trace.TraceInformation("Native authority validation: physical directories checked at {0} ms.", stopwatch.ElapsedMilliseconds);
 			if (reloadNativeState)
 			{
 				ValidateInstallLog(installLogPath);
@@ -167,11 +172,13 @@ namespace Nexus.Client.CollectionManagement
 				ValidateWitcher3Counterpart(paths);
 			}
 
+			Trace.TraceInformation("Native authority validation: native stores checked at {0} ms; validating authority binding.", stopwatch.ElapsedMilliseconds);
 			CollectionTargetOwnershipAuthorityBinding binding = _authorityStore.BindOrValidate(authority, installInfoIdentity.StableKey);
 			if (mutationLease.RequiresRecovery)
 				mutationLease.MarkRecoveryCompleted();
 			if (reloadNativeState)
 				mutationLease.MarkNativeAuthorityValidated();
+			Trace.TraceInformation("Native authority validation: completed in {0} ms.", stopwatch.ElapsedMilliseconds);
 
 			return binding;
 		}
