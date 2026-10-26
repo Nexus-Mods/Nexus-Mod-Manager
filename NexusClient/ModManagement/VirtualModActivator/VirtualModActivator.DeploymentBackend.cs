@@ -30,6 +30,12 @@ namespace Nexus.Client.ModManagement
 		{
 			if (Transaction.Current == null)
 				throw new InvalidOperationException("Virtual removal owner lookup requires an ambient transaction.");
+			return BeginVirtualOwnerLookup();
+		}
+
+		/// <summary>Bounds cached native identities to one stable read pass or serialized removal.</summary>
+		private IDisposable BeginVirtualOwnerLookup()
+		{
 			var lookup = new VirtualRemovalOwnerLookup(this, m_alcRemovalOwnerLookup.Value);
 			m_alcRemovalOwnerLookup.Value = lookup;
 			return lookup;
@@ -42,6 +48,10 @@ namespace Nexus.Client.ModManagement
 			private readonly VirtualRemovalOwnerLookup m_previous;
 			private readonly Dictionary<IVirtualModInfo, IMod> m_matches =
 				new Dictionary<IVirtualModInfo, IMod>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
+			private Dictionary<string, List<IMod>> m_upgradeCandidates;
+			private HashSet<string> m_managedFileNames;
+			private Dictionary<string, IMod> m_managedDownloads;
+			private int m_nextLinkIndex;
 			public bool IsDisposed { get; private set; }
 
 			/// <summary>Starts a fresh lookup while retaining a possible outer removal context.</summary>
@@ -63,6 +73,71 @@ namespace Nexus.Client.ModManagement
 				return mod;
 			}
 
+			/// <summary>Reuses the shifted position for adjacent owner links, verifying identity before every removal.</summary>
+			public bool RemoveLink(IVirtualModLink link)
+			{
+				return m_vmaOwner.m_tslVirtualModList.Remove(link, ReferenceEqualityComparer<IVirtualModLink>.Instance, ref m_nextLinkIndex);
+			}
+
+			/// <summary>Indexes the stable library identities once, retaining first-match download precedence.</summary>
+			private void EnsureManagedIdentities()
+			{
+				if (m_managedFileNames != null) return;
+				m_managedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				m_managedDownloads = new Dictionary<string, IMod>(StringComparer.OrdinalIgnoreCase);
+				foreach (IMod mod in m_vmaOwner.ModManager.ManagedMods)
+				{
+					string fileName = Path.GetFileName(mod.Filename);
+					if (!String.IsNullOrWhiteSpace(fileName)) m_managedFileNames.Add(fileName);
+					string downloadId = mod.DownloadId;
+					if (!String.IsNullOrWhiteSpace(downloadId) && !m_managedDownloads.ContainsKey(downloadId))
+						m_managedDownloads.Add(downloadId, mod);
+				}
+			}
+
+			/// <summary>Rejects absent archives without triggering a full registry scan, preserving its matching precedence.</summary>
+			public IMod GetModByFilename(string fileName)
+			{
+				EnsureManagedIdentities();
+				return !String.IsNullOrWhiteSpace(fileName) && m_managedFileNames.Contains(Path.GetFileName(fileName))
+					? m_vmaOwner.ModManager.GetModByFilename(fileName) : null;
+			}
+
+			/// <summary>Finds the first library download match without enumerating every archive for each registration.</summary>
+			public IMod GetModByDownloadId(string downloadId)
+			{
+				EnsureManagedIdentities();
+				IMod mod;
+				return m_managedDownloads.TryGetValue(downloadId, out mod) ? mod : null;
+			}
+
+			/// <summary>Groups active candidates once so cleanup does not rescan every active mod for each legacy registration.</summary>
+			public IEnumerable<IMod> GetUpgradeCandidates(string modId)
+			{
+				if (m_upgradeCandidates == null)
+				{
+					m_upgradeCandidates = new Dictionary<string, List<IMod>>(StringComparer.OrdinalIgnoreCase);
+					foreach (IMod mod in m_vmaOwner.ModInstallLog.ActiveMods)
+					{
+						if (mod == null || String.IsNullOrWhiteSpace(mod.Id)) continue;
+						string key = GetModIdKey(mod.Id);
+						List<IMod> candidates;
+						if (!m_upgradeCandidates.TryGetValue(key, out candidates))
+							m_upgradeCandidates.Add(key, candidates = new List<IMod>());
+						candidates.Add(mod);
+					}
+				}
+				List<IMod> matches;
+				return m_upgradeCandidates.TryGetValue(GetModIdKey(modId), out matches) ? matches : Enumerable.Empty<IMod>();
+			}
+
+			/// <summary>Mirrors legacy Nexus page comparison, keeping numeric and nonnumeric identities distinct.</summary>
+			private static string GetModIdKey(string modId)
+			{
+				string digits = new string(modId.Where(Char.IsDigit).ToArray());
+				return String.IsNullOrEmpty(digits) ? "name:" + modId.Trim() : "id:" + digits;
+			}
+
 			/// <summary>Releases the lookup before native registration removal, rollback or later operations can change ownership.</summary>
 			public void Dispose()
 			{
@@ -70,6 +145,9 @@ namespace Nexus.Client.ModManagement
 				IsDisposed = true;
 				m_vmaOwner.m_alcRemovalOwnerLookup.Value = m_previous;
 				m_matches.Clear();
+				m_upgradeCandidates?.Clear();
+				m_managedFileNames?.Clear();
+				m_managedDownloads?.Clear();
 			}
 		}
 

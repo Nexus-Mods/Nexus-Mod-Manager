@@ -1035,6 +1035,7 @@
 
 		private void RebuildVirtualLinkIndex()
 		{
+			Stopwatch stopwatch = Stopwatch.StartNew();
 			while (true)
 			{
 				int intRevision;
@@ -1048,6 +1049,8 @@
 
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>(m_tslVirtualModList);
 				Dictionary<IVirtualModInfo, IMod> dicManagedModsByModInfo = BuildManagedModLookupForVirtualLinks(lstVirtualLinks);
+				Trace.TraceInformation("Virtual topology index: resolved {0} owners for {1} links at {2} ms.",
+					dicManagedModsByModInfo.Count, lstVirtualLinks.Count, stopwatch.ElapsedMilliseconds);
 				VirtualLinkIndex vliVirtualLinkIndex = new VirtualLinkIndex(lstVirtualLinks.Count);
 				vliVirtualLinkIndex.Rebuild(
 					lstVirtualLinks,
@@ -1061,6 +1064,7 @@
 
 					m_vliVirtualLinkIndex = vliVirtualLinkIndex;
 					m_booVirtualLinkIndexDirty = false;
+					Trace.TraceInformation("Virtual topology index: rebuilt in {0} ms.", stopwatch.ElapsedMilliseconds);
 					return;
 				}
 			}
@@ -1188,12 +1192,15 @@
 			if (p_enmVirtualLinks == null)
 				return dicManagedModsByModInfo;
 
-			foreach (IVirtualModLink vmlLink in p_enmVirtualLinks)
+			using (m_alcRemovalOwnerLookup.Value == null ? BeginVirtualOwnerLookup() : null)
 			{
-				if (vmlLink == null || vmlLink.ModInfo == null || dicManagedModsByModInfo.ContainsKey(vmlLink.ModInfo))
-					continue;
+				foreach (IVirtualModLink vmlLink in p_enmVirtualLinks)
+				{
+					if (vmlLink == null || vmlLink.ModInfo == null || dicManagedModsByModInfo.ContainsKey(vmlLink.ModInfo))
+						continue;
 
-				dicManagedModsByModInfo.Add(vmlLink.ModInfo, FindManagedMod(vmlLink.ModInfo));
+					dicManagedModsByModInfo.Add(vmlLink.ModInfo, FindManagedMod(vmlLink.ModInfo));
+				}
 			}
 
 			return dicManagedModsByModInfo;
@@ -1339,7 +1346,11 @@
 				m_alcVirtualLinkIndexMutationNesting.Value++;
 			try
 			{
-				booRemoved = m_tslVirtualModList.Remove(p_vmlLink);
+				// The indexes and rollback snapshots identify this exact record. Avoid comparing
+				// both path strings against every unrelated link (or removing an equal sibling).
+				VirtualRemovalOwnerLookup lookup = m_alcRemovalOwnerLookup.Value;
+				booRemoved = lookup != null && !lookup.IsDisposed ? lookup.RemoveLink(p_vmlLink)
+					: m_tslVirtualModList.Remove(p_vmlLink, ReferenceEqualityComparer<IVirtualModLink>.Instance);
 			}
 			finally
 			{
@@ -1412,8 +1423,12 @@
 		/// <param name="p_strXMLFilePath">The XML file path.</param>
 		public List<IVirtualModLink> LoadList(string p_strXMLFilePath)
 		{
+			Stopwatch stopwatch = Stopwatch.StartNew();
 			VirtualModStoreData vmsData = m_vmsVirtualModStore.Load(p_strXMLFilePath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadList);
+			Trace.TraceInformation("Virtual topology load: read {0} mods and {1} links at {2} ms; reconciling install roots.",
+				vmsData.VirtualMods.Count, vmsData.VirtualLinks.Count, stopwatch.ElapsedMilliseconds);
 			bool repairedInstallRoots = ReconcileLoadedLinkInstallRoots(vmsData.VirtualLinks);
+			Trace.TraceInformation("Virtual topology load: reconciled install roots at {0} ms.", stopwatch.ElapsedMilliseconds);
 
 			DetachVirtualModInfoList(m_tslVirtualModInfo);
 			m_tslVirtualModInfo.Clear();
@@ -1445,25 +1460,23 @@
 
 			List<IVirtualModLink> links = virtualLinks.Where(x => x != null && x.ModInfo != null).ToList();
 			Dictionary<IVirtualModInfo, IMod> managedMods = BuildManagedModLookupForVirtualLinks(links);
+			var roots = new Dictionary<IVirtualModInfo, ModInstallRoot>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
+			foreach (KeyValuePair<IVirtualModInfo, IMod> entry in managedMods)
+				if (entry.Value != null && !String.IsNullOrWhiteSpace(ModInstallLog.GetModKey(entry.Value)))
+					roots.Add(entry.Key, ModInstallLog.GetModInstallRoot(entry.Value));
 			bool changed = false;
 
 			foreach (IVirtualModLink link in links)
 			{
-				IMod mod;
-				if (!managedMods.TryGetValue(link.ModInfo, out mod) || mod == null)
+				ModInstallRoot authoritativeRoot;
+				if (!roots.TryGetValue(link.ModInfo, out authoritativeRoot))
 					continue;
-
-				string nativeKey = ModInstallLog.GetModKey(mod);
-				if (String.IsNullOrWhiteSpace(nativeKey))
-					continue;
-
-				ModInstallRoot authoritativeRoot = ModInstallLog.GetModInstallRoot(mod);
 				if (link.InstallRoot == authoritativeRoot)
 					continue;
 
 				Trace.TraceInformation(
 					"Repairing Virtual link install root for native mod '{0}', path '{1}': {2} -> {3}.",
-					nativeKey, link.VirtualModPath, link.InstallRoot, authoritativeRoot);
+					ModInstallLog.GetModKey(managedMods[link.ModInfo]), link.VirtualModPath, link.InstallRoot, authoritativeRoot);
 				link.InstallRoot = authoritativeRoot;
 				changed = true;
 			}
@@ -2566,8 +2579,10 @@
 		/// <summary>Resolves current archive identities, retaining the exact-footprint fallback for legacy upgrades.</summary>
 		private IMod ResolveManagedMod(IVirtualModInfo p_vmiModInfo)
 		{
+			VirtualRemovalOwnerLookup lookup = m_alcRemovalOwnerLookup.Value;
+			if (lookup != null && lookup.IsDisposed) lookup = null;
 			IMod inactiveMatch = null;
-			IMod mod = ModManager.GetModByFilename(p_vmiModInfo.ModFileName);
+			IMod mod = lookup == null ? ModManager.GetModByFilename(p_vmiModInfo.ModFileName) : lookup.GetModByFilename(p_vmiModInfo.ModFileName);
 			if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
 			{
 				if (IsActiveNativeMod(mod))
@@ -2577,7 +2592,7 @@
 
 			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.DownloadId))
 			{
-				mod = ModManager.GetModByDownloadID(p_vmiModInfo.DownloadId);
+				mod = lookup == null ? ModManager.GetModByDownloadID(p_vmiModInfo.DownloadId) : lookup.GetModByDownloadId(p_vmiModInfo.DownloadId);
 				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
 				{
 					if (IsActiveNativeMod(mod))
@@ -2589,7 +2604,7 @@
 
 			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.UpdatedDownloadId))
 			{
-				mod = ModManager.GetModByDownloadID(p_vmiModInfo.UpdatedDownloadId);
+				mod = lookup == null ? ModManager.GetModByDownloadID(p_vmiModInfo.UpdatedDownloadId) : lookup.GetModByDownloadId(p_vmiModInfo.UpdatedDownloadId);
 				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
 				{
 					if (IsActiveNativeMod(mod))
@@ -2619,7 +2634,10 @@
 				return null;
 
 			IMod match = null;
-			foreach (IMod activeMod in ModInstallLog.ActiveMods)
+			VirtualRemovalOwnerLookup lookup = m_alcRemovalOwnerLookup.Value;
+			IEnumerable<IMod> candidates = lookup != null && !lookup.IsDisposed
+				? lookup.GetUpgradeCandidates(p_vmiModInfo.ModId) : ModInstallLog.ActiveMods;
+			foreach (IMod activeMod in candidates)
 			{
 				if (activeMod == null || !NexusModIdsEqual(p_vmiModInfo.ModId, activeMod.Id) ||
 					ModInstallLog.GetModInstallMethod(activeMod) != ModInstallMethod.Virtual ||

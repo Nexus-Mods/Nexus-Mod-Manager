@@ -1252,8 +1252,12 @@
 				{
 					Trace.TraceInformation(string.Format("Found {0}", strFile));
 					Trace.Indent();
-					var booAsk = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["AskAboutReadOnlySettingsFiles"];
-					var booMakeWritable = (bool)EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["UnReadOnlySettingsFiles"];
+					PerGameModeSettings<object> readOnlySettings = EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId];
+					bool? ask = readOnlySettings?["AskAboutReadOnlySettingsFiles"] as bool?;
+					bool? makeWritable = readOnlySettings?["UnReadOnlySettingsFiles"] as bool?;
+					// Fresh or partially saved preferences require a decision before changing the file.
+					bool booAsk = !ask.HasValue || !makeWritable.HasValue || ask.Value;
+					bool booMakeWritable = makeWritable ?? false;
 					var booRemember = false;
 					if (booAsk)
 						booMakeWritable = ConfirmMakeWritable(EnvironmentInfo, fifPlugin.Name, out booRemember);
@@ -1266,8 +1270,13 @@
 						Trace.TraceInformation("NOT made writable");
 					if (booRemember)
 					{
-						EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["AskAboutReadOnlySettingsFiles"] = false;
-						EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId]["UnReadOnlySettingsFiles"] = booMakeWritable;
+						if (readOnlySettings == null)
+						{
+							readOnlySettings = new PerGameModeSettings<object>();
+							EnvironmentInfo.Settings.CustomGameModeSettings[p_gmdGameMode.ModeId] = readOnlySettings;
+						}
+						readOnlySettings["AskAboutReadOnlySettingsFiles"] = false;
+						readOnlySettings["UnReadOnlySettingsFiles"] = booMakeWritable;
 						EnvironmentInfo.Settings.Save();
 					}
 					Trace.Unindent();

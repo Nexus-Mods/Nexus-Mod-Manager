@@ -29,6 +29,143 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>Adjacent removals reuse their shifted position; an invalid hint still searches safely.</summary>
+		[Test]
+		public void LinkListRemoval_VerifiesAndReusesPositionWithoutRescanningUnrelatedLinks()
+		{
+			var links = new ThreadSafeObservableList<IVirtualModLink>();
+			for (int index = 0; index < 128; index++)
+				links.Add(new VirtualModLink("Other" + index, "Other" + index, 0, true, null, ModInstallRoot.Data));
+			var first = new VirtualModLink("First", "First", 0, true, null, ModInstallRoot.Data);
+			var second = new VirtualModLink("Second", "Second", 0, true, null, ModInstallRoot.Data);
+			links.Add(first);
+			links.Add(second);
+			int comparisons = 0;
+			var comparer = InterfaceStub<IEqualityComparer<IVirtualModLink>>.Create((method, args) =>
+			{
+				comparisons++;
+				return ReferenceEquals(args[0], args[1]);
+			});
+			int hint = Int32.MaxValue;
+			Assert.That(links.Remove(first, comparer, ref hint), Is.True);
+			Assert.That(hint, Is.EqualTo(128));
+			comparisons = 0;
+			Assert.That(links.Remove(second, comparer, ref hint), Is.True);
+			Assert.That(comparisons, Is.EqualTo(1));
+			Assert.That(links.Count, Is.EqualTo(128));
+			Assert.That(links.Remove(second, comparer, ref hint), Is.False);
+			Assert.That(hint, Is.EqualTo(-1));
+		}
+
+		/// <summary>Reload reconciliation queries the authoritative root once per registration rather than per file.</summary>
+		[Test]
+		public void TopologyReconciliation_ReadsInstallRootOncePerOwner()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("RootBatch");
+				fixture.Install(mod, "A.txt", "a");
+				fixture.Install(mod, "B.txt", "b");
+				int rootReads = 0;
+				IInstallLog observed = InterfaceStub<IInstallLog>.Create((method, args) =>
+				{
+					if (method.Name == "GetModInstallRoot") rootReads++;
+					return method.Invoke(fixture.InstallLog, args);
+				});
+				typeof(VirtualModActivator).GetProperty("ModInstallLog", BindingFlags.Instance | BindingFlags.NonPublic)
+					.SetValue(fixture.Activator, observed, null);
+				typeof(VirtualModActivator).GetMethod("ReconcileLoadedLinkInstallRoots", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(fixture.Activator, new object[] { fixture.Activator.VirtualLinks.ToList() });
+				Assert.That(rootReads, Is.EqualTo(1));
+			}
+		}
+
+		/// <summary>Committed fast reads must still expose pending registrations only within their transaction.</summary>
+		[Test]
+		public void RegistryReads_PreservePendingAndRolledBackInstallContext()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod committed = fixture.CreateMod("Committed");
+				fixture.InstallLog.AddActiveMod(committed, ModInstallRoot.Data, ModInstallMethod.Virtual);
+				string key = fixture.InstallLog.GetModKey(committed);
+				Assert.That(key, Is.Not.Null);
+				IMod pending = fixture.CreateMod("Pending");
+				using (var transaction = new TransactionScope())
+				{
+					fixture.InstallLog.AddActiveMod(pending, ModInstallRoot.GameRoot, ModInstallMethod.Direct);
+					Assert.That(fixture.InstallLog.GetModKey(committed), Is.EqualTo(key));
+					Assert.That(fixture.InstallLog.GetModKey(pending), Is.Not.Null);
+					Assert.That(fixture.InstallLog.GetModInstallRoot(pending), Is.EqualTo(ModInstallRoot.GameRoot));
+					Assert.That(fixture.InstallLog.GetModInstallMethod(pending), Is.EqualTo(ModInstallMethod.Direct));
+					Assert.That(fixture.InstallLog.GetModInstallMethod(fixture.InstallLog.GetModKey(pending)), Is.EqualTo(ModInstallMethod.Direct));
+				}
+				Assert.That(fixture.InstallLog.GetModKey(pending), Is.Null);
+				Assert.That(fixture.InstallLog.GetModKey(committed), Is.EqualTo(key));
+				Assert.That(fixture.InstallLog.GetModInstallRoot(committed), Is.EqualTo(ModInstallRoot.Data));
+				Assert.That(fixture.InstallLog.GetModInstallMethod(key), Is.EqualTo(ModInstallMethod.Virtual));
+			}
+		}
+
+		/// <summary>Equal path strings in different roots must not remove a sibling record or invoke its value comparison.</summary>
+		[Test]
+		public void LinkRemoval_UsesRecordIdentityAndRetainsMutationNotifications()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("EqualPaths");
+				fixture.InstallLog.AddActiveMod(mod, ModInstallRoot.Data, ModInstallMethod.Virtual);
+				var info = new VirtualModInfo("10", "100", "EqualPaths", Path.GetFileName(mod.Filename), "1.0");
+				var data = new VirtualModLink("SameSource", "Same.txt", 0, true, info, ModInstallRoot.Data);
+				var game = new VirtualModLink("SameSource", "Same.txt", 0, true, info, ModInstallRoot.GameRoot);
+				int comparisons = 0;
+				IVirtualModLink observedData = InterfaceStub<IVirtualModLink>.Create((method, args) =>
+				{
+					if (method.Name == "Equals") comparisons++;
+					return method.Invoke(data, args);
+				});
+				fixture.Activator.VirtualLinks.Add(observedData);
+				fixture.Activator.VirtualLinks.Add(game);
+				object removed = null;
+				fixture.Activator.VirtualLinks.MutationOccurred += (sender, args) =>
+				{
+					if (args.OldItems != null) removed = args.OldItems[0];
+				};
+				typeof(VirtualModActivator).GetMethod("RemoveVirtualLink", BindingFlags.Instance | BindingFlags.NonPublic,
+					null, new[] { typeof(IVirtualModLink), typeof(IMod) }, null).Invoke(fixture.Activator, new object[] { game, mod });
+				Assert.That(removed, Is.SameAs(game));
+				Assert.That(fixture.Activator.VirtualLinks.Single(), Is.SameAs(observedData));
+				Assert.That(comparisons, Is.Zero, "Unrelated links must not compare their path strings during removal.");
+			}
+		}
+
+		/// <summary>Legacy cleanup indexes active Nexus identities once instead of scanning all active mods for every stale registration.</summary>
+		[TestCase(1)]
+		[TestCase(32)]
+		public void RemovalOwnerLookup_GroupsUnrelatedActiveCandidatesOnce(int registrationCount)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod original = fixture.CreateMod("UnrelatedCandidate");
+				((InstallLog.DummyMod)original).Id = "10";
+				int identityReads = 0;
+				IMod observed = InterfaceStub<IMod>.Create((method, args) =>
+				{
+					if (method.Name == "get_Id") identityReads++;
+					return method.Invoke(original, args);
+				});
+				fixture.InstallLog.AddActiveMod(observed, ModInstallRoot.Data, ModInstallMethod.Virtual);
+				identityReads = 0;
+				MethodInfo resolve = typeof(VirtualModActivator).GetMethod("FindManagedMod", BindingFlags.Instance | BindingFlags.NonPublic);
+				using (var transaction = new TransactionScope())
+				using (fixture.Activator.BeginVirtualRemovalOwnerLookup())
+					for (int index = 0; index < registrationCount; index++)
+						Assert.That(resolve.Invoke(fixture.Activator, new object[] {
+							new VirtualModInfo("42", "", "Missing", "Missing" + index + ".zip", "1.0") }), Is.Null);
+				Assert.That(identityReads, Is.LessThanOrEqualTo(2));
+			}
+		}
+
 		/// <summary>Checks unrelated ownership once per registration regardless of how many active files it owns.</summary>
 		[TestCase(1)]
 		[TestCase(128)]

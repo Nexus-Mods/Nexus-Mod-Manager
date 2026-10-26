@@ -143,10 +143,35 @@
 				return;
 			}
 
-			// Export through a separate reader so the live object's delta identities remain bound to its current records.
-			var exportStore = new SQLiteVirtualModStore(m_strXmlFilePath, m_strDatabasePath, m_vrsCurrentVersion, m_fncIsValidVersion, m_xmsXmlStore);
-			VirtualModStoreData data = exportStore.LoadStoreData(false).Data;
-			m_xmsXmlStore.Save(m_vrsCurrentVersion, destinationPath, data.VirtualMods, data.VirtualLinks);
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			NativeStoreAuthority.RequireAvailable(m_strDatabasePath);
+			if (!File.Exists(m_strDatabasePath))
+			{
+				m_xmsXmlStore.Save(m_vrsCurrentVersion, destinationPath, new List<IVirtualModInfo>(), Enumerable.Empty<IVirtualModLink>());
+				return;
+			}
+			// Stream each owner's links directly to the profile without building a second topology and identity index.
+			lock (m_objDatabaseAccessGate)
+				using (SQLiteConnection connection = OpenReadOnlyConnection())
+				{
+					if (!HasCompatibleSchema(connection, m_fncIsValidVersion))
+						throw new InvalidOperationException("SQLite virtual mod store failed validation.");
+					var mods = new List<IVirtualModInfo>();
+					var keys = new Dictionary<IVirtualModInfo, long>(VirtualModInfoReferenceComparer.Instance);
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.CommandText = "SELECT VirtualModId, ModId, DownloadId, UpdatedDownloadId, ModName, ModFileName, ModNewFileName, ModFilePath, FileVersion FROM VirtualMods ORDER BY ModOrder;";
+						using (SQLiteDataReader reader = command.ExecuteReader())
+							while (reader.Read())
+							{
+								var mod = new VirtualModInfo(GetString(reader, 1), GetString(reader, 2), GetString(reader, 3), GetString(reader, 4), GetString(reader, 5), GetString(reader, 6), GetString(reader, 7), GetString(reader, 8));
+								mods.Add(mod);
+								keys.Add(mod, reader.GetInt64(0));
+							}
+					}
+					m_xmsXmlStore.SaveStreaming(m_vrsCurrentVersion, destinationPath, mods, mod => ReadLinks(connection, keys[mod], mod));
+					Trace.TraceInformation("Virtual profile export: wrote {0} registrations in {1} ms.", mods.Count, stopwatch.ElapsedMilliseconds);
+				}
 		}
 
 		internal void SaveStoreData(Version fileVersion, VirtualModStoreData data)
@@ -628,6 +653,22 @@
 
 		private void LoadLinks(SQLiteConnection connection, long modKey, IVirtualModInfo modInfo, List<IVirtualModInfo> virtualMods, List<IVirtualModLink> virtualLinks)
 		{
+			foreach (KeyValuePair<IVirtualModLink, long> entry in ReadLinkRecords(connection, modKey, modInfo))
+			{
+				virtualLinks.Add(entry.Key);
+				_linkIds[entry.Key] = entry.Value;
+			}
+		}
+
+		/// <summary>Reads one owner's links without retaining a second copy during profile export.</summary>
+		private IEnumerable<IVirtualModLink> ReadLinks(SQLiteConnection connection, long modKey, IVirtualModInfo modInfo)
+		{
+			return ReadLinkRecords(connection, modKey, modInfo).Select(entry => entry.Key);
+		}
+
+		/// <summary>Preserves native link order and record IDs while streaming a single owner's links.</summary>
+		private IEnumerable<KeyValuePair<IVirtualModLink, long>> ReadLinkRecords(SQLiteConnection connection, long modKey, IVirtualModInfo modInfo)
+		{
 			using (SQLiteCommand linkCommand = connection.CreateCommand())
 			{
 				linkCommand.CommandText = "SELECT RealPath, VirtualPath, Priority, IsActive, InstallRoot, VirtualLinkId FROM VirtualLinks WHERE VirtualModId = @modKey ORDER BY LinkOrder;";
@@ -639,8 +680,7 @@
 					{
 						var link = new VirtualModLink(GetString(linkReader, 0), GetString(linkReader, 1), linkReader.GetInt32(2),
 							linkReader.GetInt32(3) != 0, modInfo, ReadInstallRoot(linkReader.GetInt32(4)));
-						virtualLinks.Add(link);
-						_linkIds[link] = linkReader.GetInt64(5);
+						yield return new KeyValuePair<IVirtualModLink, long>(link, linkReader.GetInt64(5));
 					}
 				}
 			}

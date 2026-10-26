@@ -31,7 +31,7 @@ namespace Nexus.Client.ModManagement
 					while (directory != null && !directory.Equals(root, StringComparison.OrdinalIgnoreCase) &&
 						directory.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
 					{
-						directories.Add(directory);
+						if (!directories.Add(directory)) break;
 						directory = Path.GetDirectoryName(directory);
 					}
 				}

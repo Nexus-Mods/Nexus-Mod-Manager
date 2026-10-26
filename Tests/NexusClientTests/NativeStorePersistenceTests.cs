@@ -240,6 +240,56 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Streaming profile exports retain empty registrations, owner/link order, XML escaping and install roots.</summary>
+		[Test]
+		public void VirtualStore_StreamingExportMatchesLegacyXmlAndPreservesLiveTopology()
+		{
+			using (var fixture = new StoreFixture())
+			{
+				SQLiteVirtualModStore store = CreateVirtualStore(fixture);
+				var empty = new VirtualModInfo("1", "10", "Empty & <owner>", "Empty.zip", "1.0");
+				var data = new VirtualModInfo("2", "20", "Data", "Data.zip", "2.0");
+				var root = new VirtualModInfo("3", "30", "Root", "Root.zip", "3.0");
+				store.SaveStoreData(VirtualModActivator.CurrentVersion, new VirtualModStoreData(
+					new List<IVirtualModInfo> { empty, data, root }, new List<IVirtualModLink> {
+						new VirtualModLink("Root\\A", "A.dll", 8, true, root, ModInstallRoot.GameRoot),
+						new VirtualModLink("Data\\B", "B & C.txt", 2, false, data, ModInstallRoot.Data),
+						new VirtualModLink("Data\\A", "A.txt", 1, true, data, ModInstallRoot.Data) }));
+				VirtualModStoreData loaded = store.Load(fixture.Xml, VirtualModActivator.CurrentVersion, x => true, (x, y) => "");
+				string expected = Path.Combine(fixture.Root, "expected.xml");
+				string actual = Path.Combine(fixture.Root, "actual.xml");
+				new XmlVirtualModStore().Save(VirtualModActivator.CurrentVersion, expected, loaded.VirtualMods, loaded.VirtualLinks);
+
+				store.Copy(fixture.Xml, actual);
+
+				Assert.That(XNode.DeepEquals(XDocument.Load(expected), XDocument.Load(actual)), Is.True);
+				Assert.That(store.HasLoadedTopology(loaded.VirtualMods, loaded.VirtualLinks), Is.True);
+				Assert.That(File.Exists(fixture.Xml), Is.False);
+			}
+		}
+
+		/// <summary>A streamed XML failure leaves the previous profile and live SQL identities untouched.</summary>
+		[Test]
+		public void VirtualStore_FailedStreamingExportPreservesPreviousProfile()
+		{
+			using (var fixture = new StoreFixture())
+			{
+				SQLiteVirtualModStore store = CreateVirtualStore(fixture);
+				var invalid = new VirtualModInfo("1", "10", "Invalid\u0001Name", "Invalid.zip", "1.0");
+				store.SaveStoreData(VirtualModActivator.CurrentVersion, new VirtualModStoreData(
+					new List<IVirtualModInfo> { invalid }, new List<IVirtualModLink>()));
+				VirtualModStoreData loaded = store.Load(fixture.Xml, VirtualModActivator.CurrentVersion, x => true, (x, y) => "");
+				string profile = Path.Combine(fixture.Root, "profile.xml");
+				File.WriteAllText(profile, "previous profile");
+
+				Assert.Catch(() => store.Copy(fixture.Xml, profile));
+
+				Assert.That(File.ReadAllText(profile), Is.EqualTo("previous profile"));
+				Assert.That(store.HasLoadedTopology(loaded.VirtualMods, loaded.VirtualLinks), Is.True);
+				Assert.That(Directory.GetFiles(fixture.Root, "*.tmp"), Is.Empty);
+			}
+		}
+
 		/// <summary>A failed Virtual write does not publish new IDs or consume the retry delta.</summary>
 		[Test]
 		public void VirtualStore_FailedDeltaRetainsGenerationForRetry()

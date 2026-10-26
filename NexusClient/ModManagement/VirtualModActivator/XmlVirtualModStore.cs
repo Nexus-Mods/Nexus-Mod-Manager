@@ -48,6 +48,12 @@
 			SaveXmlDocumentSafely(docVirtual, filePath);
 		}
 
+		/// <summary>Exports links on demand using the unchanged XML schema and atomic replacement path.</summary>
+		internal void SaveStreaming(Version version, string path, IEnumerable<IVirtualModInfo> mods, Func<IVirtualModInfo, IEnumerable<IVirtualModLink>> getLinks)
+		{
+			SaveXmlDocumentSafely(BuildXmlDocument(version, mods, getLinks), path);
+		}
+
 		public VirtualModStoreData Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion)
 		{
 			VirtualModStoreData data;

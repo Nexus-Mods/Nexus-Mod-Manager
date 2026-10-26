@@ -324,7 +324,9 @@ namespace Nexus.Client.ModManagement
 					{
 						TraceUninstallPhase("publishing deployment and profile changes", stopwatch);
 						VirtualModActivator.PublishPendingDeploymentChanges();
+						TraceUninstallPhase("saving deployment manifest", stopwatch);
 						ProfileManager?.UpdateCurrentDeploymentManifest();
+						TraceUninstallPhase("cleaning scripted cache and empty directories", stopwatch);
 						DeleteXMLInstalledFile(Mod);
 						if (remasteredRemovalReview == null && !DisableVirtualFilesOnly && Transaction.Current == null)
 							UninstalledModDirectoryCleanup.RemoveEmptyDirectories(
@@ -367,6 +369,7 @@ namespace Nexus.Client.ModManagement
 				OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), false,
 					"The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			}
+			TraceUninstallPhase("completion reported", stopwatch);
 		}
 
 		/// <summary>Identifies the phase and elapsed time of native removal without logging every file.</summary>
@@ -391,9 +394,10 @@ namespace Nexus.Client.ModManagement
 			{
 				if (!String.IsNullOrEmpty(ModInstallLog.GetModKey(Mod)))
 					return ModOperationDurability.Unknown;
-				if (VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod))
-					return ModOperationDurability.Unknown;
-				if (DeploymentManager != null && DeploymentManager.HasManagedFiles(Mod))
+				// The coordinator checks promoted ownership and Virtual links; avoid scanning the topology twice.
+				bool hasManagedFiles = DeploymentManager != null ? DeploymentManager.HasManagedFiles(Mod)
+					: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
+				if (hasManagedFiles)
 					return ModOperationDurability.Unknown;
 
 				return ModOperationDurability.VerifiedCommitted;

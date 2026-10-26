@@ -186,7 +186,10 @@ namespace Nexus.Client.Games.DataDriven
                     return new DataDrivenWitcher3RemasteredGameMode(_environmentInfo, p_futFileUtility, _definition);
                 }
                 if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
+                {
+                    EnsureLegacyReadOnlySettingsDefaults();
                     return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
+                }
                 if (string.Equals(_definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
                 {
                     EnsureLegacyReadOnlySettingsDefaults();
@@ -207,6 +210,7 @@ namespace Nexus.Client.Games.DataDriven
             }
         }
 
+        /// <summary>Restores the legacy startup defaults without replacing an existing read-only-file choice.</summary>
         private void EnsureLegacyReadOnlySettingsDefaults()
         {
             if (_environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId] == null)
@@ -215,7 +219,8 @@ namespace Nexus.Client.Games.DataDriven
                 return;
 
             _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId]["AskAboutReadOnlySettingsFiles"] = true;
-            _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId]["UnReadOnlySettingsFiles"] = true;
+            if (!_environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId].ContainsKey("UnReadOnlySettingsFiles"))
+                _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId]["UnReadOnlySettingsFiles"] = true;
             _environmentInfo.Settings.Save();
         }
 

@@ -346,12 +346,42 @@ namespace Nexus.Client.Util.Collections
 		/// <c>false</c> otherwise.</returns>
 		public bool Remove(T p_tItem)
 		{
+			return Remove(p_tItem, null);
+		}
+
+		/// <summary>Removes the first matching item using an explicit comparer, retaining normal mutation notifications.</summary>
+		/// <param name="p_tItem">The item to remove.</param>
+		/// <param name="p_cmpComparer">The comparer, or null to use the list's existing comparison.</param>
+		/// <returns>Whether a matching item was removed.</returns>
+		public bool Remove(T p_tItem, IEqualityComparer<T> p_cmpComparer)
+		{
+			int index = 0;
+			return Remove(p_tItem, p_cmpComparer, ref index);
+		}
+
+		/// <summary>Removes a matching item, testing the supplied position first before searching the list.</summary>
+		/// <param name="p_tItem">The item to remove.</param>
+		/// <param name="p_cmpComparer">The comparer, or null to retain the list's existing comparison.</param>
+		/// <param name="p_intIndex">A candidate position; receives the removed position, or -1 when absent.</param>
+		/// <returns>Whether a matching item was removed.</returns>
+		public bool Remove(T p_tItem, IEqualityComparer<T> p_cmpComparer, ref int p_intIndex)
+		{
 			Int32 intIndex = -1;
 			T tOldItem = default(T);
 			try
 			{
 				m_rwlLock.EnterWriteLock();
-				intIndex = IndexOf(p_tItem);
+				if (p_cmpComparer == null)
+					intIndex = IndexOf(p_tItem);
+				else if (p_intIndex >= 0 && p_intIndex < m_lstItems.Count && p_cmpComparer.Equals(m_lstItems[p_intIndex], p_tItem))
+					intIndex = p_intIndex;
+				else
+					for (int index = 0; index < m_lstItems.Count; index++)
+						if (p_cmpComparer.Equals(m_lstItems[index], p_tItem))
+						{
+							intIndex = index;
+							break;
+						}
 				if (intIndex > -1)
 				{
 					tOldItem = m_lstItems[intIndex];
@@ -364,6 +394,7 @@ namespace Nexus.Client.Util.Collections
 					m_rwlLock.ExitWriteLock();
 			}
 
+			p_intIndex = intIndex;
 			if (intIndex < 0)
 				return false;
 

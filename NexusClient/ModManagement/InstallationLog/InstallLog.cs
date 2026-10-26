@@ -408,6 +408,12 @@
 			}
 			_deploymentCommitSequence = String.IsNullOrWhiteSpace(deploymentCommitSequenceValue) ? 0 : deploymentCommitSequence;
 
+			// Resolve library identities once rather than scanning every archive for every installed mod.
+			var managedByPath = new Dictionary<string, IMod>(StringComparer.OrdinalIgnoreCase);
+			foreach (IMod managedMod in ManagedModRegistry.RegisteredMods)
+				if (!String.IsNullOrEmpty(managedMod.ModArchivePath) && !managedByPath.ContainsKey(managedMod.ModArchivePath))
+					managedByPath.Add(managedMod.ModArchivePath, managedMod);
+
             var modList = docLog.Descendants("modList").FirstOrDefault();
 			
             if (modList != null)
@@ -450,7 +456,9 @@
 						var machineVersion = string.IsNullOrEmpty(humanReadableVersion) ? null : new Version(humanReadableVersion);
 						humanReadableVersion = version.Value;
 						
-                        var modMod = ManagedModRegistry.GetMod(modPath) ?? new DummyMod(strModName, modPath, machineVersion, humanReadableVersion, "", installDate);
+						IMod modMod;
+						if (!managedByPath.TryGetValue(modPath, out modMod))
+							modMod = new DummyMod(strModName, modPath, machineVersion, humanReadableVersion, "", installDate);
 						modMod.InstallDate = installDate;
 
 						try
@@ -793,25 +801,25 @@
         /// <inheritdoc />
 		public string GetModKey(IMod mod)
 		{
-			return GetEnlistment().GetModKey(mod);
+			return Transaction.Current == null ? _activeModRegistry.GetKey(mod) : GetEnlistment().GetModKey(mod);
 		}
 
 		/// <inheritdoc />
 		public ModInstallRoot GetModInstallRoot(IMod mod)
 		{
-			return GetEnlistment().GetModInstallRoot(mod);
+			return Transaction.Current == null ? GetModInstallRootByKey(_activeModRegistry.GetKey(mod)) : GetEnlistment().GetModInstallRoot(mod);
 		}
 
 		/// <inheritdoc />
 		public ModInstallMethod GetModInstallMethod(IMod mod)
 		{
-			return GetEnlistment().GetModInstallMethod(mod);
+			return Transaction.Current == null ? GetModInstallMethodByKey(_activeModRegistry.GetKey(mod)) : GetEnlistment().GetModInstallMethod(mod);
 		}
 
 		/// <inheritdoc />
 		public ModInstallMethod GetModInstallMethod(string modKey)
 		{
-			return GetEnlistment().GetModInstallMethodByKey(modKey);
+			return Transaction.Current == null ? GetModInstallMethodByKey(modKey) : GetEnlistment().GetModInstallMethodByKey(modKey);
 		}
 
 		/// <inheritdoc />
