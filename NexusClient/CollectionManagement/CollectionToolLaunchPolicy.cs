@@ -26,7 +26,7 @@ namespace Nexus.Client.CollectionManagement
 				FileName = executable,
 				Arguments = BuildArgumentString(tool.Arguments),
 				WorkingDirectory = workingDirectory,
-				UseShellExecute = false
+				UseShellExecute = tool.UseShellExecute
 			};
 			foreach (KeyValuePair<string, string> variable in tool.Environment)
 				startInfo.EnvironmentVariables[variable.Key] = variable.Value;

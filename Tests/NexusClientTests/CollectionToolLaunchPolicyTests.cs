@@ -26,6 +26,18 @@ namespace NexusClientTests
 			Assert.AreEqual("yes", startInfo.EnvironmentVariables["NMM_COLLECTION_TEST"]);
 		}
 
+		/// <summary>Explicit shell launches allow Windows to handle an executable's normal elevation requirements.</summary>
+		[Test]
+		public void CreateStartInfo_PreservesShellLaunchForGameRelativePatcher()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-collection-tool-root");
+			var tool = new CollectionLaunchTool("4GB RAM Patcher Tool", "4gb patch.exe", new string[0], null, null, true);
+			ProcessStartInfo startInfo = CollectionToolLaunchPolicy.CreateStartInfo(tool, root);
+			Assert.IsTrue(startInfo.UseShellExecute);
+			Assert.AreEqual(Path.Combine(root, "4gb patch.exe"), startInfo.FileName);
+			Assert.AreEqual(root, startInfo.WorkingDirectory);
+		}
+
 		[Test]
 		public void ResolvePath_RejectsTraversalEvenWhenCalledWithUntrustedRelativeInput()
 		{

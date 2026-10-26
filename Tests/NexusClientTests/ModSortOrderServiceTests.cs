@@ -458,6 +458,28 @@
 		}
 
 		/// <summary>Creates a native manager shell with isolated library paths and a detached installed-state snapshot.</summary>
+		/// <summary>Archives hosted under another game's Nexus domain require content verification even with matching numeric IDs.</summary>
+		[TestCase("oblivion", false)]
+		[TestCase("skyrimspecialedition", true)]
+		public void CollectionArchiveDiscovery_DifferentHostingDomainCannotTrustNativeMetadata(string hostingDomain, bool requiresContentVerification)
+		{
+			SortTestStorage storage = CreateStorage();
+			ModManager manager = CreateArchiveRepairManager(storage, null, new InstallLogReadMod[0]);
+			IMod mod = CreateMod(Path.Combine(storage.ModDirectory, "Oblivion Priority.zip"), "50129", "210177");
+			var registry = new ModRegistry(null, null);
+			var managed = (ThreadSafeObservableList<IMod>)typeof(ModRegistry).GetField("m_oclRegisteredMods",
+				BindingFlags.Instance | BindingFlags.NonPublic).GetValue(registry);
+			managed.Add(mod);
+			SetPrivateField(manager, "<ManagedModRegistry>k__BackingField", registry);
+			SetPrivateField(manager, "<ModRepository>k__BackingField",
+				InterfaceStub<Nexus.Client.ModRepositories.IModRepository>.Create((method, args) => method.Name == "get_GameDomainName" ? "oblivion" : null));
+			var artifact = new CollectionArtifactReference("nexus-mod-file", hostingDomain + "/50129/210177", null);
+			IReadOnlyList<CollectionManagedArchiveCandidate> candidates = new ModManagerCollectionManagedArchiveSource(manager).FindCandidates(artifact);
+			Assert.That(candidates.Count, Is.EqualTo(1));
+			Assert.That(candidates[0].IsFallback, Is.EqualTo(requiresContentVerification));
+			Assert.That(candidates[0].ArchivePath, Is.EqualTo(mod.ModArchivePath));
+		}
+
 		private static ModManager CreateArchiveRepairManager(SortTestStorage storage, ModSortOrderService service,
 			IEnumerable<InstallLogReadMod> installedMods)
 		{

@@ -19,7 +19,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 		}
 
-		/// <summary>Creates a candidate which may be restricted to recovery when ordinary discovery fails verification.</summary>
+		/// <summary>Creates a candidate which may require exact content verification instead of repository metadata trust.</summary>
 		internal CollectionManagedArchiveCandidate(string scheme, string stableId, string archivePath, bool isFallback)
 		{
 			Scheme = CollectionIdentityValidation.RequireOpaqueToken(scheme, nameof(scheme));
@@ -30,7 +30,7 @@ namespace Nexus.Client.CollectionManagement
 			IsFallback = isFallback;
 		}
 
-		/// <summary>Gets whether this candidate is a stale-identity recovery hint rather than an ordinary match.</summary>
+		/// <summary>Gets whether this candidate requires content verification, including stale IDs or a different hosting game.</summary>
 		internal bool IsFallback { get; }
 
 		/// <summary>Gets the normalized artifact scheme represented by the managed metadata.</summary>

@@ -89,7 +89,15 @@ namespace Nexus.Client.CollectionManagement
 
 		public CollectionLaunchTool(string name, string relativeExecutablePath, IEnumerable<string> arguments,
 			string relativeWorkingDirectory, IDictionary<string, string> environment)
+			: this(name, relativeExecutablePath, arguments, relativeWorkingDirectory, environment, false)
 		{
+		}
+
+		/// <summary>Retains an explicit Windows shell launch for a game-relative executable.</summary>
+		public CollectionLaunchTool(string name, string relativeExecutablePath, IEnumerable<string> arguments,
+			string relativeWorkingDirectory, IDictionary<string, string> environment, bool useShellExecute)
+		{
+			UseShellExecute = useShellExecute;
 			Name = CollectionDomainValidation.RequireDisplayValue(name, nameof(name));
 			RelativeExecutablePath = RequireRelativePath(relativeExecutablePath, nameof(relativeExecutablePath));
 			if (!StringComparer.OrdinalIgnoreCase.Equals(System.IO.Path.GetExtension(RelativeExecutablePath), ".exe"))
@@ -110,6 +118,8 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentException("Collection tool environment entries must use non-empty Windows variable names and string values.", nameof(environment));
 				copiedEnvironment.Add(pair.Key, pair.Value);
 			}
+			if (useShellExecute && copiedEnvironment.Count != 0)
+				throw new ArgumentException("A Windows shell launch cannot override environment variables.", nameof(environment));
 			_environment = new ReadOnlyDictionary<string, string>(copiedEnvironment);
 		}
 
@@ -117,11 +127,13 @@ namespace Nexus.Client.CollectionManagement
 		public string RelativeExecutablePath { get; }
 		public ReadOnlyCollection<string> Arguments { get { return _arguments; } }
 		public string RelativeWorkingDirectory { get; }
+		/// <summary>Gets whether Windows launches the executable through its shell, including normal elevation handling.</summary>
+		public bool UseShellExecute { get; }
 		public IReadOnlyDictionary<string, string> Environment { get { return _environment; } }
 
 		public bool Equals(CollectionLaunchTool other)
 		{
-			if (other == null || !StringComparer.Ordinal.Equals(Name, other.Name) ||
+			if (other == null || UseShellExecute != other.UseShellExecute || !StringComparer.Ordinal.Equals(Name, other.Name) ||
 				!StringComparer.OrdinalIgnoreCase.Equals(RelativeExecutablePath, other.RelativeExecutablePath) ||
 				!StringComparer.OrdinalIgnoreCase.Equals(RelativeWorkingDirectory ?? String.Empty, other.RelativeWorkingDirectory ?? String.Empty) ||
 				_arguments.Count != other._arguments.Count || _environment.Count != other._environment.Count)

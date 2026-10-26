@@ -63,8 +63,7 @@ namespace Nexus.Client.CollectionManagement
 				return new CollectionManagedArchiveCandidate[0];
 
 			string currentDomain = _modManager.ModRepository == null ? null : _modManager.ModRepository.GameDomainName;
-			if (!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
-				return new CollectionManagedArchiveCandidate[0];
+			bool sameDomain = StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain);
 
 			string expectedModIdText = expectedModId.ToString(CultureInfo.InvariantCulture);
 			string expectedFileIdText = expectedFileId.ToString(CultureInfo.InvariantCulture);
@@ -81,7 +80,7 @@ namespace Nexus.Client.CollectionManagement
 				(exactRepositoryCandidate ? candidates : staleCandidates).Add(new CollectionManagedArchiveCandidate(
 					NexusCollectionModFileArtifactIdentity.Scheme,
 					NexusCollectionModFileArtifactIdentity.Format(expectedDomain, expectedModId, expectedFileId),
-					CollectionArchiveContentMatcher.GetManagedArchivePath(mod), !exactRepositoryCandidate));
+					CollectionArchiveContentMatcher.GetManagedArchivePath(mod), !exactRepositoryCandidate || !sameDomain));
 			}
 
 			candidates.AddRange(staleCandidates);
@@ -487,8 +486,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The verified managed archive does not use a Nexus mod/file artifact identity.");
 
 			string currentDomain = _modManager.ModRepository == null ? null : _modManager.ModRepository.GameDomainName;
+			// A Collection may use an archive hosted in another Nexus game. Its exact bytes have
+			// already been verified; do not rewrite the active game's repository metadata for it.
 			if (!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
-				throw new InvalidDataException("The verified managed archive belongs to a different Nexus game domain.");
+				return;
 
 			string candidatePath = Path.GetFullPath(candidate.ArchivePath);
 			List<IMod> matches = _modManager.ManagedMods.Where(x => x != null &&

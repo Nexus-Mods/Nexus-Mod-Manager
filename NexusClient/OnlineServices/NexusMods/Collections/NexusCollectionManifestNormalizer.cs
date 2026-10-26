@@ -2058,13 +2058,14 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					continue;
 				}
 
-				bool unsupportedLifecycle = ReadTrue(tool["shell"]) || ReadTrue(tool["detach"]) ||
-					(tool["onStart"] != null && tool["onStart"].Type != JTokenType.Null);
+				// Native Collection tools already launch without waiting for the process. A detach
+				// flag therefore needs no Vortex lifecycle emulation; callbacks remain unsupported.
+				bool unsupportedLifecycle = tool["onStart"] != null && tool["onStart"].Type != JTokenType.Null;
 				if (unsupportedLifecycle)
 				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 						"manifest.tool-lifecycle-unsupported",
-						"This Collection tool requests shell, detach, or Vortex UI lifecycle behavior that NMM will not emulate silently.", path));
+						"This Collection tool requests a Vortex startup callback that NMM cannot import.", path));
 					continue;
 				}
 				if ((tool["shell"] != null && tool["shell"].Type != JTokenType.Boolean && tool["shell"].Type != JTokenType.Null) ||
@@ -2086,7 +2087,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				JToken cwdToken = tool["cwd"];
 				if (cwdToken != null && cwdToken.Type != JTokenType.Null)
 				{
-					if (cwdToken.Type != JTokenType.String || String.IsNullOrWhiteSpace((string)cwdToken) || ((string)cwdToken).Length > 1024)
+					if (cwdToken.Type != JTokenType.String || ((string)cwdToken).Length > 1024)
 					{
 						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 							"manifest.tool-cwd-invalid", "Collection tool cwd must be a non-empty game-relative path when present.", path + ".cwd"));
@@ -2097,7 +2098,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 				try
 				{
-					CollectionLaunchTool normalized = new CollectionLaunchTool(name, executable, arguments, cwd, environment);
+					CollectionLaunchTool normalized = new CollectionLaunchTool(name, executable, arguments, cwd, environment, ReadTrue(tool["shell"]));
 					if (result.Contains(normalized))
 					{
 						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,

@@ -190,12 +190,29 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_CollectionToolShellLifecycleDisablesLauncherWithoutBlockingMods()
+		public void Normalize_CollectionToolShellAndDetachFlagsPreserveExplicitLauncher()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
-				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"Tools\\\\Runner.exe\",\"shell\":true}]");
+				"\"tools\":[{\"name\":\"4GB RAM Patcher Tool\",\"exe\":\"Tools\\\\Runner.exe\",\"shell\":true,\"detach\":true,\"cwd\":\"\"}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.LaunchTools.Count);
+			Assert.IsEmpty(result.Manifest.LaunchToolIssues);
+			Assert.IsTrue(result.Manifest.LaunchTools.Single().UseShellExecute);
+			Assert.IsNull(result.Manifest.LaunchTools.Single().RelativeWorkingDirectory);
+		}
+
+		[Test]
+		public void Normalize_CollectionToolStartupCallbackRemainsUnavailable()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"Tools\\\\Runner.exe\",\"onStart\":\"hide\"}]");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 

@@ -4735,7 +4735,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (!CanResumePreparation(batch) || batch.IsReady)
 				return;
 
-			if (GetQueuedAcquisitionStates(batch).Count > 0 || batch.PlanBuild.Plan.Policy.AutomaticallyInstall)
+			if (GetQueuedAcquisitionStates(batch).Count > 0 || batch.PlanBuild.Plan.Policy.AutomaticallyInstall ||
+				Volatile.Read(ref _archivesChangedSinceProbe) != 0)
 			{
 				// A fresh retry can retain the same request/operation ID. Its new producer must be probed when it finishes.
 				foreach (CollectionMemberAcquisitionState queued in GetQueuedAcquisitionStates(batch))
@@ -6806,6 +6807,16 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void ManagedArchives_Changed(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
 		{
 			Interlocked.Exchange(ref _archivesChangedSinceProbe, 1);
+			if (IsDisposed || Disposing || !IsHandleCreated) return;
+			try
+			{
+				BeginInvoke(new Action(() =>
+				{
+					if (!IsDisposed && !Disposing && !_workflowBusy && CanResumePreparation(_acquisitionBatch))
+						_acquisitionRefreshTimer.Start();
+				}));
+			}
+			catch (InvalidOperationException) { } // The preview may close while the download completes.
 		}
 
 		/// <summary>Renders the prepared review without monopolizing the UI while large file-impact lists are populated.</summary>
@@ -8734,6 +8745,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_replaceButton.Visible = replacementReady || replacementCanContinue || replacementNeedsNewReview;
 			_clearButton.Visible = _clearButton.Enabled && !installedAssociationView;
 			UpdatePrimaryIncomingAction(sameRevisionAlreadyApplied, hasConcreteRevision, installedAssociationView);
+			_resumeButton.Visible = _resumeButton.Enabled && ReferenceEquals(_primaryIncomingActionSource, _openPendingButton);
 			UpdateMemberActionMenuItems();
 			UpdateCollectionPresentation();
 
