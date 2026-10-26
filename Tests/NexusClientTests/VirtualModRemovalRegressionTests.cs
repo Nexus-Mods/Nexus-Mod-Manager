@@ -83,6 +83,77 @@
 			}
 		}
 
+		/// <summary>Legacy upgrade ownership stays valid after removing the first file changes its observed footprint.</summary>
+		[TestCase(ModInstallRoot.Data)]
+		[TestCase(ModInstallRoot.GameRoot)]
+		public void NativeUninstall_LegacyUpgradeRemovesEveryFileAndPreservesSiblingMod(ModInstallRoot root)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod removed = fixture.CreateMod("UpgradedFiles");
+				((InstallLog.DummyMod)removed).Id = "42";
+				((InstallLog.DummyMod)removed).DownloadId = "200";
+				foreach (string file in new[] { "First.txt", "Second.txt", "Third.txt" })
+					fixture.Install(removed, file, file);
+				IMod sibling = fixture.CreateMod("SiblingPatch");
+				((InstallLog.DummyMod)sibling).Id = "42";
+				fixture.Install(sibling, "Retained.txt", "retained");
+				fixture.UseLegacyVirtualIdentity(removed);
+
+				SynchronousUninstaller result = fixture.Uninstall(removed);
+
+				Assert.That(result.Succeeded, Is.True, result.CompletionMessage);
+				Assert.That(fixture.InstallLog.GetModKey(removed), Is.Null);
+				foreach (string file in new[] { "First.txt", "Second.txt", "Third.txt" })
+					Assert.That(File.Exists(fixture.Deployed(file)), Is.False, file);
+				Assert.That(File.ReadAllText(fixture.Deployed("Retained.txt")), Is.EqualTo("retained"));
+				Assert.That(fixture.Activator.GetVirtualTargetsForMod(sibling).Count, Is.EqualTo(1));
+				Assert.That(fixture.Activator.VirtualLinks.Count, Is.EqualTo(1));
+			}
+		}
+
+		/// <summary>Recovery comparisons scale with metadata registrations rather than target count and are discarded afterwards.</summary>
+		[TestCase(2)]
+		[TestCase(12)]
+		public void DeploymentRemoval_ResolvesLegacyFootprintOncePerOperation(int fileCount)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod removed = fixture.CreateMod("LegacyBatch");
+				((InstallLog.DummyMod)removed).Id = "42";
+				((InstallLog.DummyMod)removed).DownloadId = "200";
+				for (int index = 0; index < fileCount; index++)
+					fixture.Install(removed, "File" + index + ".txt", "payload");
+				fixture.UseLegacyVirtualIdentity(removed);
+				IVirtualModInfo legacy = fixture.Activator.VirtualLinks.First().ModInfo;
+				int footprintReads = 0;
+				IInstallLog observedLog = InterfaceStub<IInstallLog>.Create((method, args) =>
+				{
+					if (method.Name == "GetInstalledModFiles" && ReferenceEquals(args[0], removed)) footprintReads++;
+					return method.Invoke(fixture.InstallLog, args);
+				});
+				typeof(VirtualModActivator).GetProperty("ModInstallLog", BindingFlags.Instance | BindingFlags.NonPublic)
+					.SetValue(fixture.Activator, observedLog, null);
+				using (var transaction = new TransactionScope())
+				{
+					IReadOnlyCollection<string> absent = fixture.Deployment.UninstallMixedMod(removed, new TxFileManager());
+					Assert.That(absent.Count, Is.EqualTo(fileCount));
+					Assert.That(footprintReads, Is.EqualTo(1), "Every target must reuse the recovered owner.");
+					Assert.That(fixture.Activator.CheckHasActiveLinks(removed), Is.False);
+					transaction.Complete();
+				}
+
+				// Later operations must use the current native registrations.
+				fixture.InstallLog.RemoveMod(removed);
+				IMod replacement = fixture.CreateMod("DifferentOwner");
+				((InstallLog.DummyMod)replacement).Id = "42";
+				fixture.Install(replacement, "Replacement.txt", "replacement");
+				fixture.Activator.VirtualLinks.Single().ModInfo = legacy;
+				Assert.That(fixture.Activator.CheckHasActiveLinks(replacement), Is.True);
+				Assert.That(fixture.Activator.CheckHasActiveLinks(removed), Is.False);
+			}
+		}
+
 		/// <summary>Transactional removal publishes one link-list reset while preserving unrelated native ownership.</summary>
 		[Test]
 		public void NativeUninstall_BatchesLinkNotificationsAndPreservesOtherMod()
@@ -1007,6 +1078,20 @@
 				InstallLog.AddDataFile(mod, source);
 				new ModLinkInstaller(Activator, true).AddFileLinkWithResolvedDecision(mod, file, source,
 					true, false, m_installRoot, new ModLinkInstallDecision(true));
+				Activator.SaveList(false);
+			}
+			/// <summary>
+			/// Recreates persisted upgrade metadata whose archive and download identities predate its native owner.
+			/// </summary>
+			public void UseLegacyVirtualIdentity(IMod mod)
+			{
+				IVirtualModLink[] links = Activator.VirtualLinks.ToArray();
+				IVirtualModInfo previous = links.First(link => link.ModInfo.ModFileName == Path.GetFileName(mod.Filename)).ModInfo;
+				var legacy = new VirtualModInfo(mod.Id, "100", mod.ModName, Path.Combine(ModPath, "PreviousArchive.7z"), "1.0");
+				foreach (IVirtualModLink link in links.Where(link => ReferenceEquals(link.ModInfo, previous))) link.ModInfo = legacy;
+				Activator.VirtualMods.Remove(previous);
+				Activator.VirtualMods.Add(legacy);
+				Activator.SetCurrentList(links);
 				Activator.SaveList(false);
 			}
 			/// <summary>

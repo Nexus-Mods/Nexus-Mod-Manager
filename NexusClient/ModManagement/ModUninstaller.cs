@@ -563,7 +563,10 @@ namespace Nexus.Client.ModManagement
 			ItemProgressMaximum = Math.Max(1, p_intTotal);
 			ItemProgress = Math.Min(p_intProcessed, ItemProgressMaximum);
 			if (p_mdtTarget != null)
+			{
 				ItemMessage = String.Format(m_strDisablingFileFormat, p_mdtTarget.RelativePath);
+				OverallMessage = ItemMessage;
+			}
 		}
 	}
 

@@ -2,6 +2,7 @@ namespace Nexus.Client.ModManagement
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.IO;
 	using System.Linq;
 	using System.Security.Cryptography;
@@ -461,31 +462,53 @@ namespace Nexus.Client.ModManagement
 			RequireMutationArguments(p_modMod, null, p_tfmFileManager);
 			string modKey = RequireModKey(p_modMod);
 			ModInstallMethod installMethod = m_ilgInstallLog.GetModInstallMethod(p_modMod);
-			var targets = new HashSet<ModDeploymentTarget>(m_ilgInstallLog.GetDeploymentTargetsForMod(modKey));
-			if (installMethod == ModInstallMethod.Virtual)
-				targets.UnionWith(m_vmaVirtualModActivator.GetVirtualTargetsForMod(p_modMod));
-
-			var absentPaths = new List<string>();
-			int processedTargetCount = 0;
-			using (installMethod == ModInstallMethod.Virtual ? new VirtualModDeploymentBatch(m_vmaVirtualModActivator, 0) : null)
+			VirtualModActivator virtualActivator = m_vmaVirtualModActivator as VirtualModActivator;
+			using (virtualActivator == null ? null : virtualActivator.BeginVirtualRemovalOwnerLookup())
 			{
-				foreach (ModDeploymentTarget target in targets)
-				{
-					ThrowIfUninstallCancelled(p_fncCancellationRequested);
-					if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
-						RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
-					else if (installMethod == ModInstallMethod.Virtual)
-						RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
-
-					processedTargetCount++;
-					p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
-				}
-
-				ThrowIfUninstallCancelled(p_fncCancellationRequested);
+				Stopwatch stopwatch = Stopwatch.StartNew();
+				Trace.TraceInformation("Deployment removal '{0}': enumerating owned targets.", p_modMod.Filename);
+				var targets = new HashSet<ModDeploymentTarget>(m_ilgInstallLog.GetDeploymentTargetsForMod(modKey));
 				if (installMethod == ModInstallMethod.Virtual)
-					m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
+					targets.UnionWith(m_vmaVirtualModActivator.GetVirtualTargetsForMod(p_modMod));
+				Trace.TraceInformation("Deployment removal '{0}': found {1} targets at {2} ms; opening update batch.",
+					p_modMod.Filename, targets.Count, stopwatch.ElapsedMilliseconds);
+
+				var absentPaths = new List<string>();
+				int processedTargetCount = 0;
+				Stopwatch targetStopwatch = new Stopwatch();
+				using (installMethod == ModInstallMethod.Virtual ? new VirtualModDeploymentBatch(m_vmaVirtualModActivator, 0) : null)
+				{
+					Trace.TraceInformation("Deployment removal '{0}': update batch opened at {1} ms.", p_modMod.Filename, stopwatch.ElapsedMilliseconds);
+					foreach (ModDeploymentTarget target in targets)
+					{
+						ThrowIfUninstallCancelled(p_fncCancellationRequested);
+						if (processedTargetCount == 0)
+							Trace.TraceInformation("Deployment removal '{0}': starting target '{1}'.", p_modMod.Filename, target);
+						p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
+						targetStopwatch.Restart();
+						if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
+							RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
+						else if (installMethod == ModInstallMethod.Virtual)
+							RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
+						if (targetStopwatch.ElapsedMilliseconds >= 1000)
+							Trace.TraceWarning("Deployment removal '{0}': target '{1}' took {2} ms.",
+								p_modMod.Filename, target, targetStopwatch.ElapsedMilliseconds);
+
+						processedTargetCount++;
+						p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
+					}
+
+					ThrowIfUninstallCancelled(p_fncCancellationRequested);
+					Trace.TraceInformation("Deployment removal '{0}': target loop finished at {1} ms; removing unused Virtual metadata.",
+						p_modMod.Filename, stopwatch.ElapsedMilliseconds);
+					if (installMethod == ModInstallMethod.Virtual)
+						m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
+					Trace.TraceInformation("Deployment removal '{0}': metadata cleanup finished at {1} ms; closing update batch.",
+						p_modMod.Filename, stopwatch.ElapsedMilliseconds);
+				}
+				Trace.TraceInformation("Deployment removal '{0}': finished in {1} ms.", p_modMod.Filename, stopwatch.ElapsedMilliseconds);
+				return absentPaths;
 			}
-			return absentPaths;
 		}
 
 		/// <summary>

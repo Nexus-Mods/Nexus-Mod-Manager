@@ -2554,11 +2554,18 @@
 			return p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 		}
 
+		/// <summary>Reuses removal-local owner matches while legacy link footprints are being shortened.</summary>
 		private IMod FindManagedMod(IVirtualModInfo p_vmiModInfo)
 		{
 			if (p_vmiModInfo == null)
 				return null;
+			VirtualRemovalOwnerLookup lookup = m_alcRemovalOwnerLookup.Value;
+			return lookup != null && !lookup.IsDisposed ? lookup.Resolve(p_vmiModInfo) : ResolveManagedMod(p_vmiModInfo);
+		}
 
+		/// <summary>Resolves current archive identities, retaining the exact-footprint fallback for legacy upgrades.</summary>
+		private IMod ResolveManagedMod(IVirtualModInfo p_vmiModInfo)
+		{
 			IMod inactiveMatch = null;
 			IMod mod = ModManager.GetModByFilename(p_vmiModInfo.ModFileName);
 			if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))

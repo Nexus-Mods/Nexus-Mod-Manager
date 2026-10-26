@@ -5,6 +5,7 @@ namespace Nexus.Client.ModManagement
 	using System.Diagnostics;
 	using System.IO;
 	using System.Linq;
+	using System.Threading;
 
 	using ChinhDo.Transactions;
 
@@ -22,6 +23,55 @@ namespace Nexus.Client.ModManagement
 		private readonly object m_objDeploymentTransactionLock = new object();
 		private Dictionary<string, VirtualDeploymentTransactionEnlistment> m_dicDeploymentTransactionEnlistments;
 		private bool m_booDeploymentPublicationPending;
+		private readonly AsyncLocal<VirtualRemovalOwnerLookup> m_alcRemovalOwnerLookup = new AsyncLocal<VirtualRemovalOwnerLookup>();
+
+		/// <summary>Reuses owner recovery while one removal changes link footprints without changing native registrations.</summary>
+		internal IDisposable BeginVirtualRemovalOwnerLookup()
+		{
+			if (Transaction.Current == null)
+				throw new InvalidOperationException("Virtual removal owner lookup requires an ambient transaction.");
+			var lookup = new VirtualRemovalOwnerLookup(this, m_alcRemovalOwnerLookup.Value);
+			m_alcRemovalOwnerLookup.Value = lookup;
+			return lookup;
+		}
+
+		/// <summary>Bounds successful and unsuccessful legacy owner resolutions to one serialized removal operation.</summary>
+		private sealed class VirtualRemovalOwnerLookup : IDisposable
+		{
+			private readonly VirtualModActivator m_vmaOwner;
+			private readonly VirtualRemovalOwnerLookup m_previous;
+			private readonly Dictionary<IVirtualModInfo, IMod> m_matches =
+				new Dictionary<IVirtualModInfo, IMod>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
+			public bool IsDisposed { get; private set; }
+
+			/// <summary>Starts a fresh lookup while retaining a possible outer removal context.</summary>
+			public VirtualRemovalOwnerLookup(VirtualModActivator owner, VirtualRemovalOwnerLookup previous)
+			{
+				m_vmaOwner = owner;
+				m_previous = previous;
+			}
+
+			/// <summary>Resolves a registration before its files are removed and retains misses as well as matches.</summary>
+			public IMod Resolve(IVirtualModInfo modInfo)
+			{
+				IMod mod;
+				if (!m_matches.TryGetValue(modInfo, out mod))
+				{
+					mod = m_vmaOwner.ResolveManagedMod(modInfo);
+					m_matches.Add(modInfo, mod);
+				}
+				return mod;
+			}
+
+			/// <summary>Releases the lookup before native registration removal, rollback or later operations can change ownership.</summary>
+			public void Dispose()
+			{
+				if (IsDisposed) return;
+				IsDisposed = true;
+				m_vmaOwner.m_alcRemovalOwnerLookup.Value = m_previous;
+				m_matches.Clear();
+			}
+		}
 
 		/// <inheritdoc />
 		public IReadOnlyList<string> GetVirtualOwnerKeys(ModDeploymentTarget p_mdtTarget)
