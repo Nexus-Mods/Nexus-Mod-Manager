@@ -413,6 +413,20 @@ namespace Nexus.Client.CollectionManagement
 			}, cancellationToken);
 		}
 
+		/// <summary>Probes completed imports, then retries every failed acquisition before preparing the batch.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> RetryFailedAcquisitionsAsync(CollectionMemberAcquisitionBatch batch,
+			GameStoragePathSet targetPaths, ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
+			return Task.Run(() =>
+			{
+				CollectionMemberAcquisitionBatch refreshed = _memberAcquisitionCoordinator.ProbeCompletedInput(batch, cancellationToken);
+				return ContinuePreparation(_memberAcquisitionCoordinator.RetryFailedMembers(refreshed,
+					confirmOverwriteCallback, cancellationToken), targetPaths, cancellationToken);
+			}, cancellationToken);
+		}
+
 		/// <summary>Retries one paused member without rebuilding the plan or reacquiring other members.</summary>
 		public Task<CollectionAdditiveWorkflowPreparationResult> RetryMemberAcquisitionAsync(CollectionMemberAcquisitionBatch batch,
 			CollectionMemberKey memberKey, GameStoragePathSet targetPaths, ConfirmOverwriteCallback confirmOverwriteCallback,

@@ -2080,6 +2080,7 @@
     "Collections.Workflow.RecoveredInstallationQueued": "NMM 설치 대기열을 사용할 수 있게 되면 설치가 자동으로 계속됩니다. 완료된 모드는 유지됩니다.",
     "Collections.Workflow.ApplyingFileConflicts": "컬렉션 파일 충돌 규칙 적용 중...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "컬렉션 파일 충돌 규칙 적용 중({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "컬렉션 충돌 상태 저장 중...",
     "Collections.Workflow.ApplyingPluginRules": "컬렉션 플러그인 규칙 적용 중...",
     "Collections.Workflow.FinishingInstallation": "컬렉션 설치 마무리: 모드 등록 및 파일 소유권 확인 중...",
     "Collections.Status.Content.AutomaticReady": "모드 파일 준비 완료. 설치가 자동으로 계속됩니다",

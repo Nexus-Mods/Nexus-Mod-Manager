@@ -115,6 +115,10 @@ namespace Nexus.Client.Mods.Formats.OMod
 						arcMod.ContainsFile("readme") ||
 						arcMod.ContainsFile("script")))
 					return FormatConfidence.Match;
+				// Preserve a Collection download containing one embedded OMOD as the managed archive.
+				if (!String.Equals(Path.GetExtension(p_strPath), ".omod", StringComparison.OrdinalIgnoreCase) &&
+					arcMod.GetFiles("", "*.omod", true).Length == 1)
+					return FormatConfidence.Match;
 				//OMod-ready archive
 				string[] strFiles= arcMod.GetFiles(null, "omod conversion data/config", true);
 				if (strFiles.Length > 0)

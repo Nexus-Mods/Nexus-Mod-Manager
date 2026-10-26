@@ -293,6 +293,30 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>Generated edits retain the copied archive input even when the script is hidden from the mod file list.</summary>
+		[Test]
+		public void CapturedInstaller_GeneratedEditsReuseCopiedSource()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "copied-settings", @"main\settings.ini");
+				byte[] settings = Encoding.UTF8.GetBytes("enabled=1");
+				IReadOnlyList<ScriptedInstallOperation> operations = CollectionNativeRecipePreparer.NormalizeCapturedOperations(
+					new ScriptedInstallOperation[]
+					{
+						new InstallModFileOperation(@"main\settings.ini", @"ini\settings.ini"),
+						new GenerateDataFileOperation(@"ini\settings.ini", Encoding.UTF8.GetBytes("enabled=0")),
+						new GenerateDataFileOperation(@"ini\settings.ini", settings)
+					}, fixture.Mod);
+				GenerateDataFileOperation generated = operations.OfType<GenerateDataFileOperation>().Single();
+				Assert.That(generated.PreparationSourcePath, Is.EqualTo(@"main\settings.ini"));
+				CollectionAssert.AreEqual(settings, generated.Data);
+				Assert.That(operations.Count, Is.EqualTo(1));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Separator normalization never turns an absolute path or parent traversal into a valid relative destination.</summary>
 		[TestCase("../outside.dds")]
 		[TestCase("//server/share/file.dds")]

@@ -2216,6 +2216,7 @@
     "Collections.Workflow.RecoveredInstallationQueued": "Installation will continue automatically when NMM's installation queue is available. Completed mods are kept.",
     "Collections.Workflow.ApplyingFileConflicts": "Applying Collection file conflict rules...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Applying Collection file conflict rules ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Saving Collection conflict state...",
     "Collections.Workflow.ApplyingPluginRules": "Applying Collection plugin rules...",
     "Collections.Workflow.FinishingInstallation": "Finishing Collection installation: checking mod registration and file ownership...",
     "Collections.Status.Content.AutomaticReady": "Mod files ready; installation will continue automatically",

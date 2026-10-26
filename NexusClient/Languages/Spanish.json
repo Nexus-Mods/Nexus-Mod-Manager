@@ -2289,6 +2289,7 @@
     "Collections.Workflow.Applying": "Aplicando el plan de Cobranza aprobado...",
     "Collections.Workflow.ApplyingFileConflicts": "Aplicando reglas de conflicto de archivos de colección...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Aplicando reglas de conflicto de archivos de colección ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Guardando el estado de conflictos de la colección...",
     "Collections.Workflow.ApplyingPluginRules": "Aplicando reglas del complemento de colección...",
     "Collections.Workflow.ArchiveHashAlgorithms": "{0} [{1}]",
     "Collections.Workflow.CancelRequested": "Flujo de trabajo: cancelación solicitada; NMM conciliará el estado instalado antes de realizar más trabajos.",

@@ -4681,23 +4681,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUiContext context = _incomingActionContext;
 			if (_workflowBusy || _workflow == null || !CanResumePreparation(_acquisitionBatch) || context == null)
 				return;
-			IReadOnlyList<CollectionMemberKey> retryMembers = GetRetryableFailedAcquisitionMembers(_acquisitionBatch);
+
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing, L("Collections.Workflow.ResumingPreparation", "Checking acquired member archives and resuming preparation..."));
 			try
 			{
-				CollectionAdditiveWorkflowPreparationResult result = await _workflow.ResumePreparationAsync(_acquisitionBatch, token, CreatePreparationProgress(context, token));
-				if (!IsWorkflowContextCurrent(context, token))
-					return;
+				CollectionAdditiveWorkflowPreparationResult result = await _workflow.RetryFailedAcquisitionsAsync(_acquisitionBatch,
+					ConfirmArchiveOverwrite, token, CreatePreparationProgress(context, token));
+				if (!IsWorkflowContextCurrent(context, token)) return;
 				_acquisitionBatch = result.AcquisitionBatch;
-				// Probe first so an archive registered since the last screen does not get downloaded again.
-				foreach (CollectionMemberKey memberKey in retryMembers)
-				{
-					if (!GetRetryableFailedAcquisitionMembers(result.AcquisitionBatch).Contains(memberKey)) continue;
-					result = await _workflow.RetryMemberAcquisitionAsync(result.AcquisitionBatch, memberKey,
-						ConfirmArchiveOverwrite, token, CreatePreparationProgress(context, token));
-					if (!IsWorkflowContextCurrent(context, token)) return;
-					_acquisitionBatch = result.AcquisitionBatch;
-				}
 				await ProcessPreparationResultAsync(result, context, token);
 			}
 			catch (OperationCanceledException)

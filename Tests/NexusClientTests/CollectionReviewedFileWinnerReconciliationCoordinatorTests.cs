@@ -58,6 +58,31 @@ namespace NexusClientTests
 			Assert.That(switches, Is.EqualTo(expectedSuccess ? 1 : 0));
 		}
 
+		/// <summary>A single Collection writer still replaces the existing owner when the reviewed decision selects the incoming file.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void SingleIncomingWriter_ReconcilesReviewedExistingOwner(bool promoted)
+		{
+			using (Fixture fixture = CreateFixture(promoted, singleIncomingWriter: true))
+			{
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner") fixture.SetOwner("owner-b");
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) =>
+				{
+					fixture.SetOwner("owner-b");
+					return VirtualFileOwnerSwitchResult.Succeeded(fixture.FileTarget.RelativePath, "owner-b");
+				});
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+				Assert.That(result.Winners.Single().Outcome, Is.EqualTo(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified));
+				Assert.That(fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey, Is.EqualTo("owner-b"));
+				Assert.That(fixture.ProfileUpdates, Is.EqualTo(1));
+			}
+		}
+
 		[Test]
 		public void PromotedWinner_PersistsIntentBeforeNativeSwitchAndMarksVerifiedAfterReRead()
 		{
@@ -633,7 +658,7 @@ namespace NexusClientTests
 		}
 
 		private static Fixture CreateFixture(bool promoted, bool preserveExternalWinner = false, bool preserveExternalWithMultipleWriters = false,
-			ModDeploymentRoot deploymentRoot = ModDeploymentRoot.Data, int fileCount = 1)
+			ModDeploymentRoot deploymentRoot = ModDeploymentRoot.Data, int fileCount = 1, bool singleIncomingWriter = false)
 		{
 			string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-11-" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(root);
@@ -661,7 +686,7 @@ namespace NexusClientTests
 					new ResolvedCollectionMemberPlan(memberB, CollectionResolvedArtifactChoice.Exact(memberB.Artifact))
 				});
 			CollectionMemberMatchSet matches = BuildMatches(plan, initialState, memberA, memberB);
-			IEnumerable<CollectionMemberKey> fileWriters = preserveExternalWinner && !preserveExternalWithMultipleWriters
+			IEnumerable<CollectionMemberKey> fileWriters = singleIncomingWriter || (preserveExternalWinner && !preserveExternalWithMultipleWriters)
 				? new[] { memberB.IdentityResolution.Key }
 				: new[] { memberA.IdentityResolution.Key, memberB.IdentityResolution.Key };
 			var impactPlan = new CollectionConflictImpactPlan(plan, initialState,

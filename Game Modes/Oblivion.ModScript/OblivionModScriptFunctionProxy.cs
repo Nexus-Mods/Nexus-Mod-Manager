@@ -122,7 +122,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 		private List<string> GetBSAList()
 		{
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			string strArchiveList = IsDeferredInstallationEnabled
+			string strArchiveList = (IsDeferredInstallationEnabled || IsCapturingInstallation)
 				? GetIniString(strIniPath, "Archive", "SArchiveList")
 				: IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strIniPath);
 			strArchiveList = strArchiveList ?? String.Empty;
@@ -144,7 +144,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 				return;
 			lstBsas.Add(strFixedPath);
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			if (IsDeferredInstallationEnabled)
+			if (IsDeferredInstallationEnabled || IsCapturingInstallation)
 				EditIniWithoutOverwriteDecision(strIniPath, "Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()));
 			else
 				IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
@@ -163,7 +163,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 				return;
 			lstBsas.RemoveAt(intIndex);
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			if (IsDeferredInstallationEnabled)
+			if (IsDeferredInstallationEnabled || IsCapturingInstallation)
 				EditIniWithoutOverwriteDecision(strIniPath, "Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()));
 			else
 				IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);

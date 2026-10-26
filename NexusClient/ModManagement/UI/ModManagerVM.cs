@@ -463,17 +463,13 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			var manager = new CategoryManager(modManager.CurrentGameModeModDirectory, "categories");
-			bool initialized = manager.IsValidPath;
-			if (initialized)
-			{
-				// Disk-bound load/migration is safe before MainFormVM creates UI objects.
-				// Mod-archive remapping stays in the VM constructor, after ProfileManager
-				// has been initialized and bound exactly as in the legacy startup path.
-				manager.LoadCategories(modManager.CurrentGameModeDefaultCategories);
-			}
-			else
+			if (!manager.IsValidPath)
 				manager.Backup();
-			return new PreparedModCategories(manager, initialized);
+			// The current UI has no legacy first-use category prompt. Load the bundled
+			// definitions for a new library as well as an existing saved category list.
+			// Assignment migration still runs after ProfileManager has been initialized.
+			manager.LoadCategories(modManager.CurrentGameModeDefaultCategories);
+			return new PreparedModCategories(manager, manager.IsValidPath);
 		}
 
 		/// <summary>

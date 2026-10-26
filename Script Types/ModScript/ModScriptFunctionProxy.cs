@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using NCalc;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
@@ -31,6 +32,18 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 	/// </remarks>
 	public class ModScriptFunctionProxy : ScriptFunctionProxy
 	{
+		/// <summary>Gets whether this installer is collecting operations for later Collection deployment.</summary>
+		internal bool IsCollectionCapture { get { return IsCapturingInstallation; } }
+
+		/// <summary>Gets the selected file, generated-file and settings operations.</summary>
+		internal IReadOnlyList<ScriptedInstallOperation> CapturedOperations { get { return InstallationSession.Plan.Operations; } }
+
+		/// <summary>Enables projected reads and captures installer operations without changing installed state.</summary>
+		internal void BeginCollectionCapture(IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			BeginInstallationCapture(conditionEnvironment);
+		}
+
 		private IPluginDiscoverer m_pdvDiscoverer = null;
 		private Dictionary<string, string> m_dicCopiedFileMappings = new Dictionary<string, string>();
 
@@ -78,7 +91,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <returns><c>true</c> when the session is immediate or every deferred operation completes successfully; otherwise, <c>false</c>.</returns>
 		public bool ExecuteInstallationPlan()
 		{
-			return !IsDeferredInstallationEnabled || ExecutePendingInstallationOperations();
+			return IsCollectionCapture || !IsDeferredInstallationEnabled || ExecutePendingInstallationOperations();
 		}
 
 		#endregion
@@ -582,7 +595,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		public void SetTextLine(string p_strPath, string p_strLineNumber, string p_strValue)
 		{
 			string strPath = p_strPath;
-			if (!File.Exists(strPath) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
+			if ((IsCollectionCapture || !File.Exists(strPath)) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
 				strPath = m_dicCopiedFileMappings[p_strPath];
 			Int32 intLine = Int32.Parse(p_strLineNumber);
 			byte[] bteFile = GetExistingDataFile(strPath);
@@ -595,7 +608,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 					foreach (string strLine in strLines)
 						swrWriter.WriteLine(strLine);
 				}
-				bteFile = mstData.GetBuffer();
+				bteFile = IsCollectionCapture ? mstData.ToArray() : mstData.GetBuffer();
 			}
 			GenerateDataFile(strPath, bteFile);
 		}
@@ -628,7 +641,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		public void ReplaceTextInFile(string p_strPath, string p_strOldValue, string p_strNewValue)
 		{
 			string strPath = p_strPath;
-			if (!File.Exists(strPath) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
+			if ((IsCollectionCapture || !File.Exists(strPath)) && m_dicCopiedFileMappings.ContainsKey(p_strPath))
 				strPath = m_dicCopiedFileMappings[p_strPath];
 			byte[] bteFile = GetExistingDataFile(strPath);
 			string strText = TextUtil.ByteToString(bteFile).Replace(p_strOldValue, p_strNewValue);
@@ -638,7 +651,7 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				{
 					swrWriter.Write(strText);
 				}
-				bteFile = mstData.GetBuffer();
+				bteFile = IsCollectionCapture ? mstData.ToArray() : mstData.GetBuffer();
 			}
 			GenerateDataFile(strPath, bteFile);
 		}

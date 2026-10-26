@@ -160,6 +160,27 @@ namespace NexusClientTests
 			Assert.That(MainForm.ResolveDefaultLaunchCommand(launcher, "CustomLaunch"), Is.SameAs(launcher.DefaultLaunchCommand));
 		}
 
+		/// <summary>An auto-load DLL does not override an installed loader; DLL-only installations retain their direct launch.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void ScriptExtenderAutoLoadMarkerPrefersInstalledLoader(bool loaderInstalled)
+		{
+			_definition.BehaviorProfile = "gamebryo";
+			_definition.Launcher.PrelauncherExecutable = null;
+			_definition.Gamebryo = new GameModeGamebryoDefinition
+			{
+				ScriptExtenderExecutables = new[] { "test_extender_loader.exe" },
+				ScriptExtenderAutoLoadFiles = new[] { "extender_autoload.dll" }
+			};
+			File.WriteAllText(Path.Combine(_root, "extender_autoload.dll"), "auto-load fixture");
+			string loader = Path.Combine(_root, "test_extender_loader.exe");
+			if (loaderInstalled) File.WriteAllText(loader, "loader fixture");
+			DataDrivenGameLauncher launcher = CreateLauncherWithCustomCommand();
+			string command = (string)typeof(DataDrivenGameLauncher).GetMethod("GetInstalledScriptExtenderCommand",
+				System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(launcher, new object[] { _definition });
+			Assert.That(command, Is.EqualTo(loaderInstalled ? loader : Path.Combine(_root, _definition.Launcher.DefaultExecutable)));
+		}
+
 		/// <summary>Absent loaders keep the plain menu first and preserve saved command selection.</summary>
 		[Test]
 		public void MissingScriptExtenderPreservesSavedLaunchChoice()

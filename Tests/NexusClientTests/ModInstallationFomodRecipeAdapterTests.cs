@@ -1399,6 +1399,62 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Packed OMOD root inventories include nested payloads and preserve folder filtering.</summary>
+		[TestCase(null, true, "main\\BIE.esp|main\\ini\\BIE.ini|root.esp")]
+		[TestCase("", true, "main\\BIE.esp|main\\ini\\BIE.ini|root.esp")]
+		[TestCase("", false, "root.esp")]
+		[TestCase("main", false, "main\\BIE.esp")]
+		[TestCase("main\\", true, "main\\BIE.esp|main\\ini\\BIE.ini")]
+		public void PackedOmod_FileInventoryIncludesArchiveRoot(string folder, bool recurse, string expected)
+		{
+			Type type = typeof(Nexus.Client.Mods.Formats.OMod.OMod);
+			var mod = (Nexus.Client.Mods.Formats.OMod.OMod)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(type);
+			type.GetProperty("IsPacked").SetValue(mod, true, null);
+			Type fileType = type.GetNestedType("FileInfo", BindingFlags.NonPublic);
+			foreach (string property in new[] { "PluginList", "DataFileList" })
+			{
+				var files = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(fileType));
+				foreach (string name in property == "PluginList" ? new[] { @"main\BIE.esp", "root.esp" } : new[] { @"main\ini\BIE.ini" })
+					files.Add(Activator.CreateInstance(fileType, name, (uint)0, (long)0));
+				type.GetProperty(property, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(mod, files, null);
+			}
+			CollectionAssert.AreEquivalent(expected.Split('|'), mod.GetFileList(folder, recurse));
+			if (folder == null) CollectionAssert.AreEquivalent(expected.Split('|'), mod.GetFileList());
+		}
+
+		/// <summary>Collection imports keep the original container instead of replacing its identity with an embedded OMOD.</summary>
+		[Test]
+		public void ModBuilder_CollectionPreservesEmbeddedOmodContainer()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-embedded-omod-" + Guid.NewGuid().ToString("N"));
+			string mods = Path.Combine(root, "Mods");
+			Directory.CreateDirectory(mods);
+			try
+			{
+				string download = Path.Combine(root, "download.zip");
+				using (var stream = System.IO.File.Create(download))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+					WriteInstallerRootEntry(zip, "wrapped/example.omod", new byte[] { 1, 2, 3 });
+				byte[] original = System.IO.File.ReadAllBytes(download);
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) => method.Name == "get_TemporaryPath" ? root : null);
+				IGameModeEnvironmentInfo gameEnvironment = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) => method.Name == "get_ModDirectory" ? mods : null);
+				IModFormat format = InterfaceStub<IModFormat>.Create((method, args) =>
+					method.Name == "get_Extension" ? (object)".omod" : method.Name == "get_Name" ? "OMOD" :
+					method.Name == "CheckFormatCompliance" ? (object)FormatConfidence.Match : null);
+				IModFormatRegistry formats = InterfaceStub<IModFormatRegistry>.Create((method, args) => method.Name == "get_Formats" ? new List<IModFormat> { format } : null);
+				using (var builder = new ModBuilder(gameEnvironment, environment, new FileUtil()))
+				{
+					builder.PreserveEmbeddedFomodArchive = true;
+					object[] arguments = { formats, download, null, true, null };
+					IList<string> imported = (IList<string>)typeof(ModBuilder).GetMethod("DoFromArchive", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(builder, arguments);
+					Assert.That(imported, Is.EqualTo(new[] { Path.Combine(mods, "download.zip") }));
+				}
+				CollectionAssert.AreEqual(original, System.IO.File.ReadAllBytes(Path.Combine(mods, "download.zip")));
+				Assert.That(Directory.GetFiles(mods).Length, Is.EqualTo(1));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Component mappings retain original numbered roots when legacy FOMOD discovery aliases an optional patch as the root.</summary>
 		[Test]
 		public void Archive_NumberedComponentsPreserveLegacySourceAliases()

@@ -2080,6 +2080,7 @@
     "Collections.Workflow.RecoveredInstallationQueued": "L'installazione continuerà automaticamente quando la coda di installazione di NMM sarà disponibile. Le mod completate vengono mantenute.",
     "Collections.Workflow.ApplyingFileConflicts": "Applicazione delle regole della raccolta sui conflitti dei file...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Applicazione delle regole della raccolta sui conflitti dei file ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Salvataggio dello stato dei conflitti della Raccolta...",
     "Collections.Workflow.ApplyingPluginRules": "Applicazione delle regole dei plugin della raccolta...",
     "Collections.Workflow.FinishingInstallation": "Completamento dell'installazione della raccolta: controllo della registrazione delle mod e della proprietà dei file...",
     "Collections.Status.Content.AutomaticReady": "File delle mod pronti; l'installazione continuerà automaticamente",

@@ -2289,6 +2289,7 @@
     "Collections.Workflow.Applying": "Application du plan de collecte approuvé...",
     "Collections.Workflow.ApplyingFileConflicts": "Application des règles de conflit de fichiers de collection...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Application des règles de conflit de fichiers de collection ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Enregistrement de l’état des conflits de la Collection...",
     "Collections.Workflow.ApplyingPluginRules": "Application des règles du plugin Collection...",
     "Collections.Workflow.ArchiveHashAlgorithms": "{0} [{1}]",
     "Collections.Workflow.CancelRequested": "Workflow : annulation demandée ; NMM rapprochera l'état installé avant tout autre travail.",

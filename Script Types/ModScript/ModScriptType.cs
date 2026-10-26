@@ -4,6 +4,7 @@ using System.Threading;
 using Nexus.UI.Controls;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement.Scripting.Operations;
 
 namespace Nexus.Client.ModManagement.Scripting.ModScript
 {
@@ -14,8 +15,38 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 	/// This is the script that allows scripting using the custom Mod Script language. It is meant
 	/// to be a siple scripting language.
 	/// </remarks>
-	public class ModScriptType : IScriptType
+	public class ModScriptType : IScriptType, IModInstallationScriptPlanningAdapter
 	{
+		/// <summary>Collects the native Mod Script installer's choices without deploying files or changing installed state.</summary>
+		public IReadOnlyList<ScriptedInstallOperation> CaptureOperations(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IVirtualModActivator activator, InstallerGroup installers, IModInstallationConditionEnvironment conditionEnvironment,
+			SynchronizationContext uiContext, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			IReadOnlyList<ScriptedInstallOperation> operations = null;
+			Exception failure = null;
+			// Keep sandbox-owned modal windows off NMM's UI thread and its native skin hooks.
+			Thread installerThread = new Thread(() =>
+			{
+				try
+				{
+					ModScriptFunctionProxy proxy = GetScriptFunctionProxy(mod, gameMode, environmentInfo, activator, installers, new SynchronizationContext());
+					proxy.BeginCollectionCapture(conditionEnvironment);
+					var executor = new ModScriptExecutor(gameMode, environmentInfo, proxy, activator.VirtualPath);
+					if (!executor.DoExecute(mod.InstallScript))
+						throw new OperationCanceledException("The Mod Script installer was cancelled or did not finish successfully.", cancellationToken);
+					operations = proxy.CapturedOperations;
+				}
+				catch (Exception ex) { failure = ex; }
+			});
+			installerThread.SetApartmentState(ApartmentState.STA);
+			installerThread.Start();
+			installerThread.Join();
+			if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+			cancellationToken.ThrowIfCancellationRequested();
+			return operations;
+		}
+
 		private static List<string> m_lstFileNames = new List<string>() { "script", "script.txt" };
 
 		#region IScriptType Members

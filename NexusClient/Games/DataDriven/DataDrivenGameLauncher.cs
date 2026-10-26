@@ -261,9 +261,6 @@ namespace Nexus.Client.Games.DataDriven
             if (definition == null || definition.Gamebryo == null)
                 return null;
 
-            if (HasInstalledScriptExtenderAutoLoadFile(definition))
-                return GetPlainLaunchCommand(definition);
-
             foreach (string relativeExecutable in
                      definition.Gamebryo.ScriptExtenderExecutables ?? new string[0])
             {
@@ -275,7 +272,7 @@ namespace Nexus.Client.Games.DataDriven
                     return command;
             }
 
-            return null;
+            return HasInstalledScriptExtenderAutoLoadFile(definition) ? GetPlainLaunchCommand(definition) : null;
         }
 
         private bool HasInstalledScriptExtenderAutoLoadFile(GameModeDefinition definition)

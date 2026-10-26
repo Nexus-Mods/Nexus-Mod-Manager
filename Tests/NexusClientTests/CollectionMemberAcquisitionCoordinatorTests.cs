@@ -282,6 +282,30 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>A producer error does not prevent independent downloads or later retries from being queued.</summary>
+		[Test]
+		public void FailedAcquisition_ContinuesQueueingRemainingMembers()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true, true);
+				fixture.Queue.FailOnCall = 2;
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(fixture.BuildPlan(CreateState(fixture.Target, 0)),
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(3));
+				Assert.That(batch.Members.Count(x => x.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired), Is.EqualTo(1));
+				foreach (TestBackgroundTask task in fixture.Queue.Tasks) task.Finish(TaskStatus.Complete);
+				batch = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+				fixture.Queue.FailOnCall = 4;
+				batch = fixture.Acquisition.RetryFailedMembers(batch, null, CancellationToken.None);
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(6));
+				Assert.That(batch.Members.Count(x => x.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued), Is.EqualTo(2));
+				Assert.That(batch.Members.Count(x => x.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired), Is.EqualTo(1));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>The main retry action targets failed requests, excluding active and already-verified work.</summary>
 		[Test]
 		public void RetryableFailedMembers_ExcludeRunningAndCompletedAcquisitions()
@@ -524,15 +548,19 @@ namespace NexusClientTests
 			}
 
 			public int CallCount { get; private set; }
+			public int FailOnCall { get; set; }
+			public List<TestBackgroundTask> Tasks { get; } = new List<TestBackgroundTask>();
 			public TestBackgroundTask LastTask { get; private set; }
 			public CollectionOperationPhase? PhaseObservedAtQueue { get; private set; }
 
 			public IBackgroundTask Queue(Uri sourceUri, ConfirmOverwriteCallback confirmOverwriteCallback, Guid queueOperationId)
 			{
 				CallCount++;
+				if (CallCount == FailOnCall) throw new IOException("Simulated individual download failure.");
 				CollectionOperation operation = _operationStore.GetIncompleteOperations().Single();
 				PhaseObservedAtQueue = operation.Phase;
 				LastTask = new TestBackgroundTask();
+				Tasks.Add(LastTask);
 				return LastTask;
 			}
 		}

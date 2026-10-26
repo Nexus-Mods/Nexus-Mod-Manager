@@ -2080,6 +2080,7 @@
     "Collections.Workflow.RecoveredInstallationQueued": "Встановлення продовжиться автоматично, коли черга встановлення NMM стане доступною. Завершені моди збережено.",
     "Collections.Workflow.ApplyingFileConflicts": "Застосування правил конфліктів файлів збірки...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Застосування правил конфліктів файлів збірки ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Збереження стану конфліктів колекції...",
     "Collections.Workflow.ApplyingPluginRules": "Застосування правил плагінів збірки...",
     "Collections.Workflow.FinishingInstallation": "Завершення встановлення збірки: перевірка реєстрації модів і власників файлів...",
     "Collections.Status.Content.AutomaticReady": "Файли модів готові; встановлення продовжиться автоматично",

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Util;
@@ -19,6 +20,8 @@ namespace Nexus.Client.Mods.Formats.OMod
 	{
 		private const float FILE_BLOCK_EXTRACTION_PROGRESS_BLOCK_SIZE = 0.8f;
 		private const float FILE_WRITE_PROGRESS_BLOCK_SIZE = 0.15f;
+		private readonly string _payloadPath;
+
 		private const string CONVERSION_FOLDER = "omod conversion data";
 
 		#region Events
@@ -557,6 +560,16 @@ namespace Nexus.Client.Mods.Formats.OMod
 			m_strFilePath = p_strFilePath;
             m_dtDownloadDate = File.GetLastWriteTime(m_strFilePath);
             m_arcFile = new Archive(p_strFilePath);
+			_payloadPath = p_strFilePath;
+			if (!String.Equals(Path.GetExtension(p_strFilePath), ".omod", StringComparison.OrdinalIgnoreCase))
+			{
+				string[] embedded = m_arcFile.GetFiles("", "*.omod", true);
+				if (embedded.Length == 1)
+				{
+					_payloadPath = CacheEmbeddedOmod(embedded[0], p_mcmModCacheManager.ModCacheDirectory);
+					m_arcFile = new Archive(_payloadPath);
+				}
+			}
 			ModName = Path.GetFileNameWithoutExtension(Filename);
 			bool p_booUseCache = true;
 
@@ -579,6 +592,20 @@ namespace Nexus.Client.Mods.Formats.OMod
 		#endregion
 
 		#region Initialization
+
+		/// <summary>Caches the embedded payload while retaining the downloaded container as the mod's archive identity.</summary>
+		private string CacheEmbeddedOmod(string entry, string cacheDirectory)
+		{
+			byte[] payload = m_arcFile.GetFileContents(entry);
+			string hash;
+			using (SHA256 sha256 = SHA256.Create())
+				hash = BitConverter.ToString(sha256.ComputeHash(payload)).Replace("-", String.Empty);
+			string directory = Path.Combine(cacheDirectory, "EmbeddedOMods", hash);
+			Directory.CreateDirectory(directory);
+			string path = Path.Combine(directory, "payload.omod");
+			if (!File.Exists(path)) File.WriteAllBytes(path, payload);
+			return path;
+		}
 
 		/// <summary>
 		/// Initializes an OMod in OMod-ready archive format.
@@ -661,7 +688,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		/// <param name="p_stgScriptTypeRegistry">The registry of supported script types.</param>
 		private void InitializePackedOmod(IScriptTypeRegistry p_stgScriptTypeRegistry)
 		{
-			using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+			using (SevenZipExtractor szeOmod = new SevenZipExtractor(_payloadPath))
 			{
 				ExtractConfig(szeOmod);
 				ExtractPluginList(szeOmod);
@@ -792,7 +819,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 				//extract the compressed file block...
 				using (Stream stmCompressedFiles = new MemoryStream())
 				{
-					using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+					using (SevenZipExtractor szeOmod = new SevenZipExtractor(_payloadPath))
 					{
 						if (!szeOmod.ArchiveFileNames.Contains(strFileStreamName))
 							continue;
@@ -1200,7 +1227,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			{
 				using (MemoryStream msmFile = new MemoryStream())
 				{
-					using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+					using (SevenZipExtractor szeOmod = new SevenZipExtractor(_payloadPath))
 						szeOmod.ExtractFile(p_strFile, msmFile);
 					if (booIsBinary)
 						bteFile = msmFile.GetBuffer();
@@ -1246,7 +1273,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 			byte[] bteFileBlock = null;
 			using (Stream stmDataFiles = new MemoryStream())
 			{
-				using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+				using (SevenZipExtractor szeOmod = new SevenZipExtractor(_payloadPath))
 				{
 					if (Path.GetExtension(file).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".esp", StringComparison.OrdinalIgnoreCase))
 					{
@@ -1356,7 +1383,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 
             using (Stream stmDataFiles = new MemoryStream())
             {
-                using (SevenZipExtractor szeOmod = new SevenZipExtractor(m_strFilePath))
+                using (SevenZipExtractor szeOmod = new SevenZipExtractor(_payloadPath))
                 {
                     if (Path.GetExtension(file).Equals(".esm", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".esp", StringComparison.OrdinalIgnoreCase))
                     {
@@ -1454,13 +1481,13 @@ namespace Nexus.Client.Mods.Formats.OMod
 				return lstFiles;
 			}
 
-			string strFolderPath = (folderPath ?? "").Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			if (!strFolderPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
-				strFolderPath += Path.DirectorySeparatorChar;
+			string strFolderPath = (folderPath ?? "").Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
+			// An empty prefix means the archive root, not a rooted filesystem path.
+			string strFolderPrefix = strFolderPath.Length == 0 ? String.Empty : strFolderPath + Path.DirectorySeparatorChar;
 			foreach (FileInfo fifFile in PluginList.Union(DataFileList))
 			{
-				if ((recurse && fifFile.Name.StartsWith(strFolderPath, StringComparison.OrdinalIgnoreCase))
-					|| (Path.GetDirectoryName(fifFile.Name) + Path.DirectorySeparatorChar).Equals(strFolderPath, StringComparison.OrdinalIgnoreCase))
+				if ((recurse && fifFile.Name.StartsWith(strFolderPrefix, StringComparison.OrdinalIgnoreCase))
+					|| String.Equals(Path.GetDirectoryName(fifFile.Name) ?? String.Empty, strFolderPath, StringComparison.OrdinalIgnoreCase))
 					lstFiles.Add(fifFile.Name);
 			}
 			return lstFiles;

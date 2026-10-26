@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -293,51 +294,61 @@ namespace Nexus.Client.CollectionManagement
 					requests[match.Member.MemberKey] = request;
 				}
 
-				if (IsBundled(request))
+				try
 				{
-					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-						"Collections.Workflow.QueueingMemberImport", "Preparing bundled mod import ({0}/{1}): {2}",
-						acquisitionPosition, acquisitionCount, match.Member.DisplayName), true);
-					CollectionBundledMemberAcquisitionResult bundled = _bundledCoordinator.Begin(
-						request, archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
-					if (bundled.IsManagedArchiveReady)
+					if (IsBundled(request))
 					{
-						states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
-							request, bundled.VerifiedArchive, null, null, null, null));
+						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+							"Collections.Workflow.QueueingMemberImport", "Preparing bundled mod import ({0}/{1}): {2}",
+							acquisitionPosition, acquisitionCount, match.Member.DisplayName), true);
+						CollectionBundledMemberAcquisitionResult bundled = _bundledCoordinator.Begin(
+							request, archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
+						if (bundled.IsManagedArchiveReady)
+						{
+							states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
+								request, bundled.VerifiedArchive, null, null, null, null));
+						}
+						else
+						{
+							// The sealed bytes are intentionally not exposed as ready until AddMod has registered those exact bytes natively.
+							states.Add(State(match, CollectionMemberAcquisitionDisposition.BundledQueued,
+								request, null, bundled.QueueCorrelation, null, null, null));
+						}
+						continue;
+					}
+
+					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+						"Collections.Workflow.QueueingMemberDownload", "Preparing mod download ({0}/{1}): {2}",
+						acquisitionPosition, acquisitionCount, match.Member.DisplayName), true);
+					CollectionAcquisitionQueueCorrelation directCorrelation = _directCoordinator == null ? null : _directCoordinator.TryQueue(request);
+					if (directCorrelation != null)
+					{
+						states.Add(State(match, CollectionMemberAcquisitionDisposition.DirectQueued,
+							request, null, directCorrelation, null, null, null));
+						continue;
+					}
+
+					CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
+					if (availability == CollectionPremiumAcquisitionAvailability.Available)
+					{
+						CollectionAcquisitionQueueCorrelation correlation = _premiumCoordinator.Queue(
+							request, confirmOverwriteCallback, archiveOverwritePolicy);
+						states.Add(State(match, CollectionMemberAcquisitionDisposition.PremiumQueued,
+							request, null, correlation, null, null, availability));
 					}
 					else
 					{
-						// The sealed bytes are intentionally not exposed as ready until AddMod has registered those exact bytes natively.
-						states.Add(State(match, CollectionMemberAcquisitionDisposition.BundledQueued,
-							request, null, bundled.QueueCorrelation, null, null, null));
+						CollectionManualAcquisitionPendingAction pending = _manualCoordinator.CreatePendingAction(request);
+						states.Add(State(match, CollectionMemberAcquisitionDisposition.ManualInputRequired,
+							request, null, null, pending, null, availability));
 					}
-					continue;
 				}
-
-				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-					"Collections.Workflow.QueueingMemberDownload", "Preparing mod download ({0}/{1}): {2}",
-					acquisitionPosition, acquisitionCount, match.Member.DisplayName), true);
-				CollectionAcquisitionQueueCorrelation directCorrelation = _directCoordinator == null ? null : _directCoordinator.TryQueue(request);
-				if (directCorrelation != null)
+				catch (OperationCanceledException) { throw; }
+				catch (Exception ex)
 				{
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.DirectQueued,
-						request, null, directCorrelation, null, null, null));
-					continue;
-				}
-
-				CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
-				if (availability == CollectionPremiumAcquisitionAvailability.Available)
-				{
-					CollectionAcquisitionQueueCorrelation correlation = _premiumCoordinator.Queue(
-						request, confirmOverwriteCallback, archiveOverwritePolicy);
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.PremiumQueued,
-						request, null, correlation, null, null, availability));
-				}
-				else
-				{
-					CollectionManualAcquisitionPendingAction pending = _manualCoordinator.CreatePendingAction(request);
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ManualInputRequired,
-						request, null, null, pending, null, availability));
+					Trace.TraceError("Collection member acquisition failed for " + match.Member.DisplayName + ": " + ex);
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.RestartActionRequired,
+						request, null, null, null, null, null));
 				}
 			}
 
@@ -373,11 +384,18 @@ namespace Nexus.Client.CollectionManagement
 				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 					"Collections.Workflow.CheckingMemberArchive", "Checking mod archive ({0}/{1}): {2}",
 					archivePosition, batch.Members.Count, state.Match.Member.DisplayName), true);
-				CollectionVerifiedArchive archive = IsBundled(state.Request)
-					? _bundledCoordinator.TryComplete(state.Request, cancellationToken)
-					: _archiveAdopter.TryAdopt(state.Request, cancellationToken, false, batch.PlanBuild.Plan.Policy.AutomaticallyInstall);
-				if (archive != null)
-					verified.Add(archive);
+				try
+				{
+					CollectionVerifiedArchive archive = IsBundled(state.Request)
+						? _bundledCoordinator.TryComplete(state.Request, cancellationToken)
+						: _archiveAdopter.TryAdopt(state.Request, cancellationToken, false, batch.PlanBuild.Plan.Policy.AutomaticallyInstall);
+					if (archive != null) verified.Add(archive);
+				}
+				catch (OperationCanceledException) { throw; }
+				catch (Exception ex)
+				{
+					Trace.TraceError("Collection archive check failed for " + state.Match.Member.DisplayName + ": " + ex);
+				}
 			}
 
 			CollectionMemberMatchSet rematched = _matchEngine.Match(batch.PlanBuild.Plan, batch.PlanBuild.NativeState, verified, cancellationToken);
@@ -407,6 +425,26 @@ namespace Nexus.Client.CollectionManagement
 						previous.PendingAction, previous.RestartResult, previous.PremiumAvailability));
 			}
 			return new CollectionMemberAcquisitionBatch(batch.PlanBuild, rematched, states, batch.ArchiveOverwritePolicy, batch.SkipExistingArchiveMd5);
+		}
+
+		/// <summary>Queues all failed members before later preparation, preserving successful and active acquisitions.</summary>
+		public CollectionMemberAcquisitionBatch RetryFailedMembers(CollectionMemberAcquisitionBatch batch,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			foreach (CollectionMemberAcquisitionState state in batch.Members)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (state.Disposition != CollectionMemberAcquisitionDisposition.RestartActionRequired || state.Request == null ||
+					(state.QueueCorrelation != null && !CollectionAcquisitionConsumerTask.IsTerminal(state.QueueCorrelation.Task.Status))) continue;
+				try { batch = RetryMember(batch, state.Match.Member.MemberKey, confirmOverwriteCallback, cancellationToken); }
+				catch (OperationCanceledException) { throw; }
+				catch (Exception ex)
+				{
+					Trace.TraceError("Collection member acquisition retry failed for " + state.Match.Member.DisplayName + ": " + ex);
+				}
+			}
+			return batch;
 		}
 
 		/// <summary>Retries only the selected paused member, preserving the plan and every other member's input.</summary>
@@ -465,7 +503,13 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 				"Collections.Workflow.RetryingMemberDownload", "Retrying failed download ({0}/{1}): {2}",
 				attempts + 1, MaximumAutomaticAcquisitionRetries, previous.Match.Member.DisplayName), true);
-			return _premiumCoordinator.Queue(previous.Request, null, batch.ArchiveOverwritePolicy);
+			try { return _premiumCoordinator.Queue(previous.Request, null, batch.ArchiveOverwritePolicy); }
+			catch (OperationCanceledException) { throw; }
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection automatic download retry failed for " + previous.Match.Member.DisplayName + ": " + ex);
+				return null;
+			}
 		}
 
 		/// <summary>Verifies a user-selected local file for one exact pending manual acquisition in this batch.</summary>

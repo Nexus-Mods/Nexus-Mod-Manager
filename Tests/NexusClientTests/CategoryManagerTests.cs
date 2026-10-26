@@ -30,6 +30,41 @@
 		private string _categoryDirectory;
 		private string _categoryFile;
 
+		/// <summary>Fresh game libraries load repository categories before the first download reaches the current Mods UI.</summary>
+		[Test]
+		public void PrepareCategories_FreshLibraryLoadsBundledDefaults()
+		{
+			var environment = InterfaceStub<Nexus.Client.Games.IGameModeEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_ModDirectory" ? _rootPath : null);
+			var gameMode = InterfaceStub<Nexus.Client.Games.IGameMode>.Create((method, args) =>
+				method.Name == "get_GameModeEnvironmentInfo" ? (object)environment :
+				method.Name == "get_GameDefaultCategories" ? DefaultCategories : null);
+			var modManager = (ModManager)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(ModManager));
+			typeof(ModManager).GetField("<GameMode>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+				.SetValue(modManager, gameMode);
+
+			Nexus.Client.ModManagement.UI.ModManagerVM.PreparedModCategories prepared =
+				Nexus.Client.ModManagement.UI.ModManagerVM.PrepareCategories(modManager);
+			Assert.That(prepared.Initialized, Is.True);
+			Assert.That(prepared.Manager.IsValidPath, Is.True);
+			Assert.That(prepared.Manager.FindCategory(49).CategoryName, Is.EqualTo("Clothing - Backpacks"));
+			Assert.That(prepared.Manager.FindCategory(1).CategoryName, Is.EqualTo("Fallout 4"));
+		}
+
+		/// <summary>Bundled Oblivion defaults retain the Nexus IDs needed by freshly downloaded archives.</summary>
+		[Test]
+		public void OblivionBundledCategories_IncludeCurrentRepositoryDefinitions()
+		{
+			string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "GameModes", "Definitions", "Oblivion", "Categories.xml");
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(File.ReadAllText(path));
+			Assert.That(manager.FindCategory(20).CategoryName, Is.EqualTo("Oblivion"));
+			Assert.That(manager.FindCategory(26).CategoryName, Is.EqualTo("Body, Face, and Hair"));
+			Assert.That(manager.FindCategory(97).CategoryName, Is.EqualTo("ENB Preset"));
+			Assert.That(manager.FindCategory(98).CategoryName, Is.EqualTo("Books and Scrolls"));
+			Assert.That(manager.Categories.Any(category => category.Id == 87), Is.False);
+		}
+
 		/// <summary>Reads the packaged Remastered categories through the same resource path used by the game mode.</summary>
 		private static string RemasteredDefaults()
 		{

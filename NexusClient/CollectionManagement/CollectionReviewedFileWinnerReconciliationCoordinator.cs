@@ -224,7 +224,7 @@ namespace Nexus.Client.CollectionManagement
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
 			CollectionFileImpact[] winners = impactPlan.FileImpacts
-				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null && x.Writers.Count > 1))
+				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null && (x.Writers.Count > 1 || !String.IsNullOrWhiteSpace(x.CurrentOwnerKey))))
 				.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToArray();
 			if (winners.Length == 0)
 			{
@@ -293,7 +293,8 @@ namespace Nexus.Client.CollectionManagement
 						continue;
 					}
 					if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
-						!writerOwners.Values.Contains(file.EffectiveOwnerKey, StringComparer.OrdinalIgnoreCase))
+						!writerOwners.Values.Contains(file.EffectiveOwnerKey, StringComparer.OrdinalIgnoreCase) &&
+						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, impact.CurrentOwnerKey))
 						throw new CollectionReviewedFileWinnerRecoveryRequiredException(impact.PreserveCurrentOwner
 							? "The current native file winner is neither the reviewed preserved owner nor one of the reviewed incoming writer owners."
 							: "The current native file winner is no longer one of the reviewed incoming writer owners.");
@@ -319,9 +320,10 @@ namespace Nexus.Client.CollectionManagement
 			// Keep intents unverified until one consistent profile snapshot is durable. An interrupted batch is recovered from live owner stacks.
 			if (pendingCheckpoints.Count > 0)
 			{
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+					"Collections.Workflow.SavingFileConflicts", "Saving Collection conflict state..."), true);
 				_updateProfileDeployment();
-				foreach (CollectionReviewedFileWinnerIntent checkpoint in pendingCheckpoints)
-					MarkVerified(operationIdentity, checkpoint);
+				MarkVerified(operationIdentity, pendingCheckpoints);
 			}
 			var result = new CollectionReviewedFileWinnerReconciliationResult(results);
 			CollectionPerformanceMetrics.RecordFileWinnerReconciliation(performanceStarted);
@@ -662,13 +664,23 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
-		private void MarkVerified(CollectionOperationIdentity operationIdentity, CollectionReviewedFileWinnerIntent intent)
+		/// <summary>Commits the verified winner checkpoints together after the shared profile snapshot is durable.</summary>
+		private void MarkVerified(CollectionOperationIdentity operationIdentity, IList<CollectionReviewedFileWinnerIntent> intents)
 		{
-			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation,
-				operationIdentity.ToString(), GetIntentRole(intent.Target));
-			if (reference == null) throw new InvalidDataException("A reviewed-winner intent must be durable before its verified checkpoint.");
-			_referenceStore.AcquireExclusiveRoleReference(reference.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
-				operationIdentity.ToString(), GetVerifiedRole(intent.Target));
+			string ownerId = operationIdentity.ToString();
+			Dictionary<string, CollectionsRetainedArtifactReferenceRecord> references = _referenceStore
+				.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation, ownerId)
+				.Where(x => x.Role.StartsWith(IntentRolePrefix, StringComparison.Ordinal)).ToDictionary(x => x.Role, StringComparer.Ordinal);
+			var requests = new List<CollectionsRetainedArtifactReferenceRequest>(intents.Count);
+			foreach (CollectionReviewedFileWinnerIntent intent in intents)
+			{
+				CollectionsRetainedArtifactReferenceRecord reference;
+				if (!references.TryGetValue(GetIntentRole(intent.Target), out reference))
+					throw new InvalidDataException("A reviewed-winner intent must be durable before its verified checkpoint.");
+				requests.Add(new CollectionsRetainedArtifactReferenceRequest(reference.ArtifactId,
+					CollectionsRetainedArtifactOwnerKind.Operation, ownerId, GetVerifiedRole(intent.Target)));
+			}
+			_referenceStore.AcquireExclusiveRoleReferences(requests);
 		}
 
 		private static void ValidateIntent(CollectionReviewedFileWinnerIntent intent, CollectionOperationIdentity operationIdentity,

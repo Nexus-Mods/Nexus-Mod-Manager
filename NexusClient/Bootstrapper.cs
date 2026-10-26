@@ -641,7 +641,7 @@
 		#endregion
 
 		/// <summary>
-		/// This checks and deletes all the ModScript.dll in the NMM GameModes folder.
+		/// Removes obsolete Mod Script extensions while retaining supported game-specific interpreters.
 		/// </summary>
 		private List<string> CheckModScriptDLL()
 		{
@@ -653,7 +653,6 @@
 		        "DragonAge2.ModScript.dll",
 		        "Grimrock.ModScript.dll",
 		        "Morrowind.ModScript.dll",
-		        "Oblivion.ModScript.dll",
 		        "Starbound.ModScript.dll",
 		        "StateOfDecay.ModScript.dll",
 		        "Witcher2.ModScript.dll",

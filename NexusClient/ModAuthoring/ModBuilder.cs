@@ -234,11 +234,12 @@ namespace Nexus.Client.ModAuthoring
 				examineTimer.Stop();
 				Trace.TraceInformation(String.Format("[{0}] Archive examination completed in {1} ms.", p_strArchivePath, examineTimer.ElapsedMilliseconds));
 
-				// Collection identity describes the downloaded container, not the smaller FOMOD inside it.
-				// FOMod reads the embedded payload while its managed archive remains byte-for-byte original.
+				// Collection identity describes the downloaded container, not its embedded mod.
+				// The mod format reads the payload while the managed archive remains byte-for-byte original.
 				if (PreserveEmbeddedFomodArchive && !isMultiVolume && lstModsInArchive.Count == 1 &&
-					String.Equals(Path.GetExtension(lstModsInArchive[0]), ".fomod", StringComparison.OrdinalIgnoreCase) &&
-					!String.Equals(Path.GetExtension(p_strArchivePath), ".fomod", StringComparison.OrdinalIgnoreCase))
+					(String.Equals(Path.GetExtension(lstModsInArchive[0]), ".fomod", StringComparison.OrdinalIgnoreCase) ||
+					 String.Equals(Path.GetExtension(lstModsInArchive[0]), ".omod", StringComparison.OrdinalIgnoreCase)) &&
+					!String.Equals(Path.GetExtension(p_strArchivePath), Path.GetExtension(lstModsInArchive[0]), StringComparison.OrdinalIgnoreCase))
 					lstModsInArchive.Clear();
 
 				if (lstModsInArchive.Count == 0)

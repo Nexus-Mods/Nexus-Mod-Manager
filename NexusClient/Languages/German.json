@@ -2289,6 +2289,7 @@
     "Collections.Workflow.Applying": "Der genehmigte Inkassoplan wird angewendet …",
     "Collections.Workflow.ApplyingFileConflicts": "Konfliktregeln für Collectionsdateien werden angewendet …",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Konfliktregeln für Collectionsdateien werden angewendet ({0}/{1})…",
+    "Collections.Workflow.SavingFileConflicts": "Konfliktstatus der Sammlung wird gespeichert...",
     "Collections.Workflow.ApplyingPluginRules": "Collections-Plugin-Regeln werden angewendet …",
     "Collections.Workflow.ArchiveHashAlgorithms": "{0} [{1}]",
     "Collections.Workflow.CancelRequested": "Workflow: Stornierung angefordert; NMM gleicht den installierten Status vor weiteren Arbeiten ab.",

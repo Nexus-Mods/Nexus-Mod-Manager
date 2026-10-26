@@ -18,7 +18,7 @@ namespace Nexus.Client.CollectionManagement
 {
 	public sealed partial class CollectionNativeRecipePreparer
 	{
-		/// <summary>Uses explicit file-plan capture for native C# scripts and numbered component packages without curator choices.</summary>
+		/// <summary>Uses explicit file-plan capture for native scripts and numbered component packages without curator choices.</summary>
 		private static bool RequiresCapturedInstaller(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode)
 		{
 			if (member.HasVortexFileList || member.HasVortexFomodSelection) return false;
@@ -135,8 +135,15 @@ namespace Nexus.Client.CollectionManagement
 						file == null ? generated.DestinationPath : file.DestinationPath);
 					if (generated != null && String.IsNullOrEmpty(generated.PreparationSourcePath))
 					{
-						string scriptSource = mod.InstallScript.Type.FileNames.Select(name => Path.Combine("fomod", name)).First(archiveSources.Contains);
-						files[destination] = new GenerateDataFileOperation(destination, generated.Data, scriptSource);
+						// A generated edit of a copied file keeps that file's archive source as its preparation input.
+						ScriptedInstallOperation previous;
+						files.TryGetValue(destination, out previous);
+						InstallModFileOperation originalFile = previous as InstallModFileOperation;
+						GenerateDataFileOperation originalGenerated = previous as GenerateDataFileOperation;
+						string source = originalFile != null ? originalFile.SourcePath : originalGenerated == null ? null : originalGenerated.PreparationSourcePath;
+						if (String.IsNullOrEmpty(source))
+							source = mod.InstallScript.Type.FileNames.SelectMany(name => new[] { Path.Combine("fomod", name), name }).First(archiveSources.Contains);
+						files[destination] = new GenerateDataFileOperation(destination, generated.Data, source);
 						continue;
 					}
 					files[destination] = file == null
@@ -163,7 +170,7 @@ namespace Nexus.Client.CollectionManagement
 					values.Add(new EditGameSpecificValueOperation(gameValue.Key, gameValue.Value, true));
 					continue;
 				}
-				throw new NotSupportedException("The C# installer uses a native operation that cannot yet be retained in a Collection: " + operation.GetType().Name);
+				throw new NotSupportedException("The scripted installer uses a native operation that cannot yet be retained in a Collection: " + operation.GetType().Name);
 			}
 			return files.OrderBy(file => file.Key, StringComparer.OrdinalIgnoreCase).Select(file => file.Value).Concat(values).ToList().AsReadOnly();
 		}

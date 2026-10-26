@@ -450,6 +450,10 @@
       <Project>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</Project>
       <Name>NexusClient</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Mod Formats\OMod\OMod.csproj">
+      <Project>{0B0E3C6E-C51D-473D-8605-7D7679338AA1}</Project>
+      <Name>OMod</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Mod Formats\FOMod\FOMod.csproj">
       <Project>{34B04F6B-0D64-455F-B20F-1C3E080AE601}</Project>
       <Name>FOMod</Name>

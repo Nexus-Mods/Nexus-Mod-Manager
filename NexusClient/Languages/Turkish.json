@@ -2289,6 +2289,7 @@
     "Collections.Workflow.Applying": "Onaylanan Toplama planı uygulanıyor...",
     "Collections.Workflow.ApplyingFileConflicts": "Koleksiyon dosyası çakışma kuralları uygulanıyor...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "Koleksiyon dosyası çakışma kuralları uygulanıyor ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "Koleksiyon çakışma durumu kaydediliyor...",
     "Collections.Workflow.ApplyingPluginRules": "Koleksiyon eklentisi kuralları uygulanıyor...",
     "Collections.Workflow.ArchiveHashAlgorithms": "{0} [{1}]",
     "Collections.Workflow.CancelRequested": "İş Akışı: iptal talep edildi; NMM, daha fazla çalışmadan önce kurulu durumu uzlaştıracaktır.",

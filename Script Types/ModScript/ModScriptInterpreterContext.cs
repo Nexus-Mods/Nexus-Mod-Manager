@@ -249,7 +249,8 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 				InstallAllDataFiles();
 			if (m_booInstallPlugins)
 				InstallAllPlugins();
-			FunctionProxy.SetRelativeLoadOrder(m_lstPluginOrder.ToArray());
+			if (m_lstPluginOrder.Count > 0 || !FunctionProxy.IsCollectionCapture)
+				FunctionProxy.SetRelativeLoadOrder(m_lstPluginOrder.ToArray());
 		}
 
 		/// <summary>

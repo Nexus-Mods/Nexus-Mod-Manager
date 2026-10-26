@@ -238,6 +238,14 @@ namespace Nexus.Client.CollectionManagement
 			return _workflow.ResumePreparationAsync(batch, GetTargetPaths(), cancellationToken);
 		}
 
+		/// <summary>Retries failed downloads as one batch while retaining completed imports.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> RetryFailedAcquisitionsAsync(CollectionMemberAcquisitionBatch batch,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken, IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return _workflow.RetryFailedAcquisitionsAsync(batch, GetTargetPaths(), confirmOverwriteCallback, cancellationToken);
+		}
+
 		/// <summary>Retries one selected acquisition through the existing native download/import and overwrite paths.</summary>
 		public Task<CollectionAdditiveWorkflowPreparationResult> RetryMemberAcquisitionAsync(CollectionMemberAcquisitionBatch batch,
 			CollectionMemberKey memberKey, ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken,

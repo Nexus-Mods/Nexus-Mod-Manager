@@ -2080,6 +2080,7 @@
     "Collections.Workflow.RecoveredInstallationQueued": "NMMのインストールキューが利用可能になると、自動で続行します。完了したMODは保持されます。",
     "Collections.Workflow.ApplyingFileConflicts": "コレクションのファイル競合ルールを適用中...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "コレクションのファイル競合ルールを適用中 ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "コレクションの競合状態を保存しています...",
     "Collections.Workflow.ApplyingPluginRules": "コレクションのプラグインルールを適用中...",
     "Collections.Workflow.FinishingInstallation": "コレクションのインストールを完了中: MODの登録とファイル所有権を確認中...",
     "Collections.Status.Content.AutomaticReady": "MODファイルの準備完了。インストールは自動で続行されます",

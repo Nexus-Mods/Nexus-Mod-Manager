@@ -10,6 +10,7 @@ namespace Nexus.Client
 	/// </summary>
 	public class HeaderlessTextWriterTraceListener : TextWriterTraceListener
 	{
+		private readonly string _applicationFileName = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
 		private bool m_booSaveToFile = false;
 		private Int64 m_intLastStreamPosition = 0;
 
@@ -80,7 +81,7 @@ namespace Nexus.Client
 		/// <param name="message">The message to write.</param>
 		public override void Write(string message)
 		{
-			if (message.StartsWith(Path.GetFileName(Environment.GetCommandLineArgs()[0])))
+			if (message.StartsWith(_applicationFileName))
 				return;
 			base.Write(message);
 		}

@@ -2289,6 +2289,7 @@
     "Collections.Workflow.Applying": "正在应用批准的收集计划...",
     "Collections.Workflow.ApplyingFileConflicts": "正在应用合集文件冲突规则...",
     "Collections.Workflow.ApplyingFileConflictsWithCounter": "正在应用合集文件冲突规则 ({0}/{1})...",
+    "Collections.Workflow.SavingFileConflicts": "正在保存合集的冲突状态...",
     "Collections.Workflow.ApplyingPluginRules": "应用合集插件规则...",
     "Collections.Workflow.ArchiveHashAlgorithms": "{0} [{1}]",
     "Collections.Workflow.CancelRequested": "工作流程：请求取消； NMM 将在进一步工作之前协调安装状态。",
