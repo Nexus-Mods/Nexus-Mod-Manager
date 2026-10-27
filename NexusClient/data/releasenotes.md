@@ -1,5 +1,16 @@
 # NMM Community Edition release notes
 
+## Version 0.93.8
+
+- Bugfix: Improved mod installation and uninstallation performance.
+- Bugfix: Reduced startup overhead when installing mods.
+- Bugfix: Improved the space available for Discovery Details in Game Discovery.
+- Bugfix: Fixed Morrowind plugin export.
+- Bugfix: Fixed a crash when accessing read-only Fallout INI files.
+- Bugfix: Fixed official Starfield plugin management.
+- Bugfix: Fixed Nexus downloads unexpectedly opening Game Discovery.
+- Bugfix: Fixed LOOT launching with the wrong game selected.
+
 ## Version 0.93.7
 
 - New Feature: Added Portuguese localization.
