@@ -110,31 +110,10 @@
 				}
 			}
 
-			string requestedGameMode = null;
+			string requestedGameMode = startupIntent.RequestedModeId;
 			bool downloadDestinationSelected = false;
             
-			Uri modToAdd = null;
-
-		    if (args.Length > 0 && !args[0].StartsWith("-"))
-			{
-				if (Uri.TryCreate(args[0], UriKind.Absolute, out modToAdd) && modToAdd.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
-                {
-                    requestedGameMode = DetermineRequestedGameMode(modToAdd.Host);
-                }
-            }
-			else
-            {
-                for (var i = 0; i < args.Length; i++)
-				{
-					var strArg = args[i];
-
-				    if (strArg == "-game")
-				    {
-				        requestedGameMode = args[i + 1];
-				        Trace.Write("Game Specified On Command line: " + requestedGameMode + ") ");
-				    }
-                }
-            }
+			Uri modToAdd = startupIntent.NxmLink;
 
 			if (startupIntent.LocalFiles.Count > 0)
 			{

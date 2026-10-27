@@ -16,17 +16,20 @@ namespace Nexus.Client
 			if (connect == null) throw new ArgumentNullException(nameof(connect));
 			if (intent.LocalFiles.Count > 0) return TryForwardLocalFiles(intent, installedModeIds, connect);
 			if (intent.NxmLink == null || String.IsNullOrWhiteSpace(intent.RequestedModeId)) return false;
-			// URI hosts are lowercase; persisted mode IDs preserve the existing IPC endpoint's spelling.
-			string modeId = installedModeIds?.FirstOrDefault(id => String.Equals(id, intent.RequestedModeId, StringComparison.OrdinalIgnoreCase))
+			// Definitions own the endpoint spelling; saved IDs remain the legacy fallback.
+			string modeId = GameModeRuntimePolicies.All.FirstOrDefault(item => String.Equals(item.Key, intent.RequestedModeId, StringComparison.OrdinalIgnoreCase)).Key
+				?? installedModeIds?.FirstOrDefault(id => String.Equals(id, intent.RequestedModeId, StringComparison.OrdinalIgnoreCase))
 				?? intent.RequestedModeId;
 			bool accepted = false;
 			try
 			{
+				Trace.TraceInformation("Startup Nexus handoff: probing mode {0} for catalog {1}.", modeId, intent.NxmLink.Host);
 				using (IMessager existing = connect(modeId))
 				{
 					if (existing == null) return false;
 					existing.AddMod(intent.NxmLink.OriginalString);
 					accepted = true;
+					Trace.TraceInformation("Startup Nexus handoff: mode {0} accepted the download request.", modeId);
 					return true;
 				}
 			}

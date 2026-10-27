@@ -40,6 +40,19 @@ namespace NexusClientTests
 			Assert.That(intent.NxmLink.Host, Is.EqualTo("skyrimspecialedition"));
 		}
 
+		/// <summary>Launch switches preceding the download must not turn a protocol launch into an empty discovery shell.</summary>
+		[TestCase("-trace")]
+		[TestCase("/trace")]
+		[TestCase("-legacy-startup")]
+		public void NexusLink_AfterLaunchSwitchRetainsFullLinkAndGame(string launchSwitch)
+		{
+			const string link = "nxm://fallout4/mods/12/files/34?key=test&expires=123&user_id=4";
+			var intent = GameDiscoveryStartupIntent.Parse(new[] { launchSwitch, "-game", "Other", link }, domain => "Fallout4");
+			Assert.That(intent.RequestedModeId, Is.EqualTo("Fallout4"));
+			Assert.That(intent.NxmLink.OriginalString, Is.EqualTo(link));
+			Assert.That(intent.RequiresGameSelection, Is.False);
+		}
+
 		[Test]
 		public void NonNexusUri_DoesNotStartDownloadOrGameSelection()
 		{

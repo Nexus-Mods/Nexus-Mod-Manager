@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
@@ -10,6 +12,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Nexus.Client;
 using Nexus.Client.Games;
+using Nexus.Client.Games.DataDriven;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using NUnit.Framework;
@@ -24,6 +27,7 @@ namespace NexusClientTests
 		[TestCase("nxm://witcher3/mods/12/files/34?key=test&expires=123&user_id=4", "Witcher3Remastered")]
 		[TestCase("nxm://witcher3/collections/example/revisions/2", "Witcher3Remastered")]
 		[TestCase("nxm://skyrim/mods/12/files/34", "Skyrim")]
+		[TestCase("nxm://fallout4/mods/12/files/34", "Fallout4")]
 		public void Forwarding_AcceptsLinkOnce_AndDisposesTheClient(string link, string mode)
 		{
 			string received = null;
@@ -129,6 +133,68 @@ namespace NexusClientTests
 				Assert.That(server.Deliveries, Is.EqualTo(1));
 				Assert.That(Application.OpenForms.Count, Is.EqualTo(windows));
 			});
+		}
+
+		/// <summary>Repeated downloads retain canonical endpoints with missing or legacy-cased saved game IDs.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void FreshRunningGame_RepeatedLinksForwardWithoutDiscoveryWindow(bool legacySavedId)
+		{
+			string mode = "FreshHandoff" + Guid.NewGuid().ToString("N");
+			var original = GameModeRuntimePolicies.All.ToArray();
+			try
+			{
+				GameModeRuntimePolicies.Replace(new[] { new KeyValuePair<string, GameModeRuntimePolicy>(mode, new GameModeRuntimePolicy { SchemaVersion = 1 }) });
+				var installed = new SettingsList();
+				if (legacySavedId) installed.Add(mode.ToLowerInvariant());
+				ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
+				{
+					if (method.Name == "Save") Assert.Fail("Forwarding must not modify game preferences.");
+					if (method.Name == "get_InstalledGames") return installed;
+					return null;
+				});
+				var environment = (Nexus.Client.EnvironmentInfo)FormatterServices.GetUninitializedObject(typeof(Nexus.Client.EnvironmentInfo));
+				typeof(Nexus.Client.EnvironmentInfo).GetField("<Settings>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(environment, settings);
+				int windows = Application.OpenForms.Count;
+				WithServer(mode, server =>
+				{
+					for (int index = 1; index <= 2; index++)
+					{
+						string link = "nxm://" + mode.ToLowerInvariant() + "/mods/12/files/" + index + "?key=test";
+						Assert.That(new Bootstrapper(environment).RunMainForm(new[] { "-trace", link }), Is.True);
+						Assert.That(server.LastLink, Is.EqualTo(link));
+						Assert.That(server.Deliveries, Is.EqualTo(index));
+						Assert.That(Application.OpenForms.Count, Is.EqualTo(windows));
+					}
+				});
+			}
+			finally { GameModeRuntimePolicies.Replace(original); }
+		}
+
+		/// <summary>A listener marshal failure cleans up its channel so the same game can open a listener on retry.</summary>
+		[Test]
+		public void ListenerInitializationFailure_ReleasesChannelAndAllowsRetry()
+		{
+			string mode = "ListenerRetry" + Guid.NewGuid().ToString("N");
+			IChannel[] before = ChannelServices.RegisteredChannels;
+			var collision = new RecordingMessager();
+			RemotingServices.Marshal(collision, mode + "Listener", typeof(IMessager));
+			IMessager listener = null;
+			try
+			{
+				IGameModeDescriptor descriptor = InterfaceStub<IGameModeDescriptor>.Create((method, args) => method.Name == "get_ModeId" ? mode : null);
+				Assert.Throws<RemotingException>(() => MessagerServer.InitializeListener(null, descriptor, null, null));
+				Assert.That(ChannelServices.RegisteredChannels, Is.EquivalentTo(before));
+				RemotingServices.Disconnect(collision);
+				listener = MessagerServer.InitializeListener(null, descriptor, null, null);
+				Assert.That(listener, Is.Not.Null);
+			}
+			finally
+			{
+				listener?.Dispose();
+				RemotingServices.Disconnect(collision);
+			}
+			Assert.That(ChannelServices.RegisteredChannels, Is.EquivalentTo(before));
 		}
 
 		/// <summary>Registers only an isolated test endpoint and reliably removes it afterward.</summary>

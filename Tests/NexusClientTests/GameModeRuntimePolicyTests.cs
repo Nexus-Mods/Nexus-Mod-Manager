@@ -70,6 +70,22 @@ namespace NexusClientTests
 			Assert.That(DataDrivenGameMode.AdjustConfiguredFileDestination(policy, source), Is.EqualTo(expected));
 		}
 
+		/// <summary>Ordinary domains retain canonical local IPC names even before settings record a newly opened game.</summary>
+		[TestCase("fallout4", "Fallout4")]
+		[TestCase("starfield", "Starfield")]
+		public void PlainDownloadDomain_UsesCanonicalModeIdWithoutEditionRouting(string domain, string modeId)
+		{
+			var original = GameModeRuntimePolicies.All.ToArray();
+			try
+			{
+				GameModeRuntimePolicies.Replace(new[] { new KeyValuePair<string, GameModeRuntimePolicy>(modeId, new GameModeRuntimePolicy { SchemaVersion = 1 }) });
+				ISettings settings = InterfaceStub<ISettings>.Create((method, args) => null);
+				Assert.That(GameModeRuntimeConfiguration.RequestedMode(domain, settings), Is.EqualTo(modeId));
+				Assert.That(GameModeRuntimeConfiguration.RequestedMode("unknown-catalog", settings), Is.EqualTo("unknown-catalog"));
+			}
+			finally { GameModeRuntimePolicies.Replace(original); }
+		}
+
 		/// <summary>Applies module preparation and download routing to an arbitrary configured local mode.</summary>
 		[Test]
 		public void ConfiguredMode_UsesDeclaredPreparationAndDownloadRouting()

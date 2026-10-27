@@ -119,7 +119,10 @@ namespace Nexus.Client.Games.DataDriven
 				if (route.UseRememberedModeAsDefault && (settings.RememberedGameMode == route.DefaultMode || settings.RememberedGameMode == route.AlternateMode)) return settings.RememberedGameMode;
 				return route.DefaultMode;
 			}
-			return routes.Length == 0 ? domain : routes[0].Value.DownloadRouting.DefaultMode;
+			if (routes.Length != 0) return routes[0].Value.DownloadRouting.DefaultMode;
+			// Plain domains such as fallout4 still need the local mode ID's exact IPC spelling,
+			// including when a newly opened game's settings have not yet reached another process.
+			return GameModeRuntimePolicies.All.FirstOrDefault(item => String.Equals(item.Key, domain, StringComparison.OrdinalIgnoreCase)).Key ?? domain;
 		}
 
 		/// <summary>Uses configured localized edition text with its declared fallback.</summary>

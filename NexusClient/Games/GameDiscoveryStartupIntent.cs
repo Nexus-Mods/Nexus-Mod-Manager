@@ -17,12 +17,15 @@
 		{
 			var intent = new GameDiscoveryStartupIntent();
 			if (arguments == null) return intent;
-			if (arguments.Length > 0 && Uri.TryCreate(arguments[0], UriKind.Absolute, out Uri link) &&
-				String.Equals(link.Scheme, "nxm", StringComparison.OrdinalIgnoreCase))
+			foreach (string argument in arguments)
 			{
-				intent.NxmLink = link;
-				intent.RequestedModeId = mapNexusDomain?.Invoke(link.Host);
-				return intent;
+				if (Uri.TryCreate(argument, UriKind.Absolute, out Uri link) &&
+					String.Equals(link.Scheme, "nxm", StringComparison.OrdinalIgnoreCase))
+				{
+					intent.NxmLink = link;
+					intent.RequestedModeId = mapNexusDomain?.Invoke(link.Host);
+					return intent;
+				}
 			}
 			for (int index = 0; index < arguments.Length; index++)
 			{

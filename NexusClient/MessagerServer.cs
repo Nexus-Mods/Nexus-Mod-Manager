@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Ipc;
@@ -46,11 +47,30 @@ namespace Nexus.Client
 				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
 			string strUri = String.Format("{0}-{1}IpcServer", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
-			m_schMessagerChannel = new IpcServerChannel(strUri);
-			RegisterIpcChannel(m_schMessagerChannel);
+			var channel = new IpcServerChannel(strUri);
 			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm, p_collectionNxmDispatcher);
 			string strEndpoint = String.Format("{0}Listener", p_gmdGameModeInfo.ModeId);
-			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(IMessager));
+			try
+			{
+				RegisterIpcChannel(channel);
+				RemotingServices.Marshal(msgMessager, strEndpoint, typeof(IMessager));
+				m_schMessagerChannel = channel;
+			}
+			catch
+			{
+				// A failed first-session listener must not poison all later registrations until restart.
+				try { channel.StopListening(null); }
+				catch (Exception error) { Trace.TraceWarning("Could not stop failed IPC listener: {0}", error.Message); }
+				try
+				{
+					if (ChannelServices.RegisteredChannels.Any(registered => ReferenceEquals(registered, channel)))
+						ChannelServices.UnregisterChannel(channel);
+				}
+				catch (Exception error) { Trace.TraceWarning("Could not unregister failed IPC listener: {0}", error.Message); }
+				try { RemotingServices.Disconnect(msgMessager); }
+				catch (Exception error) { Trace.TraceWarning("Could not disconnect failed IPC listener: {0}", error.Message); }
+				throw;
+			}
 
 			strUri += "/" + strEndpoint;
 			string strTraceInfo = String.Format("Setting up listener on {0} at {1}", strUri, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
