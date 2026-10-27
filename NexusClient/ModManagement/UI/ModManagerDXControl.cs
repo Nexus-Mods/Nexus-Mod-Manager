@@ -4883,6 +4883,9 @@
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateSelectedMods(mods);
 				}));
+				BarButtonItem deleteItem = CreatePopupButton(LanguageManager.Get("Mods.Context.DeletePermanently.Name", "Delete mod (permanently) and uninstall."),
+					NmmIconAction.Delete, DeleteSelectedModsFromKey);
+				itemUninstall.AddItem(deleteItem).BeginGroup = true;
 			}
 			AddGridPopupItem(itemUninstall);
 
@@ -5309,7 +5312,10 @@
 
 		private void UpdateToolbarState()
 		{
-			tsbDeactivate.Enabled = _viewModel != null && _viewModel.DisableModCommand.CanExecute;
+			bool canDisable = _viewModel != null && _viewModel.DisableModCommand.CanExecute;
+			// The popup also contains permanent deletion, which remains available for disabled and missing-archive entries.
+			tsbDeactivate.Enabled = canDisable || (_viewModel != null && _viewModel.DeleteModCommand.CanExecute);
+			tsbDeactivate.ActAsDropDown = !canDisable;
 			ApplyToolbarActionLabels();
 		}
 
@@ -6005,6 +6011,9 @@
 		{
 			if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_DeletingMultipleMods, sender, e); return; }
 			ProgressDialog.ShowDialog(this, e.Argument);
+			// Missing archives are represented by InstallLog placeholders rather than registered archive objects.
+			ActiveMods_CollectionChanged(_subscribedActiveMods, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+			UninstalledAllMods?.Invoke(this, System.EventArgs.Empty);
 		}
 
 		private void VM_DeactivatingMultipleMods(object sender, EventArgs<IBackgroundTask> e)
