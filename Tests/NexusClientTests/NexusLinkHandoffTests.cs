@@ -48,6 +48,50 @@ namespace NexusClientTests
 			Assert.That(disposals, Is.EqualTo(1));
 		}
 
+		/// <summary>A shared VR catalog route cannot redirect ordinary downloads away from the running desktop game.</summary>
+		[TestCase("fallout4", null, "Fallout4")]
+		[TestCase("fallout4", "Fallout4", "Fallout4")]
+		[TestCase("FALLOUT4", "fallout4", "Fallout4")]
+		[TestCase("Fallout4", "Starfield", "Fallout4")]
+		[TestCase("fallout4", "Fallout4VR", "Fallout4VR")]
+		[TestCase("FALLOUT4", "fallout4vr", "Fallout4VR")]
+		public void SharedCatalog_OnlyUsesRememberedEditionWhenSelected(string domain, string remembered, string expectedMode)
+		{
+			var original = GameModeRuntimePolicies.All.ToArray();
+			try
+			{
+				GameModeRuntimePolicies.Replace(new[]
+				{
+					new KeyValuePair<string, GameModeRuntimePolicy>("Fallout4VR", new GameModeRuntimePolicy
+					{
+						SchemaVersion = 1,
+						DownloadRouting = new GameModeDownloadRouting
+						{
+							DefaultMode = "Fallout4VR", IncomingDomains = new[] { "fallout4" }, PreferRememberedMode = true
+						}
+					}),
+					new KeyValuePair<string, GameModeRuntimePolicy>("Fallout4", new GameModeRuntimePolicy { SchemaVersion = 1 })
+				});
+				ISettings settings = InterfaceStub<ISettings>.Create((method, args) => method.Name == "get_RememberedGameMode" ? remembered : null);
+				string link = "nxm://" + domain + "/mods/12/files/34?key=test&expires=123&user_id=4";
+				var intent = GameDiscoveryStartupIntent.Parse(new[] { link }, value => GameModeRuntimeConfiguration.RequestedMode(value, settings));
+				Assert.That(intent.RequestedModeId, Is.EqualTo(expectedMode));
+				int deliveries = 0;
+				IMessager client = InterfaceStub<IMessager>.Create((method, args) =>
+				{
+					if (method.Name == "AddMod") { Assert.That(args[0], Is.EqualTo(link)); deliveries++; }
+					return null;
+				});
+				Assert.That(NexusLinkHandoff.TryForward(intent, new[] { "Fallout4", "Fallout4VR" }, mode =>
+				{
+					Assert.That(mode, Is.EqualTo(expectedMode));
+					return client;
+				}), Is.True);
+				Assert.That(deliveries, Is.EqualTo(1));
+			}
+			finally { GameModeRuntimePolicies.Replace(original); }
+		}
+
 		/// <summary>Normal starts and explicit game selection never send a download request.</summary>
 		[TestCase(false)]
 		[TestCase(true)]
