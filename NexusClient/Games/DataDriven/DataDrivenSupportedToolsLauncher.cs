@@ -109,7 +109,7 @@ namespace Nexus.Client.Games.DataDriven
                 return;
             }
 
-            Launch(command, BuildArgumentString(tool.ArgumentTokens));
+            Launch(command, BuildArgumentString(tool));
         }
 
         /// <summary>Reviews detached executable evidence and unmanaged output before an explicit tool launch.</summary>
@@ -120,7 +120,7 @@ namespace Nexus.Client.Games.DataDriven
             try
             {
                 string command = GetToolLaunchCommand(tool);
-                string arguments = BuildArgumentString(tool.ArgumentTokens);
+                string arguments = BuildArgumentString(tool);
                 string gameRoot = GetGameRootPath();
                 string blockMessage = GetReviewedTargetBlockMessage(rule, gameRoot);
                 if (blockMessage != null)
@@ -147,7 +147,7 @@ namespace Nexus.Client.Games.DataDriven
                 if (!observed.Matches(current) ||
                     !String.Equals(command, GetToolLaunchCommand(tool), StringComparison.OrdinalIgnoreCase) ||
                     !String.Equals(gameRoot, GetGameRootPath(), StringComparison.OrdinalIgnoreCase) ||
-                    !String.Equals(arguments, BuildArgumentString(tool.ArgumentTokens), StringComparison.Ordinal))
+                    !String.Equals(arguments, BuildArgumentString(tool), StringComparison.Ordinal))
                 {
                     ShowReviewFailure(LanguageManager.Get("ManagedContent.Tool.ReviewChanged",
                         "The executable, arguments or current game root changed during review. Start a new review."));
@@ -331,19 +331,35 @@ namespace Nexus.Client.Games.DataDriven
             }
         }
 
-        private string BuildArgumentString(IEnumerable<string> argumentTokens)
+        /// <summary>Expands tool arguments and selects the configured LOOT instance for the current installation.</summary>
+        private string BuildArgumentString(GameModeToolDefinition tool)
         {
-            if (argumentTokens == null)
+            if (tool.ArgumentTokens == null)
                 return string.Empty;
 
             var arguments = new List<string>();
-            foreach (string token in argumentTokens.Where(x => !string.IsNullOrWhiteSpace(x)))
+            foreach (string token in tool.ArgumentTokens.Where(x => !string.IsNullOrWhiteSpace(x)))
             {
                 string resolved = DataDrivenPathResolver.Expand(token, CreatePathContext());
-                arguments.Add(QuoteArgument(resolved));
+                arguments.Add(resolved);
             }
 
-            return string.Join(" ", arguments.ToArray());
+            if (string.Equals(tool.Id, "LOOT", StringComparison.OrdinalIgnoreCase))
+            {
+                string dataPathToken = arguments.FirstOrDefault(argument => argument.StartsWith("--loot-data-path=", StringComparison.Ordinal));
+                string dataPath = dataPathToken == null || dataPathToken.Length == "--loot-data-path=".Length
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LOOT")
+                    : dataPathToken.Substring("--loot-data-path=".Length);
+                int gameIndex = arguments.FindIndex(argument => argument.StartsWith("--game=", StringComparison.Ordinal));
+                if (gameIndex >= 0)
+                {
+                    string gameIdentifier = arguments[gameIndex].Substring("--game=".Length);
+                    arguments[gameIndex] = "--game=" + LootGameSelection.ResolveGameIdentifier(gameIdentifier, GetGameRootPath(), Path.Combine(dataPath, "settings.toml"));
+                    Trace.TraceInformation("LOOT game selection: {0}; current game root: {1}", arguments[gameIndex], GetGameRootPath());
+                }
+            }
+
+            return string.Join(" ", arguments.Select(QuoteArgument).ToArray());
         }
 
         private static string QuoteArgument(string argument)

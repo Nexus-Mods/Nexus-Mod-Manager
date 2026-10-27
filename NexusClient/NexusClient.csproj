@@ -1450,6 +1450,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Games\DataDriven\DataDrivenSupportedToolsLauncher.cs" />
+    <Compile Include="Games\DataDriven\LootGameSelection.cs" />
     <Compile Include="Games\DataDriven\GameModeToolReviewDefinition.cs" />
     <Compile Include="Games\DataDriven\GameModePackageFilesDefinition.cs" />
     <Compile Include="ModManagement\ManagedContent\PackageXmlFragmentRule.cs" />

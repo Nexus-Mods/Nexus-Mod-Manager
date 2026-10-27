@@ -89,7 +89,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 			Trace.Indent();
 			string strCommand = GetLOOTLaunchCommand();
 			Trace.TraceInformation("Command: " + strCommand);
-			Launch(strCommand, "--game=Starfield");
+			Launch(strCommand, "--game=\"Oblivion Remastered\"");
 		}
 				
 		private void LaunchSFEdit()
