@@ -117,6 +117,7 @@
       "forcedReadOnly": false,
       "singleFileManagement": true,
       "officialPluginsAreImplicitlyActive": true,
+      "useStarfieldActivationRules": true,
       "showStarfieldCustomPluginsHeader": true,
       "headerFlagMappings": [
         {

@@ -556,6 +556,7 @@ namespace Nexus.Client.Games.DataDriven
             policy.ForcedReadOnly = definition.ForcedReadOnly ?? policy.ForcedReadOnly;
             policy.SingleFileManagement = definition.SingleFileManagement ?? policy.SingleFileManagement;
             policy.OfficialPluginsAreImplicitlyActive = definition.OfficialPluginsAreImplicitlyActive ?? policy.OfficialPluginsAreImplicitlyActive;
+            policy.UseStarfieldActivationRules = definition.UseStarfieldActivationRules ?? policy.UseStarfieldActivationRules;
             policy.LoadOrderInPluginDirectory = definition.LoadOrderInPluginDirectory ?? policy.LoadOrderInPluginDirectory;
             policy.ShowStarfieldCustomPluginsHeader = definition.ShowStarfieldCustomPluginsHeader ?? policy.ShowStarfieldCustomPluginsHeader;
 

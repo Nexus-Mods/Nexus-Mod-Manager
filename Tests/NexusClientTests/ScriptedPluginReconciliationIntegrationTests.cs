@@ -20,6 +20,71 @@ namespace NexusClientTests
     [NonParallelizable]
     public class ScriptedPluginReconciliationIntegrationTests
     {
+        /// <summary>Direct and bulk actions preserve official state while blueprints follow their editable parents.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void StarfieldActivation_DirectBulkAndImportUseEffectiveState(bool restrictionsDisabled)
+        {
+            using (var context = new PluginManagerTestContext(new[] {
+                new PluginDefinition("Starfield.esm") { OfficialFlag = true, MasterFlag = true },
+                new PluginDefinition("CCC-Official.esm") { OfficialFlag = true, MasterFlag = true },
+                new PluginDefinition("SFTA03.esm", "Starfield.esm") { MasterFlag = true },
+                new PluginDefinition("BlueprintShips-Starfield.esm", "Starfield.esm") { BlueprintFlag = true, MasterFlag = true },
+                new PluginDefinition("BlueprintShips-SFTA03.esm", "SFTA03.esm") { BlueprintFlag = true, MasterFlag = true },
+                new PluginDefinition("FlagOnly.esm") { BlueprintFlag = true, MasterFlag = true },
+                new PluginDefinition("User.esp") }, p_booRestrictionsDisabled: restrictionsDisabled, starfieldActivation: true))
+            {
+                Plugin official = context.Manager.GetRegisteredPlugin(context.PathOf("CCC-Official.esm"));
+                Plugin blueprint = context.Manager.GetRegisteredPlugin(context.PathOf("BlueprintShips-SFTA03.esm"));
+                Assert.IsFalse(context.Manager.CanChangeActiveState(official));
+                Assert.IsFalse(context.Manager.CanChangeActiveState(blueprint));
+                Assert.IsTrue(context.Manager.CanChangeActiveState(context.Manager.GetRegisteredPlugin(context.PathOf("FlagOnly.esm"))),
+                    "The Blueprint header flag alone must not apply the parent filename rule.");
+                Assert.IsTrue(context.Manager.CanChangePluginOrder(blueprint), "Activation locking must not introduce a new order lock.");
+                IList<PluginValidationDiagnostic> diagnostics;
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(context.Manager.ManagedPlugins.ToList(), true, out diagnostics));
+                Assert.That(context.ActivePluginNames, Does.Contain("BlueprintShips-SFTA03.esm"));
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(new[] { blueprint }, false, out diagnostics));
+                Assert.That(context.ActivePluginNames, Does.Contain("BlueprintShips-SFTA03.esm"));
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(context.Manager.ManagedPlugins.ToList(), false, out diagnostics));
+                CollectionAssert.AreEquivalent(new[] { "Starfield.esm", "CCC-Official.esm", "BlueprintShips-Starfield.esm" }, context.ActivePluginNames);
+
+                context.Manager.ApplyPluginState(context.Manager.ManagedPlugins.ToList(), new[] { blueprint });
+                Assert.That(context.ActivePluginNames, Does.Not.Contain("BlueprintShips-SFTA03.esm"));
+                Assert.That(context.ActivePluginNames, Does.Contain("CCC-Official.esm"));
+                Assert.AreEqual(restrictionsDisabled, context.Manager.PluginRestrictionsDisabled);
+            }
+        }
+
+        /// <summary>Collection requests cannot toggle a blueprint independently, and dependency checks use its derived state.</summary>
+        [Test]
+        public void StarfieldActivation_CollectionAndDependenciesFollowParent()
+        {
+            using (var context = new PluginManagerTestContext(new[] {
+                new PluginDefinition("Starfield.esm") { OfficialFlag = true, MasterFlag = true },
+                new PluginDefinition("SFTA06.esm", "Starfield.esm") { MasterFlag = true },
+                new PluginDefinition("BlueprintShips-SFTA06.esm", "SFTA06.esm") { BlueprintFlag = true, MasterFlag = true },
+                new PluginDefinition("Dependent.esp", "BlueprintShips-SFTA06.esm") }, starfieldActivation: true))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                Assert.IsTrue(((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(new string[0],
+                    new Dictionary<string, bool> {
+                        { context.PathOf("SFTA06.esm"), true },
+                        { context.PathOf("BlueprintShips-SFTA06.esm"), false },
+                        { context.PathOf("Starfield.esm"), false } }, new List<IList<string>>(), out diagnostics));
+                Assert.That(context.ActivePluginNames, Does.Contain("BlueprintShips-SFTA06.esm"));
+                Plugin dependent = context.Manager.GetRegisteredPlugin(context.PathOf("Dependent.esp"));
+                Plugin parent = context.Manager.GetRegisteredPlugin(context.PathOf("SFTA06.esm"));
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(new[] { dependent }, true, out diagnostics));
+                Assert.IsFalse(context.Manager.TrySetPluginActivation(new[] { parent }, false, out diagnostics));
+                Assert.That(diagnostics.Any(x => x.Kind == PluginValidationIssueKind.InactiveRequiredMaster), Is.True);
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(new[] { dependent, parent }, false, out diagnostics));
+                Assert.That(context.ActivePluginNames, Does.Not.Contain("BlueprintShips-SFTA06.esm"));
+                Assert.IsTrue(context.Manager.TrySetPluginActivation(new[] { parent }, true, out diagnostics));
+                context.Manager.RemovePlugins(new[] { context.PathOf("SFTA06.esm") });
+                Assert.That(context.ActivePluginNames, Does.Not.Contain("BlueprintShips-SFTA06.esm"));
+            }
+        }
         /// <summary>
         /// Verifies that a dependant deployed before its master is activated successfully once the full install state is reconciled.
         /// </summary>
@@ -547,6 +612,7 @@ namespace NexusClientTests
             public bool MasterFlag { get; set; }
             public bool BlueprintFlag { get; set; }
             public bool ProtectedFlag { get; set; }
+            public bool OfficialFlag { get; set; }
         }
 
         /// <summary>
@@ -562,7 +628,7 @@ namespace NexusClientTests
             /// <summary>
             /// Initializes a plugin manager with the supplied plugins and initial active set.
             /// </summary>
-            public PluginManagerTestContext(IList<PluginDefinition> p_lstDefinitions, IList<string> p_lstInitiallyActive = null, bool p_booRestrictionsDisabled = false, bool p_booIgnoreOfficialOrder = false)
+            public PluginManagerTestContext(IList<PluginDefinition> p_lstDefinitions, IList<string> p_lstInitiallyActive = null, bool p_booRestrictionsDisabled = false, bool p_booIgnoreOfficialOrder = false, bool starfieldActivation = false)
             {
                 m_strRoot = Path.Combine(Path.GetTempPath(), "NMM-ScriptedPlugin-Reconcile-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(m_strRoot);
@@ -644,8 +710,8 @@ namespace NexusClientTests
                     return null;
                 });
 
-                PluginManagementPolicy policy = new PluginManagementPolicy { IgnoreOfficialPluginOrder = p_booIgnoreOfficialOrder };
-                foreach (PluginDefinition definition in p_lstDefinitions.Where(x => x.ProtectedFlag)) policy.AddOfficialPlugin(definition.Name);
+                PluginManagementPolicy policy = new PluginManagementPolicy { IgnoreOfficialPluginOrder = p_booIgnoreOfficialOrder, UseStarfieldActivationRules = starfieldActivation };
+                foreach (PluginDefinition definition in p_lstDefinitions.Where(x => x.ProtectedFlag || x.OfficialFlag)) policy.AddOfficialPlugin(definition.Name);
                 IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
                 {
                     switch (method.Name)

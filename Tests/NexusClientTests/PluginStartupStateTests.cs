@@ -2,11 +2,15 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using System.Text.RegularExpressions;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
 using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
+using Nexus.Client.PluginManagement;
+using Nexus.Client.Util.Collections;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -15,6 +19,99 @@ namespace NexusClientTests
 	[TestFixture]
 	public class PluginStartupStateTests
 	{
+		/// <summary>Ship blueprints follow installed parents of every supported extension, independently of old explicit markers.</summary>
+		[TestCase("esm", true)]
+		[TestCase("esp", true)]
+		[TestCase("esl", true)]
+		[TestCase("esm", false)]
+		public void StarfieldPolicy_DerivesBlueprintStateFromInstalledParent(string extension, bool parentActive)
+		{
+			var policy = new PluginManagementPolicy { UseStarfieldActivationRules = true };
+			policy.AddOfficialPlugin("Official.esm");
+			policy.AddOfficialPlugin("BlueprintShips-SFTA06.esm");
+			string[] installed = { "Official.esm", "sfta03." + extension, "BlueprintShips-SFTA03.esm", "BlueprintShips-SFTA06.esm", "FlagOnly.esm" };
+			string[] requested = parentActive ? new[] { "SFTA03." + extension, "BlueprintShips-SFTA06.esm" } : new[] { "BlueprintShips-SFTA03.esm", "BlueprintShips-SFTA06.esm" };
+			HashSet<string> active = policy.ResolveActivePluginNames(installed, requested);
+			Assert.That(active.Contains("BlueprintShips-SFTA03.esm"), Is.EqualTo(parentActive));
+			Assert.That(active.Contains("BlueprintShips-SFTA06.esm"), Is.False);
+			Assert.That(active.Contains("Official.esm"), Is.True);
+			Assert.That(policy.IsPluginActivationManagedByGame("FlagOnly.esm"), Is.False);
+			Assert.That(policy.IsImplicitBlueprintShipsPlugin("BlueprintShips-SFTA03.esp"), Is.False);
+			Assert.That(policy.ResolveActivePluginNames(new[] { "BlueprintShips-SFTA03.esm" }, new[] { "SFTA03.esm" })
+				.Contains("BlueprintShips-SFTA03.esm"), Is.False, "A missing parent cannot activate an installed blueprint.");
+			policy.UseStarfieldActivationRules = false;
+			Assert.That(policy.ResolveActivePluginNames(installed, new[] { "BlueprintShips-SFTA03.esm" }),
+				Is.EquivalentTo(new[] { "BlueprintShips-SFTA03.esm" }), "Other games retain their explicit activation behavior.");
+		}
+
+		/// <summary>Startup and both queued writers retain derived active state while excluding game-owned entries from plugins.txt.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void StarfieldBackend_ReadsEffectiveStateAndOmitsGameManagedWrites(bool missingPluginsFile)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NmmStarfieldActivation-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string[] names = { "Starfield.esm", "CCC-Official.esm", "SFTA03.esm", "SFTA06.esm", "BlueprintShips-Starfield.esm", "BlueprintShips-SFTA03.esm", "BlueprintShips-SFTA06.esm" };
+				foreach (string name in names) File.WriteAllText(Path.Combine(root, name), "test");
+				string pluginsFile = Path.Combine(root, "plugins.txt");
+				if (!missingPluginsFile) File.WriteAllLines(pluginsFile, new[] { "*SFTA03.esm", "*BlueprintShips-SFTA06.esm" });
+				var policy = new PluginManagementPolicy { UseStarfieldActivationRules = true };
+				policy.AddCriticalPlugin("Starfield.esm");
+				policy.AddOfficialPlugin("CCC-Official.esm");
+				policy.AddOfficialPlugin("BlueprintShips-SFTA06.esm");
+				IGameModeDescriptor descriptor = InterfaceStub<IGameModeDescriptor>.Create((method, args) =>
+				{
+					if (method.Name == "get_PluginDirectory") return root;
+					if (method.Name == "get_OrderedCriticalPluginNames") return new[] { Path.Combine(root, "Starfield.esm") };
+					if (method.Name == "get_OrderedOfficialUnmanagedPluginNames") return new[] { Path.Combine(root, "CCC-Official.esm"), Path.Combine(root, "BlueprintShips-SFTA06.esm") };
+					if (method.Name.StartsWith("get_Ordered", StringComparison.Ordinal)) return new string[0];
+					return null;
+				});
+				var mode = (DataDrivenGamebryoGameMode)FormatterServices.GetUninitializedObject(typeof(DataDrivenGamebryoGameMode));
+				typeof(GameModeBase).GetField("m_gmdGameModeInfo", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(mode, descriptor);
+				typeof(DataDrivenGamebryoGameMode).GetField("_pluginManagementPolicy", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(mode, policy);
+				var manager = (PluginOrderManager)FormatterServices.GetUninitializedObject(typeof(PluginOrderManager));
+				GC.SuppressFinalize(manager);
+				SetField(manager, "<GameMode>k__BackingField", mode);
+				SetField(manager, "<PluginsFilePath>k__BackingField", pluginsFile);
+				SetField(manager, "<LoadOrderFilePath>k__BackingField", pluginsFile);
+				SetField(manager, "<SingleFileManagement>k__BackingField", true);
+				SetField(manager, "<IgnoreOfficialPlugins>k__BackingField", true);
+				SetField(manager, "<LastValidActiveList>k__BackingField", new List<string> { Path.Combine(root, "SFTA03.esm") });
+				SetField(manager, "<LastValidLoadOrder>k__BackingField", names.Select(name => Path.Combine(root, name)).ToList());
+				SetField(manager, "Fallout4PluginManagement", true);
+				SetField(manager, "m_booUseStarfieldActivationRules", true);
+				SetField(manager, "m_rgxPluginFile", new Regex(@"(?i)^.+\.es[mpl]$"));
+				SetField(manager, "m_objActivePluginCacheLock", new object());
+				SetField(manager, "m_hstActivePluginNames", new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+				var queued = new ThreadSafeObservableList<WriteLoadOrderTask>();
+				SetField(manager, "TaskList", queued);
+
+				CollectionAssert.AreEquivalent(new[] { "Starfield.esm", "CCC-Official.esm", "SFTA03.esm", "BlueprintShips-Starfield.esm", "BlueprintShips-SFTA03.esm" },
+					manager.GetActivePlugins().Select(Path.GetFileName));
+				Assert.That(manager.IsPluginActive("BlueprintShips-SFTA03.esm"), Is.True);
+				Assert.That(manager.IsPluginActive("BlueprintShips-SFTA06.esm"), Is.False);
+				manager.SetActivePlugins(new[] { Path.Combine(root, "SFTA03.esm"), Path.Combine(root, "BlueprintShips-SFTA06.esm") });
+				AssertQueuedStarfieldWrite(queued.Single());
+				manager.SetLoadOrder(names.Select(name => Path.Combine(root, name)).ToArray());
+				AssertQueuedStarfieldWrite(queued.Single());
+				Assert.That(File.Exists(pluginsFile), Is.EqualTo(!missingPluginsFile), "The isolated writer queue must not execute.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Checks the real writer payload without starting its background task.</summary>
+		private static void AssertQueuedStarfieldWrite(WriteLoadOrderTask task)
+		{
+			string[] lines = (string[])typeof(WriteLoadOrderTask).GetProperty("Plugins", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(task);
+			Assert.That(lines.Any(line => line != null && line.IndexOf("BlueprintShips-", StringComparison.OrdinalIgnoreCase) >= 0), Is.False);
+			Assert.That(lines.Any(line => line != null && line.IndexOf("CCC-Official.esm", StringComparison.OrdinalIgnoreCase) >= 0), Is.False);
+			Assert.That(lines, Does.Contain("*SFTA03.esm"));
+			Assert.That(lines, Does.Contain("SFTA06.esm"));
+		}
+
 		/// <summary>Missing state immediately retains the last valid lists without creating or overwriting files.</summary>
 		[TestCase(false)]
 		[TestCase(true)]

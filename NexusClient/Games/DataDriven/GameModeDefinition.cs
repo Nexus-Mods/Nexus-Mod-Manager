@@ -114,6 +114,7 @@ namespace Nexus.Client.Games.DataDriven
         public bool? ForcedReadOnly { get; set; }
         public bool? SingleFileManagement { get; set; }
         public bool? OfficialPluginsAreImplicitlyActive { get; set; }
+        public bool? UseStarfieldActivationRules { get; set; }
         public bool? LoadOrderInPluginDirectory { get; set; }
         public bool? ShowStarfieldCustomPluginsHeader { get; set; }
         public List<GameModePluginExtensionPolicyDefinition> Extensions { get; set; } = new List<GameModePluginExtensionPolicyDefinition>();

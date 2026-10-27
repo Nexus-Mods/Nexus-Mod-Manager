@@ -38,6 +38,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private IBackgroundTask ExternalTask = null;
 		private string m_strLastWriteError = null;
 		private bool Fallout4PluginManagement = false;
+		private bool m_booUseStarfieldActivationRules;
 		private bool StarFieldCustomPluginsMessage = false;
 		private bool OblivionRemasteredPluginManagement = false;
 		private string ActiveMarker = "*";
@@ -520,6 +521,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			if (policy == null)
 				return;
+			m_booUseStarfieldActivationRules = policy.UseStarfieldActivationRules;
 
 			string strategy = String.IsNullOrWhiteSpace(policy.PersistenceStrategy)
 				? "legacy"
@@ -988,7 +990,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						if (intPlugins == intDisabled)
 							ObsoleteConfigFiles = true;
 
-					string[] existingActivePlugins = RemoveNonExistentPlugins(lstActivePlugins.ToArray());
+					string[] existingActivePlugins = ResolveGameManagedActivation(RemoveNonExistentPlugins(lstActivePlugins.ToArray()));
 					m_lstActivePlugins = existingActivePlugins.ToList();
 					LastValidActiveList = existingActivePlugins.ToList();
 					UpdateActivePluginCache(existingActivePlugins);
@@ -1003,13 +1005,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				string[] strActivePlugins;
 				if (LastValidActiveList.Count > 0)
 				{
-					strActivePlugins = RemoveNonExistentPlugins(LastValidActiveList.ToArray());
+					strActivePlugins = ResolveGameManagedActivation(RemoveNonExistentPlugins(LastValidActiveList.ToArray()));
 					if (booReady == null)
 						SetActivePlugins(strActivePlugins);
 				}
 				else
 				{
-					strActivePlugins = RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray());
+					strActivePlugins = ResolveGameManagedActivation(RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()));
 					if (booReady == null)
 						SetActivePlugins(strActivePlugins);
 				}
@@ -1021,7 +1023,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				}
 			}
 
-			string[] criticalPlugins = GameMode.OrderedCriticalPluginNames ?? new string[0];
+			string[] criticalPlugins = ResolveGameManagedActivation(GameMode.OrderedCriticalPluginNames ?? new string[0]);
 			UpdateActivePluginCache(criticalPlugins);
 			return criticalPlugins;
 		}
@@ -1086,15 +1088,28 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						}
 					}
 
-					return lstActivePlugins;
+					return ResolveGameManagedActivation(lstActivePlugins).ToList();
 				}
 				catch { }
 			}
 
 			if (LastValidActiveList.Count > 0)
-				return LastValidActiveList;
+				return ResolveGameManagedActivation(LastValidActiveList).ToList();
 			else
-				return RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray()).ToList();
+				return ResolveGameManagedActivation(RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray())).ToList();
+		}
+
+		/// <summary>Reconstructs Starfield's effective activation from installed plugins and their parent state.</summary>
+		private string[] ResolveGameManagedActivation(IEnumerable<string> requested)
+		{
+			if (!m_booUseStarfieldActivationRules) return requested.ToArray();
+			PluginManagementPolicy policy = GameMode.PluginManagementPolicy;
+			string[] extensions = { ".esm", ".esp", ".esl" };
+			string[] installed = Directory.Exists(GameMode.PluginDirectory) ? Directory.GetFiles(GameMode.PluginDirectory)
+				.Where(path => extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)).ToArray()
+				: new string[0];
+			HashSet<string> activeNames = policy.ResolveActivePluginNames(installed, requested);
+			return installed.Where(path => activeNames.Contains(Path.GetFileName(path))).ToArray();
 		}
 
 		/// <summary>
@@ -1103,6 +1118,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="p_strActivePlugins">The list of plugins to set as active.</param>
 		public void SetActivePlugins(string[] p_strActivePlugins)
 		{
+			p_strActivePlugins = ResolveGameManagedActivation(p_strActivePlugins);
 			LastValidActiveList = p_strActivePlugins.ToList();
 			SetActivePluginsTask(p_strActivePlugins);
 		}
@@ -1118,6 +1134,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			if (p_strActivePlugins == null)
 				return;
 
+			p_strActivePlugins = ResolveGameManagedActivation(p_strActivePlugins);
 			strActivePluginNames = StripPluginDirectory(p_strActivePlugins);
 
 			UpdateActivePluginCache(strActivePluginNames);
@@ -1136,6 +1153,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					else
 						strPlugins = StripPluginDirectory((LastValidLoadOrder.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 
+					PluginManagementPolicy policy = m_booUseStarfieldActivationRules ? GameMode.PluginManagementPolicy : null;
+					if (policy != null)
+						strPlugins = strPlugins.Where(name => !policy.IsPluginActivationManagedByGame(name)).ToArray();
 					offset = 2;
 					strOrderedPluginNames = new string[(strPlugins.Count() + offset)];
 					if (StarFieldCustomPluginsMessage)
@@ -1416,6 +1436,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					else
 						strOrderedPluginNames = StripPluginDirectory((strOrderedPluginNames.Except(GameMode.OrderedCriticalPluginNames)).ToArray());
 
+					PluginManagementPolicy policy = m_booUseStarfieldActivationRules ? GameMode.PluginManagementPolicy : null;
+					if (policy != null)
+						strOrderedPluginNames = strOrderedPluginNames.Where(name => !policy.IsPluginActivationManagedByGame(name)).ToArray();
 					offset = 2;
 					strPluginNames = new string[(strOrderedPluginNames.Count() + offset)];
 					strPluginNames[0] = "# This file is used by the game to keep track of your downloaded content.";
@@ -1496,7 +1519,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					return true;
 			}
 
-			if (Fallout4PluginManagement)
+			if (Fallout4PluginManagement && !(m_booUseStarfieldActivationRules && GameMode.PluginManagementPolicy.IsImplicitBlueprintShipsPlugin(strPlugin)))
 			{
 				if (OrderedCriticalPluginNames.Concat(StripPluginDirectory(GameMode.OrderedOfficialUnmanagedPluginNames)).Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
 					return true;

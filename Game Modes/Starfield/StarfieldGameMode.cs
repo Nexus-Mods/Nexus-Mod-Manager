@@ -181,6 +181,7 @@ namespace Nexus.Client.Games.Starfield
 			get
 			{
 				PluginManagementPolicy policy = base.PluginManagementPolicy;
+				policy.UseStarfieldActivationRules = true;
 				policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000400, PluginHeaderFlags.Medium));
 				policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000800, PluginHeaderFlags.Small));
 				policy.AddBlueprintPluginPrefix("BlueprintShips-");

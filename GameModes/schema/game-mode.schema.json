@@ -1089,6 +1089,9 @@
         "officialPluginsAreImplicitlyActive": {
           "type": "boolean"
         },
+        "useStarfieldActivationRules": {
+          "type": "boolean"
+        },
         "loadOrderInPluginDirectory": {
           "type": "boolean"
         },

@@ -195,6 +195,8 @@ namespace Nexus.Client.PluginManagement
         public bool? ForcedReadOnly { get; set; }
         public bool? SingleFileManagement { get; set; }
         public bool? OfficialPluginsAreImplicitlyActive { get; set; }
+        /// <summary>Enables Starfield's game-owned official activation and parent-controlled BlueprintShips state.</summary>
+        public bool UseStarfieldActivationRules { get; set; }
         public bool? LoadOrderInPluginDirectory { get; set; }
         public bool? ShowStarfieldCustomPluginsHeader { get; set; }
 
@@ -357,6 +359,67 @@ namespace Nexus.Client.PluginManagement
         public bool IsForcedActivePlugin(string pluginName)
         {
             return ContainsPluginName(m_setForcedActivePlugins, pluginName);
+        }
+
+        /// <summary>Identifies activation controlled by Starfield, independently of plugin ordering permissions.</summary>
+        public bool IsPluginActivationManagedByGame(string pluginName)
+        {
+            return UseStarfieldActivationRules && (IsOfficialPlugin(pluginName) || IsCriticalPlugin(pluginName) ||
+                IsForcedActivePlugin(pluginName) || IsImplicitBlueprintShipsPlugin(pluginName));
+        }
+
+        /// <summary>Identifies supported parent-controlled ship blueprints by filename rather than the Blueprint header flag.</summary>
+        public bool IsImplicitBlueprintShipsPlugin(string pluginName)
+        {
+            return GetBlueprintShipsParentName(pluginName) != null;
+        }
+
+        /// <summary>Resolves the effective active filenames while ignoring independent blueprint activation requests.</summary>
+        public HashSet<string> ResolveActivePluginNames(IEnumerable<string> installedPlugins, IEnumerable<string> requestedActivePlugins)
+        {
+            var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in requestedActivePlugins ?? new string[0])
+            {
+                string name = NormalizePluginName(path);
+                if (!String.IsNullOrEmpty(name) && !IsImplicitBlueprintShipsPlugin(name)) active.Add(name);
+            }
+            if (!UseStarfieldActivationRules) return active;
+
+            var blueprints = new List<string>();
+            var installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string path in installedPlugins ?? new string[0])
+            {
+                string name = NormalizePluginName(path);
+                if (String.IsNullOrEmpty(name)) continue;
+                installed.Add(name);
+                if (IsImplicitBlueprintShipsPlugin(name)) blueprints.Add(name);
+                else if (IsOfficialPlugin(name) || IsCriticalPlugin(name) || IsForcedActivePlugin(name)) active.Add(name);
+            }
+
+            bool changed;
+            do
+            {
+                changed = false;
+                foreach (string blueprint in blueprints)
+                {
+                    string parent = GetBlueprintShipsParentName(blueprint);
+                    if (((active.Contains(parent + ".esm") && installed.Contains(parent + ".esm")) ||
+                        (active.Contains(parent + ".esp") && installed.Contains(parent + ".esp")) ||
+                        (active.Contains(parent + ".esl") && installed.Contains(parent + ".esl"))) &&
+                        active.Add(blueprint)) changed = true;
+                }
+            } while (changed);
+            return active;
+        }
+
+        /// <summary>Extracts the parent basename only when this game opts into the BlueprintShips filename rule.</summary>
+        private string GetBlueprintShipsParentName(string pluginName)
+        {
+            const string prefix = "BlueprintShips-";
+            string name = NormalizePluginName(pluginName);
+            return UseStarfieldActivationRules && !String.IsNullOrEmpty(name) && name.Length > prefix.Length + 4 &&
+                name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".esm", StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(prefix.Length, name.Length - prefix.Length - 4) : null;
         }
 
         /// <summary>Preserves Starfield's final Blueprint section when a legacy ordinary plugin lists a Blueprint master.</summary>

@@ -221,8 +221,30 @@ namespace Nexus.Client.PluginManagement
 			return m_psbSnapshotBuilder.Build(
 				Policy,
 				p_lstOrderedPlugins,
-				p_setActivePlugins,
+				ResolveGameManagedActivation(p_lstOrderedPlugins, p_setActivePlugins),
 				p_prmRestrictionMode);
+		}
+
+		/// <summary>Derives game-controlled activation before validation or persistence without changing ordering permissions.</summary>
+		private ISet<Plugin> ResolveGameManagedActivation(IList<Plugin> installed, ISet<Plugin> requested)
+		{
+			PluginManagementPolicy policy = Policy;
+			if (!policy.UseStarfieldActivationRules) return requested;
+			HashSet<string> activeNames = policy.ResolveActivePluginNames(installed.Where(x => x != null).Select(x => x.Filename),
+				(requested ?? new HashSet<Plugin>()).Where(x => x != null).Select(x => x.Filename));
+			return new HashSet<Plugin>(installed.Where(x => x != null && activeNames.Contains(Path.GetFileName(x.Filename))), PluginComparer.Filename);
+		}
+
+		/// <summary>Refreshes derived activation inside an existing registration transaction without validating an incomplete install.</summary>
+		private void RefreshGameManagedActivation()
+		{
+			if (!Policy.UseStarfieldActivationRules) return;
+			var current = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			ISet<Plugin> effective = ResolveGameManagedActivation(new List<Plugin>(PluginOrderLog.OrderedPlugins), current);
+			List<Plugin> removed = current.Where(x => !effective.Contains(x)).ToList();
+			List<Plugin> added = effective.Where(x => !current.Contains(x)).ToList();
+			if (removed.Count > 0) ActivePluginLog.DeactivatePlugins(removed);
+			if (added.Count > 0) ActivePluginLog.ActivatePlugins(added);
 		}
 
 		/// <summary>
@@ -479,6 +501,7 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		private void ApplyValidatedPluginState(IList<Plugin> p_lstCorrectedOrder, ISet<Plugin> p_setDesiredActivePlugins, PluginSnapshot p_psnSnapshot)
 		{
+			p_setDesiredActivePlugins = ResolveGameManagedActivation(p_lstCorrectedOrder, p_setDesiredActivePlugins);
 			HashSet<Plugin> currentActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
 			bool orderChanged = !PluginOrdersEqual(PluginOrderLog.OrderedPlugins, p_lstCorrectedOrder);
 			List<Plugin> pluginsToDeactivate = currentActivePlugins.Where(x => !p_setDesiredActivePlugins.Contains(x)).ToList();
@@ -1184,6 +1207,7 @@ namespace Nexus.Client.PluginManagement
 					}
 				}
 
+				RefreshGameManagedActivation();
 				registrationTransaction.Complete();
 			}
 			finally
@@ -1286,6 +1310,7 @@ namespace Nexus.Client.PluginManagement
 				ActivePluginLog.DeactivatePlugins(plugins);
 				PluginOrderLog.RemovePlugins(plugins);
 				ManagedPluginRegistry.UnregisterPlugins(plugins);
+				RefreshGameManagedActivation();
 
 				tsTransaction.Complete();
 			}
@@ -1467,7 +1492,7 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool CanChangeActiveState(Plugin p_plgPlugin)
 		{
-			return p_plgPlugin != null && !IsProtectedPlugin(p_plgPlugin);
+			return p_plgPlugin != null && !IsProtectedPlugin(p_plgPlugin) && !Policy.IsPluginActivationManagedByGame(p_plgPlugin.Filename);
 		}
 
 		public bool CanChangePluginOrder(Plugin p_plgPlugin)
