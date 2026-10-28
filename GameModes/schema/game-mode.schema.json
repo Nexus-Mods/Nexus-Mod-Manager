@@ -146,6 +146,29 @@
       "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
       "then": { "required": ["game"] }
     },
+    "loadOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional read-only package inventory capability. Does not enable order publication or change installation ownership. Enabled declarations require compatible structuredEffects module records; runtime validation checks their shape.",
+      "required": ["schemaVersion", "enabled", "provider", "revision", "packageRoot", "profileSource", "directoryPolicy"],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "enabled": { "type": "boolean" },
+        "provider": { "type": "string", "const": "larian-module-settings-v1" },
+        "revision": { "type": "integer", "const": 1 },
+        "packageRoot": { "type": "string", "const": "ManagedInstallation" },
+        "profileSource": { "type": "string", "const": "structuredEffects" },
+        "directoryPolicy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowedExtensions", "allowSubdirectories"],
+          "properties": {
+            "allowedExtensions": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "pattern": "^\\.[pP][aA][kK]$" } },
+            "allowSubdirectories": { "type": "boolean", "const": false }
+          }
+        }
+      }
+    },
     "storage": {
       "$ref": "#/$defs/storage"
     },

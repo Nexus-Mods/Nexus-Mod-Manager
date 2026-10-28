@@ -179,8 +179,70 @@ ORDER BY CASE WHEN nexus_revision_number IS NULL THEN 1 ELSE 0 END, nexus_revisi
 			});
 		}
 
+		/// <summary>Lists saved library records while retaining removed records for internal journal references.</summary>
+		internal IReadOnlyList<CollectionDefinition> GetLibraryDefinitions()
+		{
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var definitions = new List<CollectionDefinition>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT origin, collection_id, display_name, author_display_name, summary FROM collections c
+WHERE NOT EXISTS (SELECT 1 FROM store_metadata m
+    WHERE m.key = 'library.removed/' || c.origin || '/' || c.collection_id)
+ORDER BY origin, collection_id;";
+					using (SQLiteDataReader reader = command.ExecuteReader())
+						while (reader.Read()) definitions.Add(ReadDefinition(reader));
+				}
+				return definitions;
+			});
+		}
+
+		/// <summary>Removes a saved library record after its active tracking and unfinished work have been resolved.</summary>
+		/// <remarks>Journal, revision and retained-source rows remain valid; no native files or downloaded archives are deleted.</remarks>
+		internal void RemoveLibraryRecord(CollectionIdentity collection)
+		{
+			if (collection == null) throw new ArgumentNullException(nameof(collection));
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				RequireDefinition(connection, transaction, collection);
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					AddCollectionIdentityParameters(command, collection);
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					command.CommandText = @"
+SELECT EXISTS (SELECT 1 FROM target_associations WHERE origin=@origin AND collection_id=@collection_id)
+    OR EXISTS (SELECT 1 FROM collection_operations WHERE origin=@origin AND collection_id=@collection_id
+        AND phase<>@completed);";
+					if (Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture) != 0)
+						throw new InvalidOperationException(Nexus.Client.Util.Localization.LanguageManager.Get("Collections.Library.RemoveNeedsRecovery",
+							"Resolve this Collection's active tracking or interrupted installation before removing its saved record. Use Uninstall Collection to choose which mods to keep."));
+					command.Parameters.AddWithValue("@key", GetLibraryRemovalKey(collection));
+					command.CommandText = "INSERT OR REPLACE INTO store_metadata (key, value) VALUES (@key, '1');";
+					command.ExecuteNonQuery();
+				}
+			});
+		}
+
+		/// <summary>Builds the version-independent saved-library removal marker without changing catalog identities.</summary>
+		private static string GetLibraryRemovalKey(CollectionIdentity collection)
+		{
+			return "library.removed/" + ((int)collection.Origin).ToString(CultureInfo.InvariantCulture) + "/" + collection.StableId;
+		}
+
 		internal static void SaveDefinition(SQLiteConnection connection, SQLiteTransaction transaction, CollectionDefinition definition)
 		{
+			// An explicit import or definition save makes a previously removed Collection available again.
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "DELETE FROM store_metadata WHERE key=@key;";
+				command.Parameters.AddWithValue("@key", GetLibraryRemovalKey(definition.Identity));
+				command.ExecuteNonQuery();
+			}
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
 				command.Transaction = transaction;

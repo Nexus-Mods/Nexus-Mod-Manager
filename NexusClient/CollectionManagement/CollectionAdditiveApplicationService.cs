@@ -31,6 +31,8 @@ namespace Nexus.Client.CollectionManagement
 		private readonly GameStorageService _gameStorageService;
 		private readonly INexusCollectionsProvider _provider;
 		private readonly CollectionsStore _store;
+		private readonly CollectionOptionalSelectionStore _optionalSelections;
+		private string _optionalSelectionTarget;
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionsNexusLocatorStore _nexusLocatorStore;
@@ -56,6 +58,7 @@ namespace Nexus.Client.CollectionManagement
 
 			GameStoragePathSet paths = GetTargetPaths();
 			_store = new CollectionsStore(paths);
+			_optionalSelections = new CollectionOptionalSelectionStore(_store.StoreDirectory);
 			_catalogStore = new CollectionsCatalogStore(_store);
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
 			_nexusLocatorStore = new CollectionsNexusLocatorStore(_store);
@@ -64,6 +67,24 @@ namespace Nexus.Client.CollectionManagement
 			_conflictResolutionCoordinator = new CollectionConflictResolutionCoordinator(new CollectionsConflictResolutionStore(_store));
 			SetupPackages = new CollectionSetupPackageService(_services, _gameStorageService, _store);
 			_workflow = BuildWorkflow(paths);
+		}
+
+		/// <summary>Loads unapproved optional-member decisions before the incoming checklist is displayed.</summary>
+		internal IReadOnlyList<CollectionOptionalMemberSelection> LoadOptionalSelections(NexusCollectionPreviewSnapshot snapshot)
+		{
+			return _optionalSelections.Load(GetOptionalSelectionTarget(), snapshot.CapabilityReport.Manifest);
+		}
+
+		/// <summary>Saves checkbox intent independently of downloads, preparation success or installation approval.</summary>
+		internal void SaveOptionalSelections(NexusCollectionPreviewSnapshot snapshot, IEnumerable<CollectionOptionalMemberSelection> selections)
+		{
+			_optionalSelections.Save(GetOptionalSelectionTarget(), snapshot.CapabilityReport.Manifest, selections);
+		}
+
+		/// <summary>Resolves stable game/storage authority once per active service, avoiding filesystem scans for every checkbox.</summary>
+		private string GetOptionalSelectionTarget()
+		{
+			return _optionalSelectionTarget ?? (_optionalSelectionTarget = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths()).Target.Fingerprint);
 		}
 
 		/// <summary>Signals a library change after user-driven or authorized archive import.</summary>

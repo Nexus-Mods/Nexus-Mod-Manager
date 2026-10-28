@@ -58,6 +58,18 @@
   "settings": {
     "useGenericSettings": true
   },
+  "loadOrder": {
+    "schemaVersion": 1,
+    "enabled": true,
+    "provider": "larian-module-settings-v1",
+    "revision": 1,
+    "packageRoot": "ManagedInstallation",
+    "profileSource": "structuredEffects",
+    "directoryPolicy": {
+      "allowedExtensions": [ ".pak" ],
+      "allowSubdirectories": false
+    }
+  },
   "structuredEffects": {
     "schemaVersion": 1,
     "provider": "profiled-attribute-records-v1",

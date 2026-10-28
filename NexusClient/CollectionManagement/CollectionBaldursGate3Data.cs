@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml;
+using Nexus.Client.Mods;
 using Newtonsoft.Json.Linq;
 using Nexus.Client.ModManagement;
 
@@ -37,15 +39,65 @@ namespace Nexus.Client.CollectionManagement
 			return order;
 		}
 
+		/// <summary>Maps declared secondary packages before native extension filtering, retaining non-loadable companions separately.</summary>
+		internal static IEnumerable<KeyValuePair<string, string>> GetBasicInstallFiles(IMod mod, string type, string companionKey)
+		{
+			List<string> files = mod.GetFileList() ?? new List<string>();
+			if (IsCompanionArchive(mod, files))
+			{
+				if (String.IsNullOrWhiteSpace(companionKey)) throw new InvalidDataException("BG3 companion content requires a stable artifact identity.");
+				string key = new string(companionKey.Select(character => Char.IsLetterOrDigit(character) || character == '-' || character == '_' ? character : '_').ToArray());
+				return files.Select(path => new KeyValuePair<string, string>(path,
+					@"Data\NMM Collection Companions\" + key + "\\" + path.Replace('/', '\\'))).ToArray();
+			}
+			if (!IsSecondaryType(type)) return null;
+			var recipe = new ModInstallationSimpleFileRecipe(files.Select(path => new ModInstallationSimpleFileMapping(path, path)));
+			return MapFiles(recipe, type, files).Mappings.Select(mapping =>
+				new KeyValuePair<string, string>(mapping.SourcePath, mapping.DestinationPath)).ToArray();
+		}
+
+		/// <summary>Recognizes standalone tools, unopened archive alternatives and exported module-settings documents; never activates them.</summary>
+		private static bool IsCompanionArchive(IMod mod, IList<string> files)
+		{
+			if (files.Count == 0 || files.Any(path => Path.GetExtension(path).Equals(".pak", StringComparison.OrdinalIgnoreCase))) return false;
+			// Standalone tools can contain Public/Data templates; retain their complete tree before looking for game anchors.
+			int shallowestFile = files.Min(path => path.Replace('/', '\\').Split('\\').Length);
+			if (files.Any(path => Path.GetExtension(path).Equals(".py", StringComparison.OrdinalIgnoreCase) &&
+				path.Replace('/', '\\').Split('\\').Length == shallowestFile)) return true;
+			bool hasNativeContent = files.Any(path => path.Replace('/', '\\').Split('\\').Any(part =>
+				part.Equals("Data", StringComparison.OrdinalIgnoreCase) || part.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+				part.Equals("Public", StringComparison.OrdinalIgnoreCase) || part.Equals("Generated", StringComparison.OrdinalIgnoreCase)));
+			if (hasNativeContent) return false;
+			List<string> payloads = files.Where(path => !Readme.IsDocumentationFile(path) && !ModInstallFileFilter.IsIgnored(path)).ToList();
+			if (payloads.Count > 0 && payloads.All(path => new[] { ".zip", ".7z", ".rar" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)))
+				return true;
+			if (payloads.Count != 1 || !Path.GetExtension(payloads[0]).Equals(".lsx", StringComparison.OrdinalIgnoreCase)) return false;
+			byte[] data = mod.GetFile(payloads[0]);
+			if (data == null || data.Length > 16 * 1024 * 1024) return false;
+			var document = new XmlDocument { XmlResolver = null };
+			try
+			{
+				using (var stream = new MemoryStream(data, false))
+				using (XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 16 * 1024 * 1024 }))
+					document.Load(reader);
+				return document.DocumentElement?.Name == "save" && document.SelectSingleNode("/save/region[@id='ModuleSettings']//node[@id='Mods']") != null;
+			}
+			catch (XmlException) { return false; }
+		}
+
+		/// <summary>Identifies curator types that deploy outside the user's pak directory.</summary>
+		internal static bool IsSecondaryType(string type) => type == "bg3-loose" || type == "bg3-replacer" || type == "bg3-bg3se" || type == "dinput";
+
 		/// <summary>Maps a Vortex package root onto BG3's existing Data/bin secondary deployment paths.</summary>
 		internal static ModInstallationSimpleFileRecipe MapFiles(ModInstallationSimpleFileRecipe recipe, string type, IEnumerable<string> archiveFiles)
 		{
-			if (type != "bg3-loose" && type != "bg3-replacer" && type != "bg3-bg3se" && type != "dinput") return recipe;
+			if (!IsSecondaryType(type)) return recipe;
 			bool extenderInstaller = UsesExtenderInstaller(type, archiveFiles);
 			var mappings = new List<ModInstallationSimpleFileMapping>();
 			foreach (ModInstallationSimpleFileMapping mapping in recipe.Mappings)
 			{
-				string destination = MapDestination(mapping.DestinationPath, type, extenderInstaller);
+				string destination = mapping.DestinationPath.StartsWith(@"Data\NMM Collection Companions\", StringComparison.OrdinalIgnoreCase)
+					? mapping.DestinationPath : MapDestination(mapping.DestinationPath, type, extenderInstaller);
 				if (destination != null) mappings.Add(new ModInstallationSimpleFileMapping(mapping.SourcePath, destination));
 			}
 			return new ModInstallationSimpleFileRecipe(mappings, true);
@@ -58,7 +110,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Prefixes native secondary roots once and preserves the selected package-relative path.</summary>
 		internal static string MapDestination(string destination, string type, bool extenderInstaller)
 		{
-			if (type != "bg3-loose" && type != "bg3-replacer" && type != "bg3-bg3se" && type != "dinput") return destination;
+			if (!IsSecondaryType(type)) return destination;
 			string path = destination.Replace('/', '\\');
 			if (extenderInstaller)
 			{
@@ -67,7 +119,9 @@ namespace Nexus.Client.CollectionManagement
 			}
 			string root = type == "bg3-loose" || type == "bg3-replacer" ? "Data" : "bin";
 			string[] parts = path.Split('\\');
-			int content = root == "Data" ? Array.FindIndex(parts, part => part.Equals("Public", StringComparison.OrdinalIgnoreCase) || part.Equals("Generated", StringComparison.OrdinalIgnoreCase)) : -1;
+			int content = root == "Data" ? Array.FindIndex(parts, part => part.Equals("Public", StringComparison.OrdinalIgnoreCase) ||
+				part.Equals("Generated", StringComparison.OrdinalIgnoreCase) || part.Equals("Mods", StringComparison.OrdinalIgnoreCase) ||
+				part.Equals("Localization", StringComparison.OrdinalIgnoreCase)) : -1;
 			int rootIndex = Array.FindIndex(parts, part => part.Equals(root, StringComparison.OrdinalIgnoreCase));
 			if (content >= 0) path = String.Join("\\", parts.Skip(content));
 			else if (rootIndex >= 0) path = String.Join("\\", parts.Skip(rootIndex + 1));

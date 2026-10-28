@@ -179,4 +179,109 @@ namespace Nexus.Client.CollectionManagement
 			public List<ModInstallationFomodStepSelection> Steps { get; set; }
 		}
 	}
+	/// <summary>Atomically retains unapproved optional-member choices independently from installation review and wizard caches.</summary>
+	internal sealed class CollectionOptionalSelectionStore
+	{
+		private const string Format = "nmm-ce.collections.optional-selection/1";
+		private readonly string _directory;
+
+		/// <summary>Uses the active Collection storage directory; construction and reads never create preference files.</summary>
+		internal CollectionOptionalSelectionStore(string collectionDirectory)
+		{
+			_directory = Path.Combine(collectionDirectory, "OptionalSelections");
+		}
+
+		/// <summary>Restores validated optional decisions for this exact target, revision and manifest content.</summary>
+		internal IReadOnlyList<CollectionOptionalMemberSelection> Load(string targetFingerprint, NormalizedCollectionManifest manifest)
+		{
+			string binding = GetBinding(targetFingerprint, manifest);
+			string path = Path.Combine(_directory, binding + ".json");
+			if (!File.Exists(path)) return new CollectionOptionalMemberSelection[0];
+			if (new FileInfo(path).Length > 4 * 1024 * 1024) throw new InvalidDataException("The saved optional selection is too large.");
+			OptionalDocument document;
+			try { document = JsonConvert.DeserializeObject<OptionalDocument>(File.ReadAllText(path, Encoding.UTF8)); }
+			catch (JsonException error) { throw new InvalidDataException("The saved optional selection is invalid.", error); }
+			if (document == null || document.Format != Format || document.Binding != binding || document.Choices == null)
+				throw new InvalidDataException("The saved optional selection does not match this Collection.");
+			Dictionary<string, CollectionMemberKey> optional = OptionalKeys(manifest);
+			if (document.Choices.Count > optional.Count) throw new InvalidDataException("The saved optional selection contains unexpected members.");
+			var seen = new HashSet<string>(StringComparer.Ordinal);
+			var result = new List<CollectionOptionalMemberSelection>();
+			foreach (OptionalChoice choice in document.Choices)
+			{
+				CollectionMemberKey key;
+				if (choice == null || choice.Key == null || !seen.Add(choice.Key) || !optional.TryGetValue(choice.Key, out key) ||
+					(choice.Selection != CollectionMemberSelection.Selected && choice.Selection != CollectionMemberSelection.Unselected))
+					throw new InvalidDataException("The saved optional selection contains an invalid or duplicate decision.");
+				result.Add(new CollectionOptionalMemberSelection(key, choice.Selection));
+			}
+			return result.AsReadOnly();
+		}
+
+		/// <summary>Writes only explicit optional decisions; atomic replacement preserves the previous draft on interrupted saves.</summary>
+		internal void Save(string targetFingerprint, NormalizedCollectionManifest manifest, IEnumerable<CollectionOptionalMemberSelection> selections)
+		{
+			string binding = GetBinding(targetFingerprint, manifest);
+			Dictionary<string, CollectionMemberKey> optional = OptionalKeys(manifest);
+			var seen = new HashSet<string>(StringComparer.Ordinal);
+			var choices = new List<OptionalChoice>();
+			foreach (CollectionOptionalMemberSelection selection in selections)
+			{
+				if (selection == null || !optional.ContainsKey(selection.MemberKey.ToString()) || !seen.Add(selection.MemberKey.ToString()))
+					throw new ArgumentException("Only unique optional-member decisions can be saved.", nameof(selections));
+				choices.Add(new OptionalChoice { Key = selection.MemberKey.ToString(), Selection = selection.Selection });
+			}
+			var document = new OptionalDocument { Format = Format, Binding = binding, Choices = choices.OrderBy(choice => choice.Key, StringComparer.Ordinal).ToList() };
+			byte[] data = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(document));
+			if (data.Length > 4 * 1024 * 1024) throw new InvalidDataException("The optional selection is too large to save.");
+			Directory.CreateDirectory(_directory);
+			string path = Path.Combine(_directory, binding + ".json");
+			string temporary = path + ".tmp-" + Guid.NewGuid().ToString("N");
+			try
+			{
+				using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				{
+					stream.Write(data, 0, data.Length);
+					stream.Flush(true);
+				}
+				if (File.Exists(path)) File.Replace(temporary, path, null);
+				else File.Move(temporary, path);
+			}
+			finally
+			{
+				if (File.Exists(temporary)) File.Delete(temporary);
+			}
+		}
+
+		/// <summary>Includes the target and immutable manifest digest while leaving normalizer upgrades free to preserve user intent.</summary>
+		private static string GetBinding(string targetFingerprint, NormalizedCollectionManifest manifest)
+		{
+			if (manifest == null) throw new ArgumentNullException(nameof(manifest));
+			if (String.IsNullOrWhiteSpace(targetFingerprint)) throw new ArgumentException("A Collection target is required.", nameof(targetFingerprint));
+			string value = String.Join("\0", Format, targetFingerprint, manifest.Revision.ToString(), manifest.Source.ContentHash.Value);
+			using (SHA256 sha = SHA256.Create())
+				return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(value))).Replace("-", String.Empty).ToLowerInvariant();
+		}
+
+		/// <summary>Required and unresolved members cannot be changed by persisted optional preferences.</summary>
+		private static Dictionary<string, CollectionMemberKey> OptionalKeys(NormalizedCollectionManifest manifest) => manifest.Members
+			.Where(member => member.Requirement == CollectionMemberRequirement.Optional && member.IdentityResolution.IsResolved)
+			.ToDictionary(member => member.IdentityResolution.Key.ToString(), member => member.IdentityResolution.Key, StringComparer.Ordinal);
+
+		/// <summary>Versioned draft preferences; these records are never an approved native installation plan.</summary>
+		private sealed class OptionalDocument
+		{
+			public string Format { get; set; }
+			public string Binding { get; set; }
+			public List<OptionalChoice> Choices { get; set; }
+		}
+
+		/// <summary>One explicit checkbox decision bound to a stable optional-member key.</summary>
+		private sealed class OptionalChoice
+		{
+			public string Key { get; set; }
+			public CollectionMemberSelection Selection { get; set; }
+		}
+	}
+
 }

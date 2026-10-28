@@ -42,6 +42,7 @@ namespace Nexus.Client.Games.DataDriven
         public GameModeStructuredEffectsDefinition StructuredEffects { get; set; }
         public GameModeRuntimePolicy Runtime { get; set; }
         public GameModePackageFilesDefinition PackageFiles { get; set; }
+        public GameModeLoadOrderDefinition LoadOrder { get; set; }
         public List<string> CompatibilityNotes { get; set; } = new List<string>();
 
         [JsonIgnore]

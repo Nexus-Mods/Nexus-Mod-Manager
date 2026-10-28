@@ -250,12 +250,8 @@
     <Compile Include="CollectionManagement\UI\CollectionSetupPackageReviewDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Setup.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Presentation.cs">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Setup.cs" />
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Presentation.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildRestartReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildRestartReconciliationCoordinator.WitcherRecovery.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildVerificationCoordinator.cs" />
@@ -449,9 +445,7 @@
     <Compile Include="Wabbajack\WabbajackDownloadTask.cs" />
     <Compile Include="Wabbajack\WabbajackDownloadQueue.cs" />
     <Compile Include="ModManagement\ModManager.Wabbajack.cs" />
-    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Wabbajack.cs">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.Wabbajack.cs" />
     <Compile Include="Wabbajack\UI\WabbajackGalleryControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -642,6 +636,12 @@
     <Compile Include="ModManagement\ManagedContent\StructuredXmlRecordStore.cs" />
     <Compile Include="ModManagement\ManagedContent\BaldursGate3CollectionRecordStore.cs" />
     <Compile Include="ModManagement\ManagedContent\StructuredGameSpecificValueInstaller.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderCapability.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderInventory.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderPackageDirectoryScanner.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderProviderRegistry.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianPackageInspectionProtocol.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianPackageInspectorClient.cs" />
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
     <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs">
       <SubType>Form</SubType>
@@ -1463,6 +1463,7 @@
     <Compile Include="Games\DataDriven\BaldursGate3DefinitionPolicy.cs" />
     <Compile Include="Games\DataDriven\GameModeManagedContentDefinition.cs" />
     <Compile Include="Games\DataDriven\GameModeStructuredEffectsDefinition.cs" />
+    <Compile Include="Games\DataDriven\GameModeLoadOrderDefinition.cs" />
     <Compile Include="Games\DataDriven\DataDrivenManagedContentGameMode.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionLoader.cs" />
     <Compile Include="Games\DataDriven\GameModeDefinitionLoadResult.cs" />

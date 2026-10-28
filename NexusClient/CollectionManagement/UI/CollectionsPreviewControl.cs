@@ -64,6 +64,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly SimpleButton _editLocalWorkingCopyButton;
 		private readonly SimpleButton _saveLocalWorkingCopyRevisionButton;
 		private readonly ComboBoxEdit _managedAssociationCombo;
+		private readonly SimpleButton _removeLibraryRecordButton;
 		private readonly SimpleButton _manageAssociationRemovalButton;
 		private readonly SimpleButton _compareUpdateButton;
 		private readonly SimpleButton _verifyRepairButton;
@@ -233,6 +234,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Dictionary<CollectionMemberKey, CollectionMemberSelection> _inheritedRevisionOptionalSelections =
 			new Dictionary<CollectionMemberKey, CollectionMemberSelection>();
 		private NexusCollectionPreviewSnapshot _inheritedRevisionPreview;
+		private string _restoredOptionalSelectionBinding;
+		private string _optionalSelectionPersistenceWarning;
 		private Guid? _inheritedRevisionAssociationId;
 		private CollectionRevisionIdentity _inheritedInstalledRevision;
 		private readonly System.Windows.Forms.Timer _acquisitionRefreshTimer;
@@ -476,6 +479,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			_managedAssociationCombo.Properties.PopupFormWidth = 700;
 			_managedAssociationCombo.Properties.NullText = L("Collections.Library.Empty", "No saved Collections");
 			_managedAssociationCombo.SelectedIndexChanged += ManagedAssociationCombo_SelectedIndexChanged;
+			_removeLibraryRecordButton = new SimpleButton
+			{
+				AutoSize = true,
+				Text = L("Collections.Library.RemoveRecord", "Remove Collection record..."),
+				Enabled = false
+			};
+			_removeLibraryRecordButton.Click += RemoveLibraryRecordButton_Click;
+			NmmIconProvider.BindDialogButton(_removeLibraryRecordButton, NmmIconAction.Delete);
 			_manageAssociationRemovalButton = new SimpleButton
 			{
 				AutoSize = true,
@@ -674,7 +685,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_localWorkingCopyCombo, _editLocalWorkingCopyButton, _saveLocalWorkingCopyRevisionButton);
 			InitializeCollectionToolbar();
 			Control installedActions = CreateActionGroup(L("Collections.Library.Title", "Collections"),
-				_managedAssociationCombo, _compareUpdateButton, _verifyRepairButton, _moreCollectionActionsButton, _installationOptionsButton, _installationOptionsSummary);
+				_managedAssociationCombo, _removeLibraryRecordButton, _compareUpdateButton, _verifyRepairButton, _moreCollectionActionsButton, _installationOptionsButton, _installationOptionsSummary);
 			installedActions.Controls[0].Visible = false;
 			_installedGroup = new CollectionSectionGroup(L("Collections.Library.Title", "Collections"), installedActions) {
 				ShowCaption = false, BorderStyle = BorderStyles.NoBorder, Padding = new Padding(0, 0, 0, 6) };
@@ -1212,7 +1223,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 
 			DetachDispatcher();
-			_keepCollectionSelectionEmpty = false;
+			_keepCollectionSelectionEmpty = true;
 			_completedRemovalReport = null;
 			_completedRemovalItems = new CollectionReviewItem[0];
 			CancelPreviewWork();
@@ -3643,6 +3654,51 @@ namespace Nexus.Client.CollectionManagement.UI
 				x.Operation.Revision != null && x.Operation.Revision.Equals(_snapshot.Revision.Identity));
 		}
 
+		/// <summary>Removes the selected saved record while keeping native mods and downloaded archives.</summary>
+		private async void RemoveLibraryRecordButton_Click(object sender, EventArgs e)
+		{
+			if (_managementWorkflow == null || _workflowBusy) return;
+			CollectionManagementAssociation installed = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			AvailableRevisionChoice available = _managedAssociationCombo.SelectedItem as AvailableRevisionChoice;
+			CollectionIdentity collection = installed?.Association.Revision.Collection ?? available?.Available.Revision.Collection;
+			if (collection == null) return;
+			string name = installed == null ? available.Available.Definition.DisplayName : installed.DisplayName;
+			CollectionUiContext context = _displayContext;
+			object selectedRecord = _managedAssociationCombo.SelectedItem;
+			if (XtraMessageBox.Show(this, LanguageManager.Format("Collections.Library.RemoveRecordPrompt",
+				"Remove '{0}' from saved Collections? All its saved revisions will leave this list. Installed mods and downloaded archives are kept. You can import the Collection again later.", name),
+				L("Collections.Library.RemoveRecord", "Remove Collection record..."), MessageBoxButtons.YesNo,
+				MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+			if (_workflowBusy || !ReferenceEquals(selectedRecord, _managedAssociationCombo.SelectedItem) ||
+				!ReferenceEquals(context, _displayContext)) return;
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Library.RemovingRecord", "Removing saved Collection record..."));
+			bool removed = false;
+			try
+			{
+				await _managementWorkflow.RemoveLibraryRecordAsync(collection, token);
+				removed = true;
+			}
+			catch (OperationCanceledException) { }
+			catch (Exception ex)
+			{
+				Trace.TraceError("Saved Collection record removal failed: " + ex);
+				XtraMessageBox.Show(this, ex.Message, L("Collections.Library.RemoveRecord", "Remove Collection record..."),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally { EndWorkflowWork(context); }
+			if (!removed || IsDisposed || Disposing) return;
+			CancelPreviewWork();
+			_snapshot = null;
+			_managedAssociationPresentation = null;
+			_displayContext = CollectionUiContext.None(_previewGeneration);
+			ResetWorkflowViewState();
+			_keepCollectionSelectionEmpty = true;
+			RefreshManagedAssociations();
+			RenderEmptyState();
+			_workflowStatusLabel.Text = L("Collections.Library.RecordRemoved", "Collection record removed. Installed mods and downloaded archives were kept.");
+		}
+
 		private void DetachManagedAssociation(CollectionManagementAssociation selected)
 		{
 			CollectionDetachResult result = _managementWorkflow.Detach(selected.AssociationId);
@@ -4385,6 +4441,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					RenderSnapshot(snapshot);
 				}
 
+				SaveOptionalMemberSelections();
 				CollectionEffectiveSelection selection = _workflow.BuildEffectiveSelection(snapshot, BuildOptionalSelections(), installPolicy);
 				_selectionDirty = false;
 				_selectionCapabilityBlocked = false;
@@ -5899,6 +5956,22 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				_localRestoreRecoverySources = _managementWorkflow == null
 					? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
+				if (_snapshot == null && _managementWorkflow != null)
+				{
+					CollectionRevisionIdentity interrupted = _managementWorkflow.GetInterruptedInstallationRevision();
+					if (interrupted != null)
+						for (int index = 0; index < _managedAssociationCombo.Properties.Items.Count; index++)
+						{
+							object item = _managedAssociationCombo.Properties.Items[index];
+							CollectionRevisionIdentity revision = (item as CollectionManagementAssociation)?.Association.Revision ??
+								(item as AvailableRevisionChoice)?.Available.Revision.Identity;
+							if (interrupted.Equals(revision))
+							{
+								_managedAssociationCombo.SelectedIndex = index;
+								break;
+							}
+						}
+				}
 			}
 			catch (Exception exception) when (!(exception is OutOfMemoryException))
 			{
@@ -5918,8 +5991,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionPerformanceMetrics.RecordStartupRecovery(performanceStarted, 0);
 				return;
 			}
+			context = CollectionUiContext.CurrentSetup(_previewGeneration);
 			string recoveryStatus = FormatLocalRestoreRecoveryActivity(_localRestoreRecoverySources) ??
-				FormatActiveTargetRecoveryActivity();
+				L("Collections.Workflow.Recovering", "Checking incomplete Collection operations...");
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, recoveryStatus);
 			try
 			{
@@ -5952,11 +6026,11 @@ namespace Nexus.Client.CollectionManagement.UI
 					(effectRemovalResults == null ? 0 : effectRemovalResults.Count);
 				if (_managementWorkflow != null)
 				{
-					string cleanupStatus = L("Collections.Workflow.Cleanup", "Cleaning stale retained Collection data...");
+					string cleanupStatus = L("Collections.Workflow.CleanupCurrentGame", "Cleaning stale retained Collection data for the current game...");
 					_workflowStatusLabel.Text = cleanupStatus;
 					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Recovering, cleanupStatus));
 					await _managementWorkflow.CleanupRetainedContentAsync(token,
-						_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null, 32);
+						_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null, 32, false);
 				}
 
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
@@ -6241,6 +6315,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUiContext selectionContext = _incomingActionContext;
 			_optionalMemberSelectionState[member.IdentityResolution.Key] = row.Selected
 				? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected;
+			SaveOptionalMemberSelections();
 			BeginInvoke((Action)(() => InvalidateMemberSelectionReview(selectionContext)));
 		}
 
@@ -6266,6 +6341,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_suppressMemberCheckEvents = false;
 				_membersView.EndDataUpdate();
 			}
+			SaveOptionalMemberSelections();
 			BeginInvoke((Action)(() => InvalidateMemberSelectionReview(selectionContext)));
 		}
 
@@ -6291,7 +6367,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				RenderMembers(_snapshot, GetSelectedMemberToken(), _membersView.TopRowIndex);
 			else
 				UpdateMemberSelectionText();
-			_workflowStatusLabel.Text = L("Collections.Workflow.SelectionChanged", "Workflow: optional selection changed; prepare a new review before installation.");
+			_workflowStatusLabel.Text = _optionalSelectionPersistenceWarning ?? L("Collections.Workflow.SelectionChanged", "Workflow: optional selection changed; prepare a new review before installation.");
 			RefreshWorkflowActivity();
 			UpdateActionButtons();
 		}
@@ -6324,6 +6400,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RenderSnapshot(NexusCollectionPreviewSnapshot snapshot)
 		{
+			RestoreOptionalMemberSelections(snapshot);
 			RefreshInheritedRevisionOptionalSelections(snapshot);
 			string selectedMember = GetSelectedMemberToken();
 			int previousTopIndex = _membersView.TopRowIndex;
@@ -6821,6 +6898,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				foreach (NormalizedCollectionMember member in _acquisitionBatch.PlanBuild.Plan.CapabilityReport.Manifest.Members)
 					if (member.IsSelected && member.Requirement == CollectionMemberRequirement.Optional && member.IdentityResolution.IsResolved)
 						_optionalMemberSelectionState[member.IdentityResolution.Key] = CollectionMemberSelection.Selected;
+				SaveOptionalMemberSelections();
 				if (_snapshot != null) RenderMembers(_snapshot, GetSelectedMemberToken(), _membersView.TopRowIndex);
 			}
 			UpdateAutomatedAcquisitionRefresh(_acquisitionBatch);
@@ -7456,6 +7534,47 @@ namespace Nexus.Client.CollectionManagement.UI
 					: CollectionMemberSelection.Unselected));
 			}
 			return result.AsReadOnly();
+		}
+
+		/// <summary>Restores only this exact incoming revision and does not overwrite decisions supplied by recovery.</summary>
+		private void RestoreOptionalMemberSelections(NexusCollectionPreviewSnapshot snapshot)
+		{
+			if (_workflow == null || _managedAssociationPresentation != null || snapshot == null || !snapshot.HasManifestPreview) return;
+			string binding = snapshot.Revision.Identity + "|" + snapshot.CapabilityReport.Manifest.Source.ContentHash.Value;
+			if (_restoredOptionalSelectionBinding == binding) return;
+			_restoredOptionalSelectionBinding = binding;
+			try
+			{
+				foreach (CollectionOptionalMemberSelection selection in _workflow.LoadOptionalSelections(snapshot))
+					if (!_optionalMemberSelectionState.ContainsKey(selection.MemberKey))
+						_optionalMemberSelectionState.Add(selection.MemberKey, selection.Selection);
+			}
+			catch (Exception error) when (!(error is OutOfMemoryException))
+			{
+				Trace.TraceWarning("Could not restore Collection optional selections: {0}", error);
+				_optionalSelectionPersistenceWarning = L("Collections.Workflow.OptionalChoicesLoadFailed", "Saved optional choices could not be loaded. Review the checklist before installing.");
+				_workflowStatusLabel.Text = _optionalSelectionPersistenceWarning;
+			}
+		}
+
+		/// <summary>Persists checkbox intent synchronously before deferred review invalidation or application shutdown.</summary>
+		private void SaveOptionalMemberSelections()
+		{
+			if (_workflow == null || _managedAssociationPresentation != null || _snapshot == null || !_snapshot.HasManifestPreview) return;
+			try
+			{
+				CollectionOptionalMemberSelection[] selections = _snapshot.CapabilityReport.Manifest.Members
+					.Where(member => member.Requirement == CollectionMemberRequirement.Optional && member.IdentityResolution.IsResolved && _optionalMemberSelectionState.ContainsKey(member.IdentityResolution.Key))
+					.Select(member => new CollectionOptionalMemberSelection(member.IdentityResolution.Key, _optionalMemberSelectionState[member.IdentityResolution.Key])).ToArray();
+				_workflow.SaveOptionalSelections(_snapshot, selections);
+				_optionalSelectionPersistenceWarning = null;
+			}
+			catch (Exception error) when (!(error is OutOfMemoryException))
+			{
+				Trace.TraceWarning("Could not save Collection optional selections: {0}", error);
+				_optionalSelectionPersistenceWarning = L("Collections.Workflow.OptionalChoicesSaveFailed", "Optional choices could not be saved. They are kept for this session only.");
+				_workflowStatusLabel.Text = _optionalSelectionPersistenceWarning;
+			}
 		}
 
 		private IEnumerable<CollectionOptionalMemberSelection> BuildOptionalSelections()
@@ -8459,6 +8578,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_selectionDirty = false;
 			_selectionCapabilityBlocked = false;
 			_optionalMemberSelectionState.Clear();
+			_restoredOptionalSelectionBinding = null;
+			_optionalSelectionPersistenceWarning = null;
 			_inheritedRevisionOptionalSelections.Clear();
 			_inheritedRevisionPreview = null;
 			_inheritedRevisionAssociationId = null;
@@ -8522,6 +8643,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				? CollectionUiContext.Installed(_previewGeneration, selectedAssociation.Association.Revision, selectedAssociation.AssociationId)
 				: null;
 			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Properties.Items.Count > 0;
+			_removeLibraryRecordButton.Enabled = !_workflowBusy && _managementWorkflow != null &&
+				(_managedAssociationCombo.SelectedItem is CollectionManagementAssociation || _managedAssociationCombo.SelectedItem is AvailableRevisionChoice);
 			bool revisionChangeOwnsAssociation = hasManagedAssociation && selectedAssociation.PendingRevision != null;
 			// A durable revision transition is the dominant workflow for this association. Hide unrelated setup/local
 			// management groups instead of making the user scan a wall of disabled or irrelevant controls. Support

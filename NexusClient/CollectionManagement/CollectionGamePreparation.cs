@@ -63,6 +63,8 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Maps captured installer operations through the selected deployment profile.</summary>
 		internal virtual IReadOnlyList<ScriptedInstallOperation> MapCaptured(ResolvedCollectionMemberPlan member,
 			IReadOnlyList<ScriptedInstallOperation> captured, IMod mod) => captured;
+		/// <summary>Maps ordinary archive sources before the native planner filters primary and secondary destinations.</summary>
+		internal virtual IEnumerable<KeyValuePair<string, string>> GetBasicInstallFiles(ResolvedCollectionMemberPlan member, IMod mod) => null;
 		/// <summary>Maps selected archive files through the selected deployment profile.</summary>
 		internal virtual ModInstallationSimpleFileRecipe MapFiles(ResolvedCollectionMemberPlan member, ModInstallationSimpleFileRecipe recipe, IMod mod) => recipe;
 		/// <summary>Returns an alternate package-relative comparison path for secondary-root protocols.</summary>

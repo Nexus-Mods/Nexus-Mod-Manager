@@ -14,6 +14,66 @@ namespace NexusClientTests
 	public class CollectionDetachCoordinatorTests
 	{
 		[Test]
+		public void RemoveSavedRecord_PersistsAcrossRestartKeepsHistoryAndRestoresOnImport()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionTargetAssociation association = SeedAssociation(store, "remove-record", "revision-1", 1, "target-a");
+				CollectionTargetAssociation other = SeedAssociation(store, "keep-record", "revision-2", 2, "target-a");
+				var catalog = new CollectionsCatalogStore(store);
+				CollectionDefinition definition = catalog.GetDefinition(association.Revision.Collection);
+				CollectionRevision revision = catalog.GetRevision(association.Revision);
+				var associations = new CollectionsAssociationStore(store);
+				var native = new NativeModInstanceIdentity(association.Target, "native-kept");
+				associations.SaveBinding(new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-1"),
+					native, CollectionRecipeIdentity.FromFingerprint("recipe-1"), CollectionMemberBindingKind.InstalledForCollection));
+				Assert.Throws<InvalidOperationException>(() => catalog.RemoveLibraryRecord(association.Revision.Collection));
+				Assert.AreEqual(2, catalog.GetLibraryDefinitions().Count);
+				CollectionDetachResult detached = new CollectionDetachCoordinator(associations, association.Target).Detach(association.AssociationId);
+				catalog.RemoveLibraryRecord(association.Revision.Collection);
+				catalog.RemoveLibraryRecord(association.Revision.Collection);
+
+				var restarted = new CollectionsCatalogStore(new CollectionsStore(root));
+				Assert.AreEqual(new[] { other.Revision.Collection }, restarted.GetLibraryDefinitions().Select(x => x.Identity).ToArray());
+				Assert.AreEqual(definition, restarted.GetDefinition(association.Revision.Collection));
+				Assert.AreEqual(revision, restarted.GetRevision(association.Revision));
+				Assert.AreEqual(StandaloneModUse.ExplicitStandaloneUse, associations.GetNativeModProvenance(native).StandaloneUse);
+				Assert.IsNotNull(new CollectionsOperationStore(store).GetOperation(detached.Operation.Identity));
+				restarted.SaveDefinitionAndRevision(definition, revision);
+				Assert.AreEqual(2, restarted.GetLibraryDefinitions().Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void RemoveSavedRecord_ProtectsUnfinishedWorkForAnUninstalledCollection()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionTargetAssociation association = SeedAssociation(store, "uninstalled-record", "revision-1", 1, "target-a");
+				new CollectionDetachCoordinator(new CollectionsAssociationStore(store), association.Target).Detach(association.AssociationId);
+				var catalog = new CollectionsCatalogStore(store);
+				var operations = new CollectionsOperationStore(store);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+					association.Revision.Collection, association.Target, association.Revision, null, 1,
+					CollectionOperationPhase.Resolving, CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+				operations.SaveOperation(operation);
+				Assert.Throws<InvalidOperationException>(() => catalog.RemoveLibraryRecord(association.Revision.Collection));
+				Assert.AreEqual(1, catalog.GetLibraryDefinitions().Count);
+				operations.SaveOperation(new CollectionOperation(operation.Identity, operation.Kind, operation.Collection,
+					operation.Target, operation.Revision, null, 2, CollectionOperationPhase.Completed,
+					CollectionOperationResultState.CancelledBeforeApply, operation.NativeChildren));
+				catalog.RemoveLibraryRecord(association.Revision.Collection);
+				Assert.IsEmpty(catalog.GetLibraryDefinitions());
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void Detach_PreservesBoundNativeModsAsStandaloneAndRemovesOnlyAssociationTracking()
 		{
 			string root = CreateTemporaryDirectory();

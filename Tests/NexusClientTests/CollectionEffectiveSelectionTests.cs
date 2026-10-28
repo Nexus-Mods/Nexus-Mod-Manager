@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Text;
 using Nexus.Client.CollectionManagement;
@@ -207,6 +209,77 @@ namespace NexusClientTests
 
 			Assert.That(effective.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.ActionRequired));
 			Assert.That(effective.CapabilityReport.AllIssues.Any(x => x.Code == issueCode), Is.True);
+		}
+
+		/// <summary>Checkbox drafts survive a new store instance and replace previous decisions without touching manifest defaults.</summary>
+		[Test]
+		public void OptionalChoices_SurviveRestartAndRetainExplicitUnselectedState()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-optional-" + Guid.NewGuid().ToString("N"));
+			try
+			{
+				var required = CreateMember(0, "required", CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
+				var first = CreateMember(1, "one", CollectionMemberRequirement.Optional, CollectionMemberSelection.Unselected);
+				var second = CreateMember(2, "two", CollectionMemberRequirement.Optional, CollectionMemberSelection.Selected);
+				NormalizedCollectionManifest manifest = CreateManifest(new[] { required, first, second }, null);
+				var store = new CollectionOptionalSelectionStore(root);
+				Assert.That(store.Load("target-one", manifest), Is.Empty);
+				Assert.That(Directory.Exists(root), Is.False, "Reading absent choices must not create storage.");
+				store.Save("target-one", manifest, new[] {
+					new CollectionOptionalMemberSelection(first.IdentityResolution.Key, CollectionMemberSelection.Selected),
+					new CollectionOptionalMemberSelection(second.IdentityResolution.Key, CollectionMemberSelection.Unselected) });
+				var restarted = new CollectionOptionalSelectionStore(root);
+				IReadOnlyList<CollectionOptionalMemberSelection> restored = restarted.Load("target-one", manifest);
+				CollectionEffectiveSelection effective = new CollectionEffectiveSelectionBuilder().Build(CollectionCapabilityReport.Create(manifest), restored);
+				Assert.That(effective.Manifest.Members[0].IsSelected, Is.True);
+				Assert.That(effective.Manifest.Members[1].IsSelected, Is.True);
+				Assert.That(effective.Manifest.Members[2].IsSelected, Is.False);
+				Assert.That(first.IsSelected, Is.False, "Draft restoration must not mutate provider defaults.");
+				Assert.That(restarted.Load("target-two", manifest), Is.Empty);
+				var otherRevision = new NormalizedCollectionManifest(CollectionRevisionIdentity.FromNexus(manifest.Revision.Collection, "other-revision", 4),
+					manifest.Source, CollectionManifestMemberSetCompleteness.Complete, null, manifest.Members, null);
+				Assert.That(restarted.Load("target-one", otherRevision), Is.Empty);
+				var otherBytes = new NormalizedCollectionManifest(manifest.Revision,
+					new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(new string('b', 64)), 123, "test-schema", "test-normalizer"),
+					CollectionManifestMemberSetCompleteness.Complete, null, manifest.Members, null);
+				Assert.That(restarted.Load("target-one", otherBytes), Is.Empty);
+				restarted.Save("target-one", manifest, new[] { new CollectionOptionalMemberSelection(first.IdentityResolution.Key, CollectionMemberSelection.Unselected) });
+				Assert.That(new CollectionOptionalSelectionStore(root).Load("target-one", manifest).Single().Selection, Is.EqualTo(CollectionMemberSelection.Unselected));
+				Assert.That(Directory.GetFiles(root, "*.tmp-*", SearchOption.AllDirectories), Is.Empty);
+			}
+			finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+		}
+
+		/// <summary>Damaged preferences never change required members or supply invalid/ambiguous optional decisions.</summary>
+		[TestCase("json")]
+		[TestCase("version")]
+		[TestCase("duplicate")]
+		[TestCase("required")]
+		[TestCase("selection")]
+		public void OptionalChoices_RejectInvalidDrafts(string fault)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-optional-" + Guid.NewGuid().ToString("N"));
+			try
+			{
+				var required = CreateMember(0, "required", CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
+				var optional = CreateMember(1, "optional", CollectionMemberRequirement.Optional, CollectionMemberSelection.Unselected);
+				NormalizedCollectionManifest manifest = CreateManifest(new[] { required, optional }, null);
+				var store = new CollectionOptionalSelectionStore(root);
+				store.Save("target", manifest, new[] { new CollectionOptionalMemberSelection(optional.IdentityResolution.Key, CollectionMemberSelection.Selected) });
+				string path = Directory.GetFiles(root, "*.json", SearchOption.AllDirectories).Single();
+				string original = File.ReadAllText(path);
+				Assert.Throws<ArgumentException>(() => store.Save("target", manifest,
+					new[] { new CollectionOptionalMemberSelection(required.IdentityResolution.Key, CollectionMemberSelection.Unselected) }));
+				Assert.That(File.ReadAllText(path), Is.EqualTo(original));
+				JObject document = JObject.Parse(original);
+				if (fault == "version") document["Format"] = "future-version";
+				else if (fault == "duplicate") ((JArray)document["Choices"]).Add(document["Choices"][0].DeepClone());
+				else if (fault == "required") document["Choices"][0]["Key"] = required.IdentityResolution.Key.ToString();
+				else if (fault == "selection") document["Choices"][0]["Selection"] = 999;
+				File.WriteAllText(path, fault == "json" ? "{" : document.ToString());
+				Assert.Throws<InvalidDataException>(() => store.Load("target", manifest));
+			}
+			finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
 		}
 
 		private static NexusCollectionManifestNormalizationResult NormalizeNexusManifest(string optionalUpdatePolicy)

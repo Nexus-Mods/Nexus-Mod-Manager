@@ -85,6 +85,13 @@ namespace Nexus.Client.CollectionManagement
 			return result.AsReadOnly();
 		}
 		/// <inheritdoc />
+		internal override IEnumerable<KeyValuePair<string, string>> GetBasicInstallFiles(ResolvedCollectionMemberPlan member, IMod mod)
+		{
+			string type = (string)_root["mods"]?[member.SourceOrdinal]?["details"]?["type"];
+			return CollectionBaldursGate3Data.GetBasicInstallFiles(mod, type, member.ArtifactChoice.SelectedArtifact.StableId);
+		}
+
+		/// <inheritdoc />
 		internal override ModInstallationSimpleFileRecipe MapFiles(ResolvedCollectionMemberPlan member, ModInstallationSimpleFileRecipe recipe, IMod mod) =>
 			CollectionBaldursGate3Data.MapFiles(recipe, (string)_root["mods"]?[member.SourceOrdinal]?["details"]?["type"], mod.GetFileList());
 

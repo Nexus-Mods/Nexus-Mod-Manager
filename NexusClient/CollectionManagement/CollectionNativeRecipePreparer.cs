@@ -410,7 +410,8 @@ namespace Nexus.Client.CollectionManagement
 
 			// Collection-owned metadata replaces optional per-archive metadata after file planning.
 			bool usesCollectionMetadata = GameModeRuntimePolicies.For(gameMode.ModeId).CollectionOrderProvidesMetadata && retainedManifest.GameData.HasOwnedMetadata;
-			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods,
+			IEnumerable<KeyValuePair<string, string>> basicFiles = retainedManifest.GameData.GetBasicInstallFiles(member, mod);
+			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, basicFiles, activeMods,
 				includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory, !usesCollectionMetadata);
 			if (!basicResult.IsSupported)
 			{

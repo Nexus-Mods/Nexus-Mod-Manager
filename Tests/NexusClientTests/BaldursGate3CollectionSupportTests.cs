@@ -6,6 +6,8 @@ using System.Text;
 using System.Xml;
 using Newtonsoft.Json.Linq;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.Games;
+using Nexus.Client.Mods;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
@@ -72,6 +74,114 @@ namespace NexusClientTests
 			Assert.That(mapped.Mappings.Single().SourcePath, Is.EqualTo(files[0]));
 			Assert.That(mapped.Mappings.Single().DestinationPath, Is.EqualTo(@"bin\DWrite.dll"));
 		}
+
+		/// <summary>Loose files must be mapped before BG3's pak-only primary filter; both native methods use the secondary game root.</summary>
+		[TestCase("bg3-loose", @"Whiter Eyes\Whiter Eyes\Generated\Public\Shared\Eyes.DDS", @"Data\Generated\Public\Shared\Eyes.DDS", false)]
+		[TestCase("bg3-loose", @"Generated\Public\Shared\Head.GR2", @"Data\Generated\Public\Shared\Head.GR2", false)]
+		[TestCase("bg3-loose", @"Yudora Head\Generated\Public\Shared\Head.GR2", @"Data\Generated\Public\Shared\Head.GR2", true)]
+		[TestCase("bg3-replacer", @"smilemod\Public\Shared\Pose.GR2", @"Data\Public\Shared\Pose.GR2", true)]
+		[TestCase("bg3-loose", @"KAVT\Public\KAVT\Content\Visuals.lsf.lsx", @"Data\Public\KAVT\Content\Visuals.lsf.lsx", false)]
+		[TestCase("bg3-loose", @"KAVT\Mods\KAVT\meta.lsx", @"Data\Mods\KAVT\meta.lsx", true)]
+		[TestCase("bg3-bg3se", @"release\DWrite.dll", @"bin\DWrite.dll", true)]
+		public void BasicPlan_MapsSecondaryFilesBeforePrimaryFiltering(string type, string source, string expected, bool virtualInstall)
+		{
+			IMod mod = Archive(new[] { source });
+			var context = new ModInstallContext(virtualInstall ? ModInstallMethod.Virtual : ModInstallMethod.Direct, ModInstallRoot.Data);
+			BasicInstallPlanResult before = new BasicInstallPlanBuilder().Build(mod, PakOnlyMode(), context, false);
+			Assert.That(before.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.NoInstallableFiles));
+			var mappings = CollectionBaldursGate3Data.GetBasicInstallFiles(mod, type, "baldursgate3/1/10");
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(mod, PakOnlyMode(), context, false, mappings);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Single().SourcePath, Is.EqualTo(source));
+			Assert.That(result.Plan.Files.Single().DestinationPath, Is.EqualTo(expected));
+			Assert.That(result.Plan.Files.Single().DeploymentTarget.Root, Is.EqualTo(ModDeploymentRoot.Secondary));
+		}
+
+		/// <summary>Nested mutually exclusive patches remain unopened, separately owned companions rather than an arbitrary installed variant.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void BasicPlan_RetainsAllNestedPatchAlternativesAsCompanions(bool virtualInstall)
+		{
+			string[] sources = new[] { "Standard", "KAVT", "EOTB", "EOTB+KAVT" }.Select(option => option + @"\Muses_Merfolk_Patch.zip").ToArray();
+			IMod mod = Archive(sources);
+			var mappings = CollectionBaldursGate3Data.GetBasicInstallFiles(mod, "", "baldursgate3/15919/115175").ToArray();
+			CollectionAssert.AreEqual(sources, mappings.Select(mapping => mapping.Key));
+			Assert.That(mappings.All(mapping => mapping.Value.StartsWith(@"Data\NMM Collection Companions\baldursgate3_15919_115175\", StringComparison.Ordinal)), Is.True);
+			var context = new ModInstallContext(virtualInstall ? ModInstallMethod.Virtual : ModInstallMethod.Direct, ModInstallRoot.Data);
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(mod, PakOnlyMode(), context, false, mappings);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Count, Is.EqualTo(4));
+			Assert.That(result.Plan.Files.All(file => file.DeploymentTarget.Root == ModDeploymentRoot.Secondary), Is.True);
+		}
+
+		/// <summary>Standalone tools keep their entry point, code and resources together without executing or registering modules.</summary>
+		[TestCase("")]
+		[TestCase("bg3-loose")]
+		public void BasicPlan_RetainsToolLayoutAndFunctionalText(string type)
+		{
+			string[] files = { @"Hub\Hub.py", @"Hub\Code\dependency_check.py", @"Hub\Launch.bat", @"Hub\resources\songs.jsonc", @"Hub\settings.txt", @"Hub\template\Public\Hub\metadata.json", @"Hub\README.txt" };
+			IMod mod = Archive(files);
+			var mappings = CollectionBaldursGate3Data.GetBasicInstallFiles(mod, type, "baldursgate3/19560/126170").ToArray();
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(mod, PakOnlyMode(), context, true, mappings);
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Count, Is.EqualTo(6));
+			Assert.That(result.Plan.Files.Any(file => file.SourcePath.EndsWith("settings.txt", StringComparison.Ordinal)), Is.True);
+			Assert.That(result.Plan.Files.Single(file => file.SourcePath.EndsWith("metadata.json", StringComparison.Ordinal)).DestinationPath,
+				Does.Contain(@"NMM Collection Companions\baldursgate3_19560_126170\Hub\template\Public\Hub\metadata.json"));
+			Assert.That(result.Plan.Files.Any(file => file.SourcePath.EndsWith("README.txt", StringComparison.Ordinal)), Is.False);
+			var mappedAgain = CollectionBaldursGate3Data.MapFiles(result.Plan.CreateSimpleFileRecipe(), type, files);
+			CollectionAssert.AreEqual(result.Plan.Files.Select(file => file.DestinationPath), mappedAgain.Mappings.Select(mapping => mapping.DestinationPath));
+		}
+
+		/// <summary>A supplied load-order export stays reference material; it is never deployed into an active player profile.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void BasicPlan_RecognizesOnlyModuleSettingsExportsAsCompanions(bool moduleSettings)
+		{
+			byte[] xml = Encoding.UTF8.GetBytes(moduleSettings ? "<save><region id='ModuleSettings'><node id='root'><children><node id='Mods'/></children></node></region></save>" : "<save><region id='Other'/></save>");
+			IMod mod = Archive(new[] { "loadorder.lsx" }, xml);
+			var mappings = CollectionBaldursGate3Data.GetBasicInstallFiles(mod, "", "baldursgate3/14745/133884");
+			if (!moduleSettings) Assert.That(mappings, Is.Null);
+			else
+			{
+				Assert.That(mappings.Single().Value, Is.EqualTo(@"Data\NMM Collection Companions\baldursgate3_14745_133884\loadorder.lsx"));
+				Assert.That(mappings.Single().Key, Is.EqualTo("loadorder.lsx"));
+			}
+		}
+
+		/// <summary>Ordinary pak archives retain the existing special-file and metadata preparation path.</summary>
+		[Test]
+		public void BasicPlan_LeavesPakSelectionUnchanged()
+		{
+			IMod mod = Archive(new[] { "Mod.pak", "info.json" });
+			Assert.That(CollectionBaldursGate3Data.GetBasicInstallFiles(mod, "", "fixture"), Is.Null);
+			Assert.That(new CollectionGamePreparation().GetBasicInstallFiles(null, mod), Is.Null);
+		}
+
+		/// <summary>Supplies immutable file-list fixtures; companions must not request nested payloads or execute tools.</summary>
+		private static IMod Archive(IEnumerable<string> files, byte[] exportedXml = null) => InterfaceStub<IMod>.Create((method, args) =>
+		{
+			if (method.Name == "GetFileList") return files.ToList();
+			if (method.Name == "GetFile" && exportedXml != null) return exportedXml;
+			if (method.Name == "GetFile") Assert.Fail("Companion planning must not extract nested archives or execute tools.");
+			return null;
+		});
+
+		/// <summary>Models the BG3 pak-only primary policy and the existing secondary Data/bin deployment contract.</summary>
+		private static IGameMode PakOnlyMode() => InterfaceStub<IGameMode>.Create((method, args) =>
+		{
+			if (method.Name == "get_ModeId") return "BaldursGate3";
+			if (method.Name == "get_PluginDirectory") return @"C:\UserMods";
+			if (method.Name == "get_HasSecondaryInstallPath") return true;
+			if (method.Name == "CheckSecondaryInstall") return ((string)args[1]).StartsWith(@"Data\", StringComparison.OrdinalIgnoreCase) || ((string)args[1]).StartsWith(@"bin\", StringComparison.OrdinalIgnoreCase);
+			if (method.Name == "GetModFormatAdjustedPath")
+			{
+				string path = (string)args[1];
+				return path.StartsWith(@"Data\", StringComparison.OrdinalIgnoreCase) || path.StartsWith(@"bin\", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(path).Equals(".pak", StringComparison.OrdinalIgnoreCase) ? path : String.Empty;
+			}
+			return null;
+		});
 
 		/// <summary>Preserves game-owned modules and unrelated settings, skips listed/disabled packages, and restores the original order.</summary>
 		[TestCase(false, false)]

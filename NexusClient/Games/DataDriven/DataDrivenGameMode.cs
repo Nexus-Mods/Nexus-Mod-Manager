@@ -11,6 +11,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.ManagedContent;
+using Nexus.Client.ModManagement.LoadOrder;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
@@ -24,7 +25,7 @@ using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGameMode : GameModeBase, IGameRootPackageRuleProvider, INexusGameDomainProvider, IStructuredXmlRecordProvider, IDeterministicSpecialFileGameValuePlanProvider, IDeterministicPackageFilePlanProvider
+    public class DataDrivenGameMode : GameModeBase, IGameRootPackageRuleProvider, INexusGameDomainProvider, IStructuredXmlRecordProvider, IDeterministicSpecialFileGameValuePlanProvider, IDeterministicPackageFilePlanProvider, ILoadOrderCapabilityProvider
     {
         [ThreadStatic]
         private static GameModeDefinition _pendingDefinition;
@@ -46,6 +47,9 @@ namespace Nexus.Client.Games.DataDriven
 
         /// <summary>Optional immutable native-owned record capability, independent of the game-specific compatibility profile.</summary>
         public StructuredXmlRecordRule StructuredRecords { get; }
+
+        /// <summary>Optional read-only load-order inventory configuration; no publication capability is implied.</summary>
+        public LoadOrderCapability LoadOrder { get; }
 
 		private readonly IReadOnlyList<GameRootPackageRule> _gameRootPackageRules;
         /// <summary>Optional catalog identity; local mode/storage identity remains unchanged.</summary>
@@ -72,6 +76,7 @@ namespace Nexus.Client.Games.DataDriven
             PackageXmlFragmentRule packageFiles = GameModePackageFilesDefinition.Create(definition);
             _packageFilePlanner = packageFiles == null ? null : new PackageXmlFragmentPlanner(packageFiles);
             StructuredRecords = DataDrivenStructuredEffects.Create(definition);
+            LoadOrder = DataDrivenLoadOrder.Create(definition);
             _structuredStore = StructuredRecords == null ? null : new StructuredXmlRecordStore(StructuredRecords);
 			_gameRootPackageRules = DataDrivenGameRootPackageRules.Create(_definition);
             SettingsGroupViews = DataDrivenGameModeHelpers.BuildSettingsGroupViews(environmentInfo, this, _definition);

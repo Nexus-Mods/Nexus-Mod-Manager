@@ -344,7 +344,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			var result = new List<CollectionAvailableRevision>();
 			if (!_store.Exists) return result;
-			foreach (CollectionDefinition definition in _catalogStore.GetDefinitions().Where(x => x.Origin == CollectionOrigin.NexusMods))
+			foreach (CollectionDefinition definition in _catalogStore.GetLibraryDefinitions().Where(x => x.Origin == CollectionOrigin.NexusMods))
 			{
 				foreach (CollectionRevision revision in _catalogStore.GetRevisions(definition.Identity).Where(x => x.IsRemoteBaseline)
 					.OrderByDescending(x => x.Identity.NexusRevisionNumber))

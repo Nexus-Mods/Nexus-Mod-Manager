@@ -11,6 +11,7 @@ using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.Mods;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -1201,6 +1202,46 @@ namespace Nexus.Client.CollectionManagement
 			return member;
 		}
 
+		/// <summary>Identifies a single interrupted installation for startup navigation without selecting an unrelated saved record.</summary>
+		internal CollectionRevisionIdentity GetInterruptedInstallationRevision()
+		{
+			if (!_store.Exists) return null;
+			List<CollectionRevisionIdentity> revisions = _operationStore.GetIncompleteOperations(ResolveCurrentTarget())
+				.Where(x => x.Kind == CollectionOperationKind.ApplyResolvedPlan && x.Revision != null)
+				.Select(x => x.Revision).Distinct().ToList();
+			return revisions.Count == 1 ? revisions[0] : null;
+		}
+
+		/// <summary>Removes one saved library record, cancelling unstarted installation and preserving installed mods as standalone use.</summary>
+		internal async Task RemoveLibraryRecordAsync(CollectionIdentity collection, CancellationToken cancellationToken)
+		{
+			if (collection == null) throw new ArgumentNullException(nameof(collection));
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths());
+			using (CollectionTargetMutationLease lease = await CollectionTargetMutationLeaseManager.Shared
+				.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				await Task.Run(() =>
+				{
+					List<CollectionOperation> pending = _operationStore.GetIncompleteOperations(authority.Target)
+						.Where(x => x.Collection.Equals(collection)).ToList();
+					List<CollectionTargetAssociation> associations = _associationStore.GetAssociationsForTarget(authority.Target)
+						.Where(x => x.Revision.Collection.Equals(collection)).ToList();
+					if (pending.Any(x => x.Kind != CollectionOperationKind.ApplyResolvedPlan || x.NativeChildren.Count != 0) ||
+						associations.Any(x => x.State == CollectionAssociationState.Recovering))
+						throw new InvalidOperationException(LanguageManager.Get("Collections.Library.RemoveNeedsRecovery",
+							"Resolve this Collection's active tracking or interrupted installation before removing its saved record. Use Uninstall Collection to choose which mods to keep."));
+					cancellationToken.ThrowIfCancellationRequested();
+					foreach (CollectionOperation operation in pending)
+						_operationStore.SaveOperation(new CollectionOperation(operation.Identity, operation.Kind, operation.Collection,
+							operation.Target, operation.Revision, operation.PlanIdentity, checked(operation.CheckpointSequence + 1),
+							CollectionOperationPhase.Completed, CollectionOperationResultState.CancelledBeforeApply, operation.NativeChildren));
+					foreach (CollectionTargetAssociation association in associations)
+						new CollectionDetachCoordinator(_associationStore, authority.Target).Detach(association.AssociationId);
+					_catalogStore.RemoveLibraryRecord(collection);
+				}, cancellationToken).ConfigureAwait(false);
+			}
+		}
+
 		/// <summary>Detaches Collection tracking while preserving every native mod/effect.</summary>
 		public CollectionDetachResult Detach(Guid associationId)
 		{
@@ -1293,8 +1334,15 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Runs retained-content cleanup with an explicit per-pass artifact limit.</summary>
 		/// <remarks>Startup uses a bounded pass so stale retained content cannot monopolize the Collections page or target lease.</remarks>
-		public async Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection,
+		public Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection,
 			int maximumArtifacts)
+		{
+			return CleanupRetainedContentAsync(cancellationToken, retainedPreviewCollection, maximumArtifacts, true);
+		}
+
+		/// <summary>Allows routine startup collection without reorganizing all retained sources and archive copies.</summary>
+		internal async Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection,
+			int maximumArtifacts, bool organizeLibrary)
 		{
 			if (maximumArtifacts <= 0)
 				throw new ArgumentOutOfRangeException(nameof(maximumArtifacts));
@@ -1311,9 +1359,12 @@ namespace Nexus.Client.CollectionManagement
 						var cleanup = new CollectionsRetainedArtifactCleanupStore(_store);
 						if (!cleanup.ReleaseRemovedCollectionContent(authority.Target, retainedPreviewCollection))
 							return;
-						new CollectionsRevisionSourceStore(_store).OrganizeRetainedSources(cancellationToken);
-						new CollectionsRetainedArtifactStore(_store).MigrateArchiveCopies(
-							_services.ModManager.ManagedMods.Select(CollectionArchiveContentMatcher.GetManagedArchivePath).ToArray(), cancellationToken);
+						if (organizeLibrary)
+						{
+							new CollectionsRevisionSourceStore(_store).OrganizeRetainedSources(cancellationToken);
+							new CollectionsRetainedArtifactStore(_store).MigrateArchiveCopies(
+								_services.ModManager.ManagedMods.Select(CollectionArchiveContentMatcher.GetManagedArchivePath).ToArray(), cancellationToken);
+						}
 						var attempted = new HashSet<string>(StringComparer.Ordinal);
 						int remaining = maximumArtifacts;
 						foreach (string artifactId in cleanup.GetPendingTombstones(remaining))

@@ -105,6 +105,8 @@ namespace Nexus.Client.Games.DataDriven
             catch (ArgumentException error) { issues.Add(Error(definition, "packageFiles", error.Message)); }
             try { DataDrivenStructuredEffects.Create(definition); }
             catch (ArgumentException error) { issues.Add(Error(definition, "structuredEffects", error.Message)); }
+            try { DataDrivenLoadOrder.Create(definition); }
+            catch (ArgumentException error) { issues.Add(Error(definition, "loadOrder", error.Message)); }
             try { GameModeRuntimeConfiguration.Validate(definition); }
             catch (ArgumentException error) { issues.Add(Error(definition, "runtime", error.Message)); }
             Witcher3DefinitionPolicy.Validate(definition, issues);
