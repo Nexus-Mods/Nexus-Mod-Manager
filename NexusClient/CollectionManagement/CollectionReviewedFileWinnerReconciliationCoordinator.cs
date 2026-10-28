@@ -224,7 +224,8 @@ namespace Nexus.Client.CollectionManagement
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
 			CollectionFileImpact[] winners = impactPlan.FileImpacts
-				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null && (x.Writers.Count > 1 || !String.IsNullOrWhiteSpace(x.CurrentOwnerKey))))
+				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null &&
+					(x.Writers.Count > 1 || !String.IsNullOrWhiteSpace(x.CurrentOwnerKey) || x.ReconcileUnresolvedVirtualOwner)))
 				.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToArray();
 			if (winners.Length == 0)
 			{
@@ -415,6 +416,7 @@ namespace Nexus.Client.CollectionManagement
 				reviewedByTarget.TryGetValue(impact.Target, out persisted);
 				if (persisted == null || !Equals(persisted.PlannedWinner, impact.PlannedWinner) ||
 					persisted.PreserveCurrentOwner != impact.PreserveCurrentOwner ||
+					persisted.ReconcileUnresolvedVirtualOwner != impact.ReconcileUnresolvedVirtualOwner ||
 					!StringComparer.OrdinalIgnoreCase.Equals(persisted.CurrentOwnerKey ?? String.Empty, impact.CurrentOwnerKey ?? String.Empty) ||
 					persisted.Writers.Count != impact.Writers.Count ||
 					!persisted.Writers.OrderBy(x => (int)x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal)
@@ -484,8 +486,11 @@ namespace Nexus.Client.CollectionManagement
 				virtualOwners.AddRange(snapshot.Links.Where(x => x.Target.Equals(target)).OrderBy(x => x.Active ? 1 : 0).ThenByDescending(x => x.Priority)
 					.Select(link => ObserveOwner(state, originalKey, link.OwnerKey, link)));
 			}
+			// An orphaned active link can sort ahead of a newly installed, valid writer.
+			// Anchor the durable native-owner intent to the last resolvable active link;
+			// HasExactWinner still requires ONE active link before reporting success.
 			string effectiveOwner = promoted ? deploymentOwners.LastOrDefault()?.OwnerKey
-				: virtualOwners.LastOrDefault(x => x.VirtualLinkActive == true)?.OwnerKey;
+				: virtualOwners.LastOrDefault(x => x.VirtualLinkActive == true && !String.IsNullOrWhiteSpace(x.OwnerKey))?.OwnerKey;
 			return new CollectionNativeFileState(target, baseline.PhysicalPath, promoted, baseline.RecordedByInstallLog,
 				!promoted && virtualOwners.Count > 0, effectiveOwner, baseline.InstallLogOwners, deploymentOwners, virtualOwners);
 		}

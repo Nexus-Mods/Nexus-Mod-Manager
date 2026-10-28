@@ -450,7 +450,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Plan_OverlappingMembersWithoutPriorityRequireExplicitWinnerDecision()
+		public void Plan_OverlappingMembersWithoutPriorityUsesReviewedInstallationOrder()
 		{
 			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
 			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
@@ -464,9 +464,9 @@ namespace NexusClientTests
 				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State,
 				new[] { CreatePreview(a, target), CreatePreview(b, target) });
 
-			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
-			Assert.IsNull(result.FileImpacts.Single().PlannedWinner);
-			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.FileWinnerDecisionRequired));
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.AreEqual(b.IdentityResolution.Key, result.FileImpacts.Single().PlannedWinner);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.FileWinnerDecisionRequired));
 		}
 
 		[TestCase(ModDeploymentRoot.GameRoot)]
@@ -538,7 +538,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void FileWinner_TwoBundledReplacementsStillRequirePriority()
+		public void FileWinner_TwoBundledReplacementsUseLastInstallationPhase()
 		{
 			NormalizedCollectionMember a = CreateBundleMember(0, "a", 0);
 			NormalizedCollectionMember b = CreateBundleMember(1, "b", 10);
@@ -546,13 +546,13 @@ namespace NexusClientTests
 				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
 
 			bool cycle;
-			Assert.IsNull(CollectionConflictImpactPlanner.ResolveFileWinner(
+			Assert.AreEqual(b.IdentityResolution.Key, CollectionConflictImpactPlanner.ResolveFileWinner(
 				new[] { a.IdentityResolution.Key, b.IdentityResolution.Key }, fixture.Plan, out cycle));
 			Assert.IsFalse(cycle);
 		}
 
 		[Test]
-		public void FileWinner_BundleDoesNotResolveAmbiguityBetweenMultipleDownloads()
+		public void FileWinner_MultipleDownloadedModsAndBundleUseLastReviewedWriter()
 		{
 			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
 			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
@@ -561,7 +561,7 @@ namespace NexusClientTests
 				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
 
 			bool cycle;
-			Assert.IsNull(CollectionConflictImpactPlanner.ResolveFileWinner(
+			Assert.AreEqual(settings.IdentityResolution.Key, CollectionConflictImpactPlanner.ResolveFileWinner(
 				new[] { a.IdentityResolution.Key, b.IdentityResolution.Key, settings.IdentityResolution.Key }, fixture.Plan, out cycle));
 			Assert.IsFalse(cycle);
 		}
@@ -846,6 +846,122 @@ namespace NexusClientTests
 
 			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		/// <summary>Old inactive Virtual links must not turn a fresh incoming BG3 file into a blocked owner conflict.</summary>
+		[TestCase(ModDeploymentRoot.Data, "TrueThirdPersonCamera.pak")]
+		[TestCase(ModDeploymentRoot.Secondary, @"Data\Generated\Public\Shared\Assets\Characters\head.dds")]
+		public void Plan_InactiveVirtualOwnerHistoryDoesNotBlockNewFile(ModDeploymentRoot root, string path)
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState inactiveMod = CreateNativeMod(targetIdentity, "native-inactive", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, path);
+			var missingOldLink = new CollectionNativeOwnerState(null, "old-archive", CollectionNativeOwnerKind.Unresolved, false, 1, null);
+			var inactiveLink = new CollectionNativeOwnerState(inactiveMod.Identity.NativeModKey, null,
+				CollectionNativeOwnerKind.NativeMod, false, 0, null);
+			var file = new CollectionNativeFileState(target, @"C:\Game\Data\head.dds", false, false, true, null,
+				new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], new[] { missingOldLink, inactiveLink });
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, inactiveMod },
+				new[] { file }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileOwnershipUnresolved));
+			Assert.IsNull(result.FileImpacts.Single().CurrentOwnerKey);
+		}
+
+		/// <summary>An inactive orphan never invalidates a separately resolved live owner, even with incoming priority.</summary>
+		[Test]
+		public void Plan_InactiveUnresolvedVirtualLinkDoesNotMaskKnownLiveWinner()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState existing = CreateNativeMod(targetIdentity, "native-existing", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Secondary, "Data\\head.dds");
+			var inactive = new CollectionNativeOwnerState(null, "old-archive", CollectionNativeOwnerKind.Unresolved, false, 1, null);
+			var live = new CollectionNativeOwnerState(existing.Identity.NativeModKey, null, CollectionNativeOwnerKind.NativeMod, true, 0, null);
+			var file = new CollectionNativeFileState(target, @"C:\Game\Data\head.dds", false, false, true,
+				existing.Identity.NativeModKey, new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], new[] { inactive, live });
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, existing },
+				new[] { file }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(true, true));
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.AreEqual(existing.Identity.NativeModKey, result.FileImpacts.Single().CurrentOwnerKey);
+		}
+
+		/// <summary>Later dependency phases override source ordinal when no explicit curator priority exists.</summary>
+		[Test]
+		public void Plan_OverlappingMembersPreferActualLaterExecutionPhase()
+		{
+			NormalizedCollectionMember later = CreateMember(0, "later", 100, 200, 20);
+			NormalizedCollectionMember earlier = CreateMember(1, "earlier", 101, 201, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			Fixture fixture = CreateFixture(target, new[] { later, earlier }, null,
+				new[] { CreateNativeMod(target, "native-later", 100, 200), CreateNativeMod(target, "native-earlier", 101, 201) },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Secondary, "Public\\MyMod\\shared.lsf");
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State,
+				new[] { CreatePreview(earlier, shared), CreatePreview(later, shared) });
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.AreEqual(later.IdentityResolution.Key, result.FileImpacts.Single().PlannedWinner);
+		}
+
+		/// <summary>BG3 loose files and Data-root packages follow the same Virtual orphan overwrite contract.</summary>
+		[TestCase(ModDeploymentRoot.Data, true, true, CollectionConflictImpactStatus.Ready)]
+		[TestCase(ModDeploymentRoot.Secondary, true, true, CollectionConflictImpactStatus.Ready)]
+		[TestCase(ModDeploymentRoot.Data, true, false, CollectionConflictImpactStatus.Blocked)]
+		[TestCase(ModDeploymentRoot.Secondary, false, false, CollectionConflictImpactStatus.Ready)]
+		public void Plan_VirtualOrphanRespectsExplicitOverwriteAuthorization(ModDeploymentRoot root,
+			bool active, bool overwrite, CollectionConflictImpactStatus expected)
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, "Public\\Shared\\file.lsf");
+			var orphan = new CollectionNativeOwnerState(null, "old-virtual-mod", CollectionNativeOwnerKind.Unresolved,
+				active, 0, "C:\\Staging\\old-file.lsf");
+			var file = new CollectionNativeFileState(target, "C:\\BG3\\Public\\Shared\\file.lsf", false, false, true,
+				null, new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], new[] { orphan });
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null,
+				new[] { CreateNativeMod(targetIdentity, "incoming-native", 100, 200) }, new[] { file },
+				null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(false, overwrite));
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) });
+			Assert.AreEqual(expected, result.Status);
+			Assert.AreEqual(active && overwrite, result.FileImpacts.Single().ReconcileUnresolvedVirtualOwner);
+			Assert.AreEqual(expected == CollectionConflictImpactStatus.Blocked,
+				result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileOwnershipUnresolved));
+		}
+
+		[TestCase(null)]
+		[TestCase(true)]
+		public void Plan_UnknownVirtualActivityOrPromotedOrphanStillBlocksEvenWhenOverwriteEnabled(bool? linkActive)
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Shared\\file.pak");
+			var orphan = new CollectionNativeOwnerState(null, "orphan", CollectionNativeOwnerKind.Unresolved, linkActive, 0, null);
+			var file = new CollectionNativeFileState(target, "C:\\BG3\\Data\\Shared\\file.pak",
+				linkActive == true, false, true, null, new CollectionNativeOwnerState[0],
+				new CollectionNativeOwnerState[0], new[] { orphan });
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null,
+				new[] { CreateNativeMod(targetIdentity, "incoming-native", 100, 200) }, new[] { file },
+				null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(false, true));
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) });
+			Assert.AreEqual(CollectionConflictImpactStatus.Blocked, result.Status);
+			Assert.IsFalse(result.FileImpacts.Single().ReconcileUnresolvedVirtualOwner);
 		}
 
 		[Test]

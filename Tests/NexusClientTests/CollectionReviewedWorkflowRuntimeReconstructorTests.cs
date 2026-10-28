@@ -397,6 +397,32 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void SnapshotCodec_PreservesMandatoryVirtualOrphanReconciliationAcrossRestart()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionFileImpact original = fixture.ImpactPlan.FileImpacts.Single();
+				var impact = new CollectionConflictImpactPlan(fixture.Plan, fixture.State, new[]
+				{
+					new CollectionFileImpact(original.Target, original.Writers, original.PlannedWinner,
+						null, false, original.AffectedAssociationIds, true)
+				}, new CollectionPluginImpact[0], new CollectionConfigurationImpact[0],
+					new CollectionAssociationImpact[0], new CollectionConflictImpactIssue[0]);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, impact, new[] { fixture.PreparedRecipe });
+				byte[] payload = CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot);
+				Assert.AreEqual(12, BitConverter.ToInt32(payload, 0));
+				CollectionReviewedWorkflowSnapshot restored = CollectionReviewedWorkflowSnapshotCodec.Deserialize(payload);
+				Assert.IsTrue(restored.FileImpacts.Single().ReconcileUnresolvedVirtualOwner);
+				Assert.IsNull(restored.FileImpacts.Single().CurrentOwnerKey);
+				Assert.AreEqual(original.PlannedWinner, restored.FileImpacts.Single().PlannedWinner);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void ReconstructPlan_ValidatesRetainedSourceWithoutClaimingSafeBoundaryResume()
 		{
 			string root = CreateTemporaryDirectory();

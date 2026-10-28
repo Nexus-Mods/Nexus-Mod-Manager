@@ -81,7 +81,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		internal CollectionFileImpact(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
-			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds)
+			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds,
+			bool reconcileUnresolvedVirtualOwner = false)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			_writers = new ReadOnlyCollection<CollectionMemberKey>((writers ?? throw new ArgumentNullException(nameof(writers))).ToList());
@@ -91,7 +92,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("Preserving the current managed file winner requires its exact native owner key.", nameof(currentOwnerKey));
 			if (preserveCurrentOwner && (plannedWinner == null || !_writers.Contains(plannedWinner)))
 				throw new ArgumentException("Preserving the current managed file winner requires one exact reviewed Collection fallback winner.", nameof(plannedWinner));
+			if (reconcileUnresolvedVirtualOwner && (plannedWinner == null || preserveCurrentOwner))
+				throw new ArgumentException("An orphaned Virtual link requires one incoming Collection winner.", nameof(reconcileUnresolvedVirtualOwner));
 			PreserveCurrentOwner = preserveCurrentOwner;
+			ReconcileUnresolvedVirtualOwner = reconcileUnresolvedVirtualOwner;
 			_affectedAssociationIds = new ReadOnlyCollection<Guid>((affectedAssociationIds ?? Enumerable.Empty<Guid>()).Distinct().OrderBy(x => x).ToList());
 		}
 		public ModDeploymentTarget Target { get; }
@@ -99,6 +103,8 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberKey PlannedWinner { get; }
 		public string CurrentOwnerKey { get; }
 		public bool PreserveCurrentOwner { get; }
+		/// <summary>Reconcile an orphaned active Virtual link through the native owner switch after installing the reviewed winner.</summary>
+		public bool ReconcileUnresolvedVirtualOwner { get; }
 		public ReadOnlyCollection<Guid> AffectedAssociationIds { get { return _affectedAssociationIds; } }
 	}
 

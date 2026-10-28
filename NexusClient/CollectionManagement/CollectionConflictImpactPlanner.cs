@@ -12,7 +12,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </summary>
 	/// <remarks>
 	/// The planner never changes native ownership, plugin state or Collection persistence. Explicit file-priority rules take
-	/// precedence over bundled replacements of downloaded defaults. Installation/phase order does not determine file winners.
+	/// precedence over bundled replacements of downloaded defaults. Other file ties follow dependency/installation order.
 	/// </remarks>
 	public sealed class CollectionConflictImpactPlanner
 	{
@@ -143,7 +143,7 @@ namespace Nexus.Client.CollectionManagement
 			var associationKinds = new Dictionary<Guid, CollectionAssociationImpactKind>();
 			AddSharedNativeInstanceImpacts(matches, nativeState, associationKinds);
 
-			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues, decisions, reviewedExistingOwnerKeys);
+			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, dependencyPlan, nativeState, mutationPreviews, associationKinds, issues, decisions, reviewedExistingOwnerKeys);
 			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys, requiredPlugins);
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
 
@@ -518,7 +518,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static List<CollectionFileImpact> BuildFileImpacts(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
-			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
 			IEnumerable<CollectionConflictResolutionDecision> decisions, ISet<string> reviewedExistingOwnerKeys)
 		{
@@ -552,6 +552,11 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			var result = new List<CollectionFileImpact>();
+			// Use the actual C6.3 topological/phase sequence, not merely the provider's source ordinal.
+			// The winner must not depend on asynchronous native task completion order.
+			Dictionary<CollectionMemberKey, int> installRanks = dependencyPlan.Phases
+				.SelectMany(phase => phase.Members).Select((member, index) => new { member.MemberKey, index })
+				.ToDictionary(x => x.MemberKey, x => x.index);
 			Dictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
 			var priorityGraph = new FilePriorityGraph(plan.CapabilityReport.Manifest.FilePriorityRules.Where(x =>
 				membersByKey.ContainsKey(x.LowerPriorityMemberKey) && membersByKey.ContainsKey(x.HigherPriorityMemberKey)));
@@ -568,7 +573,7 @@ namespace Nexus.Client.CollectionManagement
 					Tuple<CollectionMemberKey, bool> resolution;
 					if (!winnersByWriterSet.TryGetValue(entry.Value, out resolution))
 					{
-						winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey, priorityGraph);
+						winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey, priorityGraph, installRanks);
 						resolution = Tuple.Create(winner, priorityCycle);
 						winnersByWriterSet.Add(entry.Value, resolution);
 					}
@@ -592,11 +597,17 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeFileState current;
 				nativeState.Files.TryGetValue(entry.Key, out current);
 				string currentOwner = current == null ? null : current.EffectiveOwnerKey;
-				if (HasUnresolvedManagedOwnership(current))
+				// Orphaned active Virtual links can be superseded when the user approved incoming
+				// overwrites. Do not drop the links: their activity must be normalized and verified
+				// by the native owner-switch service after the incoming writer is installed.
+				bool reconcileVirtualOrphan = winner != null && plan.Policy.PreferIncomingCollection &&
+					HasRecoverableVirtualOrphan(current);
+				string unresolvedOwnership = GetUnresolvedManagedOwnershipReason(current, reconcileVirtualOrphan);
+				if (unresolvedOwnership != null)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileOwnershipUnresolved,
 						CollectionConflictImpactStatus.Blocked, winner, entry.Key.ToString(),
-						"NMM found ambiguous managed ownership for this installed file and cannot determine one safe final provider."));
+						"This recorded owner cannot be reconciled through a normal Collection overwrite. " + unresolvedOwnership));
 				}
 				HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentOwner);
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.FileWinner);
@@ -634,7 +645,7 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 
-				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, preserveCurrentOwner, affected));
+				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, preserveCurrentOwner, affected, reconcileVirtualOrphan));
 			}
 			return result;
 		}
@@ -692,7 +703,8 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Uses the pre-indexed selected members when resolving thousands of shared file targets.</summary>
 		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan,
-			out bool cycle, IReadOnlyDictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey, FilePriorityGraph priorityGraph)
+			out bool cycle, IReadOnlyDictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey, FilePriorityGraph priorityGraph,
+			IReadOnlyDictionary<CollectionMemberKey, int> installRanks = null)
 		{
 			CollectionMemberKey winner = ResolveFileWinner(writers, priorityGraph, out cycle);
 			if (winner != null || cycle || writers.Count == 0) return winner;
@@ -708,16 +720,18 @@ namespace Nexus.Client.CollectionManagement
 						return bundles[0].MemberKey;
 				}
 			}
-			if (plan.Policy.PreferIncomingCollection)
-			{
-				// Explicit priority edges remain authoritative. Resolve only otherwise tied final providers.
-				var writerSet = new HashSet<CollectionMemberKey>(writers);
-				var lower = new HashSet<CollectionMemberKey>(writers.Where(x =>
-					priorityGraph.GetHigherPriority(x).Any(writerSet.Contains)));
-				return writers.Where(x => !lower.Contains(x)).Select(x => membersByKey[x])
-					.OrderBy(x => x.InstallationPhase).ThenBy(x => x.SourceOrdinal).Last().MemberKey;
-			}
-			return null;
+			// Multiple selected Collection mods writing one file is a normal overwrite, not
+			// an unsatisfied user decision. Explicit priority chains remain authoritative;
+			// independent maxima follow the reviewed install sequence. The overwrite option
+			// still controls clashes with unrelated mods already in the current setup.
+			var writerSet = new HashSet<CollectionMemberKey>(writers);
+			var lower = new HashSet<CollectionMemberKey>(writers.Where(x =>
+				priorityGraph.GetHigherPriority(x).Any(writerSet.Contains)));
+			return writers.Where(x => !lower.Contains(x))
+				.OrderBy(x => installRanks != null && installRanks.ContainsKey(x) ? installRanks[x] : -1)
+				.ThenBy(x => membersByKey[x].InstallationPhase)
+				.ThenBy(x => membersByKey[x].SourceOrdinal)
+				.ThenBy(x => x, new MemberKeyComparer()).Last();
 		}
 
 		/// <summary>Resolves the unique highest-priority writer using explicit Collection rules.</summary>
@@ -758,15 +772,40 @@ namespace Nexus.Client.CollectionManagement
 			return maxima.Count == 1 ? maxima[0] : null;
 		}
 
-		private static bool HasUnresolvedManagedOwnership(CollectionNativeFileState current)
+		/// <summary>
+		/// An active orphan can be retired through NMM's Virtual owner switch after its
+		/// replacement is installed. Never allow unknown-activity, promoted or InstallLog
+		/// ambiguity into this route. Historical inactive Virtual links are not live owners.
+		/// </summary>
+		private static bool HasRecoverableVirtualOrphan(CollectionNativeFileState current)
 		{
-			if (current == null) return false;
-			IEnumerable<CollectionNativeOwnerState> owners = current.InstallLogOwners
-				.Concat(current.DeploymentOwners).Concat(current.VirtualOwners);
-			if (owners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved)) return true;
-			return String.IsNullOrWhiteSpace(current.EffectiveOwnerKey) && owners.Any(x => x.Kind == CollectionNativeOwnerKind.NativeMod);
+			return current != null && !current.Promoted && current.RecordedByVirtualState &&
+				current.VirtualOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved && x.VirtualLinkActive == true) &&
+				!current.VirtualOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved && x.VirtualLinkActive == null) &&
+				!current.InstallLogOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved) &&
+				!current.DeploymentOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved);
 		}
 
+		private static string GetUnresolvedManagedOwnershipReason(CollectionNativeFileState current, bool reconcileActiveVirtualOrphan)
+		{
+			if (current == null) return null;
+			if (current.DeploymentOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved))
+				return "A promoted deployment owner cannot be mapped to an active native mod.";
+			if (current.InstallLogOwners.Any(x => x.Kind == CollectionNativeOwnerKind.Unresolved))
+				return "An InstallLog owner cannot be mapped to an active native mod.";
+			// Inactive Virtual links retain valid fallback history but cannot currently win.
+			if (!reconcileActiveVirtualOrphan && current.VirtualOwners.Any(x =>
+				x.Kind == CollectionNativeOwnerKind.Unresolved && x.VirtualLinkActive == true))
+				return "An active Virtual link has no resolvable native mod owner. Enable overwriting existing files to use the native winner switch.";
+			if (current.VirtualOwners.Any(x =>
+				x.Kind == CollectionNativeOwnerKind.Unresolved && x.VirtualLinkActive == null))
+				return "A Virtual link with unconfirmed activity has no resolvable native mod owner.";
+			IEnumerable<CollectionNativeOwnerState> relevantOwners = current.InstallLogOwners
+				.Concat(current.DeploymentOwners).Concat(current.VirtualOwners.Where(x => x.VirtualLinkActive != false));
+			return String.IsNullOrWhiteSpace(current.EffectiveOwnerKey) &&
+				relevantOwners.Any(x => x.Kind == CollectionNativeOwnerKind.NativeMod) && !reconcileActiveVirtualOrphan
+				? "Native state records a live mod owner but has no effective owner key." : null;
+		}
 		private static bool CurrentOwnerIsIncomingWriter(string ownerKey, IEnumerable<CollectionMemberKey> writers,
 			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberMatchResult> matches)
 		{

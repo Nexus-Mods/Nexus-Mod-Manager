@@ -163,7 +163,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("Every reviewed member that will require native installation must have one exact prepared native recipe descriptor.");
 
 			var fileImpacts = impactPlan.FileImpacts.Select(x => new CollectionReviewedFileImpactSnapshot(x.Target, x.Writers,
-				x.PlannedWinner, x.CurrentOwnerKey, x.PreserveCurrentOwner, x.AffectedAssociationIds)).ToList();
+				x.PlannedWinner, x.CurrentOwnerKey, x.PreserveCurrentOwner, x.AffectedAssociationIds, x.ReconcileUnresolvedVirtualOwner)).ToList();
 			var pluginImpacts = impactPlan.PluginImpacts.Select(x => new CollectionReviewedPluginImpactSnapshot(x.MemberKey,
 				x.Effect, x.AffectedAssociationIds)).ToList();
 			var configurationImpacts = impactPlan.ConfigurationImpacts.Select(x => new CollectionReviewedConfigurationImpactSnapshot(
@@ -425,7 +425,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		internal CollectionReviewedFileImpactSnapshot(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
-			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds)
+			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds,
+			bool reconcileUnresolvedVirtualOwner = false)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			_writers = new ReadOnlyCollection<CollectionMemberKey>((writers ?? throw new ArgumentNullException(nameof(writers))).ToList());
@@ -435,7 +436,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("A reviewed preserved file winner requires its exact native owner key.", nameof(currentOwnerKey));
 			if (preserveCurrentOwner && (plannedWinner == null || !_writers.Contains(plannedWinner)))
 				throw new ArgumentException("A reviewed preserved file winner requires the exact Collection fallback winner.", nameof(plannedWinner));
+			if (reconcileUnresolvedVirtualOwner && (plannedWinner == null || preserveCurrentOwner))
+				throw new ArgumentException("An orphaned Virtual owner requires an incoming reviewed winner.", nameof(reconcileUnresolvedVirtualOwner));
 			PreserveCurrentOwner = preserveCurrentOwner;
+			ReconcileUnresolvedVirtualOwner = reconcileUnresolvedVirtualOwner;
 			_affectedAssociationIds = new ReadOnlyCollection<Guid>((affectedAssociationIds ?? throw new ArgumentNullException(nameof(affectedAssociationIds))).OrderBy(x => x).ToList());
 		}
 		public ModDeploymentTarget Target { get; }
@@ -443,6 +447,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberKey PlannedWinner { get; }
 		public string CurrentOwnerKey { get; }
 		public bool PreserveCurrentOwner { get; }
+		public bool ReconcileUnresolvedVirtualOwner { get; }
 		public ReadOnlyCollection<Guid> AffectedAssociationIds { get { return _affectedAssociationIds; } }
 	}
 
@@ -659,6 +664,8 @@ namespace Nexus.Client.CollectionManagement
 		private const int BinaryVersion = 10;
 		// The wire layout is unchanged; version 11 requires replaying the typed INI effects retained in prepared recipes.
 		private const int IniOperationBinaryVersion = 11;
+		// V12 records whether a native winner switch is mandatory for an orphaned active Virtual link.
+		private const int VirtualOrphanBinaryVersion = 12;
 		private const int LegacyBinaryVersion = 2;
 		// Large Collections retain each file in mappings, validation paths, previews and winner records.
 		// Use the same bounds for writing and reading to avoid publishing reviews the codec cannot reopen.
@@ -673,7 +680,10 @@ namespace Nexus.Client.CollectionManagement
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
-				writer.Write(snapshot.PreparedRecipes.Any(recipe => recipe.EffectPreview.IniEdits.Count > 0) ? IniOperationBinaryVersion : BinaryVersion);
+				int binaryVersion = snapshot.FileImpacts.Any(x => x.ReconcileUnresolvedVirtualOwner)
+					? VirtualOrphanBinaryVersion
+					: snapshot.PreparedRecipes.Any(recipe => recipe.EffectPreview.IniEdits.Count > 0) ? IniOperationBinaryVersion : BinaryVersion;
+				writer.Write(binaryVersion);
 				WritePlanIdentity(writer, snapshot.Identity);
 				WriteRevision(writer, snapshot.Revision);
 				writer.Write(snapshot.Target.Fingerprint);
@@ -686,7 +696,7 @@ namespace Nexus.Client.CollectionManagement
 				WritePriorities(writer, snapshot.PriorityRules);
 				WritePhases(writer, snapshot.Phases);
 				WriteBarriers(writer, snapshot.Barriers);
-				WriteFileImpacts(writer, snapshot.FileImpacts);
+				WriteFileImpacts(writer, snapshot.FileImpacts, binaryVersion);
 				WritePluginImpacts(writer, snapshot.PluginImpacts);
 				WriteConfigurationImpacts(writer, snapshot.ConfigurationImpacts);
 				WriteAssociationImpacts(writer, snapshot.AssociationImpacts);
@@ -715,7 +725,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != IniOperationBinaryVersion && binaryVersion != BinaryVersion && binaryVersion != 9 && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != VirtualOrphanBinaryVersion && binaryVersion != IniOperationBinaryVersion && binaryVersion != BinaryVersion && binaryVersion != 9 && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -834,10 +844,10 @@ namespace Nexus.Client.CollectionManagement
 		{
 			var result = new List<CollectionReviewedBarrierSnapshot>(); for (int i = 0, count = ReadCount(reader); i < count; i++) result.Add(new CollectionReviewedBarrierSnapshot(reader.ReadDouble(), reader.ReadDouble(), ReadEnum<CollectionPhaseBarrierKind>(reader, false))); return result;
 		}
-		private static void WriteFileImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedFileImpactSnapshot> values)
+		private static void WriteFileImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedFileImpactSnapshot> values, int binaryVersion)
 		{
 			List<CollectionReviewedFileImpactSnapshot> list = values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList(); WriteCount(writer, list.Count);
-			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); WriteCount(writer, x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.PreserveCurrentOwner); WriteGuids(writer, x.AffectedAssociationIds); }
+			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); WriteCount(writer, x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.PreserveCurrentOwner); WriteGuids(writer, x.AffectedAssociationIds); if (binaryVersion >= VirtualOrphanBinaryVersion) writer.Write(x.ReconcileUnresolvedVirtualOwner); }
 		}
 		private static List<CollectionReviewedFileImpactSnapshot> ReadFileImpacts(BinaryReader reader, int binaryVersion)
 		{
@@ -850,7 +860,10 @@ namespace Nexus.Client.CollectionManagement
 				CollectionMemberKey plannedWinner = ReadNullableMemberKey(reader);
 				string currentOwnerKey = ReadNullableString(reader);
 				bool preserveCurrentOwner = binaryVersion >= 4 && reader.ReadBoolean();
-				result.Add(new CollectionReviewedFileImpactSnapshot(target, writers, plannedWinner, currentOwnerKey, preserveCurrentOwner, ReadGuids(reader)));
+				IReadOnlyList<Guid> associations = ReadGuids(reader);
+				bool reconcileVirtualOrphan = binaryVersion >= VirtualOrphanBinaryVersion && reader.ReadBoolean();
+				result.Add(new CollectionReviewedFileImpactSnapshot(target, writers, plannedWinner, currentOwnerKey,
+					preserveCurrentOwner, associations, reconcileVirtualOrphan));
 			}
 			return result;
 		}
