@@ -1,5 +1,28 @@
 # NMM Community Edition release notes
 
+## Version 0.93.9
+
+**New features and improvements**
+
+- Added preliminary **Baldur’s Gate 3 load-order management**.
+- Improved Baldur’s Gate 3 Collection support.
+- Added a **Go to Collection page** option to the More Actions submenu.
+
+**Bug fixes**
+
+- Fixed Fallout 4 download links opening NMM without starting the download.
+- Fixed missing **Delete Mod** options for mods without an archive.
+- Fixed Collection installations failing to complete and leaving the interface stuck.
+- Fixed individual mods failing to install during a Collection installation.
+- Fixed Collection conflict management.
+- Fixed excessive memory usage when installing or uninstalling many mods.
+- Fixed incorrect placement of official Starfield plugins after sorting with LOOT.
+- Fixed a startup crash when a game’s storage could not be found.
+- Fixed the link activator using an incorrect deployment path.
+- Fixed access-denied errors involving shared installation state in ProgramData after upgrading.
+- Fixed Category View text filters.
+- Fixed installed/disabled status icons disappearing from the mod lists.
+
 ## Version 0.93.8
 
 - Bugfix: Improved mod installation and uninstallation performance.
