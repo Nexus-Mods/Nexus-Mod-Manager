@@ -381,6 +381,8 @@
 			CollectionManualNativeMutationBoundary.Configure(services, gameStorageService);
 
 			var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher, preparedCategories);
+			if (Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService.Supports(gameMode))
+				mainFormViewModel.InitializeNativeLoadOrder(new Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService(services, gameStorageService));
 			if (ManagedContentOrderService.Supports(gameMode))
 				mainFormViewModel.InitializeManagedContentOrder(new ManagedContentOrderService(services,
 					gameStorageService, _environmentInfo.PersonalDataFolderPath));

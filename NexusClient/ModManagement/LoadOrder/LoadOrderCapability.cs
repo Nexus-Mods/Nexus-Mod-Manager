@@ -5,7 +5,7 @@ using Nexus.Client.ModManagement.ManagedContent;
 
 namespace Nexus.Client.ModManagement.LoadOrder
 {
-	/// <summary>Optional inventory capability; its presence does not authorize native order publication.</summary>
+	/// <summary>Optional native load-order capability; mutations still require an explicitly accepted review.</summary>
 	public interface ILoadOrderCapabilityProvider
 	{
 		LoadOrderCapability LoadOrder { get; }
@@ -31,23 +31,40 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		public bool AllowSubdirectories { get; }
 	}
 
-	/// <summary>Validated read-only capability selected by game.json; existing native effects remain separate.</summary>
+	/// <summary>Immutable native load-order configuration selected by game.json and shared by inventory, lifecycle and review services.</summary>
 	public sealed class LoadOrderCapability
 	{
 		public const string LarianProviderId = "larian-module-settings-v1";
 
 		/// <summary>Captures the existing profile rule so the capability cannot introduce a second profile location.</summary>
-		internal LoadOrderCapability(string provider, int revision, LoadOrderDirectoryPolicy directoryPolicy, StructuredXmlRecordRule profiles)
+		internal LoadOrderCapability(string provider, int revision, LoadOrderDirectoryPolicy directoryPolicy, StructuredXmlRecordRule profiles, IEnumerable<string> builtInModuleIdentities = null)
 		{
 			Provider = provider;
 			Revision = revision;
 			DirectoryPolicy = directoryPolicy ?? throw new ArgumentNullException(nameof(directoryPolicy));
 			Profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
+			BuiltInModuleIdentities = Array.AsReadOnly(ValidateBuiltInIdentities(builtInModuleIdentities));
 		}
 
 		public string Provider { get; }
 		public int Revision { get; }
 		public LoadOrderDirectoryPolicy DirectoryPolicy { get; }
 		public StructuredXmlRecordRule Profiles { get; }
+		public IReadOnlyList<string> BuiltInModuleIdentities { get; }
+
+		/// <summary>Validates optional game-supplied vanilla identities without inferring installed game/DLC versions.</summary>
+		internal static string[] ValidateBuiltInIdentities(IEnumerable<string> identities)
+		{
+			string[] source = (identities ?? Enumerable.Empty<string>()).Take(257).ToArray();
+			if (source.Length > 256) throw new ArgumentException("loadOrder.builtInModuleIdentities supports at most 256 UUIDs.");
+			string[] result = source.Select(value =>
+			{
+				Guid id;
+				if (!Guid.TryParse(value, out id) || id == Guid.Empty) throw new ArgumentException("loadOrder.builtInModuleIdentities requires valid UUIDs.");
+				return id.ToString("D");
+			}).ToArray();
+			if (result.Distinct(StringComparer.OrdinalIgnoreCase).Count() != result.Length) throw new ArgumentException("Duplicate loadOrder built-in module UUID.");
+			return result;
+		}
 	}
 }

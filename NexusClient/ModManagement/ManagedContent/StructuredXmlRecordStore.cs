@@ -202,6 +202,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			string path = Path.Combine(directory, _rule.ManifestFile);
 			CheckPathType(directory, true);
 			CheckPathType(path, false);
+			LoadOrder.NativeLoadOrderService.RequireNoPendingManifest(path);
 			return path;
 		}
 

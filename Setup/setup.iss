@@ -127,6 +127,7 @@ Source: "..\Stage\Release\Languages\*"; Excludes: "{#NonRuntimeFiles}"; DestDir:
 Source: "..\Stage\Release\GameModes\*"; Excludes: "{#NonRuntimeFiles},Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls},{#RetiredGameModeConfigs}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\Tools\LoadOrder\*"; Excludes: "*.pdb"; DestDir: {app}\Tools\LoadOrder; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist
 
 [Icons]
 Name: {group}\{#MyAppSetupName}; Filename: {app}\{#MyExeName}; WorkingDir: {app}

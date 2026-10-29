@@ -648,6 +648,20 @@
     <Compile Include="ModManagement\LoadOrder\LoadOrderProviderRegistry.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianPackageInspectionProtocol.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianPackageInspectorClient.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianLoadOrderDocument.cs" />
+    <Compile Include="ModManagement\LoadOrder\NativeLoadOrderDraft.cs" />
+    <Compile Include="ModManagement\LoadOrder\NativeLoadOrderService.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianOrderPreference.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianOrderGameValueInstaller.cs" />
+    <Compile Include="ModManagement\LoadOrder\NativeLoadOrderService.Profiles.cs" />
+    <Compile Include="ModManagement\LoadOrder\NativeOrderProfileRestoreTask.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.LoadOrder.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeOrderEffectComparer.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderAnalysis.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianLoadOrderAnalyzer.cs" />
+    <Compile Include="ModManagement\LoadOrder\NativeLoadOrderService.Analysis.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderFolderRepair.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderAutomaticRepair.cs" />
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
     <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs">
       <SubType>Form</SubType>

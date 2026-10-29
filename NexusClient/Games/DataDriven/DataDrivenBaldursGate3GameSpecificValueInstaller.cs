@@ -344,7 +344,9 @@ namespace Nexus.Client.Games.DataDriven
 			if (String.IsNullOrWhiteSpace(profilesDirectory))
 				throw new ArgumentException("Baldur's Gate 3 profile directory is required.", nameof(profilesDirectory));
 			ValidateProfileName(profileName);
-			return Path.Combine(profilesDirectory, profileName, "modsettings.lsx");
+			string manifest = Path.Combine(profilesDirectory, profileName, "modsettings.lsx");
+			Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService.RequireNoPendingManifest(manifest);
+			return manifest;
 		}
 
 		private static IReadOnlyList<BasicInstallGameSpecificValue> BuildPlan(IEnumerable<Bg3Module> modules, string profilesDirectory)

@@ -208,7 +208,7 @@ namespace Nexus.Client.CollectionManagement
 					if (!state.GameValues.TryGetValue(effect.Key, out value) || value.Values.Count == 0)
 						{ failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection game-specific effect is missing from final native state."); continue; }
 					CollectionNativeBinaryOwnerValue current = value.Values[value.Values.Count - 1];
-					if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !ByteArraysEqual(current.UnsafeValue, effect.UnsafeValue))
+					if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !CollectionNativeOrderEffectComparer.Matches(effect.Key, effect.UnsafeValue, current.UnsafeValue, recipe.EffectPreview.GameValues))
 						failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection game-specific effect no longer matches final native state.");
 				}
 

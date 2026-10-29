@@ -1,0 +1,29 @@
+<Project>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)..\..\Stage\obj\LarianPackageInspector\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LSLibDirectory>$(MSBuildThisFileDirectory)..\..\Stage\Dependencies\LSLib-1.20.4\dist\Packed</LSLibDirectory>
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\Stage\Helpers\LarianPackageInspector\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="LSLib;K4os.Compression.LZ4;K4os.Compression.LZ4.Streams;K4os.Hash.xxHash;ZstdSharp;System.IO.Hashing;System.IO.Pipelines;Newtonsoft.Json">
+      <HintPath>$(LSLibDirectory)\%(Identity).dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Content Include="$(LSLibDirectory)\LSLibNative.dll" Link="LSLibNative.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="ThirdPartyNotices.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="RequirePinnedLSLib" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(LSLibDirectory)\LSLib.dll')" Text="Run Support/LarianPackageInspector/Build.ps1 to acquire the checksum-pinned LSLib dependency." />
+  </Target>
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

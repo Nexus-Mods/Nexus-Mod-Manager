@@ -59,7 +59,23 @@ namespace Nexus.Client.CollectionManagement
 					throw new NotSupportedException("The selected BG3 package inventory is not available for this operation.");
 				var records = new BaldursGate3CollectionRecordStore(rule);
 				foreach (BasicInstallGameSpecificValue value in records.BuildPlan(order, packages))
+				{
+					records.ParseKey(value.Key, out string profile, out string identity);
+					if ((gameMode as Nexus.Client.ModManagement.LoadOrder.ILoadOrderCapabilityProvider)?.LoadOrder != null)
+					{
+						JObject[] entries = order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true).ToArray();
+						var preference = new Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference
+						{
+							Source = "Curator",
+							Order = entries.Where(entry => (bool)entry["enabled"] && (packages == null || packages.Contains(Path.GetFileName(((string)entry["id"] ?? String.Empty).Replace('/', '\\')))))
+								.Select(entry => (string)entry["data"]["uuid"]).ToArray(),
+							Excluded = entries.Where(entry => !(bool)entry["enabled"]).Select(entry => (string)entry["data"]["uuid"]).ToArray(),
+							Managed = entries.Select(entry => (string)entry["data"]["uuid"]).ToArray()
+						};
+						operations.Add(new EditGameSpecificValueOperation(Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference.Key(profile), preference.Encode(), true));
+					}
 					operations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+				}
 			}
 			return translated.WithTransformedNativePlan(operations);
 		}

@@ -41,6 +41,20 @@ namespace Nexus.Client.Tests
 			Assert.That(capability.Profiles.ProfileRoot, Is.EqualTo(@"Fixture\Profiles"));
 		}
 
+		/// <summary>Built-in identities are optional, canonicalized and copied; duplicate or invalid values stay isolated as definition errors.</summary>
+		[Test]
+		public void BuiltInModuleIdentitiesAreValidatedAndDetached()
+		{
+			GameModeDefinition definition = Definition();
+			definition.LoadOrder.BuiltInModuleIdentities = new[] { "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA" };
+			LoadOrderCapability capability = DataDrivenLoadOrder.Create(definition);
+			definition.LoadOrder.BuiltInModuleIdentities[0] = "invalid";
+			Assert.That(capability.BuiltInModuleIdentities, Is.EqualTo(new[] { "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }));
+			Assert.That(new GameModeDefinitionValidator().Validate(definition).Any(issue => issue.PropertyPath == "loadOrder"), Is.True);
+			definition.LoadOrder.BuiltInModuleIdentities = new[] { "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA" };
+			Assert.Throws<ArgumentException>(() => DataDrivenLoadOrder.Create(definition));
+		}
+
 		/// <summary>Unsupported revisions cannot accidentally enable a partly understood reader.</summary>
 		[TestCase(0)]
 		[TestCase(2)]

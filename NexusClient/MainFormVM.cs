@@ -102,6 +102,9 @@
 			/// </summary>
 			public string PreviousLoadOrder { get; }
 
+			/// <summary>Live native order-policy state captured before any outgoing mod is changed.</summary>
+			public byte[] PreviousNativeOrder { get; set; }
+
 			#endregion
 
 			/// <summary>
@@ -328,6 +331,18 @@
 
 		/// <summary>Game-file order observation and explicit publication/recovery boundary; null for other games.</summary>
 		public ManagedContentOrderService ManagedContentOrder { get; private set; }
+
+		/// <summary>Configured native module order service; null when the capability is absent.</summary>
+		public Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService NativeLoadOrder { get; private set; }
+
+		/// <summary>Binds native order publication to the same current services as installation and Collections.</summary>
+		public void InitializeNativeLoadOrder(Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService service)
+		{
+			if (service == null) throw new ArgumentNullException(nameof(service));
+			if (NativeLoadOrder != null || service.ModeId != GameMode.ModeId || !Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService.Supports(GameMode))
+				throw new InvalidOperationException("The native load-order service does not match the current capability.");
+			NativeLoadOrder = service;
+		}
 
 		/// <summary>Binds the opt-in order writer to the same current native services as the Components page.</summary>
 		public void InitializeManagedContentOrder(ManagedContentOrderService service)
@@ -1084,6 +1099,23 @@
 				: PluginManager.ApplyLoadOrder(dicLoadOrder, false, true);
 		}
 
+		/// <summary>Applies configured native order only after the target profile's mods have been deployed.</summary>
+		public IBackgroundTask ApplyPendingNativeProfileOrder()
+		{
+			if (NativeLoadOrder == null || profileSwitchToken?.ProfileDictionary == null ||
+				!profileSwitchToken.ProfileDictionary.TryGetValue(Nexus.Client.ModManagement.LoadOrder.NativeOrderProfileState.DictionaryKey, out string state)) return null;
+			var task = new Nexus.Client.ModManagement.LoadOrder.NativeOrderProfileRestoreTask(NativeLoadOrder, System.Text.Encoding.UTF8.GetBytes(state));
+			task.Update(ConfirmUpdaterAction); return task;
+		}
+
+		/// <summary>Restores the live pre-switch native order policy after compensating mod deployment.</summary>
+		public IBackgroundTask ApplyPreviousNativeProfileOrder()
+		{
+			if (NativeLoadOrder == null || profileSwitchToken?.PreviousNativeOrder == null) return null;
+			var task = new Nexus.Client.ModManagement.LoadOrder.NativeOrderProfileRestoreTask(NativeLoadOrder, profileSwitchToken.PreviousNativeOrder);
+			task.Update(ConfirmUpdaterAction); return task;
+		}
+
 		/// <summary>
 		/// Waits for queued load-order persistence work to complete.
 		/// </summary>
@@ -1108,6 +1140,7 @@
 			if (profileSwitchToken == null)
 				return;
 
+			ProfileManager.NativeOrderCaptureSuspended = false;
 			ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
 			ProfileManager.UpdateCurrentDeploymentManifest();
 			profileSwitchToken = null;
@@ -1169,6 +1202,7 @@
 		/// </summary>
 		public void CompleteProfileRollback()
 		{
+			ProfileManager.NativeOrderCaptureSuspended = false;
 			if (profileSwitchToken != null)
 				ProfileManager.SetCurrentProfile(profileSwitchToken.PreviousProfile);
 
@@ -1267,7 +1301,27 @@
 				}
 
 				// Loads all the info necessary for the profile switch to the new profile inside a dictionary.
-				ProfileManager.LoadProfile(p_impProfile, out Dictionary<string, string> profiles);
+				Dictionary<string, string> profiles;
+				IModProfile impPreviousProfile = ProfileManager.CurrentProfile;
+				Dictionary<string, string> dicPreviousProfile = null;
+				byte[] previousNativeOrder;
+				try
+				{
+					ProfileManager.LoadProfile(p_impProfile, out profiles);
+					byte[] nativeTargetOrder = profiles != null && profiles.ContainsKey(Nexus.Client.ModManagement.LoadOrder.NativeOrderProfileState.DictionaryKey)
+						? System.Text.Encoding.UTF8.GetBytes(profiles[Nexus.Client.ModManagement.LoadOrder.NativeOrderProfileState.DictionaryKey]) : null;
+					NativeLoadOrder?.ValidateProfileState(nativeTargetOrder);
+					previousNativeOrder = NativeLoadOrder?.CaptureProfileState();
+					if (impPreviousProfile != null) ProfileManager.LoadProfile(impPreviousProfile, out dicPreviousProfile);
+				}
+				catch (Exception error) when (NativeLoadOrder != null && (error is IOException || error is UnauthorizedAccessException || error is System.Security.SecurityException ||
+					error is Newtonsoft.Json.JsonException || error is System.Xml.XmlException || error is ArgumentException || error is InvalidOperationException))
+				{
+					System.Diagnostics.Trace.TraceWarning("Native profile preflight failed: {0}", error);
+					if (!p_booSilentInstall) ExtendedMessageBox.Show(p_frmParent, LanguageManager.Format("Profiles.NativeOrder.PreflightFailed", "The profile's game load order could not be prepared: {0}", error.Message), CommonData.ModManagerName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+					AbortedProfileSwitch?.Invoke(this, new EventArgs());
+					return;
+				}
 
 				if (profiles != null && profiles.Count > 0 && profiles.ContainsKey("modlist"))
 				{
@@ -1275,11 +1329,8 @@
 					ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out lstMissingModInfo, lstScriptedMismatch);
 				}
 
-				IModProfile impPreviousProfile = ProfileManager.CurrentProfile;
-				Dictionary<string, string> dicPreviousProfile = null;
 				if (impPreviousProfile != null)
 				{
-					ProfileManager.LoadProfile(impPreviousProfile, out dicPreviousProfile);
 					lstRollbackScriptedMismatch = ProfileManager.CheckScriptedInstallersIntegrity(p_impProfile, impPreviousProfile);
 				}
 
@@ -1295,6 +1346,8 @@
 					? System.Text.Encoding.UTF8.GetString(PluginManagerVM.ExportLoadOrder())
 					: null;
 				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, deploymentManifest, previousDeploymentManifest, lstScriptedMismatch, lstRollbackScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
+				profileSwitchToken.PreviousNativeOrder = previousNativeOrder;
+				ProfileManager.NativeOrderCaptureSuspended = NativeLoadOrder != null;
 
 				// Deprecated, online profiles are no longer supported by NexusMods.
 				/*
@@ -1414,6 +1467,7 @@
 				ModManager.VirtualModActivator.DisableLinkCreation = false;
 				m_booIsSwitching = false;
 				ProfileManager.SetCurrentProfile(currentProfile);
+				ProfileManager.NativeOrderCaptureSuspended = false;
 				profileSwitchToken = null;
 				if (!silent)
 					ExtendedMessageBox.Show(parent, ex.Message, CommonData.ModManagerName, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1427,6 +1481,7 @@
 				ModManager.VirtualModActivator.DisableLinkCreation = false;
 				m_booIsSwitching = false;
 				ProfileManager.SetCurrentProfile(currentProfile);
+				ProfileManager.NativeOrderCaptureSuspended = false;
 				profileSwitchToken = null;
 				if (!silent)
 					ExtendedMessageBox.Show(parent, LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);

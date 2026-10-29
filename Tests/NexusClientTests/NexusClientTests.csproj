@@ -186,6 +186,9 @@
     <Compile Include="Witcher3CollectionSupportTests.cs" />
     <Compile Include="BaldursGate3CollectionSupportTests.cs" />
     <Compile Include="LoadOrderInfrastructureTests.cs" />
+    <Compile Include="NativeLoadOrderDocumentTests.cs" />
+    <Compile Include="LarianLoadOrderPlanningTests.cs" />
+    <Compile Include="LoadOrderFolderRepairTests.cs" />
     <Compile Include="Witcher3StandaloneMenuInstallTests.cs" />
     <Compile Include="Witcher3LoadOrderEditorSessionTests.cs" />
     <Compile Include="Witcher3LoadOrderExtendedEditorTests.cs" />

@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -25,6 +26,8 @@ namespace Nexus.Client.ModManagement
 {
 	public partial class ProfileManager : IProfileManager
 	{
+		/// <summary>Prevents transitional profile deployment from overwriting the outgoing profile's native order snapshot.</summary>
+		internal bool NativeOrderCaptureSuspended { get; set; }
 		#region Static Properties
 
 		private static readonly object m_objLock = new object();
@@ -1147,6 +1150,12 @@ namespace Nexus.Client.ModManagement
 				{
 					if ((m_booUsesPlugin) && (p_bteLoadOrder != null) && (p_bteLoadOrder.Length > 0))
 						WriteProfileFiles(Path.Combine(strProfilePath, "loadorder.txt"), p_bteLoadOrder);
+					if (!NativeOrderCaptureSuspended)
+					{
+						byte[] nativeOrder = LoadOrder.NativeLoadOrderService.CaptureProfileState(ModManager.GameMode, ModManager.InstallationLog);
+						if (nativeOrder != null && !WriteProfileFiles(Path.Combine(strProfilePath, LoadOrder.NativeOrderProfileState.FileName), nativeOrder))
+							throw new IOException("The profile's native load-order companion could not be saved.");
+					}
 				}
 				catch (Exception ex)
 				{
@@ -1355,6 +1364,13 @@ namespace Nexus.Client.ModManagement
 			string strModList = string.Empty;
 
 			string strProfilePath = Path.Combine(m_strProfileManagerPath, p_impModProfile.Id);
+			string nativeOrderPath = Path.Combine(strProfilePath, LoadOrder.NativeOrderProfileState.FileName);
+			if (LoadOrder.NativeLoadOrderService.Supports(ModManager.GameMode) && File.Exists(nativeOrderPath))
+			{
+				byte[] nativeOrder = LoadOrder.LarianLoadOrderDocument.ReadBytes(nativeOrderPath, 16 * 1024 * 1024);
+				LoadOrder.NativeOrderProfileState.Decode(nativeOrder, ModManager.GameMode.ModeId);
+				p_dicFileStream.Add(LoadOrder.NativeOrderProfileState.DictionaryKey, Encoding.UTF8.GetString(nativeOrder));
+			}
 
 			if (m_booUsesPlugin)
 			{

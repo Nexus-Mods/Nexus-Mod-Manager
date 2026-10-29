@@ -657,7 +657,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 				CollectionNativeBinaryOwnerValue current = value.Values[value.Values.Count - 1];
 				if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) ||
-					!ByteArraysEqual(current.UnsafeValue, effect.UnsafeValue))
+					!CollectionNativeOrderEffectComparer.Matches(effect.Key, effect.UnsafeValue, current.UnsafeValue, preview.GameValues))
 				{
 					failureReason = String.Format(CultureInfo.InvariantCulture,
 						"game-value effect '{0}' differs (owner expected '{1}', observed '{2}', expectedBytes={3}, observedBytes={4}).",

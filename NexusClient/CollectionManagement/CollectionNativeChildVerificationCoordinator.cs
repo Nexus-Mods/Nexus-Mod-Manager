@@ -656,7 +656,7 @@ namespace Nexus.Client.CollectionManagement
 					return false;
 				CollectionNativeBinaryOwnerValue current = value.Values[value.Values.Count - 1];
 				if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) ||
-					!ByteArraysEqual(current.UnsafeValue, effect.UnsafeValue))
+					!CollectionNativeOrderEffectComparer.Matches(effect.Key, effect.UnsafeValue, current.UnsafeValue, preview.GameValues))
 					return false;
 			}
 

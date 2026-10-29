@@ -114,12 +114,14 @@ namespace Nexus.Client.Games.DataDriven
         /// <summary>Identifies game-specific keys owned by the deterministic BG3 special-install contract.</summary>
         public override bool IsDeterministicSpecialFileGameValueKey(string p_strKey)
         {
+            if (LoadOrder != null && Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference.TryProfile(p_strKey, out string preferenceProfile)) return true;
             return StructuredRecords == null ? DataDrivenBaldursGate3ModSettingsValue.IsSupportedKey(p_strKey) : new BaldursGate3CollectionRecordStore(StructuredRecords).IsSupportedKey(p_strKey);
         }
 
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
+            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, false);
             if (StructuredRecords != null) return new StructuredGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
@@ -127,6 +129,7 @@ namespace Nexus.Client.Games.DataDriven
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
+            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, true);
             if (StructuredRecords != null) return new StructuredGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
@@ -219,6 +222,7 @@ namespace Nexus.Client.Games.DataDriven
                     continue;
 
                 XmlDocument document = new XmlDocument();
+                Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService.RequireNoPendingManifest(manifest);
                 document.Load(manifest);
                 XmlNode modsNode = document.DocumentElement.SelectSingleNode("//*[@id='Mods']");
                 XmlNode children = modsNode.FirstChild;
@@ -263,6 +267,7 @@ namespace Nexus.Client.Games.DataDriven
                     continue;
 
                 XmlDocument document = new XmlDocument();
+                Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService.RequireNoPendingManifest(manifest);
                 document.Load(manifest);
                 XmlNode modsNode = document.DocumentElement.SelectSingleNode("//*[@id='Mods']");
                 XmlNode children = modsNode.FirstChild;

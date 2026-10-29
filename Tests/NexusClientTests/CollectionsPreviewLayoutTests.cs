@@ -43,6 +43,52 @@ namespace Nexus.Client.Tests
 			}
 		}
 
+		/// <summary>A returned apply result must unlock the UI before result feedback can enter a modal message loop.</summary>
+		[TestCase(CollectionAdditiveWorkflowApplyStatus.StoppedPartial, CollectionOperationPhase.Completed, CollectionOperationResultState.StoppedPartial)]
+		[TestCase(CollectionAdditiveWorkflowApplyStatus.Committed, CollectionOperationPhase.Completed, CollectionOperationResultState.Committed)]
+		[TestCase(CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary, CollectionOperationPhase.PausedAtSafeBoundary, CollectionOperationResultState.Pending)]
+		[TestCase(CollectionAdditiveWorkflowApplyStatus.RecoveryRequired, CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired)]
+		[TestCase(CollectionAdditiveWorkflowApplyStatus.RepreparationRequired, CollectionOperationPhase.Completed, CollectionOperationResultState.FailedBeforeApply)]
+		public void ApplyResultReleasesBusyOverlayAndReportCommands(CollectionAdditiveWorkflowApplyStatus status,
+			CollectionOperationPhase phase, CollectionOperationResultState resultState)
+		{
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(CollectionIdentity.FromNexus("93228"), "779225", 58);
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				revision.Collection, CollectionTargetIdentity.FromFingerprint("target-preview-completion"), revision,
+				CollectionPlanIdentity.From(Guid.NewGuid(), 1), 6, phase, resultState, new CollectionNativeChildOperation[0]);
+			var result = new CollectionAdditiveWorkflowApplyResult(status, operation, null, "Retained installation outcome");
+			CollectionUiContext context = CollectionUiContext.Incoming(0, revision, operation.Identity);
+			using (CollectionsPreviewControl collections = new CollectionsPreviewControl())
+			{
+				typeof(CollectionsPreviewControl).GetField("_displayContext", BindingFlags.Instance | BindingFlags.NonPublic)
+					.SetValue(collections, context);
+				typeof(CollectionsPreviewControl).GetMethod("BeginWorkflowWork", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(collections, new object[] { context, CollectionWorkflowActivityPhase.Applying, "Finishing the last mod" });
+				Assert.That(collections.HasActiveSessionWork, Is.True);
+				Assert.That(GetField<bool>(collections, "_wasShowingMemberLoadingOverlay"), Is.True);
+
+				typeof(CollectionsPreviewControl).GetMethod("CompleteAdditiveApply", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(collections, new object[] { result, context });
+
+				Assert.That(collections.HasActiveSessionWork, Is.False);
+				Assert.That(GetField<bool>(collections, "_wasShowingMemberLoadingOverlay"), Is.False);
+				Assert.That(GetField<System.Windows.Forms.Timer>(collections, "_workflowActivityAnimationTimer").Enabled, Is.False);
+				Assert.That(GetField<Control>(collections, "_membersGrid").Enabled, Is.True);
+				Assert.That(GetField<Control>(collections, "_exportTechnicalReportButton").Enabled, Is.True);
+				Assert.That(GetField<CollectionOperation>(collections, "_operationSnapshot"), Is.SameAs(operation));
+				Assert.That(GetField<Control>(collections, "_workflowStatusLabel").Text, Does.Not.Contain("Finishing the last mod"));
+				if (status == CollectionAdditiveWorkflowApplyStatus.StoppedPartial)
+					Assert.That(GetField<CollectionWorkflowActivitySnapshot>(collections, "_workflowActivity").State,
+						Is.EqualTo(CollectionWorkflowActivityState.Failed));
+
+				// The caller's existing finally block remains safe after early completion cleanup.
+				typeof(CollectionsPreviewControl).GetMethod("EndWorkflowWork", BindingFlags.Instance | BindingFlags.NonPublic)
+					.Invoke(collections, new object[] { context });
+				Assert.That(collections.HasActiveSessionWork, Is.False);
+				Assert.That(GetField<Control>(collections, "_exportTechnicalReportButton").Enabled, Is.True);
+			}
+		}
+
 		/// <summary>Loads an installed context while another document is selected, then opens Collections.</summary>
 		[TestCase(2000, 900)]
 		[TestCase(900, 1100)]

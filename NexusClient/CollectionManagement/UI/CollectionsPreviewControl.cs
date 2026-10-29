@@ -5448,7 +5448,7 @@ namespace Nexus.Client.CollectionManagement.UI
 							L("Collections.Status.ActionRequired", "Action required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 					return;
 				}
-				RenderApplyResult(result);
+				CompleteAdditiveApply(result, context);
 				if (result.IsCommitted)
 					_managedMemberExpansionAssociationId = null;
 				RefreshManagedAssociations(true);
@@ -5457,8 +5457,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					_automaticApplyPending = true;
 					_acquisitionRefreshTimer.Start();
 				}
-				else if (!_startedInstallPolicy.AutomaticallyInstall || !result.IsCommitted)
+				else if (!_startedInstallPolicy.AutomaticallyInstall)
 					ShowAdditiveApplyFeedback(result);
+				else if (!result.IsCommitted)
+					ShowFirstBlockingIssue();
 			}
 			catch (OperationCanceledException)
 			{
@@ -6855,7 +6857,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					if (updated.IsReadyForReview) continue;
 					return;
 				}
-				RenderApplyResult(applied);
+				CompleteAdditiveApply(applied, context);
 				if (applied.IsCommitted) _managedMemberExpansionAssociationId = null;
 				RefreshManagedAssociations(true);
 				if (applied.Status == CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary &&
@@ -6866,7 +6868,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					_acquisitionRefreshTimer.Start();
 				}
 				else if (!applied.IsCommitted)
-					ShowAdditiveApplyFeedback(applied);
+					ShowFirstBlockingIssue();
 				return;
 			}
 		}
@@ -7023,10 +7025,11 @@ namespace Nexus.Client.CollectionManagement.UI
 					: L("Collections.Messages.Apply.StoppedTitle", "Collection installation stopped");
 			MessageBoxIcon icon = result.IsCommitted || result.Status == CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary
 				? MessageBoxIcon.Information : MessageBoxIcon.Warning;
-			XtraMessageBox.Show(this, message, title, MessageBoxButtons.OK, icon);
+			XtraMessageBox.Show(MdiParent ?? this, message, title, MessageBoxButtons.OK, icon);
 		}
 
-		private void RenderApplyResult(CollectionAdditiveWorkflowApplyResult result)
+		/// <summary>Renders the durable apply outcome and releases foreground work before refreshing views or showing feedback.</summary>
+		private void CompleteAdditiveApply(CollectionAdditiveWorkflowApplyResult result, CollectionUiContext context)
 		{
 			if (result == null)
 				return;
@@ -7080,8 +7083,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_appliedValue.Text = L("Collections.Status.Applied.Reprepare", "Not applied - preparation must be rebuilt");
 			else
 				_appliedValue.Text = L("Collections.Status.Applied.StoppedPartial", "Stopped after partial verified progress");
-			RefreshWorkflowActivity();
-			UpdateActionButtons();
+			// Native work has returned and its result is retained above. Modal feedback must not own busy-state cleanup.
+			EndWorkflowWork(context);
 		}
 
 		/// <summary>Offers a retry on the failed mod's issue row without restarting the whole Collection.</summary>

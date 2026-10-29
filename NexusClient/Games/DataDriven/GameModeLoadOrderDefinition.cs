@@ -5,7 +5,7 @@ using Nexus.Client.ModManagement.ManagedContent;
 
 namespace Nexus.Client.Games.DataDriven
 {
-	/// <summary>Versioned opt-in package inventory configuration; does not enable native order editing.</summary>
+	/// <summary>Versioned opt-in native load-order configuration; construction never reads or publishes game state.</summary>
 	public sealed class GameModeLoadOrderDefinition
 	{
 		public int SchemaVersion { get; set; }
@@ -15,6 +15,7 @@ namespace Nexus.Client.Games.DataDriven
 		public string PackageRoot { get; set; }
 		public string ProfileSource { get; set; }
 		public GameModeLoadOrderDirectoryDefinition DirectoryPolicy { get; set; }
+		public string[] BuiltInModuleIdentities { get; set; }
 	}
 
 	/// <summary>Declares package-folder hygiene independently of installation or cleanup behavior.</summary>
@@ -42,6 +43,7 @@ namespace Nexus.Client.Games.DataDriven
 			var policy = new LoadOrderDirectoryPolicy(source.DirectoryPolicy.AllowedExtensions, false);
 			if (policy.AllowedExtensions.Count != 1 || policy.AllowedExtensions[0] != ".pak")
 				throw new ArgumentException("The Larian inventory provider requires exactly the .pak extension.");
+			string[] builtInModuleIdentities = LoadOrderCapability.ValidateBuiltInIdentities(source.BuiltInModuleIdentities);
 			if (!source.Enabled.Value) return null;
 			StructuredXmlRecordRule profiles = DataDrivenStructuredEffects.Create(definition);
 			if (profiles == null || profiles.ContainerId != "Mods" || profiles.RecordId != "ModuleShortDesc" || profiles.IdentityField != "UUID" ||
@@ -49,7 +51,7 @@ namespace Nexus.Client.Games.DataDriven
 				throw new ArgumentException("loadOrder requires compatible structuredEffects module records with Folder, Name, UUID and Version64 fields.");
 			if (definition.ManagedContent?.ComponentOrdering != null)
 				throw new ArgumentException("loadOrder cannot share a mode with managedContent.componentOrdering.");
-			return new LoadOrderCapability(source.Provider, source.Revision, policy, profiles);
+			return new LoadOrderCapability(source.Provider, source.Revision, policy, profiles, builtInModuleIdentities);
 		}
 	}
 }

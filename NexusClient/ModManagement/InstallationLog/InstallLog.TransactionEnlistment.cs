@@ -1363,6 +1363,15 @@
                 return currentGameSpecificValueInstallers.Count == 0 ? null : GetMod(currentGameSpecificValueInstallers.Peek().InstallerKey);
             }
 
+			/// <summary>Reads the current buffered value without exposing mutable owner-history bytes.</summary>
+			public bool TryReadCurrentGameSpecificValue(string key, out byte[] value)
+			{
+				InstallerStack<byte[]> installers = GetCurrentGameSpecificValueInstallers(key);
+				byte[] current = installers.Count == 0 ? null : installers.Peek().Value;
+				value = current == null ? null : (byte[])current.Clone();
+				return installers.Count != 0;
+			}
+
 			/// <summary>
 			/// Gets the value of the specified key before it was most recently overwritten.
 			/// </summary>

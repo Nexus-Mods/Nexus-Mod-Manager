@@ -2210,6 +2210,12 @@
 				}
 			}
 
+			IBackgroundTask nativeOrder = ViewModel.ApplyPendingNativeProfileOrder();
+			if (nativeOrder != null && (ProgressDialog.ShowDialog(this, nativeOrder, false) != DialogResult.OK || nativeOrder.Status != BackgroundTasks.TaskStatus.Complete))
+			{
+				HandleFailedProfileSwitch(GetBackgroundTaskError(nativeOrder, L("Profiles.Switch.NativeOrderFailed", "The profile's game load order could not be restored.")));
+				return;
+			}
 			ViewModel.CommitProfileSwitch();
 			ViewModel.ModManager.VirtualModActivator.RestoreIniEdits();
 
@@ -2284,6 +2290,9 @@
 					lstRollbackErrors.Add(strRollbackWriteError);
 			}
 
+			IBackgroundTask previousNativeOrder = ViewModel.ApplyPreviousNativeProfileOrder();
+			if (previousNativeOrder != null && (ProgressDialog.ShowDialog(this, previousNativeOrder, false) != DialogResult.OK || previousNativeOrder.Status != BackgroundTasks.TaskStatus.Complete))
+				lstRollbackErrors.Add(GetBackgroundTaskError(previousNativeOrder, L("Profiles.Switch.NativeOrderRollbackFailed", "The previous profile's game load order could not be restored.")));
 			ViewModel.CompleteProfileRollback();
 			_modManagerControl.ForceListRefresh();
 			BindProfileCommands();

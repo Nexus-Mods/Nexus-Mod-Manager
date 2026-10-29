@@ -46,7 +46,10 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				XmlElement mods = Container(document, "Mods");
 				XmlNode children = mods.SelectSingleNode("children");
 				if (children == null) children = mods.AppendChild(document.CreateElement("children"));
-				var uuids = new HashSet<string>(order.OfType<JObject>().Select(entry => (string)entry["data"]?["uuid"]), StringComparer.OrdinalIgnoreCase);
+				var protectedIds = new HashSet<string>(children.ChildNodes.OfType<XmlElement>().Where(node => IsProtected(node))
+					.Select(node => node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value).Where(id => id != null), StringComparer.OrdinalIgnoreCase);
+				var uuids = new HashSet<string>(order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true)
+					.Select(entry => (string)entry["data"]?["uuid"]).Where(id => !protectedIds.Contains(id)), StringComparer.OrdinalIgnoreCase);
 				foreach (XmlNode node in children.ChildNodes.Cast<XmlNode>().ToArray())
 					if (uuids.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value)) children.RemoveChild(node);
 				XmlElement legacyOrder = Container(document, "ModOrder");
@@ -59,7 +62,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				{
 					JObject data = (JObject)entry["data"];
 					// As in Vortex, built-in/listed packages are not written as user modules.
-					if (!(bool)entry["enabled"] || (bool?)data["isListed"] == true ||
+					if (!(bool)entry["enabled"] || (bool?)data["isListed"] == true || protectedIds.Contains((string)data["uuid"]) ||
 						(selectedPackages != null && !selectedPackages.Contains(Path.GetFileName(((string)entry["id"] ?? String.Empty).Replace('/', '\\'))))) continue;
 					XmlElement module = document.CreateElement("node"); module.SetAttribute("id", "ModuleShortDesc");
 					Attribute(document, module, "Folder", "LSString", (string)data["folder"]);
@@ -74,6 +77,16 @@ namespace Nexus.Client.ModManagement.ManagedContent
 						XmlElement ordered = document.CreateElement("node"); ordered.SetAttribute("id", "Module");
 						Attribute(document, ordered, "UUID", "FixedString", (string)data["uuid"]); orderChildren.AppendChild(ordered);
 					}
+				}
+				// A curator order wins over previous positions; unrelated modules keep their relative order afterwards.
+				foreach (XmlElement container in new[] { mods, legacyOrder }.Where(item => item != null))
+				{
+					XmlNode list = container.SelectSingleNode("children");
+					XmlNode[] selected = list.ChildNodes.Cast<XmlNode>().Where(node => uuids.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value)).ToArray();
+					foreach (XmlNode node in selected) list.RemoveChild(node);
+					XmlNode anchor = list.ChildNodes.OfType<XmlElement>().FirstOrDefault(node => node.Name == "node" && !IsProtected(node) &&
+						!protectedIds.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value));
+					foreach (XmlNode node in selected) if (anchor == null) list.AppendChild(node); else list.InsertBefore(node, anchor);
 				}
 				yield return new BasicInstallGameSpecificValue(Prefix + profile + "|" + Identity, Capture(document));
 			}
@@ -138,6 +151,33 @@ namespace Nexus.Client.ModManagement.ManagedContent
 			if (identity == Identity) throw new InvalidDataException("A BG3 Collection order requires its retained original value for removal.");
 			_records.RemoveValue(path, identity);
 		}
+
+		/// <summary>Changes only declared curator members, retaining current game records and unrelated modules on replay/removal.</summary>
+		internal static byte[] MergeManaged(byte[] current, byte[] desired, IEnumerable<string> managed)
+		{
+			var identities = new HashSet<string>(managed, StringComparer.OrdinalIgnoreCase);
+			XmlDocument result = LoadBytes(current), source = LoadBytes(desired);
+			XmlElement gameModules = Container(result, "Mods");
+			if (gameModules == null) throw new InvalidDataException("The current native module container is missing.");
+			identities.ExceptWith(gameModules.SelectNodes("children/node").OfType<XmlElement>().Where(IsProtected)
+				.Select(node => node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value));
+			foreach (string name in new[] { "Mods", "ModOrder" })
+			{
+				XmlElement target = Container(result, name), incoming = Container(source, name);
+				if ((target == null) != (incoming == null)) throw new InvalidDataException("Collection replay cannot migrate the native order format.");
+				if (target == null) continue;
+				XmlNode list = target.SelectSingleNode("children"), additions = incoming.SelectSingleNode("children");
+				if (list == null || additions == null) throw new InvalidDataException("The native order container has no children.");
+				foreach (XmlElement node in list.ChildNodes.OfType<XmlElement>().Where(node => !IsProtected(node) && identities.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value)).ToArray()) list.RemoveChild(node);
+				foreach (XmlElement node in additions.ChildNodes.OfType<XmlElement>().Where(node => !IsProtected(node) && identities.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value)))
+					list.AppendChild(result.ImportNode(node, true));
+			}
+			return Capture(result);
+		}
+
+		/// <summary>Identifies retained game-owned records independently of curator metadata.</summary>
+		private static bool IsProtected(XmlElement node) => new[] { "Gustav", "GustavDev", "GustavX", "Shared", "SharedDev" }
+			.Contains(node.SelectSingleNode("attribute[@id='Folder']")?.Attributes?["value"]?.Value, StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>Finds one literal module-settings container.</summary>
 		private static XmlElement Container(XmlDocument document, string id) => document.SelectSingleNode("//node[@id='" + id + "']") as XmlElement;

@@ -149,7 +149,7 @@
     "loadOrder": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Optional read-only package inventory capability. Does not enable order publication or change installation ownership. Enabled declarations require compatible structuredEffects module records; runtime validation checks their shape.",
+      "description": "Optional native module load-order capability. Does not scan or publish at startup. Explicitly accepted changes use existing installation ownership. Enabled declarations require compatible structuredEffects module records; runtime validation checks their shape.",
       "required": ["schemaVersion", "enabled", "provider", "revision", "packageRoot", "profileSource", "directoryPolicy"],
       "properties": {
         "schemaVersion": { "type": "integer", "const": 1 },
@@ -158,6 +158,11 @@
         "revision": { "type": "integer", "const": 1 },
         "packageRoot": { "type": "string", "const": "ManagedInstallation" },
         "profileSource": { "type": "string", "const": "structuredEffects" },
+        "builtInModuleIdentities": {
+          "type": "array", "maxItems": 256, "uniqueItems": true,
+          "description": "Optional vanilla module UUIDs. Dependency diagnosis does not treat these as missing user packages; installed game/DLC versions are not inferred.",
+          "items": { "type": "string", "format": "uuid" }
+        },
         "directoryPolicy": {
           "type": "object",
           "additionalProperties": false,
