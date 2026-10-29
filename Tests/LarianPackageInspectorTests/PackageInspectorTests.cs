@@ -30,6 +30,38 @@ public sealed class PackageInspectorTests
 		Assert.That(first.Version, Is.EqualTo("18446744073709551615"));
 	}
 
+	/// <summary>Framed sessions send their inventory once and continue after a package-local parse failure.</summary>
+	[Test]
+	public async Task SessionContinuesAfterMalformedPackage()
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111"));
+		Request request = await fixture.Pack();
+		string goodName = request.FileName;
+		ObservedFile broken = fixture.CorruptPackage();
+		request.Files = request.Files.Append(broken).ToArray(); request.FileName = broken.FileName;
+		using var input = new MemoryStream(); using var output = new MemoryStream();
+		Protocol.WriteFrame(input, System.Text.Json.JsonSerializer.Serialize(request, Protocol.Json));
+		Protocol.WriteFrame(input, goodName); input.Position = 0;
+		Nexus.LarianPackageInspector.Program.RunSession(input, output); output.Position = 0;
+		Assert.That(Protocol.ReadFrame(output), Is.EqualTo("NMM-PAK-SESSION-1"));
+		using var failed = System.Text.Json.JsonDocument.Parse(Protocol.ReadFrame(output));
+		using var success = System.Text.Json.JsonDocument.Parse(Protocol.ReadFrame(output));
+		Assert.That(failed.RootElement.GetProperty("status").GetString(), Is.EqualTo("Failed"));
+		Assert.That(success.RootElement.GetProperty("status").GetString(), Is.EqualTo("Complete"));
+		Assert.That(success.RootElement.GetProperty("fileName").GetString(), Is.EqualTo(goodName));
+		Assert.That(Protocol.ReadFrame(output), Is.Null);
+	}
+
+	/// <summary>Framing must reject oversized or truncated messages before allocating arbitrary process output.</summary>
+	[Test]
+	public void SessionRejectsInvalidFrames()
+	{
+		Assert.Throws<InvalidDataException>(() => Protocol.ReadFrame(new MemoryStream(new byte[] { 0, 0, 0, 127 })));
+		Assert.Throws<EndOfStreamException>(() => Protocol.ReadFrame(new MemoryStream(new byte[] { 4, 0, 0, 0, 65 })));
+		Assert.Throws<EndOfStreamException>(() => Protocol.ReadFrame(new MemoryStream(new byte[] { 4, 0 })));
+	}
+
 	/// <summary>Missing metadata alone is not sufficient evidence of a valid override package.</summary>
 	[Test]
 	public async Task UnclassifiedContentRemainsPartial()
@@ -86,6 +118,13 @@ public sealed class PackageInspectorTests
 			string path = Path.Combine(_root, "Source", relative);
 			Directory.CreateDirectory(Path.GetDirectoryName(path));
 			File.WriteAllText(path, text);
+		}
+		/// <summary>Adds one malformed observed PAK without invoking a process.</summary>
+		internal ObservedFile CorruptPackage()
+		{
+			string path = Path.Combine(_root, "Broken.pak"); File.WriteAllText(path, "not a package");
+			var info = new FileInfo(path);
+			return new ObservedFile { FileName = info.Name, Length = info.Length, LastWriteTimeUtcTicks = info.LastWriteTimeUtc.Ticks };
 		}
 		/// <summary>Builds a real package fixture through the pinned package library.</summary>
 		internal async Task<Request> Pack(string name = "Example.pak")

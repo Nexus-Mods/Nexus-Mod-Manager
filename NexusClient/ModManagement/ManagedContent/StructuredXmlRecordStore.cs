@@ -112,9 +112,14 @@ namespace Nexus.Client.ModManagement.ManagedContent
 						if (found.Type != JTokenType.String && found.Type != JTokenType.Integer) throw new InvalidDataException("XML field metadata must be a string or integer.");
 						value = found.ToString(); break;
 					}
+					string resolved = value ?? field.DefaultValue ?? String.Empty;
+					if ((field.Type == "int64" || field.Type == "uint64") &&
+						!UInt64.TryParse(resolved, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong unsigned) &&
+						(field.Type != "int64" || !Int64.TryParse(resolved, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long signed)))
+						throw new InvalidDataException("Structured metadata field '" + field.Id + "' requires a native integer, not a display version: " + resolved);
 					XmlElement attribute = document.CreateElement("attribute");
 					attribute.SetAttribute("id", field.Id); attribute.SetAttribute("type", field.Type);
-					attribute.SetAttribute("value", value ?? field.DefaultValue ?? String.Empty); node.AppendChild(attribute);
+					attribute.SetAttribute("value", resolved); node.AppendChild(attribute);
 				}
 				string id = NormalizeIdentity(ReadIdentity(node));
 				if (!identities.Add(id)) throw new InvalidDataException("Structured metadata contains duplicate record identities.");

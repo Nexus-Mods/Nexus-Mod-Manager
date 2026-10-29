@@ -10,10 +10,33 @@ using System.Threading.Tasks;
 namespace Nexus.Client.ModManagement.LoadOrder
 {
 	/// <summary>Bounded process boundary for a separately packaged reader; NMM remains on .NET Framework.</summary>
-	public sealed class LarianPackageInspectorClient : ILoadOrderPackageInspector
+	public sealed class LarianPackageInspectorClient : ILoadOrderPackageInspector, ILoadOrderPackageInspectionBatch
 	{
 		private readonly string _executablePath;
 		private readonly int _timeoutMilliseconds;
+		private LarianPackageInspectionSession _batch;
+
+		/// <summary>Shares one lazily started helper within a scan; independent callers retain the legacy one-shot protocol.</summary>
+		IDisposable ILoadOrderPackageInspectionBatch.BeginBatch(IReadOnlyList<LoadOrderPackageFile> files)
+		{
+			if (_batch != null) throw new InvalidOperationException("An inspection batch is already active.");
+			_batch = new LarianPackageInspectionSession(_executablePath, _timeoutMilliseconds, files);
+			return new BatchScope(this);
+		}
+
+		/// <summary>Restores one-shot behavior after the provider disposes its scan lifetime.</summary>
+		private sealed class BatchScope : IDisposable
+		{
+			private LarianPackageInspectorClient _owner;
+			/// <summary>Captures the client whose scan is ending.</summary>
+			internal BatchScope(LarianPackageInspectorClient owner) { _owner = owner; }
+			/// <summary>Restores the client before releasing process resources.</summary>
+			public void Dispose()
+			{
+				if (_owner == null) return;
+				LarianPackageInspectionSession batch = _owner._batch; _owner._batch = null; _owner = null; batch.Dispose();
+			}
+		}
 
 		/// <summary>Captures a trusted application-owned helper path, never an executable selected by game.json or a package.</summary>
 		public LarianPackageInspectorClient(string executablePath, int timeoutMilliseconds = 60000)
@@ -29,6 +52,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		public LoadOrderPackageInspection Inspect(LoadOrderPackageFile file, IReadOnlyList<LoadOrderPackageFile> availableFiles, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
+			if (_batch != null) return _batch.Inspect(file, availableFiles, cancellationToken);
 			if (!IsAvailable)
 				return new LoadOrderPackageInspection(LoadOrderInspectionStatus.Unavailable, LoadOrderPackageKind.Unknown, null, LoadOrderContentFeatures.None, null);
 			string request = LarianPackageInspectionProtocol.CreateRequest(file, availableFiles);

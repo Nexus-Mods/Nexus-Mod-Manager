@@ -126,8 +126,8 @@ internal static class PackageInspector
 	/// <summary>Preserves NMM file-link compatibility while rechecking the exact observed filenames and metadata.</summary>
 	private static void CheckObserved(Request request, string name)
 	{
-		ObservedFile expected = request.Files.SingleOrDefault(file => file.FileName.Equals(name, StringComparison.OrdinalIgnoreCase))
-			?? throw new InvalidDataException("A package part was not in the observed inventory.");
+		request.FilesByName ??= request.Files.ToDictionary(file => file.FileName, StringComparer.OrdinalIgnoreCase);
+		if (!request.FilesByName.TryGetValue(name, out ObservedFile expected)) throw new InvalidDataException("A package part was not in the observed inventory.");
 		var file = new FileInfo(Path.Combine(request.Root, expected.FileName));
 		if (!file.Exists || file.Length != expected.Length || file.LastWriteTimeUtc.Ticks != expected.LastWriteTimeUtcTicks)
 			throw new InvalidDataException("A package is missing or changed since enumeration.");

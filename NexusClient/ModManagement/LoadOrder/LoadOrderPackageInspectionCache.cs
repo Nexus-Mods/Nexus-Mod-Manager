@@ -63,7 +63,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		}
 
 		/// <summary>Reuses immutable observations only after the current directory scan matches every recorded input.</summary>
-		private sealed class CachedInspector : ILoadOrderPackageInspector, ILoadOrderInspectionReuse
+		private sealed class CachedInspector : ILoadOrderPackageInspector, ILoadOrderInspectionReuse, ILoadOrderPackageInspectionBatch
 		{
 			private readonly LoadOrderPackageInspectionCache _cache;
 			private readonly ILoadOrderPackageInspector _reader;
@@ -72,6 +72,8 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			/// <summary>Creates one reader for one directory scan; no file contents are read by construction.</summary>
 			internal CachedInspector(LoadOrderPackageInspectionCache cache, ILoadOrderPackageInspector reader, string identity)
 			{ _cache = cache; _reader = reader; _identity = identity; }
+			/// <summary>Passes the scan lifetime through while retaining lazy startup for fully cached scans.</summary>
+			public IDisposable BeginBatch(IReadOnlyList<LoadOrderPackageFile> files) { _files = null; return (_reader as ILoadOrderPackageInspectionBatch)?.BeginBatch(files); }
 			public bool IsAvailable => _reader.IsAvailable;
 			public bool LastResultWasCached { get; private set; }
 

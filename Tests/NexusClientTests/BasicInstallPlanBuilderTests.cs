@@ -20,6 +20,17 @@ namespace NexusClientTests
 	[Category("CollectionsC12Compatibility")]
 	public class BasicInstallPlanBuilderTests
 	{
+		/// <summary>Exact native values are executable effects without dummy files; completely empty plans remain invalid.</summary>
+		[Test]
+		public void NativeValueOnlyPlanIsValidButEmptyPlanIsRejected()
+		{
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			var value = new BasicInstallGameSpecificValue("fixture-native|Public|state", new byte[] { 1 });
+			var plan = new BasicInstallPlan(context, new BasicInstallPlanFile[0], null, new[] { value });
+			Assert.That(plan.Files, Is.Empty); Assert.That(plan.GameSpecificValues.Count, Is.EqualTo(1));
+			Assert.Throws<ArgumentException>(() => new BasicInstallPlan(context, new BasicInstallPlanFile[0], null, new BasicInstallGameSpecificValue[0]));
+		}
+
 		/// <summary>
 		/// Verifies ordinary Virtual planning shares ignored-file, readme, path-adjustment and deployment-target semantics.
 		/// </summary>

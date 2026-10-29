@@ -12,7 +12,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		/// <summary>Preserves raw versions, inspection failures, relationship resolution and compared native fields in a versioned report.</summary>
 		internal static string Create(LoadOrderAnalysis analysis, LoadOrderCapability capability, string modeId, string profile,
-			IEnumerable<string> displayedOrder, bool inspectionFinished, bool observationCurrent, DateTime observedAtUtc, string lastError, NativeLoadOrderRecovery recovery = null)
+			IEnumerable<string> displayedOrder, bool inspectionFinished, bool observationCurrent, DateTime observedAtUtc, string lastError, NativeLoadOrderRecovery recovery = null, string installInfoDirectory = null)
 		{
 			if (analysis == null || capability == null) throw new ArgumentNullException(analysis == null ? nameof(analysis) : nameof(capability));
 			string[] order = displayedOrder.ToArray();
@@ -21,9 +21,12 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			gameProvided.UnionWith(analysis.Document.Entries.Where(entry => entry.IsProtected).Select(entry => entry.Identity));
 			var modules = analysis.Inventory.Packages.SelectMany(package => package.Inspection.Modules)
 				.GroupBy(module => module.Metadata.Identity, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+			Newtonsoft.Json.Linq.JObject lastInstallation = LoadOrderMutationAudit.Read(installInfoDirectory, analysis.Document.FilePath);
 			var report = new
 			{
 				SchemaVersion = 1,
+				LastInstallationChange = lastInstallation,
+				LastInstallationAfterImageMatchesCurrentManifest = lastInstallation == null ? (bool?)null : String.Equals((string)lastInstallation["AfterHash"], analysis.Document.Sha256, StringComparison.Ordinal),
 				GeneratedAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
 				ObservedAtUtc = observedAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
 				ApplicationVersion = typeof(LoadOrderDiagnosticReport).Assembly.GetName().Version.ToString(),

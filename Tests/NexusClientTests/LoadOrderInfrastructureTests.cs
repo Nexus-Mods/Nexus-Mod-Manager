@@ -310,6 +310,23 @@ namespace Nexus.Client.Tests
 			}
 		}
 
+		/// <summary>The provider closes one batch even when cancellation interrupts package inspection, including through the cache wrapper.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ProviderDisposesInspectionBatchOnCancellation(bool cached)
+		{
+			using (var directory = new FixtureDirectory())
+			using (var helper = new FixtureDirectory())
+			using (var cancellation = new CancellationTokenSource())
+			{
+				directory.File("One.pak"); directory.File("Two.pak"); string executable = helper.File("Inspector.exe");
+				var reader = new BatchInspector(cancellation);
+				ILoadOrderPackageInspector inspector = cached ? new LoadOrderPackageInspectionCache().Wrap(reader, executable) : reader;
+				Assert.Throws<OperationCanceledException>(() => Provider(directory, inspector).ReadInventory(cancellation.Token));
+				Assert.That(reader.Opened, Is.EqualTo(1)); Assert.That(reader.Closed, Is.EqualTo(1));
+			}
+		}
+
 		/// <summary>Transient reader failures are not frozen in the display cache.</summary>
 		[Test]
 		public void DisplayCacheRetriesFailedPackageInspection()
@@ -417,6 +434,23 @@ namespace Nexus.Client.Tests
 			public bool IsAvailable => true;
 			/// <summary>Returns the configured evidence for one fixture file.</summary>
 			public LoadOrderPackageInspection Inspect(LoadOrderPackageFile file, IReadOnlyList<LoadOrderPackageFile> availableFiles, CancellationToken cancellationToken) => _inspect(file);
+		}
+
+		/// <summary>Tracks provider-owned lifetimes without starting a real inspection helper.</summary>
+		private sealed class BatchInspector : ILoadOrderPackageInspector, ILoadOrderPackageInspectionBatch, IDisposable
+		{
+			private readonly CancellationTokenSource _cancellation;
+			internal int Opened, Closed;
+			/// <summary>Supplies cancellation at the first actual read.</summary>
+			internal BatchInspector(CancellationTokenSource cancellation) { _cancellation = cancellation; }
+			public bool IsAvailable => true;
+			/// <summary>Records entry into the scan lifetime.</summary>
+			public IDisposable BeginBatch(IReadOnlyList<LoadOrderPackageFile> files) { Opened++; return this; }
+			/// <summary>Interrupts the scan before it can return package metadata.</summary>
+			public LoadOrderPackageInspection Inspect(LoadOrderPackageFile file, IReadOnlyList<LoadOrderPackageFile> files, CancellationToken token)
+			{ _cancellation.Cancel(); token.ThrowIfCancellationRequested(); return null; }
+			/// <summary>Records release of the provider-owned lifetime.</summary>
+			public void Dispose() { Closed++; }
 		}
 
 		/// <summary>Collects progress synchronously so fixtures can inspect event ordering without a UI message loop.</summary>

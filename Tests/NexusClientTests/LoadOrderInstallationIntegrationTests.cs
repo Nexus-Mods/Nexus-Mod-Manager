@@ -47,6 +47,64 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>A human display version in info.json cannot replace the packed native version obtained from selected PAK metadata.</summary>
+		[Test]
+		public void PakRegistrationUsesNativeVersionEvenWithSidecar()
+		{
+			using (var fixture = new Fixture())
+			{
+				fixture.ArchiveFiles = new[] { "First.pak", "info.json" };
+				fixture.WriteArchive("info.json", "{\"Mods\":[{\"UUID\":\"" + First + "\",\"Version\":\"2.63\"}]}");
+				BasicInstallGameSpecificValue value = fixture.Plan("First.pak").Single();
+				var xml = new XmlDocument(); xml.LoadXml(Encoding.UTF8.GetString(value.Value));
+				Assert.That(xml.SelectSingleNode("node/attribute[@id='Version64']").Attributes["value"].Value, Is.EqualTo(Module(First).Metadata.Version));
+				Assert.That(fixture.Inspected.Count, Is.EqualTo(1));
+			}
+		}
+
+		/// <summary>A descriptively named LSX-only archive produces reversible native order effects and no deployable files.</summary>
+		[Test]
+		public void LsxOnlyArchivePlansExplicitOrderWithoutDeployingIntoMods()
+		{
+			using (var fixture = new Fixture())
+			{
+				const string source = "Curator complete load order.lsx";
+				fixture.ArchiveFiles = new[] { source };
+				var imported = new XmlDocument(); imported.LoadXml(NativeXml());
+				XmlNode modules = imported.SelectSingleNode("//node[@id='Mods']/children");
+				modules.AppendChild(NativeLoadOrderDraft.CreateRecord(imported, Module(Third).Metadata));
+				modules.AppendChild(NativeLoadOrderDraft.CreateRecord(imported, Module(First).Metadata));
+				fixture.WriteArchive(source, imported.OuterXml);
+				byte[] before = File.ReadAllBytes(fixture.Manifest);
+				BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(fixture.Mod, fixture.Mode, Fixture.Context, false, null);
+				Assert.That(result.IsSupported, Is.True, result.Message);
+				Assert.That(result.Plan.Files, Is.Empty);
+				Assert.That(result.Plan.GameSpecificValues.Count, Is.EqualTo(2));
+				LarianOrderPreference preference = LarianOrderPreference.Decode(result.Plan.GameSpecificValues.First().Value);
+				CollectionAssert.AreEqual(new[] { Third, First }, preference.Order);
+				CollectionAssert.AreEqual(new[] { Third, First }, preference.Managed);
+				Assert.That(fixture.Inspected, Is.Empty, "Importing an explicit order must not restart package inspection.");
+				CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Manifest));
+			}
+		}
+
+		/// <summary>Reinstall planning repairs only the selected module's invalid version and retains foreign fields.</summary>
+		[Test]
+		public void RegistrationCorrectsInvalidNativeVersionInPlace()
+		{
+			using (var fixture = new Fixture())
+			{
+				var xml = new XmlDocument(); xml.Load(fixture.Manifest);
+				XmlElement record = NativeLoadOrderDraft.CreateRecord(xml, Module(First).Metadata);
+				record.SetAttribute("foreign", "retain me"); record.SelectSingleNode("attribute[@id='Version64']").Attributes["value"].Value = "2.63";
+				xml.SelectSingleNode("//node[@id='Mods']/children").AppendChild(record); xml.Save(fixture.Manifest);
+				byte[] before = File.ReadAllBytes(fixture.Manifest);
+				string payload = Encoding.UTF8.GetString(fixture.Plan("First.pak").Single().Value);
+				StringAssert.DoesNotContain("2.63", payload); StringAssert.Contains("foreign=\"retain me\"", payload);
+				CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Manifest), "The reviewed plan has not been installed yet.");
+			}
+		}
+
 		/// <summary>Existing foreign fields remain exact; archive metadata cannot silently replace a pre-existing native record.</summary>
 		[Test]
 		public void RegistrationRetainsExistingRecordAndUnknownFields()
@@ -273,6 +331,9 @@ namespace NexusClientTests
 			internal LarianPackageInstallPlanner Planner { get; }
 			internal List<string> Inspected { get; } = new List<string>();
 			internal int Extracted { get; private set; }
+			internal string[] ArchiveFiles { get; set; } = new[] { "First.pak", "Second.pak" };
+			/// <summary>Supplies one metadata file in the isolated fake archive.</summary>
+			internal void WriteArchive(string name, string text) => File.WriteAllText(Path.Combine(_root, name), text);
 			internal Func<LoadOrderPackageFile, LoadOrderPackageInspection> Inspect { get; set; } = file => Complete(file.FileName, Module(First));
 			internal bool Available { get; set; } = true;
 			public bool IsAvailable => Available;
@@ -287,15 +348,15 @@ namespace NexusClientTests
 				Planner = new LarianPackageInstallPlanner(Capability, this, new StructuredXmlRecordStore(Capability.Profiles, Profiles));
 				Mod = InterfaceStub<IMod>.Create((method, args) =>
 				{
-					if (method.Name == "GetFileList") return new List<string> { "First.pak", "Second.pak" };
+					if (method.Name == "GetFileList") return ArchiveFiles.ToList();
 					if (method.Name == "GetFileStream") { Extracted++; return File.OpenRead(Path.Combine(_root, (string)args[0])); }
 					return null;
 				});
 				Mode = InterfaceStub<IPackageMode>.Create((method, args) =>
 				{
 					if (method.Name == "RequiresPackageGameValuePlan") return true;
-					if (method.Name == "GetPackageGameValues") return Planner.Build((IMod)args[0], (ModInstallContext)args[1], (IReadOnlyList<BasicInstallPlanFile>)args[2], (CancellationToken)args[3]);
-					if (method.Name == "GetModFormatAdjustedPath") return args[1];
+					if (method.Name == "GetPackageGameValues") return LarianLoadOrderArchivePlanner.Source(Mod) == null ? Planner.Build((IMod)args[0], (ModInstallContext)args[1], (IReadOnlyList<BasicInstallPlanFile>)args[2], (CancellationToken)args[3]) : LarianLoadOrderArchivePlanner.Build(Mod, Capability.Profiles, Profiles);
+					if (method.Name == "GetModFormatAdjustedPath") return LarianLoadOrderArchivePlanner.Source(Mod) == null ? args[1] : String.Empty;
 					if (method.Name == "get_PluginDirectory") return _root;
 					return null;
 				});
@@ -310,6 +371,7 @@ namespace NexusClientTests
 			/// <summary>Removes only this fixture's fixed, explicitly created files and empty directories.</summary>
 			public void Dispose()
 			{
+				foreach (string source in ArchiveFiles) File.Delete(Path.Combine(_root, source));
 				File.Delete(Manifest); File.Delete(Path.Combine(_root, "First.pak")); File.Delete(Path.Combine(_root, "Second.pak"));
 				Directory.Delete(Path.GetDirectoryName(Manifest), false); Directory.Delete(Profiles, false); Directory.Delete(_root, false);
 			}

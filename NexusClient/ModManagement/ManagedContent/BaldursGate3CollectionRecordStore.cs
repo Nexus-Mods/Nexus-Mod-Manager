@@ -184,7 +184,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		private static XmlElement Container(XmlDocument document, string id) => document.SelectSingleNode("//node[@id='" + id + "']") as XmlElement;
 
 		/// <summary>Serializes module containers in a stable compact native-value representation.</summary>
-		private static byte[] Capture(XmlDocument document)
+		internal static byte[] Capture(XmlDocument document)
 		{
 			var payload = new XmlDocument(); payload.AppendChild(payload.CreateElement("bg3-order"));
 			foreach (string name in new[] { "Mods", "ModOrder" })

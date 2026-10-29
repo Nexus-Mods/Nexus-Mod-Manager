@@ -80,8 +80,10 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			bool available = _inspector.IsAvailable;
 			bool complete = directory.IsComplete;
 			int reused = 0;
+			var filesByName = directory.Files.GroupBy(file => file.FileName, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.Count() == 1 ? group.Single() : null, StringComparer.OrdinalIgnoreCase);
 			if (!available && directory.Files.Count > 0)
 				diagnostics.Add(new LoadOrderDiagnostic(LoadOrderDiagnosticKind.InspectorUnavailable, LoadOrderDiagnosticSeverity.Error, directory.Root));
+			using (IDisposable batch = (_inspector as ILoadOrderPackageInspectionBatch)?.BeginBatch(directory.Files))
 			foreach (LoadOrderPackageFile file in directory.Files)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
@@ -94,7 +96,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					if (inspection == null) throw new InvalidDataException("The package reader returned no result.");
 					if (inspection.Status == LoadOrderInspectionStatus.Complete || inspection.Status == LoadOrderInspectionStatus.Partial)
 					{
-						changed = !ValidateReadFiles(file, directory.Files, inspection);
+						changed = !ValidateReadFiles(file, filesByName, inspection);
 						if (changed) inspection = Failure(LoadOrderInspectionStatus.Failed, "A package changed during inspection; refresh the inventory.");
 					}
 				}
@@ -122,13 +124,13 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		}
 
 		/// <summary>Checks all reported split-package inputs against observed siblings and current metadata.</summary>
-		private static bool ValidateReadFiles(LoadOrderPackageFile file, IReadOnlyList<LoadOrderPackageFile> availableFiles, LoadOrderPackageInspection inspection)
+		private static bool ValidateReadFiles(LoadOrderPackageFile file, IReadOnlyDictionary<string, LoadOrderPackageFile> availableFiles, LoadOrderPackageInspection inspection)
 		{
 			if (!inspection.ReadFileNames.Contains(file.FileName, StringComparer.OrdinalIgnoreCase))
 				throw new InvalidDataException("The package reader did not identify its input file.");
 			foreach (string name in inspection.ReadFileNames.Concat(inspection.PrimaryFileName == null ? new string[0] : new[] { inspection.PrimaryFileName }))
 			{
-				LoadOrderPackageFile expected = availableFiles.SingleOrDefault(candidate => String.Equals(candidate.FileName, name, StringComparison.OrdinalIgnoreCase));
+				availableFiles.TryGetValue(name, out LoadOrderPackageFile expected);
 				if (expected == null) throw new InvalidDataException("The package reader referenced an unobserved sibling file.");
 				LoadOrderPackageFile current = LoadOrderPackageDirectoryScanner.Observe(expected.Path);
 				if (expected.Length != current.Length || expected.LastWriteTimeUtcTicks != current.LastWriteTimeUtcTicks)

@@ -85,6 +85,7 @@ namespace Nexus.Client.Games.DataDriven
 
         public override bool IsSpecialFile(IEnumerable<string> p_strFiles)
         {
+            if (StructuredRecords != null) return base.IsSpecialFile(p_strFiles);
             return p_strFiles != null && p_strFiles.Contains(ManifestMetadataFileName, StringComparer.OrdinalIgnoreCase);
         }
 
@@ -121,7 +122,7 @@ namespace Nexus.Client.Games.DataDriven
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, false);
+            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, false, auditDirectory: GameModeEnvironmentInfo.InstallInfoDirectory);
             if (StructuredRecords != null) return new StructuredGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }
@@ -129,7 +130,7 @@ namespace Nexus.Client.Games.DataDriven
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog,
             TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
         {
-            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, true);
+            if (LoadOrder != null) return new Nexus.Client.ModManagement.LoadOrder.LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, true, auditDirectory: GameModeEnvironmentInfo.InstallInfoDirectory);
             if (StructuredRecords != null) return new StructuredGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, new BaldursGate3CollectionRecordStore(StructuredRecords));
             return new DataDrivenBaldursGate3GameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate);
         }

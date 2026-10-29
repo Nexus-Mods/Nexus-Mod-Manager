@@ -1,6 +1,6 @@
 # Larian package inspector
 
-Read-only win-x64 helper for the existing NMM load-order inventory protocol. The application remains on .NET Framework 4.8; the helper targets .NET 8 and is published with its runtime. It receives one bounded JSON request on stdin and returns one response on stdout. No extraction, script execution, child processes or configuration writes are performed.
+Read-only win-x64 helper for the existing NMM load-order inventory protocol. The application remains on .NET Framework 4.8; the helper targets .NET 8 and is published with its runtime. Scan callers use `--session-v1`: one helper receives the observed inventory once, then processes bounded filename/response frames. The original one-request JSON/EOF transport remains supported for independent callers. No extraction, script execution, child processes or configuration writes are performed.
 
 Building `NexusClient.csproj` or the classic solution in **Release** now publishes the helper automatically through `Support/BuildTasks/LoadOrderHelper.targets`. The helper remains outside the classic solution graph. Designer and ordinary Debug builds do not download dependencies or require a .NET SDK. Release build agents require a .NET 8-or-newer SDK on PATH, in addition to NMM's existing toolchain. The AppVeyor image is Visual Studio 2022.
 

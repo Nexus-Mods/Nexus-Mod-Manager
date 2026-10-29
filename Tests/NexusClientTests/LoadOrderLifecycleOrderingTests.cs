@@ -40,6 +40,57 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>The last committed install keeps exact native images and reports whether surviving positions moved.</summary>
+		[Test]
+		public void InstallRetainsExactBeforeAfterAudit()
+		{
+			using (var fixture = new Fixture(Third, First))
+			{
+				fixture.CaptureAudit = true; byte[] before = File.ReadAllBytes(fixture.Manifest);
+				fixture.Commit(() => { LarianOrderGameValueInstaller installer = fixture.Installer(); installer.EditGameSpecificValue(fixture.ModuleKey(Second), Record(Second)); installer.FinalizeInstall(); });
+				Newtonsoft.Json.Linq.JObject audit = LoadOrderMutationAudit.Read(fixture.AuditDirectory, fixture.Manifest);
+				CollectionAssert.AreEqual(before, Convert.FromBase64String((string)audit["BeforeLsxBase64"]));
+				CollectionAssert.AreEqual(File.ReadAllBytes(fixture.Manifest), Convert.FromBase64String((string)audit["AfterLsxBase64"]));
+				Assert.That((bool)audit["ExistingRelativeOrderChanged"], Is.False);
+				Assert.That((bool)audit["OrderExplicitlySupplied"], Is.False);
+			}
+		}
+
+		/// <summary>Rolled-back installs must not leave a last-change record claiming the mutation committed.</summary>
+		[Test]
+		public void RolledBackInstallDoesNotPublishAudit()
+		{
+			using (var fixture = new Fixture(First))
+			{
+				fixture.CaptureAudit = true; byte[] before = File.ReadAllBytes(fixture.Manifest);
+				using (var transaction = new TransactionScope())
+				{
+					LarianOrderGameValueInstaller installer = fixture.Installer(); installer.EditGameSpecificValue(fixture.ModuleKey(Second), Record(Second)); installer.FinalizeInstall();
+				}
+				Assert.That(LoadOrderMutationAudit.Read(fixture.AuditDirectory, fixture.Manifest), Is.Null);
+				CollectionAssert.AreEqual(before, File.ReadAllBytes(fixture.Manifest));
+			}
+		}
+
+		/// <summary>A per-module operation may not remove, reorder or alter another module's metadata.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void ScopedChangeGuardRejectsUnrelatedMutation(bool reorder)
+		{
+			using (var fixture = new Fixture(Third, First, Second))
+			{
+				LarianLoadOrderDocument before = LarianLoadOrderDocument.Read(fixture.Manifest);
+				if (reorder) fixture.Write(false, First, Third, Second);
+				if (!reorder)
+				{
+					var xml = new System.Xml.XmlDocument(); xml.Load(fixture.Manifest);
+					xml.SelectSingleNode("//node[@id='ModuleShortDesc'][attribute[@id='UUID']/@value='" + Third + "']").Attributes.Append(xml.CreateAttribute("unexpected")).Value = "change";
+					xml.Save(fixture.Manifest);
+				}
+				Assert.Throws<InvalidOperationException>(() => LoadOrderMutationAudit.RequireScopedChange(before, LarianLoadOrderDocument.Read(fixture.Manifest), new[] { Second }));
+			}
+		}
+
 		/// <summary>Removing one module does not reapply a historical order or another module's historical exclusion.</summary>
 		[Test]
 		public void UninstallChangesOnlyItsOwnEntry()
@@ -108,12 +159,13 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Installing a newly supplied curator order remains an explicit ordering action and wins over current positions.</summary>
-		[Test]
-		public void ExplicitCuratorRecipeStillAppliesItsOrder()
+		[TestCase("Curator")]
+		[TestCase("Manual")]
+		public void ExplicitOrderRecipeStillAppliesItsOrder(string source)
 		{
 			using (var fixture = new Fixture(Third, First, Second))
 			{
-				LarianOrderPreference policy = Policy("Curator", Second, First); policy.Managed = new[] { First, Second };
+				LarianOrderPreference policy = Policy(source, Second, First); policy.Managed = new[] { First, Second };
 				byte[] desired = Encoding.UTF8.GetBytes("<bg3-order><node id='Mods'><children>" + Encoding.UTF8.GetString(Record(Campaign)) + Encoding.UTF8.GetString(Record(Second)) + Encoding.UTF8.GetString(Record(First)) + "</children></node></bg3-order>");
 				fixture.Commit(() =>
 				{
@@ -203,6 +255,8 @@ namespace NexusClientTests
 		{
 			private readonly string _root = Path.Combine(Path.GetTempPath(), "nmm-order-lifecycle-" + Guid.NewGuid().ToString("N"));
 			internal string Manifest { get; }
+			internal string AuditDirectory => _root;
+			internal bool CaptureAudit { get; set; }
 			internal LogProxy Log { get; } = new LogProxy();
 			internal StructuredXmlRecordRule Rule { get; }
 			internal BaldursGate3CollectionRecordStore Store { get; }
@@ -216,7 +270,7 @@ namespace NexusClientTests
 				Store = new BaldursGate3CollectionRecordStore(Rule, _root); Write(false, ids);
 			}
 			/// <summary>Uses the production lifecycle installer against this explicit fixture store.</summary>
-			internal LarianOrderGameValueInstaller Installer(bool upgrade = false) => new LarianOrderGameValueInstaller(Log.Target, Log.Log, new TxFileManager(), null, Rule, upgrade, Store);
+			internal LarianOrderGameValueInstaller Installer(bool upgrade = false) => new LarianOrderGameValueInstaller(Log.Target, Log.Log, new TxFileManager(), null, Rule, upgrade, Store, CaptureAudit ? AuditDirectory : null);
 			/// <summary>Uses the same durable namespace as ordinary module registration.</summary>
 			internal string ModuleKey(string id) => Rule.KeyPrefix + "Public|" + id;
 			/// <summary>Completes the caller-owned native file transaction before assertions or cleanup.</summary>
@@ -233,7 +287,7 @@ namespace NexusClientTests
 				File.WriteAllText(Manifest, "<save><version major='4' minor='" + (legacy ? "6" : "8") + "'/><region id='ModuleSettings'><node id='root'><children><node id='Mods'><children>" + modules + "</children></node>" + order + "</children></node></region></save>");
 			}
 			/// <summary>Deletes only fixed fixture files and empty directories.</summary>
-			public void Dispose() { File.Delete(Manifest); Directory.Delete(Path.GetDirectoryName(Manifest), false); Directory.Delete(_root, false); }
+			public void Dispose() { File.Delete(LoadOrderMutationAudit.FilePath(AuditDirectory, Manifest)); File.Delete(Manifest); Directory.Delete(Path.GetDirectoryName(Manifest), false); Directory.Delete(_root, false); }
 		}
 	}
 }

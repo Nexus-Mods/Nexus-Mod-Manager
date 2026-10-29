@@ -800,7 +800,7 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 			try
 			{
 				string report = LoadOrderDiagnosticReport.Create(_session.Analysis, ((ILoadOrderCapabilityProvider)_main.GameMode).LoadOrder,
-					_service.ModeId, _selectedProfile, _session.Included, !_session.IsInspecting, ObservationCurrent, _observedAtUtc, _lastOperationError, _lastRecovery);
+					_service.ModeId, _selectedProfile, _session.Included, !_session.IsInspecting, ObservationCurrent, _observedAtUtc, _lastOperationError, _lastRecovery, _main.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
 				using (var dialog = new XtraSaveFileDialog
 				{
 					Title = T("ExportReport", "Export diagnostic report…"), Filter = T("ReportFilter", "Diagnostic reports (*.json)|*.json"),

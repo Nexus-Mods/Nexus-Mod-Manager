@@ -188,8 +188,8 @@ namespace Nexus.Client.ModManagement
 			if (copiedGameValues.Select(x => x.Key).Distinct(StringComparer.Ordinal).Count() != copiedGameValues.Count)
 				throw new ArgumentException("BasicInstall plans cannot contain duplicate game-specific value keys.", nameof(gameSpecificValues));
 
-			if (copiedFiles.Count == 0 && copiedGenerated.Count == 0)
-				throw new ArgumentException("A deterministic BasicInstall plan requires at least one installable or generated file.", nameof(files));
+			if (copiedFiles.Count == 0 && copiedGenerated.Count == 0 && copiedGameValues.Count == 0)
+				throw new ArgumentException("A deterministic BasicInstall plan requires at least one native file or game-specific-value effect.", nameof(files));
 
 			m_rocFiles = new ReadOnlyCollection<BasicInstallPlanFile>(copiedFiles);
 			m_rocGeneratedFiles = new ReadOnlyCollection<BasicInstallGeneratedFile>(copiedGenerated);
@@ -562,17 +562,6 @@ namespace Nexus.Client.ModManagement
 					gameInstallPath, virtualStoragePath, target));
 			}
 
-			if (plannedFiles.Count == 0 && generatedFiles.Count == 0)
-			{
-				if (deferredDeterministicMergeOutput)
-				{
-					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
-						"This projected merge contributor has no independent native file effect; deferring its only merged output would leave no executable registration recipe.");
-				}
-				return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.NoInstallableFiles,
-					"The BasicInstall archive has no files that can be represented as deterministic explicit native file operations.");
-			}
-
 			var packageValues = gameMode as IDeterministicPackageGameValuePlanProvider;
 			if (includeSpecialFileGameValues && includePackageGameValues && packageValues?.RequiresPackageGameValuePlan(mod) == true)
 			{
@@ -585,6 +574,17 @@ namespace Nexus.Client.ModManagement
 				catch (Exception error) when (error is ArgumentException || error is IOException || error is UnauthorizedAccessException)
 				{ return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation, error.Message); }
 			}
+			if (plannedFiles.Count == 0 && generatedFiles.Count == 0)
+			{
+				if (deferredDeterministicMergeOutput)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
+						"This projected merge contributor has no independent native file effect; deferring its only merged output would leave no executable registration recipe.");
+				}
+				if (specialGameValues.Count == 0) return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.NoInstallableFiles,
+					"The BasicInstall archive has no deterministic native file or game-specific-value effects.");
+			}
+
 			return BasicInstallPlanResult.Supported(new BasicInstallPlan(installContext, plannedFiles, generatedFiles, specialGameValues));
 		}
 

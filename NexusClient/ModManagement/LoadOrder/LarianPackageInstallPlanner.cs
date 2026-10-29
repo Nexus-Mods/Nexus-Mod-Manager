@@ -109,6 +109,8 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			if (payloads.Count == 0) return new BasicInstallGameSpecificValue[0];
 			IReadOnlyList<BasicInstallGameSpecificValue> values = _records.BuildPlanFromRecords(payloads);
 			var documents = new Dictionary<string, LarianLoadOrderDocument>(StringComparer.OrdinalIgnoreCase);
+			var planned = new List<BasicInstallGameSpecificValue>();
+			var metadata = inventory.Packages.SelectMany(package => package.Inspection.Modules).ToDictionary(module => module.Metadata.Identity, module => module.Metadata, StringComparer.OrdinalIgnoreCase);
 			foreach (BasicInstallGameSpecificValue value in values)
 			{
 				token.ThrowIfCancellationRequested(); _records.ParseKey(value.Key, out string profile, out string identity);
@@ -116,8 +118,22 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				if (document.Legacy && !document.Records.ContainsKey(identity)) throw new InvalidDataException(LanguageManager.Get("LoadOrder.Install.LegacyFormat",
 					"A game profile uses a legacy module-settings format. Automatic package registration cannot migrate it. Update the profile in the game before retrying."));
 				if (document.Entries.Any(entry => entry.IsProtected && entry.Identity == identity)) throw new InvalidDataException("A selected package attempts to register a game-owned module identity.");
+				byte[] payload = value.Value;
+				if (!document.Legacy && document.Records.TryGetValue(identity, out XmlElement existing))
+				{
+					string version = LarianLoadOrderDocument.Field(existing, "Version64");
+					if (version != null && !UInt64.TryParse(version, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out ulong ignored))
+					{
+						// Correct only this explicitly installed module's invalid sidecar version; keep foreign fields and current position.
+						XmlElement corrected = (XmlElement)existing.CloneNode(true);
+						XmlElement field = corrected.SelectSingleNode("attribute[@id='Version64']") as XmlElement;
+						field.SetAttribute("type", "int64"); field.SetAttribute("value", metadata[identity].Version);
+						payload = Encoding.UTF8.GetBytes(corrected.OuterXml);
+					}
+				}
+				planned.Add(new BasicInstallGameSpecificValue(value.Key, payload));
 			}
-			return values;
+			return planned.AsReadOnly();
 		}
 
 		/// <summary>Streams bounded package bytes without allocating an entire PAK or silently accepting a changed stream.</summary>

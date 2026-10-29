@@ -17,7 +17,13 @@ internal static class Protocol
 	/// <summary>Reads bounded UTF-8 input and validates a unique, flat observed package inventory.</summary>
 	internal static Request ReadRequest()
 	{
-		string input = ReadBounded(Console.In, 4 * 1024 * 1024);
+		return ParseRequest(ReadBounded(Console.In, 4 * 1024 * 1024));
+	}
+
+	/// <summary>Validates the inventory once at the start of either a legacy request or a framed inspection session.</summary>
+	internal static Request ParseRequest(string input)
+	{
+		if (input.Length > 4 * 1024 * 1024) throw new InvalidDataException("Inspection request exceeds its size limit.");
 		using JsonDocument document = JsonDocument.Parse(input, new JsonDocumentOptions { MaxDepth = 32 });
 		RejectDuplicateKeys(document.RootElement);
 		Request request = JsonSerializer.Deserialize<Request>(input, Json);
@@ -34,8 +40,43 @@ internal static class Protocol
 			if (!names.Add(file.FileName) || file.Length < 0 || file.LastWriteTimeUtcTicks < 0 || file.LastWriteTimeUtcTicks > DateTime.MaxValue.Ticks)
 				throw new InvalidDataException("Invalid or duplicate package inventory entry.");
 		}
+		request.FilesByName = request.Files.ToDictionary(file => file.FileName, StringComparer.OrdinalIgnoreCase);
 		if (!names.Contains(request.FileName)) throw new InvalidDataException("The input is absent from its observed inventory.");
 		return request;
+	}
+
+	/// <summary>Reads one bounded UTF-8 frame, allowing clean EOF only between requests.</summary>
+	internal static string ReadFrame(Stream input)
+	{
+		int first = input.ReadByte();
+		if (first < 0) return null;
+		byte[] header = new byte[4]; header[0] = (byte)first;
+		ReadExact(input, header, 1, 3);
+		int length = header[0] | header[1] << 8 | header[2] << 16 | header[3] << 24;
+		if (length < 1 || length > 16 * 1024 * 1024) throw new InvalidDataException("Invalid inspection frame length.");
+		byte[] bytes = new byte[length]; ReadExact(input, bytes, 0, length);
+		return new System.Text.UTF8Encoding(false, true).GetString(bytes);
+	}
+
+	/// <summary>Writes one bounded response without waiting for process exit or closing stdout.</summary>
+	internal static void WriteFrame(Stream output, string text)
+	{
+		byte[] bytes = new System.Text.UTF8Encoding(false, true).GetBytes(text);
+		if (bytes.Length > 16 * 1024 * 1024) throw new InvalidDataException("Inspection response exceeds its frame limit.");
+		output.WriteByte((byte)bytes.Length); output.WriteByte((byte)(bytes.Length >> 8));
+		output.WriteByte((byte)(bytes.Length >> 16)); output.WriteByte((byte)(bytes.Length >> 24));
+		output.Write(bytes); output.Flush();
+	}
+
+	/// <summary>Rejects truncated frames rather than treating a partial message as a package result.</summary>
+	private static void ReadExact(Stream input, byte[] buffer, int offset, int count)
+	{
+		while (count > 0)
+		{
+			int read = input.Read(buffer, offset, count);
+			if (read == 0) throw new EndOfStreamException("Truncated inspection frame.");
+			offset += read; count -= read;
+		}
 	}
 
 	/// <summary>Prevents traversal, device names and alternate streams in sibling filenames.</summary>
@@ -87,6 +128,7 @@ internal sealed class Request
 	[JsonRequired] public string Root { get; set; }
 	[JsonRequired] public string FileName { get; set; }
 	[JsonRequired] public ObservedFile[] Files { get; set; }
+	internal Dictionary<string, ObservedFile> FilesByName { get; set; }
 }
 
 /// <summary>Filesystem metadata used to detect changes around the actual read.</summary>

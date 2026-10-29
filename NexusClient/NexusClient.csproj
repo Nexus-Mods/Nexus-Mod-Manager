@@ -649,6 +649,9 @@
     <Compile Include="ModManagement\LoadOrder\LoadOrderProviderRegistry.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianPackageInspectionProtocol.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianPackageInspectorClient.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianPackageInspectionSession.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianLoadOrderArchivePlanner.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderMutationAudit.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianLoadOrderDocument.cs" />
     <Compile Include="ModManagement\LoadOrder\NativeLoadOrderDraft.cs" />
     <Compile Include="ModManagement\LoadOrder\NativeLoadOrderService.cs" />
