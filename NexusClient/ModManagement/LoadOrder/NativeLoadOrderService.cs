@@ -468,7 +468,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		private void RequireInventory(string identity, System.Threading.CancellationToken cancellationToken)
 		{
 			LoadOrderInventory inventory = LoadOrderProviderRegistry.Create(_mode).ReadInventory(cancellationToken);
-			if (!inventory.IsComplete || inventory.Diagnostics.Any(issue => issue.Severity == LoadOrderDiagnosticSeverity.Error) || NativeLoadOrderDraft.InventoryIdentity(inventory) != identity)
+			if (!NativeLoadOrderDraft.CanEditInventory(inventory) || NativeLoadOrderDraft.InventoryIdentity(inventory) != identity)
 				throw new InvalidOperationException("The inspected package inventory changed. Refresh the draft.");
 		}
 

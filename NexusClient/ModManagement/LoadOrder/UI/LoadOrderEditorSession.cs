@@ -12,7 +12,7 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 		private readonly string[] _original;
 		private readonly Dictionary<string, string> _names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private readonly HashSet<string> _available = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		/// <summary>Creates an editable draft only when the complete diagnosis permits it.</summary>
+		/// <summary>Allows explicit manual edits with stable partial package evidence while keeping automatic repair eligibility separate.</summary>
 		internal LoadOrderEditorSession(LoadOrderAnalysis analysis)
 			: this(analysis, false) { }
 
@@ -31,7 +31,8 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 			}
 			foreach (LoadOrderModuleReference reference in modules.SelectMany(module => module.Dependencies.Concat(module.Conflicts)))
 				if (!_names.ContainsKey(reference.Identity) && !String.IsNullOrWhiteSpace(reference.Name)) _names[reference.Identity] = reference.Name;
-			if (!inspecting && analysis.CanPrepareRepair) Draft = new NativeLoadOrderDraft(analysis.Document, analysis.Inventory);
+			if (!inspecting && !analysis.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.RecoveryRequired) && NativeLoadOrderDraft.CanEditInventory(analysis.Inventory))
+				Draft = new NativeLoadOrderDraft(analysis.Document, analysis.Inventory);
 		}
 		/// <summary>Displays saved positions and positive package evidence without diagnosing uninspected packages as missing.</summary>
 		internal static LoadOrderEditorSession Preview(LarianLoadOrderDocument document, IEnumerable<LoadOrderPackageObservation> packages = null)
@@ -74,7 +75,7 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 					Name = module?.Metadata.Name ?? entry?.Name ?? (groups.ContainsKey(id) ? String.Join(" / ", groups[id].Select(item => item.Module.Metadata.Name).Distinct()) : id),
 					Folder = module?.Metadata.Folder ?? entry?.Folder,
 					Author = module?.Metadata.Author, Version = module?.Metadata.Version,
-					CanToggle = Draft != null && !protectedRecord && !duplicate && (module == null || module.Kind != LoadOrderModuleKind.Campaign) && (entry != null || module?.Kind == LoadOrderModuleKind.AddOn && !Analysis.Document.UsesLegacyModOrder),
+					CanToggle = Draft != null && !protectedRecord && !duplicate && (module == null || module.Kind != LoadOrderModuleKind.Campaign) && (entry != null || module?.Kind == LoadOrderModuleKind.AddOn && !Analysis.Document.UsesLegacyModOrder && Draft.CanInclude(id)),
 					Position = protectedRecord || !included ? (int?)null : positions[id],
 					State = protectedRecord ? T("State.Game", "Game-owned") : duplicate ? T("State.Duplicate", "Duplicate UUID") : IsInspecting && packages.Length == 0 ? T("State.Pending", "Awaiting inspection") : included ? T("State.Included", "Included")
 						: module?.Kind == LoadOrderModuleKind.Campaign ? T("State.Campaign", "Select campaign in game") : T("State.Excluded", "Excluded"),
@@ -82,6 +83,7 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 						: duplicate ? T("Details.Duplicate", "Multiple packages declare this UUID. Resolve the duplicates through NMM before editing the order.")
 						: IsInspecting ? T("Details.Inspecting", "This is the saved inclusion and position. Package details and dependency checks are still loading. Editing is available after inspection completes.")
 						: module?.Kind == LoadOrderModuleKind.Campaign ? T("Details.Campaign", "Campaign selection is managed by the game. This page orders add-on modules.")
+						: entry != null && (module == null || packages.Any(package => package.Inspection.Status != LoadOrderInspectionStatus.Complete)) ? T("Details.UnverifiedSaved", "This is a saved load-order entry. Its package could not be verified; NMM preserves its inclusion, position and metadata unless you deliberately change it.")
 						: T("Details.Inclusion", "Inclusion changes the game's module list. Scripts or override files in an installed package can remain effective when its module is excluded. Disable or uninstall the mod through NMM to stop its physical effects.")
 				};
 				LoadOrderContentFeatures features = packages.Aggregate(LoadOrderContentFeatures.None, (value, package) => value | package.Inspection.Features);

@@ -59,7 +59,10 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			if (analysis == null) throw new ArgumentNullException(nameof(analysis));
 			if (!analysis.HasAutomaticRepairs) throw new InvalidOperationException("There are no safe automatic order repairs in this analysis.");
 			var draft = new NativeLoadOrderDraft(analysis.Document, analysis.Inventory);
-			foreach (string id in draft.IncludedIdentities.Except(analysis.ProposedOrder).ToArray()) draft.SetIncluded(id, false);
+			string[] removed = draft.IncludedIdentities.Except(analysis.ProposedOrder).ToArray();
+			var verified = new System.Collections.Generic.HashSet<string>(draft.AvailableModules.Select(module => module.Metadata.Identity));
+			if (removed.Any(id => !verified.Contains(id))) throw new InvalidOperationException(LanguageManager.Get("LoadOrder.Repair.UnverifiedRemoval", "Automatic repair cannot exclude an unverified saved module. Change its inclusion manually if you intend to remove it."));
+			foreach (string id in removed) draft.SetIncluded(id, false);
 			foreach (string id in analysis.ProposedOrder.Except(draft.IncludedIdentities)) draft.SetIncluded(id, true);
 			for (int index = 0; index < analysis.ProposedOrder.Length; index++) draft.Move(analysis.ProposedOrder[index], index);
 			foreach (string id in analysis.RefreshMetadata.Where(draft.IncludedIdentities.Contains)) draft.RefreshMetadata(id);

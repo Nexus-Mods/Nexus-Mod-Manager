@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using Newtonsoft.Json;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement.LoadOrder
 {
@@ -22,12 +23,28 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		{
 			_observed = observed ?? throw new ArgumentNullException(nameof(observed));
 			_inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
-			if (!inventory.IsComplete || inventory.Diagnostics.Any(issue => issue.Severity == LoadOrderDiagnosticSeverity.Error))
-				throw new InvalidOperationException("A complete inventory without blocking diagnostics is required before editing.");
-			_available = inventory.Packages.SelectMany(package => package.Inspection.Modules).Where(module => module.Kind == LoadOrderModuleKind.AddOn)
+			if (!CanEditInventory(inventory))
+				throw new InvalidOperationException(LanguageManager.Get("LoadOrder.Draft.UnsafeInventory", "Resolve directory, package-change or duplicate-identity problems before editing. An unreadable package alone does not remove saved entries."));
+			_available = inventory.Packages.Where(package => package.Inspection.Status == LoadOrderInspectionStatus.Complete)
+				.SelectMany(package => package.Inspection.Modules).Where(module => module.Kind == LoadOrderModuleKind.AddOn)
 				.ToDictionary(module => LarianLoadOrderDocument.Identity(module.Metadata.Identity), StringComparer.OrdinalIgnoreCase);
 			_included = observed.Entries.Where(entry => !entry.IsProtected).Select(entry => entry.Identity).ToList();
 		}
+		/// <summary>Allows explicit manual edits around unreadable PAKs while keeping directory, mutation and identity failures blocking.</summary>
+		internal static bool CanEditInventory(LoadOrderInventory inventory)
+		{
+			if (inventory == null) return false;
+			if (inventory.Diagnostics.Any(issue => issue.Kind != LoadOrderDiagnosticKind.InspectorUnavailable &&
+				issue.Kind != LoadOrderDiagnosticKind.PackageInspectionFailed && issue.Kind != LoadOrderDiagnosticKind.PackageInspectionIncomplete)) return false;
+			LoadOrderModuleInfo[] modules = inventory.Packages.SelectMany(package => package.Inspection.Modules).Take(10001).ToArray();
+			if (modules.Length > 10000 || modules.GroupBy(module => LarianLoadOrderDocument.Identity(module.Metadata.Identity), StringComparer.OrdinalIgnoreCase).Any(group => group.Count() != 1)) return false;
+			return inventory.IsComplete || !String.IsNullOrWhiteSpace(inventory.PackageRoot) &&
+				(inventory.Diagnostics.Count > 0 || inventory.Packages.Any(package => package.Inspection.Status != LoadOrderInspectionStatus.Complete));
+		}
+
+		/// <summary>Existing native records can be retained or deliberately re-enabled; new identities require a complete package observation.</summary>
+		internal bool CanInclude(string identity) => _observed.Records.ContainsKey(identity) || _available.ContainsKey(identity);
+
 		public IReadOnlyList<string> IncludedIdentities => Array.AsReadOnly(_included.ToArray());
 		public IReadOnlyList<LoadOrderModuleInfo> AvailableModules => Array.AsReadOnly(_available.Values.ToArray());
 		public IReadOnlyList<NativeLoadOrderEntry> ProtectedEntries => Array.AsReadOnly(_observed.Entries.Where(entry => entry.IsProtected).ToArray());

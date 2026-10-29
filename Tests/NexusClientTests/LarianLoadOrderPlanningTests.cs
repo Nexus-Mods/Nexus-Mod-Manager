@@ -95,19 +95,52 @@ namespace Nexus.Client.Tests
 			Assert.That(result.SuggestedOrder, Is.EqualTo(new[] { First }));
 		}
 
-		/// <summary>Only complete evidence permits stale unowned module record removal.</summary>
+		/// <summary>Not matching an installed package never authorizes deleting a saved module, even after a complete scan.</summary>
 		[Test]
-		public void MissingPackageRemovalRequiresCompleteEvidence()
+		public void UnmatchedSavedEntriesAreNeverAutomaticallyRemoved()
 		{
 			LoadOrderInventory complete = Inventory(Module(First));
 			LoadOrderAnalysis result = LarianLoadOrderAnalyzer.Analyze(Document(First, Second), complete);
-			Assert.That(result.SuggestedOrder, Is.EqualTo(new[] { First }));
-			Assert.That(result.Repairs.Any(step => step.Kind == LoadOrderRepairKind.RemoveMissingRecord && step.ModuleIdentity == Second), Is.True);
+			Assert.That(result.SuggestedOrder, Is.EqualTo(new[] { First, Second }));
+			Assert.That(result.Repairs.Any(step => step.Kind == LoadOrderRepairKind.RemoveMissingRecord), Is.False);
+			Assert.That(result.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.MissingPackage).Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+			Assert.That(result.HasAutomaticRepairs, Is.False);
 			var partial = new LoadOrderInventory(complete.PackageRoot, complete.Packages, false, new LoadOrderDiagnostic[0]);
 			LoadOrderAnalysis unverified = LarianLoadOrderAnalyzer.Analyze(Document(First, Second), partial);
 			Assert.That(unverified.Repairs, Is.Empty);
 			Assert.That(unverified.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.MissingPackage), Is.False);
 			Assert.That(unverified.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.UnverifiedModule).Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+		}
+
+		/// <summary>An unresolved package cannot authorize hypothetical curator reordering, exclusion or metadata changes.</summary>
+		[TestCase(LoadOrderInspectionStatus.Failed)]
+		[TestCase(LoadOrderInspectionStatus.Partial)]
+		[TestCase(LoadOrderInspectionStatus.Unavailable)]
+		public void ReadFailureRetainsExactOrderAndDisablesAutomaticChanges(LoadOrderInspectionStatus status)
+		{
+			LarianLoadOrderDocument document = Document(Third, First, Second);
+			LoadOrderInventory known = Inventory(Module(First), Module(Second));
+			var failed = new LoadOrderPackageObservation(new LoadOrderPackageFile(Path.Combine(known.PackageRoot, "Unreadable.pak"), 1, 0),
+				new LoadOrderPackageInspection(status, LoadOrderPackageKind.Unknown, null, LoadOrderContentFeatures.None, null));
+			var inventory = new LoadOrderInventory(known.PackageRoot, known.Packages.Concat(new[] { failed }), false,
+				new[] { new LoadOrderDiagnostic(LoadOrderDiagnosticKind.PackageInspectionFailed, LoadOrderDiagnosticSeverity.Error, failed.File.Path) });
+			var policy = new LarianOrderPreference { Source = "Curator", Managed = new[] { First, Second, Third }, Order = new[] { Second, First }, Excluded = new[] { Third } };
+			LoadOrderAnalysis result = LarianLoadOrderAnalyzer.Analyze(document, inventory, policy);
+			CollectionAssert.AreEqual(new[] { Third, First, Second }, result.SuggestedOrder);
+			Assert.That(result.CanPrepareRepair, Is.False); Assert.That(result.Repairs, Is.Empty);
+			Assert.That(result.Issues.All(issue => !issue.AutomaticallyRepairable), Is.True);
+			var draft = new NativeLoadOrderDraft(document, inventory);
+			CollectionAssert.AreEqual(document.Bytes, draft.Prepare().After.Bytes);
+		}
+
+		/// <summary>A historical policy cannot automatically exclude a saved record with no positively identified package.</summary>
+		[Test]
+		public void SavedExclusionDoesNotRemoveUnverifiedEntry()
+		{
+			var policy = new LarianOrderPreference { Source = "Manual", Order = new[] { First }, Excluded = new[] { Second } };
+			LoadOrderAnalysis result = LarianLoadOrderAnalyzer.Analyze(Document(First, Second), Inventory(Module(First)), policy);
+			CollectionAssert.AreEqual(new[] { First, Second }, result.SuggestedOrder);
+			Assert.That(result.Repairs.Any(step => step.Kind == LoadOrderRepairKind.RemoveExcludedRecord || step.Kind == LoadOrderRepairKind.RemoveMissingRecord), Is.False);
 		}
 
 		/// <summary>A reader failure cannot establish that an unresolved dependency is missing or authorize repairs.</summary>

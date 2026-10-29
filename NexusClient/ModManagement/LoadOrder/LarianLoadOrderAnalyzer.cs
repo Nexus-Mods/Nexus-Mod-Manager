@@ -38,17 +38,20 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			var chosen = new List<string>(original);
 			foreach (string id in original.Where(id => !modules.ContainsKey(id) && !protectedIds.Contains(id)))
 			{
-				bool removable = complete && !curator.Contains(id);
-				issues.Add(complete ? Issue(LoadOrderIssueKind.MissingPackage, "An included module has no uniquely identified installed package.",
-					removable ? "Automatic repair can remove this stale record. Reinstall the mod if you still want to use it." : "Restore the selected Collection package, then refresh.", new[] { id }, removable)
+				// Inventory matching cannot establish that a saved entry is unwanted, including intentional curator markers.
+				issues.Add(complete ? Issue(LoadOrderIssueKind.MissingPackage, "NMM could not match this saved module to an inspected package.",
+					"The saved entry is preserved. Verify the mod or curator's instructions; remove it manually only if you intend to exclude it.", new[] { id }, severity: LoadOrderDiagnosticSeverity.Warning)
 					: Issue(LoadOrderIssueKind.UnverifiedModule, "NMM could not match this included module while package inspection is incomplete or ambiguous.",
-						"This does not establish that the mod is missing or broken. Review the package inspection details or export the diagnostic report before changing installed mods.", new[] { id }, severity: LoadOrderDiagnosticSeverity.Warning));
-				if (removable) { chosen.Remove(id); steps.Add(new LoadOrderRepairStep(LoadOrderRepairKind.RemoveMissingRecord, id)); }
+						"This does not establish that the mod is missing or broken. Its saved entry is preserved. Review the package inspection details or export the diagnostic report before changing installed mods.", new[] { id }, severity: LoadOrderDiagnosticSeverity.Warning));
 			}
+			// Opaque saved entries may have dependencies we cannot inspect; do not sort around or discard them automatically.
+			complete &= original.All(id => modules.ContainsKey(id) || protectedIds.Contains(id));
 			foreach (string id in original.Where(excluded.Contains))
 			{
-				issues.Add(Issue(LoadOrderIssueKind.SavedExclusionMismatch, "The current order includes a module excluded by the saved order policy.", "Automatic repair can restore the explicit exclusion without deleting its package.", new[] { id }, complete));
-				if (complete) { chosen.Remove(id); steps.Add(new LoadOrderRepairStep(LoadOrderRepairKind.RemoveExcludedRecord, id)); }
+				bool verifiedExclusion = complete && modules.TryGetValue(id, out LoadOrderModuleInfo excludedModule) && excludedModule.Kind == LoadOrderModuleKind.AddOn;
+				issues.Add(Issue(LoadOrderIssueKind.SavedExclusionMismatch, "The current order includes a module excluded by the saved order policy.",
+					verifiedExclusion ? "Automatic repair can restore the explicit exclusion without deleting its package." : "The saved entry is preserved while inspection is unresolved. Change its inclusion manually only if you intend to exclude it.", new[] { id }, verifiedExclusion, severity: LoadOrderDiagnosticSeverity.Warning));
+				if (verifiedExclusion) { chosen.Remove(id); steps.Add(new LoadOrderRepairStep(LoadOrderRepairKind.RemoveExcludedRecord, id)); }
 			}
 			// A dependency closure is enabled only when the entire closure is available and compatible with explicit exclusions/conflicts.
 			int closureBudget = 0;
@@ -157,7 +160,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					"This package contains embedded Mod Fixer content.", "Check the author's compatibility guidance for your game version. NMM will not rewrite the package to remove it.", path: package.File.Path, severity: LoadOrderDiagnosticSeverity.Information));
 			}
 			if (!complete || !bounded) foreach (LoadOrderIssue issue in issues) issue.AutomaticallyRepairable = false;
-			return new LoadOrderAnalysis(document, inventory, policy, issues, complete && bounded ? steps : Enumerable.Empty<LoadOrderRepairStep>(), (IEnumerable<string>)sorted ?? original, complete && bounded);
+			return new LoadOrderAnalysis(document, inventory, policy, issues, complete && bounded ? steps : Enumerable.Empty<LoadOrderRepairStep>(), complete && bounded ? (IEnumerable<string>)sorted ?? original : original, complete && bounded);
 		}
 
 		/// <summary>Builds a bounded available dependency closure; the shared sort subsequently rejects cyclic inclusion.</summary>

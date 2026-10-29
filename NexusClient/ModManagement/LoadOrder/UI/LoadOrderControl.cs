@@ -645,7 +645,8 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 			if (_session.IsInspecting) { UpdateCommands(); return; }
 			_status.Text = !_fresh ? T("Stale", "Files or mod deployment changed. Your draft is preserved; refresh before saving.")
 				: _session.IsDirty ? T("Unsaved", "Unsaved changes · Save writes this order to the game. Discard restores the last scan.")
-				: !_session.Analysis.CanPrepareRepair ? T("Blocked", "Resolve the inventory or recovery problems before editing. Fix automatically can review eligible folder cleanup.")
+				: _session.Draft == null ? T("Blocked", "Resolve the inventory or recovery problems before editing. Fix automatically can review eligible folder cleanup.")
+				: !_session.Analysis.CanPrepareRepair ? T("ManualWithUnverifiedPackages", "Some checks are unresolved. Saved entries are preserved; you can make explicit manual changes. Automatic sorting is unavailable.")
 				: String.Format(T("Ready", "Saved order · {0} included modules. Check inclusion, then move modules into the order you want."), _session.Included.Count);
 			Text = T("Title", "Load Order") + (_session.IsDirty ? " *" : String.Empty); UpdateCommands();
 		}
@@ -657,7 +658,8 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 			bool idle = !HasActiveSessionWork && _changes?.HasRunningNativeTask != true && _main?.IsSwitching != true;
 			_profile.Enabled = idle; _refresh.Enabled = idle && _service != null; _discard.Enabled = !HasActiveSessionWork && _session?.IsDirty == true;
 			_automaticFix.Enabled = idle && _selectedProfile != null;
-			_save.Enabled = _dragToken == null && CanEdit && _session.IsDirty; _fix.Enabled = idle && ObservationCurrent && _session != null && !_session.IsDirty && !_session.Analysis.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.RecoveryRequired);
+			_save.Enabled = _dragToken == null && CanEdit && _session.IsDirty; _fix.Enabled = idle && ObservationCurrent && _session != null && !_session.IsDirty && !_session.Analysis.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.RecoveryRequired) &&
+				(_session.Analysis.HasAutomaticRepairs || _session.Analysis.Inventory.Diagnostics.Any(issue => issue.Kind == LoadOrderDiagnosticKind.UnexpectedFile || issue.Kind == LoadOrderDiagnosticKind.UnexpectedDirectory));
 			_recovery.Enabled = idle && _selectedProfile != null; _cancel.Enabled = _busy;
 			_exportReport.Enabled = !HasActiveSessionWork && _session != null;
 			_cancelItem.Visibility = _busy ? LayoutVisibility.Always : LayoutVisibility.Never; _progressItem.Visibility = _busy ? LayoutVisibility.Always : LayoutVisibility.Never;

@@ -68,17 +68,68 @@ namespace Nexus.Client.Tests
 			Assert.That(session.IsDirty, Is.False);
 		}
 
-		/// <summary>Incomplete inspection retains positive script evidence while preventing misleading editing permissions.</summary>
+		/// <summary>Partial module metadata retains badges and saved records but cannot activate a new unverified identity.</summary>
 		[Test]
-		public void PartialInspectionShowsEvidenceWithoutEnablingEdits()
+		public void PartialInspectionPreservesSavedEntriesWithoutEnablingUnverifiedAdditions()
 		{
 			LoadOrderModuleInfo module = Module(First, LoadOrderContentFeatures.LuaScripts);
 			var inventory = new LoadOrderInventory(Root, new[] { Package("Partial.pak", new LoadOrderPackageInspection(LoadOrderInspectionStatus.Partial, LoadOrderPackageKind.Modules,
-				new[] { module }, LoadOrderContentFeatures.LuaScripts, new[] { "Partial.pak" })) }, false, new LoadOrderDiagnostic[0]);
+				new[] { module, Module(Second) }, LoadOrderContentFeatures.LuaScripts, new[] { "Partial.pak" })) }, false, new LoadOrderDiagnostic[0]);
 			var session = new LoadOrderEditorSession(LarianLoadOrderAnalyzer.Analyze(Document(false, First), inventory));
-			Assert.That(session.Draft, Is.Null); Assert.That(Row(session, First).CanToggle, Is.False);
+			Assert.That(session.Draft, Is.Not.Null); Assert.That(Row(session, First).CanToggle, Is.True);
+			Assert.That(Row(session, Second).CanToggle, Is.False);
+			Assert.Throws<InvalidOperationException>(() => session.Draft.SetIncluded(Second, true));
+			CollectionAssert.AreEqual(session.Analysis.Document.Bytes, session.Draft.Prepare().After.Bytes);
 			Assert.That(Row(session, First).Badges.Split(','), Does.Contain("Lua"));
 			Assert.That(Row(session, First).Badges.Split(','), Does.Contain("Unverified"));
+		}
+
+		/// <summary>A verified checkbox can activate a mod despite unrelated read failures, retaining all existing records and positions.</summary>
+		[Test]
+		public void VerifiedActivationWorksWithUnrelatedUnreadablePak()
+		{
+			var failed = Package("Unreadable.pak", new LoadOrderPackageInspection(LoadOrderInspectionStatus.Failed, LoadOrderPackageKind.Unknown, null, LoadOrderContentFeatures.None, null));
+			LoadOrderInventory known = Inventory(new[] { Module(First), Module(Third) }, failed);
+			var inventory = new LoadOrderInventory(Root, known.Packages, false,
+				new[] { new LoadOrderDiagnostic(LoadOrderDiagnosticKind.PackageInspectionFailed, LoadOrderDiagnosticSeverity.Error, failed.File.Path) });
+			LarianLoadOrderDocument document = Document(false, Second, First);
+			var session = new LoadOrderEditorSession(LarianLoadOrderAnalyzer.Analyze(document, inventory));
+			Assert.That(Row(session, Third).CanToggle, Is.True);
+			session.Include(Row(session, Third), true);
+			Assert.That(Row(session, Third).Included, Is.True); Assert.That(Row(session, Third).Position, Is.EqualTo(3));
+			CollectionAssert.AreEqual(new[] { Second, First, Third }, session.Included);
+			NativeLoadOrderPreview preview = session.Draft.Prepare();
+			Assert.That(preview.After.Records[Second].OuterXml, Is.EqualTo(document.Records[Second].OuterXml));
+			Assert.That(preview.After.Records[First].OuterXml, Is.EqualTo(document.Records[First].OuterXml));
+			Assert.That(session.IsDirty, Is.True); Assert.That(session.Analysis.HasAutomaticRepairs, Is.False);
+		}
+
+		/// <summary>Directory, mutation, enumeration and ambiguous-identity problems remain blocking for manual publication.</summary>
+		[TestCase(LoadOrderDiagnosticKind.RootUnavailable)]
+		[TestCase(LoadOrderDiagnosticKind.EnumerationFailed)]
+		[TestCase(LoadOrderDiagnosticKind.UnexpectedFile)]
+		[TestCase(LoadOrderDiagnosticKind.UnexpectedDirectory)]
+		[TestCase(LoadOrderDiagnosticKind.ScanLimitReached)]
+		[TestCase(LoadOrderDiagnosticKind.PackageChanged)]
+		[TestCase(LoadOrderDiagnosticKind.DuplicateModuleIdentity)]
+		public void UnsafeInventoryStillBlocksEditing(LoadOrderDiagnosticKind kind)
+		{
+			LoadOrderInventory known = Inventory(new[] { Module(First), Module(Second) });
+			var inventory = new LoadOrderInventory(Root, known.Packages, false,
+				new[] { new LoadOrderDiagnostic(kind, LoadOrderDiagnosticSeverity.Error, Root) });
+			var session = new LoadOrderEditorSession(LarianLoadOrderAnalyzer.Analyze(Document(false, First), inventory));
+			Assert.That(session.Draft, Is.Null); Assert.That(Row(session, Second).CanToggle, Is.False);
+		}
+
+		/// <summary>Partial-inspection manual permissions must not bypass an interrupted native publication.</summary>
+		[Test]
+		public void RecoveryRequirementStillBlocksManualChanges()
+		{
+			LoadOrderInventory inventory = Inventory(new[] { Module(First), Module(Second) });
+			var issue = new LoadOrderIssue(LoadOrderIssueKind.RecoveryRequired, LoadOrderDiagnosticSeverity.Error, "Recovery required", "Review recovery first");
+			var analysis = new LoadOrderAnalysis(Document(false, First), inventory, null, new[] { issue }, new LoadOrderRepairStep[0], new[] { First }, false);
+			var session = new LoadOrderEditorSession(analysis);
+			Assert.That(session.Draft, Is.Null); Assert.That(Row(session, Second).CanToggle, Is.False);
 		}
 
 		/// <summary>Duplicate UUIDs remain one ambiguous module row with every source path and no arbitrary winning metadata.</summary>
