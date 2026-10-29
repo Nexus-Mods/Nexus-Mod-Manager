@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
 using DevExpress.Utils.Layout;
@@ -20,6 +21,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private LabelControl _installationOptionsSummary;
 		private DropDownButton _moreCollectionActionsButton;
 		private PopupMenu _moreCollectionActionsMenu;
+		private BarButtonItem _openCollectionPageMenuItem;
 		private SimpleButton _advancedInstallOptionsButton;
 		private bool _advancedInstallOptionsVisible;
 		private ManagedFontXtraForm _installationOptionsDialog;
@@ -48,10 +50,48 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void InitializeCollectionActionMenu()
 		{
 			_moreCollectionActionsMenu = new PopupMenu(_memberMenuManager);
+			_openCollectionPageMenuItem = new BarButtonItem(_memberMenuManager, L("Collections.Actions.OpenCollectionPage", "Go to Collection page"));
+			_openCollectionPageMenuItem.ItemClick += (sender, args) => OpenSelectedCollectionPage();
+			_moreCollectionActionsMenu.AddItem(_openCollectionPageMenuItem);
 			AddMemberActionMenuItem(_moreCollectionActionsMenu, _cloneManagedAssociationButton, CloneManagedAssociationButton_Click, false);
 			AddMemberActionMenuItem(_moreCollectionActionsMenu, _exportTechnicalReportButton, ExportTechnicalReportButton_Click, false);
 			AddMemberActionMenuItem(_moreCollectionActionsMenu, _manageAssociationRemovalButton, ManageAssociationRemovalButton_Click, true);
 			_moreCollectionActionsButton.DropDownControl = _moreCollectionActionsMenu;
+		}
+
+		/// <summary>Resolves the displayed Nexus Collection's page without borrowing another preview's locator.</summary>
+		private Uri GetSelectedCollectionPageUri()
+		{
+			CollectionRevisionIdentity revision = SetupRevision();
+			if (revision == null || revision.Collection.Origin != CollectionOrigin.NexusMods) return null;
+			string domain;
+			string slug;
+			if (_managedAssociationPresentation != null)
+			{
+				domain = _managedAssociationPresentation.NexusGameDomain;
+				slug = _managedAssociationPresentation.NexusCollectionSlug;
+			}
+			else
+			{
+				domain = _snapshot?.Link?.GameDomain;
+				slug = _snapshot?.Link?.CollectionSlug;
+			}
+			if (String.IsNullOrWhiteSpace(domain) || String.IsNullOrWhiteSpace(slug)) return null;
+			return new Uri("https://www.nexusmods.com/games/" + Uri.EscapeDataString(domain) + "/collections/" + Uri.EscapeDataString(slug));
+		}
+
+		/// <summary>Opens the currently selected Collection in the browser using the existing page-launch behavior.</summary>
+		private void OpenSelectedCollectionPage()
+		{
+			Uri page = GetSelectedCollectionPageUri();
+			if (page == null) return;
+			try { Process.Start(page.AbsoluteUri); }
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to open Collection page: " + ex);
+				XtraMessageBox.Show(this, L("Collections.Actions.OpenCollectionPageFailed", "NMM could not open the Collection page in your browser.") +
+					Environment.NewLine + ex.Message, L("Collections.Actions.OpenCollectionPage", "Go to Collection page"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 		}
 
 		/// <summary>Shows existing live preference controls in a modal surface; their persistence and policy behavior stay unchanged.</summary>
@@ -198,9 +238,12 @@ namespace Nexus.Client.CollectionManagement.UI
 					_setupSummary.Appearance.ForeColor = _setupRequiresRecovery ? palette.PluginErrorColor : palette.PluginWarningColor;
 				}
 			}
+			_openCollectionPageMenuItem.Enabled = GetSelectedCollectionPageUri() != null;
+			_openCollectionPageMenuItem.Visibility = _openCollectionPageMenuItem.Enabled ? BarItemVisibility.Always : BarItemVisibility.Never;
 			foreach (BarItemLink link in _moreCollectionActionsMenu.ItemLinks)
 			{
-				SimpleButton source = (SimpleButton)link.Item.Tag;
+				SimpleButton source = link.Item.Tag as SimpleButton;
+				if (source == null) continue;
 				link.Item.Caption = source.Text;
 				link.Item.Enabled = source.Enabled;
 				link.Item.Visibility = source.Enabled ? BarItemVisibility.Always : BarItemVisibility.Never;

@@ -1181,7 +1181,8 @@
 			if (p_vmlLink.InstallRoot == ModInstallRoot.GameRoot || p_modMod == null)
 				return;
 
-			string strAdjustedPathKey = GetDeploymentPathKey(GetAdjustedVirtualPath(p_modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), p_vmlLink.InstallRoot);
+			// Index the actual destination, including secondary game roots, just as deployment does.
+			string strAdjustedPathKey = GetDeployedFilePath(p_vmlLink, p_modMod);
 			if (!string.IsNullOrEmpty(strAdjustedPathKey) && !strAdjustedPathKey.Equals(p_strRawPathKey, StringComparison.OrdinalIgnoreCase))
 				p_strAdjustedPathKey = strAdjustedPathKey;
 		}

@@ -151,7 +151,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired:
 					return Message("Collections.Messages.Recovery.Reprepare",
 						"Installation is paused because the saved review no longer matches the current setup. Completed mods are kept.",
-						"Collections.Messages.Next.RefreshRemainingInstallation", "Refresh the remaining installation review using the action above. NMM will keep completed mods and reuse your saved selections.", technicalDetail);
+						"Collections.Messages.Next.RefreshRemainingInstallation", "In the Collection details panel, choose Refresh remaining installation... to rebuild the remaining installation review. NMM will keep completed mods and reuse your saved selections.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired:
 					string verificationDetail = (technicalDetail ?? String.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
 						.FirstOrDefault(x => x.IndexOf("NMM could not verify '", StringComparison.OrdinalIgnoreCase) >= 0);
