@@ -294,6 +294,7 @@ namespace Nexus.Client.ModManagement
 					ModOperationDurability.Unknown, e.Message);
 			}
 
+			m_ctlParentMutationLease = null;
 			IsCompleted = true;
 			m_ewhSetCompleted.Set();
 			((Action<TaskSetCompletedEventArgs>)RaiseTaskSetCompleted).BeginInvoke(e, EndTaskSetCompletedCallback, null);

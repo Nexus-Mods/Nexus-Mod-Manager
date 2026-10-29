@@ -283,6 +283,8 @@ namespace Nexus.Client.PluginManagement
                 int managedIndex = 0;
                 for (int index = 0; index < original.Count; index++)
                     if (!IsGameManagedOrder(policy, original[index])) original[index] = corrected[managedIndex++];
+                // Official activation/ordering exclusions do not override the game's final Blueprint section.
+                StableMoveBlueprintPluginsLate(original);
                 return original;
             }
             return corrected;
@@ -488,6 +490,7 @@ namespace Nexus.Client.PluginManagement
             if (blueprintPlugins.Count == 0)
                 return;
 
+            StableMoveMastersAboveDependents(blueprintPlugins);
             plugins.RemoveAll(x => x != null && x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint);
             plugins.AddRange(blueprintPlugins);
         }

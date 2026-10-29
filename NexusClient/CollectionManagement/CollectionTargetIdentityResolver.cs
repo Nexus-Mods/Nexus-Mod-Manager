@@ -86,7 +86,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>
 		/// Returns whether Game Storage metadata contains an identity ambiguity that must fail closed.
 		/// </summary>
-		private static bool HasUnsafeIdentityMetadata(GameStorageHealthCheck health)
+		internal static bool HasUnsafeIdentityMetadata(GameStorageHealthCheck health)
 		{
 			if (health == null)
 				return true;

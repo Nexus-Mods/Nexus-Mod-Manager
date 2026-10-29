@@ -524,6 +524,18 @@ namespace Nexus.Client.ModManagement
 		{
 			Succeeded = e.Success;
 			CompletionMessage = e.Message;
+			// Completed queue rows outlive each native reload. Do not retain an old full InstallLog through them.
+			ModInstallLog = null;
+			DeploymentManager = null;
+			ActiveMods = null;
+			m_dorOverwriteResolver = null;
+			m_preparedPackageFilePlan = null;
+			m_preparedPackageDataRoot = null;
+			m_preparedBasicMapping = null;
+			_standaloneWitcherMenuPlan = null;
+			_collectionArchivePreparation = null;
+			InstallationRecipeInput = null;
+			ReviewedFinalFileOwners = null;
 			base.OnTaskSetCompleted(e);
 		}
 

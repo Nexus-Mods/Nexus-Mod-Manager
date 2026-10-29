@@ -1298,6 +1298,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				finally
 				{
 					AddMissingElements(lstOrderedPlugins, false);
+					RestoreStarfieldBlueprintSection(lstOrderedPlugins);
 					LastValidLoadOrder = lstOrderedPlugins;
 				}
 
@@ -1316,6 +1317,26 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				return RemoveNonExistentPlugins(LastValidLoadOrder.ToArray());
 			else
 				return RemoveNonExistentPlugins(GameMode.OrderedCriticalPluginNames.Concat(GameMode.OrderedOfficialPluginNames).ToArray());
+		}
+
+		/// <summary>Restores Starfield's implicit final Blueprint section after reading plugins.txt and official entries.</summary>
+		private void RestoreStarfieldBlueprintSection(List<string> plugins)
+		{
+			PluginManagementPolicy policy = m_booUseStarfieldActivationRules ? GameMode.PluginManagementPolicy : null;
+			if (policy == null) return;
+			// LOOT omits implicit BlueprintShips entries from plugins.txt and records their order in timestamps.
+			List<string> blueprints = plugins.Where(path => policy.IsBlueprintPlugin(Path.GetFileName(path)))
+				.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+			try
+			{
+				blueprints = blueprints.OrderBy(File.GetLastWriteTimeUtc).ToList();
+			}
+			catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Could not read Starfield Blueprint timestamps; retaining their observed relative order: {0}", exception.Message);
+			}
+			plugins.RemoveAll(path => policy.IsBlueprintPlugin(Path.GetFileName(path)));
+			plugins.AddRange(blueprints);
 		}
 
 		/// <summary>

@@ -20,6 +20,71 @@ namespace NexusClientTests
     [TestFixture]
     public class ModOperationLifecycleCharacterizationTests
     {
+        /// <summary>Completed queue rows preserve their result without rooting the full native state from each reload.</summary>
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void CompletedQueueTaskReleasesPreviousNativeAuthority(bool uninstall, bool success)
+        {
+            var queue = new System.Collections.Generic.List<ModInstallerBase>();
+            WeakReference previousLog = CompleteRetainedQueueTask(queue, uninstall, success);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.That(previousLog.IsAlive, Is.False, "A retained queue row must not retain the superseded InstallLog.");
+            Assert.That(queue[0].IsCompleted, Is.True);
+            Assert.That(queue[0].OperationResult.ReportedStatus,
+                Is.EqualTo(success ? ModOperationReportedStatus.Succeeded : ModOperationReportedStatus.Failed));
+            if (uninstall)
+            {
+                Assert.That(((ModUninstaller)queue[0]).Succeeded, Is.EqualTo(success));
+                Assert.That(((ModUninstaller)queue[0]).CompletionMessage, Is.EqualTo("Retained outcome"));
+            }
+            else
+            {
+                Assert.That(((ModInstaller)queue[0]).Succeeded, Is.EqualTo(success));
+                Assert.That(((ModInstaller)queue[0]).CompletionMessage, Is.EqualTo("Retained outcome"));
+            }
+            GC.KeepAlive(queue);
+        }
+
+        /// <summary>Builds a real service-reference graph outside the GC assertion's stack frame.</summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static WeakReference CompleteRetainedQueueTask(System.Collections.Generic.IList<ModInstallerBase> queue,
+            bool uninstall, bool success)
+        {
+            IInstallLog log = InterfaceStub<IInstallLog>.Create((method, args) => null);
+            IVirtualModActivator virtualMods = InterfaceStub<IVirtualModActivator>.Create((method, args) => null);
+            var deployment = new ModDeploymentManager(log, virtualMods);
+            var activeMods = new ReadOnlyObservableList<IMod>(new ThreadSafeObservableList<IMod>());
+            var mod = new InstallLog.DummyMod("Retained mod", "retained.7z");
+            IGameMode game = CreateGameMode(Path.Combine(Path.GetTempPath(), "NMM-QueueLifetime"));
+            ModInstallerBase task;
+            if (uninstall)
+                task = new ModUninstaller(mod, game, null, virtualMods, deployment, log, null, activeMods);
+            else
+            {
+                var installer = new ModInstaller(mod, game, null, null, null, log, null, virtualMods, deployment,
+                    null, null, activeMods, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data));
+                typeof(ModInstaller).GetField("m_dorOverwriteResolver", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .SetValue(installer, new ModDeploymentOverwriteResolver(mod, log, deployment, null));
+                task = installer;
+            }
+            task.AssignOperationIdentity(ModOperationIdentity.CreateNew(ModOperationOrigin.Manual,
+                new ModOperationFingerprint("queue-lifetime", new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), null)));
+            queue.Add(task);
+            using (var completed = new ManualResetEventSlim(false))
+            {
+                task.TaskSetCompleted += (sender, args) => completed.Set();
+                task.GetType().GetMethod("OnTaskSetCompleted", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                    null, new[] { typeof(TaskSetCompletedEventArgs) }, null)
+                    .Invoke(task, new object[] { new TaskSetCompletedEventArgs(success, "Retained outcome", mod) });
+                Assert.That(completed.Wait(TimeSpan.FromSeconds(5)), Is.True);
+            }
+            return new WeakReference(log);
+        }
+
         /// <summary>
         /// Verifies that an ordinary handled installer failure reports one terminal task-set completion.
         /// </summary>

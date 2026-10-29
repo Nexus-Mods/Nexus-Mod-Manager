@@ -102,6 +102,41 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>Post-LOOT reading restores timestamp-ordered implicit Blueprints without changing other games or files.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void StarfieldBlueprintReadOrderUsesFinalTimestampSection(bool starfield)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NmmBlueprintOrder-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				var policy = new PluginManagementPolicy { UseStarfieldActivationRules = starfield };
+				policy.AddBlueprintPluginPrefix("BlueprintShips-");
+				var mode = (DataDrivenGamebryoGameMode)FormatterServices.GetUninitializedObject(typeof(DataDrivenGamebryoGameMode));
+				typeof(DataDrivenGamebryoGameMode).GetField("_pluginManagementPolicy", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(mode, policy);
+				var manager = (PluginOrderManager)FormatterServices.GetUninitializedObject(typeof(PluginOrderManager));
+				GC.SuppressFinalize(manager);
+				SetField(manager, "<GameMode>k__BackingField", mode);
+				SetField(manager, "m_booUseStarfieldActivationRules", starfield);
+				string[] names = { "BlueprintShips-SFBGS050.esm", "SFBGS050.esm", "BlueprintShips-SFTA03.esm", "SFTA03.esm" };
+				List<string> order = names.Select(name => Path.Combine(root, name)).ToList();
+				foreach (string path in order) File.WriteAllText(path, "test");
+				DateTime earlier = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+				File.SetLastWriteTimeUtc(order[0], earlier.AddMinutes(1));
+				File.SetLastWriteTimeUtc(order[2], earlier);
+				var timestamps = order.ToDictionary(path => path, File.GetLastWriteTimeUtc);
+				var method = typeof(PluginOrderManager).GetMethod("RestoreStarfieldBlueprintSection", BindingFlags.NonPublic | BindingFlags.Instance);
+				method.Invoke(manager, new object[] { order });
+				string[] expected = starfield ? new[] { "SFBGS050.esm", "SFTA03.esm", "BlueprintShips-SFTA03.esm", "BlueprintShips-SFBGS050.esm" } : names;
+				CollectionAssert.AreEqual(expected, order.Select(Path.GetFileName));
+				method.Invoke(manager, new object[] { order });
+				CollectionAssert.AreEqual(expected, order.Select(Path.GetFileName));
+				Assert.That(timestamps.All(pair => File.GetLastWriteTimeUtc(pair.Key) == pair.Value), Is.True);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Checks the real writer payload without starting its background task.</summary>
 		private static void AssertQueuedStarfieldWrite(WriteLoadOrderTask task)
 		{

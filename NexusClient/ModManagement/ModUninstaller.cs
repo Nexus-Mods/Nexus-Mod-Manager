@@ -424,6 +424,10 @@ namespace Nexus.Client.ModManagement
 			if (e.Success && m_booNativeMutationStarted && !DisableVirtualFilesOnly &&
 				(OperationResult == null || OperationResult.Durability == ModOperationDurability.VerifiedCommitted))
 				ModUninstallHistory.Record(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, Mod);
+			// Keep queue history and terminal results without retaining a previous native authority graph.
+			ModInstallLog = null;
+			DeploymentManager = null;
+			ActiveMods = null;
 			base.OnTaskSetCompleted(e);
 		}
 

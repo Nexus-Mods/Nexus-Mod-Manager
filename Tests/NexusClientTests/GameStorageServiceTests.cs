@@ -30,6 +30,26 @@ namespace NexusClientTests
                 Directory.Delete(_tempRoot, true);
         }
 
+        /// <summary>Startup must recover ambiguous identities even when the folders remain technically usable.</summary>
+        [TestCase(GameStorageHealthStatus.FolderRoleCollision, true)]
+        [TestCase(GameStorageHealthStatus.MismatchedGame, true)]
+        [TestCase(GameStorageHealthStatus.MismatchedStorageId, true)]
+        [TestCase(GameStorageHealthStatus.InvalidManifest, true)]
+        [TestCase(GameStorageHealthStatus.UnsupportedManifestVersion, true)]
+        [TestCase(GameStorageHealthStatus.PartialMatch, true)]
+        [TestCase(GameStorageHealthStatus.Unknown, true)]
+        [TestCase(GameStorageHealthStatus.NotWritable, true)]
+        [TestCase(GameStorageHealthStatus.Healthy, false)]
+        [TestCase(GameStorageHealthStatus.LegacyValidNeedsInitialization, false)]
+        [TestCase(GameStorageHealthStatus.CompatibleSharedModsLibrary, false)]
+        public void StartupRecoveryRejectsUnsafeIdentitiesBeforeNativeInitialization(GameStorageHealthStatus status, bool expected)
+        {
+            var health = new GameStorageHealthCheck();
+            health.Items.Add(new GameStorageHealthItem { Status = status, IsRequired = true });
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(health), Is.EqualTo(expected));
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(null), Is.True);
+        }
+
         [Test]
         public void ValidateStorage_ValidLegacyFolders_IsReadOnly()
         {

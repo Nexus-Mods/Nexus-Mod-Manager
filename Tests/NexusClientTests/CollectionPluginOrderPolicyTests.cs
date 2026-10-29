@@ -71,6 +71,52 @@ namespace NexusClientTests
 			Assert.IsTrue(builder.Build(policy, order, new HashSet<Plugin>(order)).Diagnostics.Any(x => x.Kind == PluginValidationIssueKind.MasterBelowDependent));
 		}
 
+		/// <summary>Blueprint header flags are recognized even when a Starfield plugin does not use the BlueprintShips prefix.</summary>
+		[Test]
+		public void StarfieldDefinitionRecognizesBlueprintHeaderFlag()
+		{
+			string path = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "GameModes", "Definitions", "Starfield", "game.json");
+			GameModeDefinition definition = JsonConvert.DeserializeObject<GameModeDefinition>(System.IO.File.ReadAllText(path));
+			PluginManagementPolicy policy = DataDrivenPluginPolicyBuilder.Build(definition, new string[0],
+				new string[0], new string[0], new string[0], 0, null);
+			PluginHeaderFlags flags = policy.MapHeaderFlags(0x00000800, 0, 0);
+			Assert.That((flags & PluginHeaderFlags.Blueprint) != 0, Is.True);
+			Assert.That((policy.Classify("Custom.esm", flags, 0, new string[0], PluginParseStatus.Parsed).SpecialFlags &
+				PluginSpecialFlags.Blueprint) != 0, Is.True);
+		}
+
+		/// <summary>Official exclusions must not strand BlueprintShips above their parents after an external sort.</summary>
+		[Test]
+		public void OfficialBlueprintsFollowOrdinaryParentsAndTheirOwnBlueprintMasters()
+		{
+			var policy = new PluginManagementPolicy { IgnoreOfficialPluginOrder = true, UseStarfieldActivationRules = true };
+			policy.AddBlueprintPluginPrefix("BlueprintShips-");
+			policy.AddOfficialPlugin("Starfield.esm");
+			policy.AddOfficialPlugin("BlueprintShips-Starfield.esm");
+			policy.AddOfficialPlugin("SFBGS050.esm");
+			policy.AddOfficialPlugin("BlueprintShips-SFBGS050.esm");
+			string[] names = { "BlueprintShips-SFBGS050.esm", "Starfield.esm", "BlueprintShips-SFTA03.esm",
+				"SFTA03.esm", "BlueprintShips-Starfield.esm", "SFBGS050.esm" };
+			var plugins = new List<Plugin>();
+			foreach (string name in names)
+			{
+				var plugin = new Plugin(name, name, null);
+				string[] masters = name == "BlueprintShips-SFTA03.esm"
+					? new[] { "SFTA03.esm", "BlueprintShips-Starfield.esm" }
+					: name == "BlueprintShips-SFBGS050.esm" ? new[] { "SFBGS050.esm" } : new string[0];
+				plugin.SetMetadata(policy.Classify(name, PluginHeaderFlags.Master, 0, masters, PluginParseStatus.Parsed));
+				plugins.Add(plugin);
+			}
+			var builder = new PluginSnapshotBuilder();
+			List<Plugin> corrected = builder.CorrectStable(policy, plugins);
+			CollectionAssert.AreEqual(new[] { "Starfield.esm", "SFTA03.esm", "SFBGS050.esm",
+				"BlueprintShips-SFBGS050.esm", "BlueprintShips-Starfield.esm", "BlueprintShips-SFTA03.esm" },
+				corrected.Select(plugin => plugin.Filename));
+			Assert.That(builder.Build(policy, corrected, new HashSet<Plugin>(corrected)).Diagnostics
+				.Any(issue => issue.Kind == PluginValidationIssueKind.MasterBelowDependent), Is.False);
+			CollectionAssert.AreEqual(corrected, builder.CorrectStable(policy, corrected));
+		}
+
 		/// <summary>Moving official files cannot stale a review, while mod order and official activation remain managed state.</summary>
 		[Test]
 		public void OfficialOrderFingerprint_IgnoresOnlyGameOwnedOrder()

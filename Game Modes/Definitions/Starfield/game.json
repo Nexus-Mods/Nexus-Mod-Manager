@@ -129,6 +129,11 @@
           "source": "RecordFlags1",
           "mask": "0x00000400",
           "flags": "Medium"
+        },
+        {
+          "source": "RecordFlags1",
+          "mask": "0x00000800",
+          "flags": "Blueprint"
         }
       ],
       "addressSpaces": [

@@ -489,9 +489,9 @@
 
                 if (!storageHealth.IsHealthy)
                 {
-                    // Metadata-only problems are warnings, not reasons to interrupt
-                    // an otherwise usable Game Mode with the recovery workflow.
-                    if (!storageHealth.IsUsable)
+                    // Technically usable folders can still have conflicting identity metadata.
+                    // Recover those before native store initialization requires canonical authority.
+                    if (RequiresGameStorageRecovery(storageHealth))
                     {
                         var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
 
@@ -503,6 +503,12 @@
                         }
 
                         storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                        if (RequiresGameStorageRecovery(storageHealth))
+                        {
+                            p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null,
+                                LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning);
+                            return false;
+                        }
                     }
 
                     if (!storageHealth.IsHealthy)
@@ -1088,7 +1094,19 @@
 		    Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 
-			using (CollectionTargetMutationLease initializationLease = AcquireNativeStoreInitializationLease(p_gmdGameMode))
+			CollectionTargetMutationLease initializationLease;
+			try
+			{
+				initializationLease = AcquireNativeStoreInitializationLease(p_gmdGameMode);
+			}
+			catch (CollectionTargetAuthorityException exception)
+			{
+				Trace.TraceWarning("Native store initialization could not establish storage identity: {0}", exception);
+				p_vwmErrorMessage = new ViewMessage(exception.Message, exception.ToString(),
+					LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning);
+				return null;
+			}
+			using (initializationLease)
 			{
 				OverallMessage = LanguageManager.Get("GameDiscovery.Phase.InstallLog", "Parsing install log");
 				Trace.TraceInformation("Initializing Install Log...");
@@ -1214,6 +1232,12 @@
 				p_vwmErrorMessage = null;
 				return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor);
 			}
+		}
+
+		/// <summary>Requires explicit folder recovery when startup cannot safely establish the same identity used by native mutations.</summary>
+		internal static bool RequiresGameStorageRecovery(GameStorageHealthCheck health)
+		{
+			return health == null || !health.IsUsable || CollectionTargetIdentityResolver.HasUnsafeIdentityMetadata(health);
 		}
 
 		/// <summary>Holds the normal native target reservation while both stores migrate and recovery reloads their state.</summary>
