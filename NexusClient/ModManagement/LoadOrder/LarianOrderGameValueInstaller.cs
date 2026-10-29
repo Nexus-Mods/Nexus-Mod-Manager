@@ -37,11 +37,16 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				: new StructuredGameSpecificValueInstaller(mod, log, files, confirmation, _store);
 			_oldPreferences = new HashSet<string>(log.GetInstalledGameSpecificValueEdits(mod).Where(key => key.StartsWith(LarianOrderPreference.Prefix, StringComparison.Ordinal)), StringComparer.Ordinal);
 			_oldAggregates = new HashSet<string>(log.GetInstalledGameSpecificValueEdits(mod).Where(key => key.StartsWith(BaldursGate3CollectionRecordStore.Prefix, StringComparison.Ordinal)), StringComparer.Ordinal);
-			foreach (var value in log.GetCommittedStateSnapshot().GameValues.Where(value => _oldPreferences.Contains(value.Key)))
+			// Construction also occurs inside install/uninstall transactions. Read this owner's
+			// effective history, even when another mod currently overrides its preference.
+			foreach (string key in _oldPreferences)
 			{
-				LarianOrderPreference.TryProfile(value.Key, out string profile);
-				var owner = value.Values.SingleOrDefault(item => item.OwnerKey == log.GetModKey(mod));
-				LarianOrderPreference preference = LarianOrderPreference.Decode(owner?.Value);
+				IOwnedGameSpecificValueReader reader = log as IOwnedGameSpecificValueReader;
+				if (reader == null) throw new NotSupportedException("The native log does not expose transaction-aware owned game values.");
+				LarianOrderPreference.TryProfile(key, out string profile);
+				byte[] value;
+				reader.TryReadOwnedGameSpecificValue(mod, key, out value);
+				LarianOrderPreference preference = LarianOrderPreference.Decode(value);
 				if (preference != null) _ownedMembers[profile] = preference.Managed;
 			}
 		}

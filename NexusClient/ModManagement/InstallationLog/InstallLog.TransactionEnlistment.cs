@@ -1230,7 +1230,7 @@
 				
                 if (EnlistedInstallLog._gameSpecificValueEdits.ContainsItem(key))
                 {
-                    installers.PushRange(EnlistedInstallLog._gameSpecificValueEdits[key]);
+                    installers.PushRange(EnlistedInstallLog._gameSpecificValueEdits[key].Select(item => new InstalledValue<byte[]>(item.InstallerKey, item.Value)));
                 }
 
                 if (_installedGameSpecificValueEdits.ContainsItem(key))
@@ -1362,6 +1362,17 @@
 				
                 return currentGameSpecificValueInstallers.Count == 0 ? null : GetMod(currentGameSpecificValueInstallers.Peek().InstallerKey);
             }
+
+			/// <summary>Reads an owner's effective history entry, including buffered replacements and removals.</summary>
+			public bool TryReadOwnedGameSpecificValue(IMod owner, string key, out byte[] value)
+			{
+				if (owner == null) throw new ArgumentNullException(nameof(owner));
+				string ownerKey = GetModKey(owner);
+				InstalledValue<byte[]> entry = String.IsNullOrEmpty(ownerKey) ? null :
+					GetCurrentGameSpecificValueInstallers(key).Find(item => item.InstallerKey == ownerKey);
+				value = entry == null || entry.Value == null ? null : (byte[])entry.Value.Clone();
+				return entry != null;
+			}
 
 			/// <summary>Reads the current buffered value without exposing mutable owner-history bytes.</summary>
 			public bool TryReadCurrentGameSpecificValue(string key, out byte[] value)

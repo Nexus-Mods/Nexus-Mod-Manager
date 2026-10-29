@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.ManagedContent;
+using Nexus.Client.Mods;
 
 namespace Nexus.Client.ModManagement.LoadOrder
 {
@@ -16,6 +17,13 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		/// <summary>Returns the current native owner value, including buffered changes, without exposing mutable history bytes.</summary>
 		bool TryReadCurrentGameSpecificValue(string key, out byte[] value);
+	}
+
+	/// <summary>Optional transaction-aware access to a specific owner's value, including shadowed history.</summary>
+	public interface IOwnedGameSpecificValueReader
+	{
+		/// <summary>Returns detached bytes for the specified owner, or false when its edit is absent.</summary>
+		bool TryReadOwnedGameSpecificValue(IMod owner, string key, out byte[] value);
 	}
 
 	/// <summary>Versioned inclusion/order preferences stored in the existing native value owner stack.</summary>
