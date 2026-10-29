@@ -191,6 +191,23 @@ namespace NexusClientTests
 			Assert.That(error.FailureKind, Is.EqualTo(CollectionTargetOwnershipAuthorityFailureKind.AuthorityConflict));
 		}
 
+		/// <summary>Unavailable shared state blocks changes with an actionable generic message and preserves existing contents.</summary>
+		[Test]
+		public void UnavailableAuthorityStoreDoesNotDescribeAnOrdinaryOperationAsACollectionInstall()
+		{
+			GameStoragePathSet paths = CreateStorage("Fallout4", "StorageA", "GameA");
+			_storageService.InitializeMetadataForStorage(paths);
+			string blockedRoot = Path.Combine(_tempRoot, "NotADirectory");
+			File.WriteAllText(blockedRoot, "retained");
+			var store = new CollectionTargetOwnershipAuthorityStore(blockedRoot);
+			CollectionTargetOwnershipAuthorityException error = Assert.Throws<CollectionTargetOwnershipAuthorityException>(() =>
+				store.BindOrValidate(Resolve(paths), "win-dir-v1:11111111:0000000000000001"));
+			Assert.That(error.FailureKind, Is.EqualTo(CollectionTargetOwnershipAuthorityFailureKind.AuthorityStoreUnavailable));
+			StringAssert.Contains(blockedRoot, error.Message); StringAssert.Contains("installer", error.Message);
+			StringAssert.DoesNotContain("Collection", error.Message);
+			Assert.That(File.ReadAllText(blockedRoot), Is.EqualTo("retained"));
+		}
+
 		[Test]
 		public void ValidateAndReload_RevalidatesLiveTargetAfterLeaseAcquisition()
 		{

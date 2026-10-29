@@ -99,16 +99,32 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			byte[] value; reader.TryReadCurrentGameSpecificValue(Key(profile), out value); Decode(value); return value;
 		}
 
-		/// <summary>Reapplies existing preferences to surviving native records, appending unrelated/new modules stably.</summary>
-		internal static byte[] Apply(byte[] original, string path, LarianOrderPreference preference)
+		/// <summary>Reapplies inclusion choices; saved positions are restored only for an explicitly requested ordering operation.</summary>
+		internal static byte[] Apply(byte[] original, string path, LarianOrderPreference preference, bool applyOrder = false, IEnumerable<string> inclusionScope = null)
 		{
 			if (preference == null) return original;
 			var observed = new LarianLoadOrderDocument(path, original);
 			var inventory = new LoadOrderInventory(Path.GetDirectoryName(path), new LoadOrderPackageObservation[0], true, new LoadOrderDiagnostic[0]);
 			var draft = new NativeLoadOrderDraft(observed, inventory);
-			foreach (string id in preference.Excluded.Where(id => observed.Entries.Any(entry => !entry.IsProtected && entry.Identity == id))) draft.SetIncluded(id, false);
+			var affected = new HashSet<string>(inclusionScope ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+			foreach (string id in preference.Excluded.Where(id => (applyOrder || affected.Contains(id)) && observed.Entries.Any(entry => !entry.IsProtected && entry.Identity == id))) draft.SetIncluded(id, false);
+			if (applyOrder)
+			{
+				int position = 0;
+				foreach (string id in preference.Order.Where(id => draft.IncludedIdentities.Contains(id))) draft.Move(id, position++);
+			}
+			return draft.Prepare().After.Bytes;
+		}
+
+		/// <summary>Keeps surviving modules in their pre-operation sequence; newly introduced/restored entries append stably.</summary>
+		internal static byte[] PreserveRelativeOrder(byte[] current, string path, IEnumerable<string> previousOrder)
+		{
+			if (previousOrder == null) return current;
+			var document = new LarianLoadOrderDocument(path, current);
+			var inventory = new LoadOrderInventory(Path.GetDirectoryName(path), new LoadOrderPackageObservation[0], true, new LoadOrderDiagnostic[0]);
+			var draft = new NativeLoadOrderDraft(document, inventory);
 			int position = 0;
-			foreach (string id in preference.Order.Where(id => draft.IncludedIdentities.Contains(id))) draft.Move(id, position++);
+			foreach (string id in previousOrder.Where(id => draft.IncludedIdentities.Contains(id))) draft.Move(id, position++);
 			return draft.Prepare().After.Bytes;
 		}
 	}

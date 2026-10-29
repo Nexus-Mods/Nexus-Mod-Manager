@@ -1,0 +1,13 @@
+<Project>
+  <!-- Update these pins together when servicing the helper; release verification reads this same file. -->
+  <PropertyGroup>
+    <LarianDependencyVersion>1.20.4</LarianDependencyVersion>
+    <LarianDependencyArchiveName>ExportTool-v1.20.4.zip</LarianDependencyArchiveName>
+    <LarianDependencyArchiveUrl>https://github.com/Norbyte/lslib/releases/download/v1.20.4/ExportTool-v1.20.4.zip</LarianDependencyArchiveUrl>
+    <LarianDependencyArchiveSha256>5e02368fb8acafda9b45acba37a3f3bf507fc3d65a083a159abbeab06337190e</LarianDependencyArchiveSha256>
+    <LarianRuntimeFrameworkVersion>8.0.32</LarianRuntimeFrameworkVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <LarianDependencyAssembly Include="LSLib;K4os.Compression.LZ4;K4os.Compression.LZ4.Streams;K4os.Hash.xxHash;ZstdSharp;System.IO.Hashing;System.IO.Pipelines;Newtonsoft.Json" />
+  </ItemGroup>
+</Project>

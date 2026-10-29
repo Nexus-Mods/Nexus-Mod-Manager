@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}.NmmAccent{fill:#808080;}</style>
+  <path class="NmmInformation" d="M7 5 0 12l7 7 2-2-5-5 5-5zm10 0-2 2 5 5-5 5 2 2 7-7z"/>
+  <path class="NmmAccent" d="M12.5 3h2.8l-3.8 18H8.7z"/>
+</svg>

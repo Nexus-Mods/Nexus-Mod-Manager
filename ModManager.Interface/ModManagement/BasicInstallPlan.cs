@@ -345,6 +345,17 @@ namespace Nexus.Client.ModManagement
 			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
 			string gameRootArchiveBaseDirectory, bool includeSpecialFileGameValues)
 		{
+			return Build(mod, gameMode, installContext, skipReadme, filesToInstall, activeMods, includeDeterministicModFileMergeOutput,
+				gameRootArchiveBaseDirectory, includeSpecialFileGameValues, true, System.Threading.CancellationToken.None);
+		}
+
+		/// <summary>Defers package values until final selected-file transforms when a reviewed Collection supplies its own metadata.</summary>
+		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
+			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
+			string gameRootArchiveBaseDirectory, bool includeSpecialFileGameValues, bool includePackageGameValues,
+			System.Threading.CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
 			if (mod == null)
 				throw new ArgumentNullException(nameof(mod));
 			if (gameMode == null)
@@ -562,6 +573,18 @@ namespace Nexus.Client.ModManagement
 					"The BasicInstall archive has no files that can be represented as deterministic explicit native file operations.");
 			}
 
+			var packageValues = gameMode as IDeterministicPackageGameValuePlanProvider;
+			if (includeSpecialFileGameValues && includePackageGameValues && packageValues?.RequiresPackageGameValuePlan(mod) == true)
+			{
+				try
+				{
+					specialGameValues.AddRange(packageValues.GetPackageGameValues(mod, installContext, plannedFiles.AsReadOnly(), cancellationToken));
+					if (specialGameValues.Select(value => value.Key).Distinct(StringComparer.Ordinal).Count() != specialGameValues.Count)
+						throw new InvalidDataException("Package metadata produced duplicate native game-value keys.");
+				}
+				catch (Exception error) when (error is ArgumentException || error is IOException || error is UnauthorizedAccessException)
+				{ return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation, error.Message); }
+			}
 			return BasicInstallPlanResult.Supported(new BasicInstallPlan(installContext, plannedFiles, generatedFiles, specialGameValues));
 		}
 

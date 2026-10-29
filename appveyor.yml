@@ -1,6 +1,8 @@
 version: '{build}-{branch}'
-image: Visual Studio 2017
+image: Visual Studio 2022
 configuration: Release
+# Release builds publish the self-contained load-order helper through LoadOrderHelper.targets.
+# The build agent needs a .NET 8-or-newer SDK in addition to NMM's existing build dependencies.
 platform: Any CPU
 
 before_build:

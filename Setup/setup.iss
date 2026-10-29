@@ -12,6 +12,14 @@
 #define SetupScriptVersion '0.7.1.1'
 #define MyPublisher 'DuskDweller'
 
+; Validate the existing Release output without downloading, building or running the helper.
+; Missing/stale packages must stop installer compilation instead of silently disabling inspection.
+#define LoadOrderVerifier AddBackslash(SourcePath) + "..\Support\LarianPackageInspector\Build.ps1"
+#define LoadOrderPackage AddBackslash(SourcePath) + "..\Stage\Release\Tools\LoadOrder"
+#if Exec(GetEnv("SystemRoot") + "\System32\WindowsPowerShell\v1.0\powershell.exe", "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + AddQuotes(LoadOrderVerifier) + " -Configuration Release -VerifyOnly -OutputDirectory " + AddQuotes(LoadOrderPackage), SourcePath, 1, SW_HIDE) != 0
+  #error Load-order helper package verification failed. Build NexusClient Release before compiling this installer.
+#endif
+
 [Setup]
 AppName={#MyAppSetupName}
 AppID=6af12c54-643b-4752-87d0-8335503010de
@@ -65,12 +73,19 @@ Name: associateNxmUrls; Description: Associate NXM: &URLs with {#MyAppSetupName}
 Name: associateFomodFiles; Description: &Associate *.FOMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 Name: associateOmodFiles; Description: &Associate *.OMOD files with {#MyAppSetupName}; GroupDescription: Other tasks:;
 
+[Dirs]
+; Preserve shared ownership bindings across upgrades, uninstalls and independent NMM copies.
+; Fine-grained read/create-only permissions are provisioned by the elevated installer below.
+Name: "{commonappdata}\NMMCE\CollectionTargetAuthorities"; Flags: uninsneveruninstall
+
 #define RetiredGameModeDlls "Fallout3.dll,Fallout4.dll,FalloutNV.dll,Oblivion.dll,OblivionRemastered.dll,Skyrim.dll,SkyrimGOG.dll,SkyrimSE.dll,Starfield.dll,Enderal.dll,EnderalSE.dll,Fallout4VR.dll,SkyrimVR.dll"
 #define RetiredGameModeConfigs "Fallout3.dll.config,Fallout4.dll.config,FalloutNV.dll.config,Oblivion.dll.config,OblivionRemastered.dll.config,Skyrim.dll.config,SkyrimGOG.dll.config,SkyrimSE.dll.config,Starfield.dll.config,Enderal.dll.config,EnderalSE.dll.config,Fallout4VR.dll.config,SkyrimVR.dll.config"
 ; Filter stale development files without excluding game data XML or runtime dependencies.
 #define NonRuntimeFiles "*.pdb,*.tmp,*.log,*.vshost.*,nunit.*,Microsoft.Testing.*,Microsoft.TestPlatform.*,Microsoft.VisualStudio.TestPlatform.*,Microsoft.ApplicationInsights.*,DevExpress.*.xml,Newtonsoft.Json.xml,SevenZipSharp.xml,System.Data.SQLite.xml,CSharpScript.xml"
 
 [InstallDelete]
+; This application-owned helper directory contains binaries only, never profiles or mod data.
+Type: filesandordirs; Name: "{app}\Tools\LoadOrder"; Check: IsWin64
 ; Remove documentation replaced by plain-text licenses and generated release notes.
 Type: files; Name: "{app}\data\License.rtf"
 Type: files; Name: "{app}\data\NMM License.rtf"
@@ -127,7 +142,7 @@ Source: "..\Stage\Release\Languages\*"; Excludes: "{#NonRuntimeFiles}"; DestDir:
 Source: "..\Stage\Release\GameModes\*"; Excludes: "{#NonRuntimeFiles},Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls},{#RetiredGameModeConfigs}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\Tools\LoadOrder\*"; Excludes: "*.pdb"; DestDir: {app}\Tools\LoadOrder; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist
+Source: "..\Stage\Release\Tools\LoadOrder\*"; Excludes: "*.pdb"; DestDir: {app}\Tools\LoadOrder; Flags: ignoreversion recursesubdirs; Check: IsWin64
 
 [Icons]
 Name: {group}\{#MyAppSetupName}; Filename: {app}\{#MyExeName}; WorkingDir: {app}
@@ -187,6 +202,35 @@ winxpsp3_title=Windows XP Service Pack 3
 #expr SaveToFile(AddBackslash(SourcePath) + "Preprocessed"+MyAppSetupname+SetupScriptVersion+".iss")
 
 [Code]
+function SharedStateDirectoryAttributes(const Path: String): Cardinal;
+  external 'GetFileAttributesW@kernel32.dll stdcall';
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  StateDirectory, ParentDirectory, Parameters: String;
+  ResultCode: Integer;
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+
+  StateDirectory := ExpandConstant('{commonappdata}\NMMCE\CollectionTargetAuthorities');
+  ParentDirectory := ExpandConstant('{commonappdata}\NMMCE');
+  if ((SharedStateDirectoryAttributes(ParentDirectory) and $400) <> 0) or
+     ((SharedStateDirectoryAttributes(StateDirectory) and $400) <> 0) then
+    RaiseException('NMM cannot provision shared installation state through a redirected or inaccessible directory: ' + StateDirectory);
+
+  { Users may read bindings and add a new file in this exact directory. WD is not inherited,
+    so it does not grant write access to existing records owned by another account.
+    Only the creator receives modify access to its own files, including temporary files.
+    Existing ACLs, binding contents and ownership are retained; no recursive reset is used. }
+  Parameters := '"' + StateDirectory + '" /grant "*S-1-5-32-545:(OI)(CI)RX" ' +
+    '"*S-1-5-32-545:(WD)" "*S-1-3-0:(OI)(IO)M"';
+  if not Exec(ExpandConstant('{sys}\icacls.exe'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    RaiseException('NMM could not provision access to its shared installation-state folder: ' + StateDirectory);
+  if ResultCode <> 0 then
+    RaiseException('NMM could not provision access to its shared installation-state folder: ' + StateDirectory + ' (code ' + IntToStr(ResultCode) + ').');
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpInfoBefore then

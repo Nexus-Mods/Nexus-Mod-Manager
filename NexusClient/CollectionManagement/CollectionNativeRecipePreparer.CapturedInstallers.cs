@@ -96,7 +96,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out patches, cancellationToken);
 			artifacts.AddRange(patches);
 			ValidateManagedModArchive(mod, archive, cancellationToken);
-			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
+			translated = ApplyFinalGameSettings(plan, member, translated, gameMode, mod, archive, cancellationToken);
 			CollectionMemberEffectPreview preview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, plugins, cancellationToken);
 			if (!preview.IsComplete) throw new InvalidDataException("The captured installer effects could not be fully prepared.");
 			if (selectionArtifact == null) selectionArtifact = store.SaveOperations(plan, member, archive.Artifact, context, selectedOperations, cancellationToken);

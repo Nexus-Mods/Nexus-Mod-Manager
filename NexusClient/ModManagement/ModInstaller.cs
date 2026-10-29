@@ -576,18 +576,19 @@ namespace Nexus.Client.ModManagement
 		/// Revalidates an explicit recipe immediately before native mutation begins.
 		/// </summary>
 		/// <remarks>
-		/// Opted-in package plans are frozen before replay cleanup; other recipe-less installs retain their behavior.
+		/// Opted-in generated-package and package-registration plans are frozen before replay cleanup; other recipe-less installs retain their behavior.
 		/// Recipe-bearing installs fail closed when translation
 		/// has not produced a native plan or when the archive bytes no longer match the immutable C5.3 expectation.
 		/// </remarks>
 		private void ValidateInstallationRecipeExecutionInput()
 		{
 			bool packageFiles = (GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true;
+			bool packageValues = !Mod.HasInstallScript && (GameMode as IDeterministicPackageGameValuePlanProvider)?.RequiresPackageGameValuePlan(Mod) == true;
 			if (packageFiles && Mod.HasInstallScript)
 				throw new NotSupportedException("Configured package generation does not support scripted package execution.");
 			if (InstallationRecipeInput == null)
 			{
-				if (packageFiles)
+				if (packageFiles || packageValues)
 				{
 					ValidateLegacyReplayBasenameCollision();
 					BasicInstallPlanResult planned = new BasicInstallPlanBuilder().Build(Mod, GameMode, InstallContext,
@@ -918,7 +919,7 @@ namespace Nexus.Client.ModManagement
 				if (m_preparedBasicMapping == null)
 					throw new InvalidOperationException("The reviewed basic install has no locked native ownership authorization.");
 			}
-			if ((GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
+			if (m_preparedPackageFilePlan != null || (GameMode as IDeterministicPackageFilePlanProvider)?.HasPackageFilePlan == true)
 			{
 				// The existing native recipe executor owns both generated payload retention and Direct/Virtual deployment.
 				if (m_preparedPackageFilePlan == null || p_dicInstallFiles != null ||

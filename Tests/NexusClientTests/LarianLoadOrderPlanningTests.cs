@@ -83,6 +83,7 @@ namespace Nexus.Client.Tests
 			LoadOrderAnalysis result = LarianLoadOrderAnalyzer.Analyze(Document(First), Inventory(first, Module(Second)));
 			Assert.That(result.SuggestedOrder, Is.EqualTo(new[] { First }));
 			Assert.That(result.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.DependencyVersion), Is.True);
+			Assert.That(result.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.DependencyVersion).Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
 		}
 
 		/// <summary>Declared incompatibilities cannot be resolved by enabling the missing member of a pair.</summary>
@@ -103,7 +104,27 @@ namespace Nexus.Client.Tests
 			Assert.That(result.SuggestedOrder, Is.EqualTo(new[] { First }));
 			Assert.That(result.Repairs.Any(step => step.Kind == LoadOrderRepairKind.RemoveMissingRecord && step.ModuleIdentity == Second), Is.True);
 			var partial = new LoadOrderInventory(complete.PackageRoot, complete.Packages, false, new LoadOrderDiagnostic[0]);
-			Assert.That(LarianLoadOrderAnalyzer.Analyze(Document(First, Second), partial).Repairs, Is.Empty);
+			LoadOrderAnalysis unverified = LarianLoadOrderAnalyzer.Analyze(Document(First, Second), partial);
+			Assert.That(unverified.Repairs, Is.Empty);
+			Assert.That(unverified.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.MissingPackage), Is.False);
+			Assert.That(unverified.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.UnverifiedModule).Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+		}
+
+		/// <summary>A reader failure cannot establish that an unresolved dependency is missing or authorize repairs.</summary>
+		[Test]
+		public void IncompleteInventoryReportsUnverifiedDependenciesWithTechnicalEvidence()
+		{
+			LoadOrderInventory complete = Inventory(Module(First, Second));
+			var diagnostic = new LoadOrderDiagnostic(LoadOrderDiagnosticKind.PackageInspectionIncomplete, LoadOrderDiagnosticSeverity.Error,
+				Path.Combine(complete.PackageRoot, "Unknown.pak"), technicalDetails: "Solid archive inspection is unsupported.");
+			var partial = new LoadOrderInventory(complete.PackageRoot, complete.Packages, false, new[] { diagnostic });
+			LoadOrderAnalysis result = LarianLoadOrderAnalyzer.Analyze(Document(First), partial);
+			Assert.That(result.Issues.Any(issue => issue.Kind == LoadOrderIssueKind.MissingDependency), Is.False);
+			Assert.That(result.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.UnverifiedDependency).Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+			LoadOrderIssue inspection = result.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.Inventory);
+			Assert.That(inspection.Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+			StringAssert.Contains(diagnostic.TechnicalDetails, inspection.TechnicalDetails);
+			Assert.That(result.CanPrepareRepair, Is.False); Assert.That(result.Repairs, Is.Empty);
 		}
 
 		/// <summary>The curator's supplied order wins over both the existing order and a contradictory dependency declaration.</summary>
@@ -122,21 +143,34 @@ namespace Nexus.Client.Tests
 		{
 			LarianLoadOrderDocument document = Document(First);
 			LoadOrderInventory inventory = Inventory(new LoadOrderModuleInfo(Metadata(First, "2"), LoadOrderModuleKind.AddOn, LoadOrderContentFeatures.None, null, null, null));
-			Assert.That(LarianLoadOrderAnalyzer.Analyze(document, inventory).Repairs.Any(step => step.Kind == LoadOrderRepairKind.RefreshMetadata), Is.True);
+			LoadOrderAnalysis analysis = LarianLoadOrderAnalyzer.Analyze(document, inventory);
+			Assert.That(analysis.Repairs.Any(step => step.Kind == LoadOrderRepairKind.RefreshMetadata), Is.True);
+			LoadOrderIssue difference = analysis.Issues.Single(issue => issue.Kind == LoadOrderIssueKind.NativeMetadata);
+			Assert.That(difference.Severity, Is.EqualTo(LoadOrderDiagnosticSeverity.Warning));
+			StringAssert.Contains("Version64: saved = 1; package = 2", difference.TechnicalDetails);
 			var draft = new NativeLoadOrderDraft(document, inventory); draft.RefreshMetadata(First);
 			LarianLoadOrderDocument result = draft.Prepare().After;
 			Assert.That(LarianLoadOrderDocument.Field(result.Records[First], "Version64"), Is.EqualTo("2"));
 			Assert.That(LarianLoadOrderDocument.Field(result.Records[First], "ForeignField"), Is.EqualTo("keep"));
 		}
 
-		/// <summary>Install finalization restores saved positions while keeping unrelated additions stable.</summary>
+		/// <summary>An explicitly applied curator policy restores its requested positions while keeping unrelated additions stable.</summary>
 		[Test]
-		public void LifecyclePreferenceWinsOverPresentOrder()
+		public void ExplicitCuratorPreferenceWinsOverPresentOrder()
 		{
 			LarianLoadOrderDocument document = Document(Third, First, Second);
 			var policy = new LarianOrderPreference { Source = "Curator", Managed = new[] { First, Second }, Order = new[] { Second, First }, Excluded = new string[0] };
-			var result = new LarianLoadOrderDocument(document.FilePath, LarianOrderPreference.Apply(document.Bytes, document.FilePath, policy));
+			var result = new LarianLoadOrderDocument(document.FilePath, LarianOrderPreference.Apply(document.Bytes, document.FilePath, policy, true));
 			Assert.That(result.Entries.Where(entry => !entry.IsProtected).Select(entry => entry.Identity), Is.EqualTo(new[] { Second, First, Third }));
+		}
+
+		/// <summary>Having a saved curator policy alone never authorizes replaying its positions or unrelated exclusions.</summary>
+		[Test]
+		public void DefaultPreferenceApplicationPreservesExactCurrentOrder()
+		{
+			LarianLoadOrderDocument document = Document(Third, First, Second);
+			var policy = new LarianOrderPreference { Source = "Curator", Managed = new[] { First, Second }, Order = new[] { Second, First }, Excluded = new[] { Third } };
+			CollectionAssert.AreEqual(document.Bytes, LarianOrderPreference.Apply(document.Bytes, document.FilePath, policy));
 		}
 
 		/// <summary>Collection replay takes foreign records from the current file, rather than reintroducing stale retained records.</summary>

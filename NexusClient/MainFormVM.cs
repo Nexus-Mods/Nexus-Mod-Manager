@@ -335,6 +335,9 @@
 		/// <summary>Configured native module order service; null when the capability is absent.</summary>
 		public Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService NativeLoadOrder { get; private set; }
 
+		/// <summary>Allows the host to preserve unsaved order edits before a profile deploys different mods.</summary>
+		public Func<bool> ConfirmLoadOrderLeave { get; set; }
+
 		/// <summary>Binds native order publication to the same current services as installation and Collections.</summary>
 		public void InitializeNativeLoadOrder(Nexus.Client.ModManagement.LoadOrder.NativeLoadOrderService service)
 		{
@@ -1289,6 +1292,7 @@
 			// the profile we're switching to is not the same as the active one.
 			if (p_booSilentInstall || ProfileManager.CurrentProfile == null || p_impProfile.Id != ProfileManager.CurrentProfile.Id)
 			{
+				if (ConfirmLoadOrderLeave != null && !ConfirmLoadOrderLeave()) return;
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
 				List<string> lstScriptedMismatch = new List<string>();
 				List<string> lstRollbackScriptedMismatch = new List<string>();

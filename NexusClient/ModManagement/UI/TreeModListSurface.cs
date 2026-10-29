@@ -1233,10 +1233,10 @@
 			}
 			foreach (TreeListColumn column in _treeList.Columns)
 			{
+				ConfigureColumnDataType(column);
 				column.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
-				column.OptionsFilter.AutoFilterCondition = column.FieldName == ModCategoryTreeColumns.SortNumber
-					? AutoFilterCondition.Equals
-					: AutoFilterCondition.Contains;
+				column.OptionsFilter.AutoFilterCondition = column.UnboundType == DevExpress.XtraTreeList.Data.UnboundColumnType.String
+					? AutoFilterCondition.Contains : AutoFilterCondition.Equals;
 				column.OptionsFilter.AllowAutoFilter = true;
 				if (!ReferenceEquals(column, modName) && !ReferenceEquals(column, sortNumber))
 				{
@@ -1393,14 +1393,24 @@
 				VisibleIndex = _treeList.Columns.Count
 			};
 			if (maxWidth > 0) column.MaxWidth = maxWidth;
+			ConfigureColumnDataType(column);
 			column.OptionsColumn.AllowEdit = fieldName == ModCategoryTreeColumns.ModName;
 			column.OptionsColumn.ReadOnly = fieldName != ModCategoryTreeColumns.ModName;
 			column.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
-			column.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Contains;
+			column.OptionsFilter.AutoFilterCondition = column.UnboundType == DevExpress.XtraTreeList.Data.UnboundColumnType.String
+				? AutoFilterCondition.Contains : AutoFilterCondition.Equals;
 			column.AppearanceHeader.TextOptions.HAlignment = alignment;
 			column.AppearanceCell.TextOptions.HAlignment = alignment;
 			_treeList.Columns.Add(column);
 			return column;
+		}
+
+		/// <summary>Declares actual node-value types so unbound columns offer the matching text, numeric or date filter operators.</summary>
+		private static void ConfigureColumnDataType(TreeListColumn column)
+		{
+			column.UnboundType = column.FieldName == ModCategoryTreeColumns.SortNumber ? DevExpress.XtraTreeList.Data.UnboundColumnType.Integer
+				: column.FieldName == ModCategoryTreeColumns.DownloadDate || column.FieldName == ModCategoryTreeColumns.UninstallDate
+					? DevExpress.XtraTreeList.Data.UnboundColumnType.DateTime : DevExpress.XtraTreeList.Data.UnboundColumnType.String;
 		}
 
 		/// <summary>

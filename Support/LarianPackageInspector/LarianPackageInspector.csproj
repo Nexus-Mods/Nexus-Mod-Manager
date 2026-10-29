@@ -4,18 +4,26 @@
     <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
   </PropertyGroup>
   <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="Dependencies.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeFrameworkVersion Condition="'$(SelfContained)' == 'true'">$(LarianRuntimeFrameworkVersion)</RuntimeFrameworkVersion>
+    <TargetLatestRuntimePatch>false</TargetLatestRuntimePatch>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <UseAppHost>true</UseAppHost>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <LSLibDirectory>$(MSBuildThisFileDirectory)..\..\Stage\Dependencies\LSLib-1.20.4\dist\Packed</LSLibDirectory>
+    <LSLibDirectory Condition="'$(LSLibDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\Stage\Dependencies\LSLib-$(LarianDependencyVersion)\dist\Packed</LSLibDirectory>
     <OutputPath>$(MSBuildThisFileDirectory)..\..\Stage\Helpers\LarianPackageInspector\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LSLib;K4os.Compression.LZ4;K4os.Compression.LZ4.Streams;K4os.Hash.xxHash;ZstdSharp;System.IO.Hashing;System.IO.Pipelines;Newtonsoft.Json">
+    <Reference Include="@(LarianDependencyAssembly)">
       <HintPath>$(LSLibDirectory)\%(Identity).dll</HintPath>
       <Private>true</Private>
     </Reference>

@@ -189,6 +189,10 @@
     <Compile Include="NativeLoadOrderDocumentTests.cs" />
     <Compile Include="LarianLoadOrderPlanningTests.cs" />
     <Compile Include="LoadOrderFolderRepairTests.cs" />
+    <Compile Include="LoadOrderEditorSessionTests.cs" />
+    <Compile Include="LoadOrderGridViewportTests.cs" />
+    <Compile Include="LoadOrderInstallationIntegrationTests.cs" />
+    <Compile Include="LoadOrderLifecycleOrderingTests.cs" />
     <Compile Include="Witcher3StandaloneMenuInstallTests.cs" />
     <Compile Include="Witcher3LoadOrderEditorSessionTests.cs" />
     <Compile Include="Witcher3LoadOrderExtendedEditorTests.cs" />
@@ -344,6 +348,7 @@
     <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="CSharpScriptCompatibilityTests.cs" />
     <Compile Include="CategoryTreeViewportTests.cs" />
+    <Compile Include="ModListPresentationStateTests.cs" />
     <Compile Include="GridModListSurfaceTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="GameRootPackageRulesTests.cs" />

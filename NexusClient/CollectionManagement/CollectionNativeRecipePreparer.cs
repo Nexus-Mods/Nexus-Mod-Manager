@@ -412,7 +412,7 @@ namespace Nexus.Client.CollectionManagement
 			bool usesCollectionMetadata = GameModeRuntimePolicies.For(gameMode.ModeId).CollectionOrderProvidesMetadata && retainedManifest.GameData.HasOwnedMetadata;
 			IEnumerable<KeyValuePair<string, string>> basicFiles = retainedManifest.GameData.GetBasicInstallFiles(member, mod);
 			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, basicFiles, activeMods,
-				includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory, !usesCollectionMetadata);
+				includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory, !usesCollectionMetadata, false, cancellationToken);
 			if (!basicResult.IsSupported)
 			{
 				throw new NotSupportedException(String.Format("The Collection member cannot use the characterized basic/simple adapter: {0} ({1}).",
@@ -436,7 +436,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyBasicGameSpecificValues(basicResult.Plan, translated);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
+			translated = ApplyFinalGameSettings(plan, member, translated, gameMode, mod, verifiedArchive, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
@@ -565,7 +565,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
+			translated = ApplyFinalGameSettings(plan, member, translated, gameMode, mod, verifiedArchive, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
@@ -717,7 +717,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			translated = GetRetainedPreparationManifest(plan, cancellationToken).GameData.ApplySettings(plan, member, translated, gameMode);
+			translated = ApplyFinalGameSettings(plan, member, translated, gameMode, mod, verifiedArchive, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");

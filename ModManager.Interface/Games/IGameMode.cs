@@ -437,4 +437,15 @@ namespace Nexus.Client.Games
 		/// <summary>Returns whether one native game-specific key belongs to this deterministic special-install contract.</summary>
 		bool IsDeterministicSpecialFileGameValueKey(string p_strKey);
 	}
+
+	/// <summary>Optional native values derived from the exact selected package files, independently of sidecar metadata.</summary>
+	public interface IDeterministicPackageGameValuePlanProvider
+	{
+		/// <summary>Reports whether this archive requires package inspection before native basic installation.</summary>
+		bool RequiresPackageGameValuePlan(IMod mod);
+
+		/// <summary>Inspects only selected archive files; never reads the deployed package folder or mutates native state.</summary>
+		IReadOnlyList<BasicInstallGameSpecificValue> GetPackageGameValues(IMod mod, ModInstallContext context,
+			IReadOnlyList<BasicInstallPlanFile> selectedFiles, System.Threading.CancellationToken cancellationToken);
+	}
 }

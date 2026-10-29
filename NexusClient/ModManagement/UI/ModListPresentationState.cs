@@ -4,6 +4,7 @@
 	using System.Collections.Generic;
 	using System.Globalization;
 	using System.IO;
+	using System.Linq;
 
 	using Nexus.Client.Mods;
 
@@ -15,8 +16,8 @@
 	{
 		private readonly HashSet<string> _activeModFileNames =
 			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		private readonly HashSet<string> _installedModArchivePaths =
-			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, IMod> _installedModsByArchive =
+			new Dictionary<string, IMod>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache =
 			new Dictionary<IMod, ModVisualStatus>();
 		private readonly Dictionary<IMod, ModInstallMethod> _modInstallMethodCache =
@@ -54,7 +55,7 @@
 		public void Clear()
 		{
 			_activeModFileNames.Clear();
-			_installedModArchivePaths.Clear();
+			_installedModsByArchive.Clear();
 			_modVisualStatusCache.Clear();
 			_modInstallMethodCache.Clear();
 			_outdatedModCache.Clear();
@@ -97,28 +98,31 @@
 		/// </summary>
 		public void RebuildActivationState()
 		{
+			RebuildActivationState(_viewModel?.ActiveMods, _viewModel?.VirtualModActivator.ActiveModList);
+		}
+
+		/// <summary>Rebuilds a detached presentation snapshot using archive identities that survive native reload and nested installers.</summary>
+		internal void RebuildActivationState(IEnumerable<IMod> installedMods, IEnumerable<string> activeFileNames)
+		{
 			_activeModFileNames.Clear();
-			_installedModArchivePaths.Clear();
+			_installedModsByArchive.Clear();
 			_modVisualStatusCache.Clear();
 			_modInstallMethodCache.Clear();
-
-			if (_viewModel == null)
-				return;
 
 			// The activator list represents files currently linked into the game, while
 			// ActiveMods identifies mods installed in the current profile. Keeping both
 			// sets allows the UI to distinguish InstalledUnlinked from InstalledActive.
-			foreach (string fileName in _viewModel.VirtualModActivator.ActiveModList)
+			foreach (string fileName in activeFileNames ?? Enumerable.Empty<string>())
 			{
 				if (!String.IsNullOrWhiteSpace(fileName))
-					_activeModFileNames.Add(fileName);
+					_activeModFileNames.Add(Path.GetFileName(fileName));
 			}
 
-			foreach (IMod mod in _viewModel.ActiveMods)
+			foreach (IMod mod in installedMods ?? Enumerable.Empty<IMod>())
 			{
 				string archivePath = GetArchiveIdentity(mod);
 				if (!String.IsNullOrEmpty(archivePath))
-					_installedModArchivePaths.Add(archivePath);
+					_installedModsByArchive[archivePath] = mod;
 			}
 		}
 
@@ -136,7 +140,7 @@
 		public bool IsModInstalled(IMod mod)
 		{
 			string archivePath = GetArchiveIdentity(mod);
-			return !String.IsNullOrEmpty(archivePath) && _installedModArchivePaths.Contains(archivePath);
+			return !String.IsNullOrEmpty(archivePath) && _installedModsByArchive.ContainsKey(archivePath);
 		}
 
 		/// <summary>
@@ -154,7 +158,8 @@
 			if (_viewModel?.ModManager?.InstallationLog == null)
 				return null;
 
-			installMethod = _viewModel.ModManager.InstallationLog.GetModInstallMethod(mod);
+			IMod installedMod = _installedModsByArchive[GetArchiveIdentity(mod)];
+			installMethod = _viewModel.ModManager.InstallationLog.GetModInstallMethod(installedMod);
 			_modInstallMethodCache[mod] = installMethod;
 			return installMethod;
 		}
@@ -173,8 +178,8 @@
 
 			bool installed = IsModInstalled(mod);
 			bool direct = installed && GetModInstallMethod(mod) == ModInstallMethod.Direct;
-			bool linked = installed && (direct ||
-				(!String.IsNullOrEmpty(mod.Filename) && _activeModFileNames.Contains(Path.GetFileName(mod.Filename))));
+			bool linked = installed && (direct || IsLinked(mod.Filename) || IsLinked(mod.ModArchivePath) ||
+				IsLinked(_installedModsByArchive[GetArchiveIdentity(mod)].Filename));
 
 			status = linked
 				? ModVisualStatus.InstalledActive
@@ -271,8 +276,13 @@
 		/// </summary>
 		private static string GetArchiveIdentity(IMod mod)
 		{
-			return mod?.Filename;
+			string path = !String.IsNullOrEmpty(mod?.ModArchivePath) ? mod.ModArchivePath : mod?.Filename;
+			try { return !String.IsNullOrEmpty(path) && Path.IsPathRooted(path) ? Path.GetFullPath(path) : path; }
+			catch (Exception error) when (error is ArgumentException || error is NotSupportedException || error is PathTooLongException) { return path; }
 		}
+
+		/// <summary>Recognizes activator entries using their historical filename keys without inferring activation from installation alone.</summary>
+		private bool IsLinked(string path) => !String.IsNullOrEmpty(path) && _activeModFileNames.Contains(Path.GetFileName(path));
 
 		/// <summary>
 		/// Compares local and repository version strings, using System.Version when possible and a normalized string fallback otherwise.

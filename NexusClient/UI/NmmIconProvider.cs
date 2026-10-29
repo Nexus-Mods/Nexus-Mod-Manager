@@ -86,7 +86,9 @@ namespace Nexus.Client.UI
 		Restrictions,
 		Endorsed,
 		Abstained,
-		FullUpdateCheck
+		FullUpdateCheck,
+		GameContent,
+		Script
 	}
 
 	internal enum NmmIconStyle

@@ -78,6 +78,8 @@
 			{ reason = L("GameDiscovery.SwitchBusy", "A game is already loading or switching."); return false; }
 			if (ViewModel.ModActivationMonitor.HasPendingNativeOperations || ViewModel.IsInstalling)
 			{ reason = L("GameDiscovery.SwitchNativeBusy", "Finish the queued mod installation/removal before switching games."); return false; }
+			if (_loadOrderControl?.HasActiveSessionWork == true)
+			{ reason = L("LoadOrder.UI.LeaveBusy", "Finish or cancel the operation on the Load Order page before switching games."); return false; }
 			// Paused, errored and incomplete downloads remain bound to the old game/repository.
 			// They cannot be silently discarded until durable cross-session routing exists.
 			if (ViewModel.DownloadMonitorVM.ActiveTasks.Count > 0 ||
@@ -96,6 +98,14 @@
 				{ reason = L("GameDiscovery.SwitchProfileBusy", "Profile state is still being saved. Try switching again shortly."); return false; }
 			}
 			return true;
+		}
+
+		/// <summary>Protects a detached load-order draft before profile changes, game teardown or application close.</summary>
+		internal bool ConfirmLoadOrderLeave()
+		{
+			if (_loadOrderControl != null && (_loadOrderControl.HasActiveSessionWork || _loadOrderControl.HasUnsavedChanges) && FindMainDocument(_loadOrderControl) != null)
+				_mainTabbedView.ActivateDocument(_loadOrderControl);
+			return _loadOrderControl?.ConfirmLeave() ?? true;
 		}
 
 		/// <summary>UI-thread-only symmetric detach. The game services MUST remain alive until this returns.</summary>
@@ -133,6 +143,7 @@
 				ClosePlaceholder(_wabbajackGalleryControl);
 				ClosePlaceholder(_witcher3LoadOrderControl);
 				ClosePlaceholder(_managedContentComponentsControl);
+				ClosePlaceholder(_loadOrderControl);
 
 				_downloadMonitorControl.TextChanged -= DownloadMonitor_TextChanged;
 				_modActivationMonitorControl.TextChanged -= ModActivationMonitor_TextChanged;
@@ -154,6 +165,7 @@
 				_wabbajackGalleryControl = null;
 				_witcher3LoadOrderControl = null;
 				_managedContentComponentsControl = null;
+				_loadOrderControl = null;
 				_downloadMonitorControl = null;
 				_modActivationMonitorControl = null;
 
@@ -175,6 +187,7 @@
 		private void UnbindCurrentGameEvents()
 		{
 			MainFormVM vm = ViewModel;
+			vm.ConfirmLoadOrderLeave = null;
 			vm.ProfileManager.ModProfiles.CollectionChanged -= ModProfiles_CollectionChanged;
 			vm.ProfileSwitching -= ViewModel_ProfileSwitching;
 			vm.AbortedProfileSwitch -= ViewModel_AbortedProfileSwitch;
@@ -280,6 +293,8 @@
 			if (ViewModel.GameMode is Games.ManagedContent.IManagedContentComponentProvider &&
 				IsMainDocumentActive(_managedContentComponentsControl))
 				await _managedContentComponentsControl.RefreshOnActivateAsync().ConfigureAwait(true);
+			if (ViewModel.NativeLoadOrder != null && IsMainDocumentActive(_loadOrderControl))
+				await _loadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
 		}
 	}
 }

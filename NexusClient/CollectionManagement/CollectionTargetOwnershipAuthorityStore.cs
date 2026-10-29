@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -67,7 +68,8 @@ namespace Nexus.Client.CollectionManagement
 				exception is System.Security.SecurityException || exception is NotSupportedException)
 			{
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.AuthorityStoreUnavailable,
-					"The machine-wide Collection ownership-authority store is unavailable. Mutation is blocked rather than assuming ownership is safe.", exception);
+					LanguageManager.Format("Mods.SharedInstallationState.Unavailable", "NMM cannot access its shared installation-state folder: {0}" + Environment.NewLine +
+						"Repair or reinstall NMM using its installer to restore the folder permissions, then retry. Mod changes cannot continue until access is restored.", _rootDirectory), exception);
 			}
 		}
 
@@ -140,7 +142,7 @@ namespace Nexus.Client.CollectionManagement
 					string.IsNullOrWhiteSpace(record.InstallInfoPhysicalKey))
 				{
 					throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.AuthorityBindingInvalid,
-						"The persisted Collection ownership-authority binding is missing or structurally invalid.");
+						"The shared installation-state binding is missing or structurally invalid.");
 				}
 				return record;
 			}
@@ -151,7 +153,7 @@ namespace Nexus.Client.CollectionManagement
 			catch (JsonException exception)
 			{
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.AuthorityBindingInvalid,
-					"The persisted Collection ownership-authority binding is corrupt.", exception);
+						"The shared installation-state binding is corrupt.", exception);
 			}
 		}
 
@@ -165,7 +167,7 @@ namespace Nexus.Client.CollectionManagement
 				!StringComparer.OrdinalIgnoreCase.Equals(record.InstallInfoPhysicalKey, installInfoPhysicalKey))
 			{
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.AuthorityConflict,
-					"This physical game target is already bound to a different native InstallLog/Game Storage authority. Collection mutation is blocked until the ownership overlap is explicitly resolved.");
+					"This game folder is already bound to a different InstallLog/Game Storage. Mod changes are blocked until the conflicting installation state is explicitly resolved.");
 			}
 		}
 
@@ -177,7 +179,7 @@ namespace Nexus.Client.CollectionManagement
 			string commonData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
 			if (string.IsNullOrWhiteSpace(commonData))
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.AuthorityStoreUnavailable,
-					"The machine-wide application-data directory is unavailable, so Collection ownership authority cannot be coordinated safely.");
+					"The shared application-data directory is unavailable, so NMM cannot coordinate installation state safely.");
 
 			return Path.Combine(commonData, "NMMCE", "CollectionTargetAuthorities");
 		}

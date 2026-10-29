@@ -32,7 +32,7 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		}
 
 		/// <summary>Builds one reversible ordered value for each existing game profile.</summary>
-		internal IEnumerable<BasicInstallGameSpecificValue> BuildPlan(JArray order, ISet<string> selectedPackages = null)
+		internal IEnumerable<BasicInstallGameSpecificValue> BuildPlan(JArray order, ISet<string> selectedPackages = null, bool scopeToSelectedPackages = false)
 		{
 			string root = _root;
 			if (!Directory.Exists(root)) yield break;
@@ -48,7 +48,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (children == null) children = mods.AppendChild(document.CreateElement("children"));
 				var protectedIds = new HashSet<string>(children.ChildNodes.OfType<XmlElement>().Where(node => IsProtected(node))
 					.Select(node => node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value).Where(id => id != null), StringComparer.OrdinalIgnoreCase);
-				var uuids = new HashSet<string>(order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true)
+				var uuids = new HashSet<string>(order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true &&
+					(!scopeToSelectedPackages || selectedPackages == null || selectedPackages.Contains(Path.GetFileName(((string)entry["id"] ?? String.Empty).Replace('/', '\\')))))
 					.Select(entry => (string)entry["data"]?["uuid"]).Where(id => !protectedIds.Contains(id)), StringComparer.OrdinalIgnoreCase);
 				foreach (XmlNode node in children.ChildNodes.Cast<XmlNode>().ToArray())
 					if (uuids.Contains(node.SelectSingleNode("attribute[@id='UUID']")?.Attributes?["value"]?.Value)) children.RemoveChild(node);

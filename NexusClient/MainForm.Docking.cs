@@ -65,6 +65,7 @@
 			_mainTabbedView.DocumentProperties.AllowFloat = false;
 			_mainTabbedView.DocumentProperties.AllowDock = false;
 			_mainTabbedView.DocumentSelected += MainTabbedView_DocumentSelected;
+			_mainTabbedView.DocumentActivated += MainTabbedView_DocumentActivated;
 			_mainTabbedView.BeginUpdate();
 			_mainDocumentStartupUpdatePending = true;
 
@@ -224,6 +225,11 @@
 			else if (_managedContentComponentsControl.Visible)
 				_managedContentComponentsControl.Hide();
 
+			if (ViewModel.NativeLoadOrder != null)
+				EnsureMdiDocument(_loadOrderControl, "LoadOrderDocument", L("LoadOrder.UI.Title", "Load Order") + (_loadOrderControl.HasUnsavedChanges ? " *" : String.Empty));
+			else if (_loadOrderControl?.Visible == true)
+				_loadOrderControl.Hide();
+
 			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
 			if (IsFileManagerAvailable())
@@ -251,7 +257,7 @@
 		{
 			if (ViewModel == null)
 				return new Control[] { _gameDiscoveryDocument, _emptyModsDocument, _emptyCategoriesDocument, _emptyCollectionsDocument };
-			return new Control[] { _gameDiscoveryDocument, _pluginManagerControl, _witcher3LoadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
+			return new Control[] { _gameDiscoveryDocument, _pluginManagerControl, _witcher3LoadOrderControl, _loadOrderControl, (Control)_modManagerControl, _categoryManagerControl,
 				_fileManagerControl, _collectionsPreviewControl, _wabbajackGalleryControl, _managedContentComponentsControl };
 		}
 
@@ -604,6 +610,15 @@
 				Object.ReferenceEquals(e.Document.Control, _managedContentComponentsControl) &&
 				ViewModel.GameMode is Games.ManagedContent.IManagedContentComponentProvider)
 				await _managedContentComponentsControl.RefreshOnActivateAsync().ConfigureAwait(true);
+		}
+
+		/// <summary>Loads the native order after ActiveDocument changes; selection precedes activation in DevExpress.</summary>
+		private async void MainTabbedView_DocumentActivated(object sender, DocumentEventArgs e)
+		{
+			if (_mainDocumentStartupUpdatePending || !_mainDocumentPersistenceEnabled || !Visible || ViewModel?.NativeLoadOrder == null)
+				return;
+			if (Object.ReferenceEquals(e?.Document?.Control, _loadOrderControl))
+				await _loadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>

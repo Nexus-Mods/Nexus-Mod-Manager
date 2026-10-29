@@ -27,6 +27,9 @@ namespace Nexus.Client.ModManagement.ManagedContent
 
 		public event EventHandler Changed;
 
+		/// <summary>Reports completed native tasks separately from observation invalidations; subscribers must marshal to their UI.</summary>
+		internal event EventHandler<TaskSetCompletedEventArgs> OperationCompleted;
+
 		/// <summary>Observes the existing installer lane and native owner signals without creating a new authority.</summary>
 		public NativeComponentLifecycleObserver(ModActivationMonitor monitor, ModManager manager)
 		{
@@ -112,6 +115,8 @@ namespace Nexus.Client.ModManagement.ManagedContent
 		{
 			Unwatch(sender as IBackgroundTaskSet);
 			NotifyExternalChange();
+			try { OperationCompleted?.Invoke(sender, args); }
+			catch (Exception error) { Trace.TraceWarning("Native operation completion observer failed: {0}", error.Message); }
 		}
 
 		/// <summary>Forwards a native ownership change as an observation revision.</summary>

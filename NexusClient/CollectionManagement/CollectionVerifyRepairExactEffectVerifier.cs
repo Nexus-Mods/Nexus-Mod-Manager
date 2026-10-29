@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -118,9 +119,12 @@ namespace Nexus.Client.CollectionManagement
 					CollectionNativeGameValueState value;
 					CollectionNativeBinaryOwnerValue current = null;
 					if (state.GameValues.TryGetValue(effect.Key, out value) && value.Values.Count > 0) current = value.Values[value.Values.Count - 1];
-					if (current == null || !StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !BytesEqual(current.UnsafeValue, effect.UnsafeValue))
+					if (current == null || !StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !CollectionNativeOrderEffectComparer.Matches(effect.Key, effect.UnsafeValue, current.UnsafeValue, preview.GameValues))
 						findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.ConfigurationState, effect.Key, overrideList,
-							CollectionVerifyRepairFindingKind.GameValueEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState, "A characterized game-specific value differs from the retained recipe."));
+							CollectionVerifyRepairFindingKind.GameValueEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
+							current == null && Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference.TryProfile(effect.Key, out string profile)
+								? LanguageManager.Get("LoadOrder.Collections.PolicyMissing", "The installed Collection has no scoped curator load-order policy. Review and repair it to register the regenerated policy; unrelated modules retain their order.")
+								: "A characterized game-specific value differs from the retained recipe."));
 				}
 
 				if (preview.PluginEffects.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)

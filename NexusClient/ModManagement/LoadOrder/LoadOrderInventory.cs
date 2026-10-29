@@ -195,6 +195,21 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		public LoadOrderPackageInspection Inspection { get; }
 	}
 
+	/// <summary>Read-only progress for one package scan; completed observations can enrich a provisional display.</summary>
+	public sealed class LoadOrderInspectionProgress
+	{
+		/// <summary>Reports the current filename before inspection and its observation after inspection completes.</summary>
+		internal LoadOrderInspectionProgress(int completed, int total, string fileName, LoadOrderPackageObservation package = null, int reusedPackages = 0)
+		{
+			Completed = completed; Total = total; FileName = fileName; Package = package; ReusedPackages = reusedPackages;
+		}
+		public int Completed { get; }
+		public int Total { get; }
+		public string FileName { get; }
+		public LoadOrderPackageObservation Package { get; }
+		public int ReusedPackages { get; }
+	}
+
 	/// <summary>Detached read-only inventory; completeness is not game compatibility or permission to publish an order.</summary>
 	public sealed class LoadOrderInventory
 	{

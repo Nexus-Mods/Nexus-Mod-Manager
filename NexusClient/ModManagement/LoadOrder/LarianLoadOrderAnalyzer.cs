@@ -39,8 +39,10 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			foreach (string id in original.Where(id => !modules.ContainsKey(id) && !protectedIds.Contains(id)))
 			{
 				bool removable = complete && !curator.Contains(id);
-				issues.Add(Issue(LoadOrderIssueKind.MissingPackage, "An included module has no uniquely identified installed package.",
-					removable ? "Automatic repair can remove this stale record. Reinstall the mod if you still want to use it." : "Restore the missing package or resolve duplicate/unknown packages, then refresh.", new[] { id }, removable));
+				issues.Add(complete ? Issue(LoadOrderIssueKind.MissingPackage, "An included module has no uniquely identified installed package.",
+					removable ? "Automatic repair can remove this stale record. Reinstall the mod if you still want to use it." : "Restore the selected Collection package, then refresh.", new[] { id }, removable)
+					: Issue(LoadOrderIssueKind.UnverifiedModule, "NMM could not match this included module while package inspection is incomplete or ambiguous.",
+						"This does not establish that the mod is missing or broken. Review the package inspection details or export the diagnostic report before changing installed mods.", new[] { id }, severity: LoadOrderDiagnosticSeverity.Warning));
 				if (removable) { chosen.Remove(id); steps.Add(new LoadOrderRepairStep(LoadOrderRepairKind.RemoveMissingRecord, id)); }
 			}
 			foreach (string id in original.Where(excluded.Contains))
@@ -77,8 +79,10 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			var chosenSet = new HashSet<string>(chosen);
 			foreach (string id in curator.Where(id => !active.Contains(id)))
 			{
-				if (!modules.ContainsKey(id)) issues.Add(Issue(LoadOrderIssueKind.CuratorModuleUnavailable,
-					"A module selected by the curator has no uniquely identified installed package.", "Restore the selected Collection package, then refresh. Automatic sorting cannot replace a missing download.", new[] { id }));
+				if (!modules.ContainsKey(id)) issues.Add(complete ? Issue(LoadOrderIssueKind.CuratorModuleUnavailable,
+					"A module selected by the curator has no uniquely identified installed package.", "Restore the selected Collection package, then refresh. Automatic sorting cannot replace a missing download.", new[] { id })
+					: Issue(LoadOrderIssueKind.UnverifiedModule, "NMM could not verify a curator-selected module because package inspection is incomplete or ambiguous.",
+						"Review the package inspection details or export the report. NMM has not established that the Collection download is missing.", new[] { id }, severity: LoadOrderDiagnosticSeverity.Warning));
 				else issues.Add(Issue(LoadOrderIssueKind.CuratorModuleInactive, "A module selected by the curator is not included in the current order.",
 					chosenSet.Contains(id) ? "Automatic repair can restore this curator selection and its verified dependencies." : "Resolve this module's dependency chain, version requirements or declared incompatibilities before including it.", new[] { id }, complete && chosenSet.Contains(id)));
 			}
@@ -90,7 +94,8 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				if (active.Contains(id) && module.Kind == LoadOrderModuleKind.AddOn && !document.UsesLegacyModOrder &&
 					(LarianLoadOrderDocument.Field(document.Records[id], "Version64") != module.Metadata.Version || LarianLoadOrderDocument.Field(document.Records[id], "Folder") != module.Metadata.Folder || LarianLoadOrderDocument.Field(document.Records[id], "Name") != module.Metadata.Name))
 				{
-					issues.Add(Issue(LoadOrderIssueKind.NativeMetadata, "The saved module metadata differs from the inspected installed package.", "Automatic repair can refresh the module name, folder and packed version while retaining unrelated native fields.", new[] { id }, complete));
+					issues.Add(Issue(LoadOrderIssueKind.NativeMetadata, "The saved module metadata differs from the inspected installed package.", "A metadata difference alone does not establish a broken mod. Review the saved and package values below; automatic repair can refresh these fields while retaining unrelated native fields.", new[] { id }, complete,
+						severity: LoadOrderDiagnosticSeverity.Warning, technicalDetails: MetadataDifference(document, module)));
 					if (complete) steps.Add(new LoadOrderRepairStep(LoadOrderRepairKind.RefreshMetadata, id));
 				}
 				foreach (LoadOrderModuleReference dependency in module.Dependencies)
@@ -99,7 +104,9 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					string parent = LarianLoadOrderDocument.Identity(dependency.Identity);
 					if (protectedIds.Contains(parent)) continue;
 					if (!modules.TryGetValue(parent, out LoadOrderModuleInfo required))
-						issues.Add(Issue(LoadOrderIssueKind.MissingDependency, "An included mod declares a dependency that is unavailable or ambiguous.", "Install the dependency from the mod author's instructions, then refresh. Sorting cannot supply a missing download.", new[] { id, parent }));
+						issues.Add(complete ? Issue(LoadOrderIssueKind.MissingDependency, "An included mod declares a dependency not found in the inspected package folder.", "Check the author's requirements. Game-provided dependencies must be declared by the game configuration; sorting cannot supply a missing download.", new[] { id, parent })
+							: Issue(LoadOrderIssueKind.UnverifiedDependency, "NMM could not verify a declared dependency while package inspection is incomplete or ambiguous.",
+								"This is an unresolved check, not proof of a missing dependency. Review the package inspection details or export the report before changing installed mods.", new[] { id, parent }, severity: LoadOrderDiagnosticSeverity.Warning));
 					else if (!chosenSet.Contains(parent))
 						issues.Add(Issue(excluded.Contains(parent) ? LoadOrderIssueKind.ExcludedDependency : LoadOrderIssueKind.InactiveDependency,
 							"A required installed dependency is excluded from the order.", "Include the dependency deliberately or remove the dependent mod. Automatic repair preserves explicit exclusions and unresolved dependency chains.", new[] { id, parent }));
@@ -117,7 +124,8 @@ namespace Nexus.Client.ModManagement.LoadOrder
 						}
 					}
 					if (required != null && VersionOlder(required.Metadata.Version, dependency.Version)) issues.Add(Issue(LoadOrderIssueKind.DependencyVersion,
-						"The installed dependency version is older than the version declared by this mod.", "Check the author's requirements and update the dependency. Automatic repair does not replace package files.", new[] { id, parent }));
+						"The installed dependency version is older than the version declared by this mod.", "This compares declared metadata and does not prove runtime incompatibility. Check the author's requirements before updating. Automatic repair does not replace package files.", new[] { id, parent },
+						severity: LoadOrderDiagnosticSeverity.Warning, technicalDetails: "Installed packed version: " + required.Metadata.Version + Environment.NewLine + "Declared packed version: " + dependency.Version));
 				}
 				foreach (LoadOrderModuleReference conflict in module.Conflicts.Where(conflict => chosenSet.Contains(LarianLoadOrderDocument.Identity(conflict.Identity)) || protectedIds.Contains(LarianLoadOrderDocument.Identity(conflict.Identity))))
 					issues.Add(Issue(LoadOrderIssueKind.DeclaredConflict, "An included mod declares an incompatibility with another included or game-provided module.", "Choose a compatible version, author-provided patch, or remove the incompatible add-on. Sorting cannot resolve a declared incompatibility.", new[] { id, conflict.Identity }));
@@ -212,17 +220,30 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					message = "Multiple packages declare the same module UUID."; direction = "Keep the intended version through NMM's installation controls. Automatic repair cannot choose a package for you."; break;
 				case LoadOrderDiagnosticKind.InspectorUnavailable:
 					message = "The package inspection helper is unavailable."; direction = "Install the complete NMM distribution including its load-order helper, then refresh."; break;
+				case LoadOrderDiagnosticKind.PackageInspectionFailed:
+					message = "NMM could not inspect this package."; direction = String.Empty; break;
+				case LoadOrderDiagnosticKind.PackageInspectionIncomplete:
+					message = "NMM could only partially inspect this package."; direction = String.Empty; break;
 				default:
 					message = "The package inventory could not be fully verified."; direction = "Check the indicated path and package, resolve the inspection error, then refresh. Editing remains blocked while evidence is incomplete."; break;
 			}
-			return new LoadOrderIssue(LoadOrderIssueKind.Inventory, diagnostic.Severity,
+			bool inspectionUnknown = diagnostic.Kind != LoadOrderDiagnosticKind.UnexpectedFile && diagnostic.Kind != LoadOrderDiagnosticKind.UnexpectedDirectory && diagnostic.Kind != LoadOrderDiagnosticKind.DuplicateModuleIdentity;
+			if (inspectionUnknown) direction = "This is an NMM inspection limitation or read failure, not proof that the package is invalid for the game. Export the diagnostic report and review the technical details. Editing remains blocked while evidence is incomplete.";
+			return new LoadOrderIssue(LoadOrderIssueKind.Inventory, inspectionUnknown ? LoadOrderDiagnosticSeverity.Warning : diagnostic.Severity,
 				LanguageManager.Get(diagnostic.LocalizationKey + ".Message", message), LanguageManager.Get(diagnostic.LocalizationKey + ".Direction", direction),
-				diagnostic.ModuleIdentity == null ? null : new[] { diagnostic.ModuleIdentity }, diagnostic.Path);
+				diagnostic.ModuleIdentity == null ? null : new[] { diagnostic.ModuleIdentity }, diagnostic.Path, technicalDetails: diagnostic.Kind + Environment.NewLine + diagnostic.TechnicalDetails);
+		}
+
+		/// <summary>Retains the exact compared fields so a metadata difference can be assessed without guessing its cause.</summary>
+		private static string MetadataDifference(LarianLoadOrderDocument document, LoadOrderModuleInfo module)
+		{
+			return String.Join(Environment.NewLine, new[] { "Name", "Folder", "Version64" }.Select(field => field + ": saved = " + LarianLoadOrderDocument.Field(document.Records[module.Metadata.Identity], field)
+				+ "; package = " + (field == "Name" ? module.Metadata.Name : field == "Folder" ? module.Metadata.Folder : module.Metadata.Version)));
 		}
 
 		/// <summary>Produces consistent localization keys for diagnosis and its next action.</summary>
 		private static LoadOrderIssue Issue(LoadOrderIssueKind kind, string message, string direction, IEnumerable<string> identities = null,
-			bool automatic = false, string path = null, LoadOrderDiagnosticSeverity severity = LoadOrderDiagnosticSeverity.Error) => new LoadOrderIssue(kind, severity,
-				LanguageManager.Get("LoadOrder.Issues." + kind + ".Message", message), LanguageManager.Get("LoadOrder.Issues." + kind + ".Direction", direction), identities, path, automatic);
+			bool automatic = false, string path = null, LoadOrderDiagnosticSeverity severity = LoadOrderDiagnosticSeverity.Error, string technicalDetails = null) => new LoadOrderIssue(kind, severity,
+				LanguageManager.Get("LoadOrder.Issues." + kind + ".Message", message), LanguageManager.Get("LoadOrder.Issues." + kind + ".Direction", direction), identities, path, automatic, technicalDetails);
 	}
 }

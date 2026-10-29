@@ -130,7 +130,10 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		}
 
 		/// <summary>Reviews native owner reconciliation under the same authority used later for publication.</summary>
-		public NativeLoadOrderReview Review(string profile, NativeLoadOrderDraft draft)
+		public NativeLoadOrderReview Review(string profile, NativeLoadOrderDraft draft) => Review(profile, draft, System.Threading.CancellationToken.None);
+
+		/// <summary>Reviews an order while allowing cancellation of native reservation waits.</summary>
+		public NativeLoadOrderReview Review(string profile, NativeLoadOrderDraft draft, System.Threading.CancellationToken cancellationToken)
 		{
 			if (draft == null) throw new ArgumentNullException(nameof(draft));
 			NativeLoadOrderPreview preview = draft.Prepare();
@@ -147,7 +150,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 						LarianOrderPreference.Decode(LarianOrderPreference.Read(_services.ModManager.InstallationLog, profile))).Encode())
 				};
 				return new NativeLoadOrderReview(preview, pending);
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Saves an approved review, rejecting stale package, file, owner or shadow-history evidence.</summary>
@@ -174,15 +177,18 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				PublicationCheckpoint?.Invoke(NativeLoadOrderPublicationStep.AfterBackup);
 				Apply(path, pending, true);
 				return Finish(path, pending);
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Inspects physical and native recovery evidence under freshly reloaded authority; never repairs automatically.</summary>
-		public NativeLoadOrderRecovery InspectRecovery(string profile) => WithAuthority(authority =>
+		public NativeLoadOrderRecovery InspectRecovery(string profile) => InspectRecovery(profile, System.Threading.CancellationToken.None);
+
+		/// <summary>Inspects recovery with a cancellable native reservation wait.</summary>
+		public NativeLoadOrderRecovery InspectRecovery(string profile, System.Threading.CancellationToken cancellationToken) => WithAuthority(authority =>
 		{
 			try { return Inspect(Manifest(profile), LoadPending(profile, authority)); }
 			catch (Exception error) when (IsRecoveryError(error)) { return new NativeLoadOrderRecovery(NativeLoadOrderRecoveryState.Conflict, error.Message, null); }
-		});
+		}, cancellationToken);
 
 		/// <summary>Explicitly acknowledges aligned evidence or restores/completes only recognized pre/postimages.</summary>
 		public NativeLoadOrderRecovery Recover(string profile, NativeLoadOrderRecoveryAction action, bool explicitlyApproved,
@@ -207,7 +213,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					Apply(path, pending, publish);
 				}
 				return Finish(path, pending);
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Stops native installation/removal callbacks from consuming a manifest with unresolved manual publication.</summary>
@@ -422,15 +428,17 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		private static string Shadow(InstallLogReadGameValue value, string winner) => LarianLoadOrderDocument.Hash(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(value.Values.Where(item => item.OwnerKey != winner))));
 
 		/// <summary>Performs explicit mutations only under the current native target's recovered cross-process reservation.</summary>
-		private T WithAuthority<T>(Func<CollectionTargetAuthority, T> work)
+		private T WithAuthority<T>(Func<CollectionTargetAuthority, T> work, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			RequireCurrentMode();
 			if (Transaction.Current != null) throw new InvalidOperationException("Native order operations require their own transaction boundary.");
 			GameStoragePathSet paths = _storage.FromGameMode(_mode);
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_storage).Resolve(paths);
-			using (CollectionTargetMutationLease lease = CollectionTargetMutationLeaseManager.Shared.Acquire(authority))
+			using (CollectionTargetMutationLease lease = CollectionTargetMutationLeaseManager.Shared.Acquire(authority, cancellationToken))
 			{
 				new CollectionTargetOwnershipAuthorityValidator(_storage, _services).ValidateAndReload(lease, authority, paths);
+				cancellationToken.ThrowIfCancellationRequested();
 				RequireCurrentMode(); return work(authority);
 			}
 		}

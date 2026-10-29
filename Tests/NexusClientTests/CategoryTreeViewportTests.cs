@@ -117,6 +117,28 @@ namespace NexusClientTests
 			_view?.Dispose();
 		}
 
+		/// <summary>Text filters retain string operators and numeric Sort retains its type after restoring an older object-typed layout.</summary>
+		[Test]
+		public void TextFilterTypesAndContainsDefaultSurviveLegacyLayoutRestore()
+		{
+			string[] textColumns = { "ModStatus", "ModName", "HumanReadableVersion", "LastKnownVersion", "Author", "InstallDate", "DownloadId", "IsEndorsed" };
+			foreach (string field in textColumns)
+			{
+				Assert.That(_tree.Columns[field].ColumnType, Is.EqualTo(typeof(string)), field);
+				Assert.That(_tree.Columns[field].OptionsFilter.AutoFilterCondition, Is.EqualTo(DevExpress.XtraTreeList.Columns.AutoFilterCondition.Contains), field);
+				_tree.Columns[field].UnboundType = DevExpress.XtraTreeList.Data.UnboundColumnType.Object;
+				_tree.Columns[field].OptionsFilter.AutoFilterCondition = DevExpress.XtraTreeList.Columns.AutoFilterCondition.Equals;
+			}
+			string legacy = (string)InvokeSurfaceNonPublicResult("SaveLayout");
+			InvokeSurfaceNonPublic("RestoreLayout", legacy);
+			foreach (string field in textColumns)
+			{
+				Assert.That(_tree.Columns[field].ColumnType, Is.EqualTo(typeof(string)), field);
+				Assert.That(_tree.Columns[field].OptionsFilter.AutoFilterCondition, Is.EqualTo(DevExpress.XtraTreeList.Columns.AutoFilterCondition.Contains), field);
+			}
+			Assert.That(_tree.Columns["SortNumber"].UnboundType, Is.EqualTo(DevExpress.XtraTreeList.Data.UnboundColumnType.Integer));
+		}
+
 		/// <summary>
 		/// Keeps the same selected mods and scroll offset through repeated install/uninstall status changes.
 		/// </summary>

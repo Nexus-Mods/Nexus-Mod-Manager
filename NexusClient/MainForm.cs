@@ -70,6 +70,7 @@
 		private Wabbajack.UI.WabbajackGalleryControl _wabbajackGalleryControl;
 		private Witcher3LoadOrderControl _witcher3LoadOrderControl;
 		private ManagedContentComponentsControl _managedContentComponentsControl;
+		private ModManagement.LoadOrder.UI.LoadOrderControl _loadOrderControl;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
@@ -179,6 +180,9 @@
 				if (_viewModel.GameMode is IManagedContentComponentProvider)
 					_managedContentComponentsControl.Initialize(_viewModel, () => IsMainDocumentActive(_managedContentComponentsControl),
 						owner => _witcher3LoadOrderControl.AutofixMissingEntriesAsync(owner));
+				if (_viewModel.NativeLoadOrder != null)
+					_loadOrderControl.Initialize(_viewModel, () => IsMainDocumentActive(_loadOrderControl));
+				_viewModel.ConfirmLoadOrderLeave = ConfirmLoadOrderLeave;
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
 					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
 					_viewModel.CollectionRevisionUpdateWorkflow);
@@ -338,6 +342,7 @@
 			_wabbajackGalleryControl = new Wabbajack.UI.WabbajackGalleryControl();
 			_witcher3LoadOrderControl = new Witcher3LoadOrderControl();
 			_managedContentComponentsControl = new ManagedContentComponentsControl();
+			_loadOrderControl = viewModel.NativeLoadOrder == null ? null : new ModManagement.LoadOrder.UI.LoadOrderControl();
 			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
 			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
 			_collectionsPreviewControl.ManagedAssociationsChanged += CollectionsPreviewControl_ManagedAssociationsChanged;
@@ -1113,6 +1118,8 @@
 				await _witcher3LoadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
 			if (ViewModel.GameMode is IManagedContentComponentProvider && IsMainDocumentActive(_managedContentComponentsControl))
 				await _managedContentComponentsControl.RefreshOnActivateAsync().ConfigureAwait(true);
+			if (ViewModel.NativeLoadOrder != null && IsMainDocumentActive(_loadOrderControl))
+				await _loadOrderControl.RefreshOnActivateAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>
@@ -1520,6 +1527,7 @@
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			if (!e.Cancel && !ConfirmLoadOrderLeave()) { e.Cancel = true; return; }
 			if (IsFirstSessionLoading)
 			{
 				e.Cancel = true; // Native initializer has no safe immediate-abort contract.
@@ -2233,6 +2241,7 @@
 			_modManagerControl.ForceListRefresh();
 			BindProfileCommands();
 			UpdateModsFeedback();
+			_loadOrderControl?.ProfileChanged();
 
 			if (e.Argument?.ReturnValue is bool && (bool)e.Argument.ReturnValue)
 			{
@@ -2294,6 +2303,7 @@
 			if (previousNativeOrder != null && (ProgressDialog.ShowDialog(this, previousNativeOrder, false) != DialogResult.OK || previousNativeOrder.Status != BackgroundTasks.TaskStatus.Complete))
 				lstRollbackErrors.Add(GetBackgroundTaskError(previousNativeOrder, L("Profiles.Switch.NativeOrderRollbackFailed", "The previous profile's game load order could not be restored.")));
 			ViewModel.CompleteProfileRollback();
+			_loadOrderControl?.ProfileChanged();
 			_modManagerControl.ForceListRefresh();
 			BindProfileCommands();
 			UpdateModsFeedback();

@@ -8,6 +8,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.ManagedContent;
+using Nexus.Client.ModManagement.LoadOrder;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 
@@ -49,35 +50,61 @@ namespace Nexus.Client.CollectionManagement
 			if (order == null || order.Count == 0) return translated;
 			StructuredXmlRecordRule rule = (gameMode as IStructuredXmlRecordProvider)?.StructuredRecords;
 			if (rule == null) throw new NotSupportedException("BG3 Collection load order requires the configured native module-settings provider.");
-			List<ScriptedInstallOperation> operations = translated.NativeOperations.Where(operation =>
-				!(operation is EditGameSpecificValueOperation) ||
-				!((EditGameSpecificValueOperation)operation).Key.StartsWith(rule.KeyPrefix, StringComparison.Ordinal)).ToList();
+			bool scoped = (gameMode as ILoadOrderCapabilityProvider)?.LoadOrder != null;
+			ISet<string> packages = plan.Identity.Equals(_baldursGate3PackagePlan) ? _baldursGate3PackageFiles : null;
+			IEnumerable<BasicInstallGameSpecificValue> values = new BasicInstallGameSpecificValue[0];
 			if (member.MemberKey.Equals(plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey))
 			{
-				ISet<string> packages = plan.Identity.Equals(_baldursGate3PackagePlan) ? _baldursGate3PackageFiles : null;
 				if (packages == null && plan.SelectedMembers.Count != plan.CapabilityReport.Manifest.Members.Count)
 					throw new NotSupportedException("The selected BG3 package inventory is not available for this operation.");
-				var records = new BaldursGate3CollectionRecordStore(rule);
-				foreach (BasicInstallGameSpecificValue value in records.BuildPlan(order, packages))
-				{
-					records.ParseKey(value.Key, out string profile, out string identity);
-					if ((gameMode as Nexus.Client.ModManagement.LoadOrder.ILoadOrderCapabilityProvider)?.LoadOrder != null)
-					{
-						JObject[] entries = order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true).ToArray();
-						var preference = new Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference
-						{
-							Source = "Curator",
-							Order = entries.Where(entry => (bool)entry["enabled"] && (packages == null || packages.Contains(Path.GetFileName(((string)entry["id"] ?? String.Empty).Replace('/', '\\')))))
-								.Select(entry => (string)entry["data"]["uuid"]).ToArray(),
-							Excluded = entries.Where(entry => !(bool)entry["enabled"]).Select(entry => (string)entry["data"]["uuid"]).ToArray(),
-							Managed = entries.Select(entry => (string)entry["data"]["uuid"]).ToArray()
-						};
-						operations.Add(new EditGameSpecificValueOperation(Nexus.Client.ModManagement.LoadOrder.LarianOrderPreference.Key(profile), preference.Encode(), true));
-					}
-					operations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
-				}
+				values = new BaldursGate3CollectionRecordStore(rule).BuildPlan(order, packages, scoped);
 			}
-			return translated.WithTransformedNativePlan(operations);
+			return translated.WithTransformedNativePlan(RegenerateOrderValues(translated.NativeOperations, rule, scoped, values, order, packages));
+		}
+
+		/// <summary>Creates a new reviewed recipe; retained operations and legacy recovery artifacts are never rewritten in place.</summary>
+		internal static IReadOnlyList<ScriptedInstallOperation> RegenerateOrderValues(IEnumerable<ScriptedInstallOperation> retained, StructuredXmlRecordRule rule,
+			bool scoped, IEnumerable<BasicInstallGameSpecificValue> values, JArray order, ISet<string> packages)
+		{
+			List<ScriptedInstallOperation> operations = retained.Where(operation => !(operation is EditGameSpecificValueOperation) ||
+				!IsRebuiltValue(((EditGameSpecificValueOperation)operation).Key, rule, scoped)).ToList();
+			var records = new BaldursGate3CollectionRecordStore(rule);
+			foreach (BasicInstallGameSpecificValue value in values)
+			{
+				records.ParseKey(value.Key, out string profile, out string identity);
+				if (scoped)
+				{
+					LarianOrderPreference preference = BuildScopedPreference(order, packages);
+					operations.Add(new EditGameSpecificValueOperation(LarianOrderPreference.Key(profile), preference.Encode(), true));
+				}
+				operations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+			}
+			return operations.AsReadOnly();
+		}
+
+		/// <summary>Replaces retained aggregate effects only from the verified curator source, before new review/fingerprinting.</summary>
+		internal static bool IsRebuiltValue(string key, StructuredXmlRecordRule rule, bool scoped)
+		{
+			if (key.StartsWith(rule.KeyPrefix, StringComparison.Ordinal)) return true;
+			if (!scoped) return false;
+			if (LarianOrderPreference.TryProfile(key, out string profile)) return true;
+			if (!key.StartsWith(BaldursGate3CollectionRecordStore.Prefix, StringComparison.Ordinal)) return false;
+			new BaldursGate3CollectionRecordStore(rule).ParseKey(key, out profile, out string identity);
+			return true;
+		}
+
+		/// <summary>Scopes enabled and explicitly disabled modules to selected archives, preserving independently installed optional modules.</summary>
+		internal static LarianOrderPreference BuildScopedPreference(JArray order, ISet<string> packages)
+		{
+			JObject[] entries = order.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] != true &&
+				(packages == null || packages.Contains(Path.GetFileName(((string)entry["id"] ?? String.Empty).Replace('/', '\\'))))).ToArray();
+			var preference = new LarianOrderPreference
+			{
+				Source = "Curator", Order = entries.Where(entry => (bool)entry["enabled"]).Select(entry => (string)entry["data"]["uuid"]).ToArray(),
+				Excluded = entries.Where(entry => !(bool)entry["enabled"]).Select(entry => (string)entry["data"]["uuid"]).ToArray(),
+				Managed = entries.Select(entry => (string)entry["data"]["uuid"]).ToArray()
+			};
+			preference.Encode(); return preference;
 		}
 
 		/// <summary>Applies the same secondary roots to retained C# installer file operations.</summary>

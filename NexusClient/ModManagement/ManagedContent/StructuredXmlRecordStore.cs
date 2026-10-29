@@ -120,6 +120,16 @@ namespace Nexus.Client.ModManagement.ManagedContent
 				if (!identities.Add(id)) throw new InvalidDataException("Structured metadata contains duplicate record identities.");
 				payloads.Add(new KeyValuePair<string, byte[]>(id, Encode(node)));
 			}
+			return BuildPlanFromRecords(payloads);
+		}
+
+		/// <summary>Binds inspected native records to existing profiles using the same payload, path and aggregate limits as sidecar metadata.</summary>
+		internal IReadOnlyList<BasicInstallGameSpecificValue> BuildPlanFromRecords(IEnumerable<KeyValuePair<string, byte[]>> records)
+		{
+			KeyValuePair<string, byte[]>[] payloads = records.Take(MaxModules + 1).ToArray();
+			if (payloads.Length > MaxModules || payloads.Select(record => NormalizeIdentity(record.Key)).Distinct(StringComparer.Ordinal).Count() != payloads.Length)
+				throw new InvalidDataException("Structured metadata has too many records or duplicate identities.");
+			foreach (KeyValuePair<string, byte[]> record in payloads) ValidatePayload(record.Key, record.Value);
 			var result = new List<BasicInstallGameSpecificValue>();
 			try
 			{

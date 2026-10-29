@@ -27,15 +27,25 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		/// <summary>Creates the declared inventory provider without scanning, starting helpers or changing native state.</summary>
 		public static ILoadOrderInventoryProvider Create(IGameMode mode)
+			=> Create(mode, null);
+
+		/// <summary>Creates a request-scoped reader with optional progress, without changing the inventory-provider contract.</summary>
+		public static ILoadOrderInventoryProvider Create(IGameMode mode, IProgress<LoadOrderInspectionProgress> progress)
+			=> Create(mode, progress, null);
+
+		/// <summary>Allows the page's session cache without changing the uncached default used by publication and repair.</summary>
+		internal static ILoadOrderInventoryProvider Create(IGameMode mode, IProgress<LoadOrderInspectionProgress> progress, LoadOrderPackageInspectionCache cache)
 		{
 			if (mode == null) throw new ArgumentNullException(nameof(mode));
 			LoadOrderCapability capability = (mode as ILoadOrderCapabilityProvider)?.LoadOrder;
 			if (capability == null) return null;
 			if (capability.Provider != LoadOrderCapability.LarianProviderId || capability.Revision != 1)
 				throw new NotSupportedException("The configured load-order inventory provider is not registered.");
+			string executablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "LoadOrder", "LarianPackageInspector.exe");
+			ILoadOrderPackageInspector inspector = new LarianPackageInspectorClient(executablePath);
 			return new PackageLoadOrderInventoryProvider(capability,
 				() => ModDeploymentTargetResolver.GetPhysicalRootPath(mode, ModDeploymentRoot.Data),
-				new LarianPackageInspectorClient(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "LoadOrder", "LarianPackageInspector.exe")));
+				cache == null ? inspector : cache.Wrap(inspector, executablePath), progress);
 		}
 	}
 
@@ -44,13 +54,19 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		private readonly Func<string> _packageRoot;
 		private readonly ILoadOrderPackageInspector _inspector;
+		private readonly IProgress<LoadOrderInspectionProgress> _progress;
 
 		/// <summary>Accepts an explicit root resolver and reader for production services or isolated fixtures.</summary>
 		public PackageLoadOrderInventoryProvider(LoadOrderCapability capability, Func<string> packageRoot, ILoadOrderPackageInspector inspector)
+			: this(capability, packageRoot, inspector, null) { }
+
+		/// <summary>Optionally reports per-file progress without granting the observer any native write authority.</summary>
+		public PackageLoadOrderInventoryProvider(LoadOrderCapability capability, Func<string> packageRoot, ILoadOrderPackageInspector inspector, IProgress<LoadOrderInspectionProgress> progress)
 		{
 			Capability = capability ?? throw new ArgumentNullException(nameof(capability));
 			_packageRoot = packageRoot ?? throw new ArgumentNullException(nameof(packageRoot));
 			_inspector = inspector ?? throw new ArgumentNullException(nameof(inspector));
+			_progress = progress;
 		}
 		public LoadOrderCapability Capability { get; }
 
@@ -63,11 +79,13 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			var packages = new List<LoadOrderPackageObservation>();
 			bool available = _inspector.IsAvailable;
 			bool complete = directory.IsComplete;
+			int reused = 0;
 			if (!available && directory.Files.Count > 0)
 				diagnostics.Add(new LoadOrderDiagnostic(LoadOrderDiagnosticKind.InspectorUnavailable, LoadOrderDiagnosticSeverity.Error, directory.Root));
 			foreach (LoadOrderPackageFile file in directory.Files)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
+				_progress?.Report(new LoadOrderInspectionProgress(packages.Count, directory.Files.Count, file.FileName, reusedPackages: reused));
 				LoadOrderPackageInspection inspection;
 				bool changed = false;
 				try
@@ -85,6 +103,9 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					inspection = Failure(LoadOrderInspectionStatus.Failed, error.Message);
 				}
 				packages.Add(new LoadOrderPackageObservation(file, inspection));
+				if (!changed && (inspection.Status == LoadOrderInspectionStatus.Complete || inspection.Status == LoadOrderInspectionStatus.Partial) &&
+					(_inspector as ILoadOrderInspectionReuse)?.LastResultWasCached == true) reused++;
+				_progress?.Report(new LoadOrderInspectionProgress(packages.Count, directory.Files.Count, file.FileName, packages[packages.Count - 1], reused));
 				if (inspection.Status == LoadOrderInspectionStatus.Complete) continue;
 				complete = false;
 				if (!available) continue;

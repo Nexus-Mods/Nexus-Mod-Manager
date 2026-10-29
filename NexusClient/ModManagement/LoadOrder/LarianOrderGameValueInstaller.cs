@@ -27,12 +27,21 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		private readonly HashSet<string> _suppliedPreferences = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private readonly HashSet<string> _legacyAggregateProfiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, string[]> _ownedMembers = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, string[]> _originalOrders = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, HashSet<string>> _affectedModules = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>Uses the retained native installer for XML values; preference keys are additive and versioned.</summary>
 		internal LarianOrderGameValueInstaller(IMod mod, IInstallLog log, TxFileManager files, ConfirmItemOverwriteDelegate confirmation, StructuredXmlRecordRule rule, bool upgrade)
+			: this(mod, log, files, confirmation, rule, upgrade, new BaldursGate3CollectionRecordStore(rule))
+		{
+		}
+
+		/// <summary>Allows isolated native profile fixtures while production keeps the configured profile path.</summary>
+		internal LarianOrderGameValueInstaller(IMod mod, IInstallLog log, TxFileManager files, ConfirmItemOverwriteDelegate confirmation, StructuredXmlRecordRule rule,
+			bool upgrade, BaldursGate3CollectionRecordStore store)
 		{
 			_mod = mod; _log = log; _files = files; _rule = rule; _upgrade = upgrade;
-			_store = new BaldursGate3CollectionRecordStore(rule);
+			_store = store ?? throw new ArgumentNullException(nameof(store));
 			_inner = upgrade ? (StructuredGameSpecificValueInstaller)new StructuredGameSpecificValueUpgradeInstaller(mod, log, files, confirmation, _store)
 				: new StructuredGameSpecificValueInstaller(mod, log, files, confirmation, _store);
 			_oldPreferences = new HashSet<string>(log.GetInstalledGameSpecificValueEdits(mod).Where(key => key.StartsWith(LarianOrderPreference.Prefix, StringComparison.Ordinal)), StringComparer.Ordinal);
@@ -70,7 +79,8 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			string profile;
 			if (!LarianOrderPreference.TryProfile(key, out profile))
 			{
-				_store.ParseKey(key, out profile, out string identity); _profiles.Add(profile);
+				_store.ParseKey(key, out profile, out string identity); TrackProfile(profile);
+				if (identity != BaldursGate3CollectionRecordStore.Identity) _affectedModules[profile].Add(identity);
 				if (identity == BaldursGate3CollectionRecordStore.Identity)
 				{
 					LarianOrderPreference preference = _suppliedPreferences.Contains(profile) ? LarianOrderPreference.Decode(LarianOrderPreference.Read(_log, profile)) : null;
@@ -92,7 +102,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				}
 				return applied;
 			}
-			_store.GetManifestPath(profile); LarianOrderPreference.Decode(value);
+			TrackProfile(profile); LarianOrderPreference.Decode(value);
 			string owner = _log.GetCurrentGameSpecificValueEditOwnerKey(key);
 			if (owner == null)
 			{
@@ -110,9 +120,11 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			string profile;
 			if (LarianOrderPreference.TryProfile(key, out profile))
 			{
-				_store.GetManifestPath(profile); _log.RemoveGameSpecificValueEdit(_mod, key); _profiles.Add(profile); return;
+				TrackProfile(profile); _log.RemoveGameSpecificValueEdit(_mod, key); return;
 			}
-			_store.ParseKey(key, out profile, out string identity); _profiles.Add(profile);
+			_store.ParseKey(key, out profile, out string identity); TrackProfile(profile);
+			if (identity != BaldursGate3CollectionRecordStore.Identity) _affectedModules[profile].Add(identity);
+			else if (_ownedMembers.ContainsKey(profile)) _affectedModules[profile].UnionWith(_ownedMembers[profile]);
 			byte[] current = null;
 			string path = _store.GetManifestPath(profile);
 			bool preserve = identity == BaldursGate3CollectionRecordStore.Identity && _ownedMembers.ContainsKey(profile) &&
@@ -126,17 +138,29 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			}
 		}
 
-		/// <summary>Reapplies preferences after a complete install, upgrade or removal and logs the actual resulting native values.</summary>
+		/// <summary>Preserves surviving positions during ordinary lifecycle work; only a supplied order recipe authorizes reordering.</summary>
 		public void FinalizeInstall()
 		{
 			if (_upgrade) foreach (string key in _oldPreferences.ToArray()) UnEditGameSpecificValue(key);
 			if (_upgrade) foreach (string key in _oldAggregates.ToArray()) UnEditGameSpecificValue(key);
 			foreach (string key in _log.GetInstalledGameSpecificValueEdits(_mod).Where(_store.IsSupportedKey))
 			{
-				_store.ParseKey(key, out string profile, out string identity); _profiles.Add(profile);
+				_store.ParseKey(key, out string profile, out string identity); TrackProfile(profile);
+				if (identity != BaldursGate3CollectionRecordStore.Identity) _affectedModules[profile].Add(identity);
 			}
 			_inner.FinalizeInstall();
-			foreach (string profile in _profiles) Reconcile(profile, _rule, _log, _files, !_legacyAggregateProfiles.Contains(profile));
+			foreach (string profile in _profiles) Reconcile(profile, _rule, _log, _files, !_legacyAggregateProfiles.Contains(profile),
+				_suppliedPreferences.Contains(profile) || _legacyAggregateProfiles.Contains(profile), _originalOrders[profile], _affectedModules[profile], _store);
+		}
+
+		/// <summary>Captures positions before the first edit, including aggregate restoration during Collection removal.</summary>
+		private void TrackProfile(string profile)
+		{
+			if (_profiles.Contains(profile)) return;
+			string path = _store.GetManifestPath(profile);
+			_originalOrders.Add(profile, File.Exists(path) ? LarianLoadOrderDocument.Read(path).Entries.Where(entry => !entry.IsProtected).Select(entry => entry.Identity).ToArray() : new string[0]);
+			_affectedModules.Add(profile, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+			_profiles.Add(profile);
 		}
 
 		/// <summary>Reads native preference values from the authoritative transaction-aware owner history.</summary>
@@ -153,16 +177,18 @@ namespace Nexus.Client.ModManagement.LoadOrder
 			_store.GetManifestPath(profile); LarianOrderPreference.Decode(value); return true;
 		}
 
-		/// <summary>Applies a current preference inside an existing native transaction without inspecting packages mid-install.</summary>
-		internal static void Reconcile(string profile, StructuredXmlRecordRule rule, IInstallLog log, TxFileManager files, bool applyPreference = true)
+		/// <summary>Reconciles owner payloads without re-sorting an ordinary install/removal or inspecting packages mid-transaction.</summary>
+		internal static void Reconcile(string profile, StructuredXmlRecordRule rule, IInstallLog log, TxFileManager files, bool applyPreference = true,
+			bool applyOrder = false, IEnumerable<string> previousOrder = null, IEnumerable<string> inclusionScope = null, BaldursGate3CollectionRecordStore store = null)
 		{
 			// Retained recipes without an explicit policy effect keep their exact whole-aggregate contract.
 			LarianOrderPreference preference = applyPreference ? LarianOrderPreference.Decode(LarianOrderPreference.Read(log, profile)) : null;
-			var store = new BaldursGate3CollectionRecordStore(rule);
+			store = store ?? new BaldursGate3CollectionRecordStore(rule);
 			string path = store.GetManifestPath(profile);
 			if (!File.Exists(path)) return;
 			byte[] before = LarianLoadOrderDocument.ReadBytes(path, LarianLoadOrderDocument.MaximumBytes);
-			byte[] after = LarianOrderPreference.Apply(before, path, preference);
+			byte[] after = LarianOrderPreference.Apply(before, path, preference, applyOrder, inclusionScope);
+			if (!applyOrder) after = LarianOrderPreference.PreserveRelativeOrder(after, path, previousOrder);
 			var original = new LarianLoadOrderDocument(path, before);
 			var result = new LarianLoadOrderDocument(path, after);
 			if (!before.SequenceEqual(after)) files.WriteAllBytes(path, after);

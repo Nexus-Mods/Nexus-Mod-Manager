@@ -152,6 +152,30 @@ namespace Nexus.Client.Tests
 			}
 		}
 
+		/// <summary>Progress precedes each reader call and retains completed failures as observations rather than silently skipping them.</summary>
+		[Test]
+		public void PackageProgressReportsCurrentFileAndEveryCompletedObservation()
+		{
+			using (var directory = new FixtureDirectory())
+			{
+				directory.File("Good.pak"); directory.File("Bad.pak");
+				var progress = new FixtureProgress();
+				var inspector = new FixtureInspector(file =>
+				{
+					Assert.That(progress.Values.Last().FileName, Is.EqualTo(file.FileName));
+					Assert.That(progress.Values.Last().Package, Is.Null);
+					if (file.FileName == "Bad.pak") throw new InvalidDataException("broken package");
+					return Inspection(file.FileName);
+				});
+				var provider = new PackageLoadOrderInventoryProvider(DataDrivenLoadOrder.Create(Definition()), () => directory.Root, inspector, progress);
+				LoadOrderInventory inventory = provider.ReadInventory(CancellationToken.None);
+				Assert.That(progress.Values.Select(value => value.Completed), Is.EqualTo(new[] { 0, 1, 1, 2 }));
+				Assert.That(progress.Values.All(value => value.Total == 2), Is.True);
+				Assert.That(progress.Values.Where(value => value.Package != null).Select(value => value.Package), Is.EqualTo(inventory.Packages));
+				Assert.That(progress.Values.Single(value => value.Package?.File.FileName == "Bad.pak").Package.Inspection.Status, Is.EqualTo(LoadOrderInspectionStatus.Failed));
+			}
+		}
+
 		/// <summary>Duplicate UUIDs remain ambiguous; the infrastructure does not choose the newest package.</summary>
 		[Test]
 		public void DuplicateModulesAreReportedForBothPackages()
@@ -238,6 +262,107 @@ namespace Nexus.Client.Tests
 			Assert.Throws<InvalidDataException>(() => LarianPackageInspectionProtocol.ReadResponse("{\"schemaVersion\":1,\"schemaVersion\":2}", "One.pak"));
 		}
 
+		/// <summary>Unchanged observations are reused, while new packages, changed inputs and changed helper binaries are inspected.</summary>
+		[Test]
+		public void DisplayCacheInspectsOnlyNewOrChangedPackagesAndInvalidatesChangedHelper()
+		{
+			using (var directory = new FixtureDirectory())
+			using (var helper = new FixtureDirectory())
+			{
+				string executable = helper.File("Inspector.exe");
+				string first = directory.File("First.pak"); directory.File("Second.pak");
+				int calls = 0;
+				var reader = new FixtureInspector(file => { calls++; return Inspection(file.FileName); });
+				var cache = new LoadOrderPackageInspectionCache();
+				Func<LoadOrderInventory> read = () => new PackageLoadOrderInventoryProvider(DataDrivenLoadOrder.Create(Definition()), () => directory.Root,
+					cache.Wrap(reader, executable)).ReadInventory(CancellationToken.None);
+				read(); Assert.That(calls, Is.EqualTo(2));
+				directory.File("Third.pak"); read(); Assert.That(calls, Is.EqualTo(3), "Adding one PAK must not reinspect unchanged packages.");
+				File.AppendAllText(first, "changed"); read(); Assert.That(calls, Is.EqualTo(4));
+				File.AppendAllText(executable, "changed helper"); read(); Assert.That(calls, Is.EqualTo(7));
+				cache.Clear(); read(); Assert.That(calls, Is.EqualTo(10), "Explicit Refresh must permit a full reinspection.");
+			}
+		}
+
+		/// <summary>Changing any part invalidates both the primary and continuation observations.</summary>
+		[Test]
+		public void DisplayCacheInvalidatesAllResultsForChangedSplitPackageInput()
+		{
+			using (var directory = new FixtureDirectory())
+			using (var helper = new FixtureDirectory())
+			{
+				string executable = helper.File("Inspector.exe");
+				directory.File("Split.pak"); string part = directory.File("Split_1.pak");
+				int calls = 0;
+				var reader = new FixtureInspector(file =>
+				{
+					calls++;
+					return file.FileName == "Split.pak" ? new LoadOrderPackageInspection(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Modules,
+						Inspection(file.FileName).Modules, LoadOrderContentFeatures.None, new[] { "Split.pak", "Split_1.pak" })
+						: new LoadOrderPackageInspection(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Continuation, null,
+							LoadOrderContentFeatures.None, new[] { "Split.pak", "Split_1.pak" }, "Split.pak");
+				});
+				var cache = new LoadOrderPackageInspectionCache();
+				Func<LoadOrderInventory> read = () => new PackageLoadOrderInventoryProvider(DataDrivenLoadOrder.Create(Definition()), () => directory.Root,
+					cache.Wrap(reader, executable)).ReadInventory(CancellationToken.None);
+				read(); read(); Assert.That(calls, Is.EqualTo(2));
+				File.AppendAllText(part, "changed"); read(); Assert.That(calls, Is.EqualTo(4));
+			}
+		}
+
+		/// <summary>Transient reader failures are not frozen in the display cache.</summary>
+		[Test]
+		public void DisplayCacheRetriesFailedPackageInspection()
+		{
+			using (var directory = new FixtureDirectory())
+			using (var helper = new FixtureDirectory())
+			{
+				string executable = helper.File("Inspector.exe"); directory.File("One.pak");
+				int calls = 0;
+				var reader = new FixtureInspector(file => ++calls == 1 ? new LoadOrderPackageInspection(LoadOrderInspectionStatus.Failed,
+					LoadOrderPackageKind.Unknown, null, LoadOrderContentFeatures.None, null, technicalDetails: "Transient failure") : Inspection(file.FileName));
+				var cache = new LoadOrderPackageInspectionCache();
+				for (int scan = 0; scan < 3; scan++)
+					new PackageLoadOrderInventoryProvider(DataDrivenLoadOrder.Create(Definition()), () => directory.Root, cache.Wrap(reader, executable)).ReadInventory(CancellationToken.None);
+				Assert.That(calls, Is.EqualTo(2));
+			}
+		}
+
+		/// <summary>Reports retain incomplete inspection evidence, exact integer strings and configured game dependencies without touching game files.</summary>
+		[Test]
+		public void DiagnosticReportPreservesFailuresRawVersionsAndDependencyResolution()
+		{
+			const string identity = "11111111-1111-1111-1111-111111111111";
+			const string gameDependency = "22222222-2222-2222-2222-222222222222";
+			GameModeDefinition definition = Definition(); definition.LoadOrder.BuiltInModuleIdentities = new[] { gameDependency };
+			LoadOrderCapability capability = DataDrivenLoadOrder.Create(definition);
+			string root = Path.Combine(Path.GetTempPath(), "nmm-report-fixture");
+			var document = new LarianLoadOrderDocument(Path.Combine(root, "modsettings.lsx"), System.Text.Encoding.UTF8.GetBytes(
+				"<save><version major=\"4\" minor=\"8\"/><region id=\"ModuleSettings\"><node id=\"root\"><children><node id=\"Mods\"><children>"
+				+ "<node id=\"ModuleShortDesc\"><attribute id=\"UUID\" value=\"33333333-3333-3333-3333-333333333333\"/><attribute id=\"Folder\" value=\"GustavX\"/></node>"
+				+ "<node id=\"ModuleShortDesc\"><attribute id=\"UUID\" value=\"" + identity + "\"/><attribute id=\"Name\" value=\"Example\"/><attribute id=\"Folder\" value=\"Example\"/><attribute id=\"Version64\" value=\"1\"/></node>"
+				+ "</children></node></children></node></region></save>"));
+			JObject response = Response("Good.pak");
+			response["modules"][0]["dependencies"] = new JArray(new JObject { ["identity"] = gameDependency, ["name"] = "Game content", ["version"] = "18446744073709551615" });
+			var packages = new[]
+			{
+				new LoadOrderPackageObservation(new LoadOrderPackageFile(Path.Combine(root, "Good.pak"), 1, 0), LarianPackageInspectionProtocol.ReadResponse(response.ToString(), "Good.pak")),
+				new LoadOrderPackageObservation(new LoadOrderPackageFile(Path.Combine(root, "Unknown.pak"), 1, 0), new LoadOrderPackageInspection(LoadOrderInspectionStatus.Partial,
+					LoadOrderPackageKind.Unknown, null, LoadOrderContentFeatures.None, new[] { "Unknown.pak" }, technicalDetails: "Solid archive inspection is unsupported."))
+			};
+			var inventory = new LoadOrderInventory(root, packages, false, new[] { new LoadOrderDiagnostic(LoadOrderDiagnosticKind.PackageInspectionIncomplete,
+				LoadOrderDiagnosticSeverity.Error, packages[1].File.Path, technicalDetails: packages[1].Inspection.TechnicalDetails) });
+			LoadOrderAnalysis analysis = LarianLoadOrderAnalyzer.Analyze(document, inventory, null, capability.BuiltInModuleIdentities);
+			JObject report = JObject.Parse(LoadOrderDiagnosticReport.Create(analysis, capability, "fixture", "Public", new[] { identity }, true, false,
+				new DateTime(2026, 10, 29, 0, 0, 0, DateTimeKind.Utc), "Inspection observation is stale."));
+			Assert.That((int)report["SchemaVersion"], Is.EqualTo(1)); Assert.That((bool)report["ObservationCurrent"], Is.False);
+			Assert.That((string)report["Packages"][1]["TechnicalDetails"], Is.EqualTo(packages[1].Inspection.TechnicalDetails));
+			Assert.That((string)report["Packages"][0]["Modules"][0]["Metadata"]["Version"], Is.EqualTo("18446744073709551615"));
+			Assert.That((string)report["Packages"][0]["Modules"][0]["Dependencies"][0]["Resolution"], Is.EqualTo("GameProvidedByConfiguration"));
+			Assert.That((string)report["Manifest"]["Sha256"], Is.EqualTo(document.Sha256));
+			Assert.That((bool)report["Summary"]["CanPrepareRepair"], Is.False);
+		}
+
 		/// <summary>Builds a synthetic compatible provider without using BG3 ModeId or any actual game profile.</summary>
 		private static GameModeDefinition Definition() => new GameModeDefinition
 		{
@@ -292,6 +417,14 @@ namespace Nexus.Client.Tests
 			public bool IsAvailable => true;
 			/// <summary>Returns the configured evidence for one fixture file.</summary>
 			public LoadOrderPackageInspection Inspect(LoadOrderPackageFile file, IReadOnlyList<LoadOrderPackageFile> availableFiles, CancellationToken cancellationToken) => _inspect(file);
+		}
+
+		/// <summary>Collects progress synchronously so fixtures can inspect event ordering without a UI message loop.</summary>
+		private sealed class FixtureProgress : IProgress<LoadOrderInspectionProgress>
+		{
+			internal readonly List<LoadOrderInspectionProgress> Values = new List<LoadOrderInspectionProgress>();
+			/// <summary>Retains the immutable progress observation.</summary>
+			public void Report(LoadOrderInspectionProgress value) { Values.Add(value); }
 		}
 
 		/// <summary>Owns only a uniquely named temporary directory used by these regression cases.</summary>

@@ -25,7 +25,7 @@ using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGameMode : GameModeBase, IGameRootPackageRuleProvider, INexusGameDomainProvider, IStructuredXmlRecordProvider, IDeterministicSpecialFileGameValuePlanProvider, IDeterministicPackageFilePlanProvider, ILoadOrderCapabilityProvider
+    public class DataDrivenGameMode : GameModeBase, IGameRootPackageRuleProvider, INexusGameDomainProvider, IStructuredXmlRecordProvider, IDeterministicSpecialFileGameValuePlanProvider, IDeterministicPackageFilePlanProvider, ILoadOrderCapabilityProvider, IDeterministicPackageGameValuePlanProvider
     {
         [ThreadStatic]
         private static GameModeDefinition _pendingDefinition;
@@ -50,6 +50,18 @@ namespace Nexus.Client.Games.DataDriven
 
         /// <summary>Optional read-only load-order inventory configuration; no publication capability is implied.</summary>
         public LoadOrderCapability LoadOrder { get; }
+
+        /// <summary>Keeps sidecar metadata and disabled capabilities on their existing installation path.</summary>
+        public bool RequiresPackageGameValuePlan(IMod mod) => LoadOrder != null && mod != null &&
+            _structuredStore.MetadataPath(mod) == null && mod.GetFileList().Any(path => String.Equals(Path.GetExtension(path), ".pak", StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>Plans native registration from only the packages selected for this install.</summary>
+        public IReadOnlyList<BasicInstallGameSpecificValue> GetPackageGameValues(IMod mod, ModInstallContext context,
+            IReadOnlyList<BasicInstallPlanFile> selectedFiles, System.Threading.CancellationToken cancellationToken)
+        {
+            if (!RequiresPackageGameValuePlan(mod)) return new BasicInstallGameSpecificValue[0];
+            return LarianPackageInstallPlanner.Create(LoadOrder).Build(mod, context, selectedFiles, cancellationToken);
+        }
 
 		private readonly IReadOnlyList<GameRootPackageRule> _gameRootPackageRules;
         /// <summary>Optional catalog identity; local mode/storage identity remains unchanged.</summary>
@@ -147,8 +159,10 @@ namespace Nexus.Client.Games.DataDriven
         public override IPluginOrderLogSerializer GetPluginOrderLogSerializer() => null;
         public override IPluginOrderValidator GetPluginOrderValidator() => null;
         public override IGameSpecificValueInstaller GetGameSpecificValueInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate) => _structuredStore == null ? null :
+            LoadOrder != null ? (IGameSpecificValueInstaller)new LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, false) :
             new StructuredGameSpecificValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, _structuredStore);
         public override IGameSpecificValueInstaller GetGameSpecificValueUpgradeInstaller(IMod p_modMod, IInstallLog p_ilgInstallLog, TxFileManager p_tfmFileManager, FileUtil p_futFileUtility, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate) => _structuredStore == null ? null :
+            LoadOrder != null ? (IGameSpecificValueInstaller)new LarianOrderGameValueInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, StructuredRecords, true) :
             new StructuredGameSpecificValueUpgradeInstaller(p_modMod, p_ilgInstallLog, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, _structuredStore);
         public override IEnumerable<IUpdater> GetUpdaters() => Enumerable.Empty<IUpdater>();
 
@@ -272,7 +286,8 @@ namespace Nexus.Client.Games.DataDriven
             _structuredStore == null ? new BasicInstallGameSpecificValue[0] : _structuredStore.BuildPlan(mod);
 
         /// <summary>Scopes uninstall/Collection verification to this configured durable native namespace.</summary>
-        public virtual bool IsDeterministicSpecialFileGameValueKey(string key) => _structuredStore?.IsSupportedKey(key) == true;
+        public virtual bool IsDeterministicSpecialFileGameValueKey(string key) => LoadOrder != null &&
+            (LarianOrderPreference.TryProfile(key, out string profile) || new BaldursGate3CollectionRecordStore(StructuredRecords).IsSupportedKey(key)) || _structuredStore?.IsSupportedKey(key) == true;
 
         /// <summary>Only root metadata belongs to the configured effect provider.</summary>
         protected bool IsStructuredMetadataFile(string path) => StructuredRecords != null &&

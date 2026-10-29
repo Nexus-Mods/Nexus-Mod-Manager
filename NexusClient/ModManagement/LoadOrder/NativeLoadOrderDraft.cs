@@ -118,7 +118,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		internal static string InventoryIdentity(LoadOrderInventory inventory) => LarianLoadOrderDocument.Hash(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(inventory)));
 
 		/// <summary>Creates only the established modern ModuleShortDesc payload from inspected metadata.</summary>
-		private static XmlElement CreateRecord(XmlDocument document, LoadOrderModuleMetadata metadata)
+		internal static XmlElement CreateRecord(XmlDocument document, LoadOrderModuleMetadata metadata)
 		{
 			XmlElement node = document.CreateElement("node"); node.SetAttribute("id", "ModuleShortDesc");
 			AddField(document, node, "Folder", "LSString", metadata.Folder);

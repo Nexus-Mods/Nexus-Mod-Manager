@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <BuildLoadOrderHelper Condition="'$(BuildLoadOrderHelper)' == '' and '$(Configuration)' == 'Release'">true</BuildLoadOrderHelper>
+    <BuildLoadOrderHelper Condition="'$(BuildLoadOrderHelper)' == ''">false</BuildLoadOrderHelper>
+    <!-- A helper-only source change must still reach MSBuild when Visual Studio builds Release. -->
+    <DisableFastUpToDateCheck Condition="'$(BuildLoadOrderHelper)' == 'true'">true</DisableFastUpToDateCheck>
+  </PropertyGroup>
+  <!-- Keep the SDK helper out of the classic solution graph and out of designer/Debug builds. -->
+  <Target Name="PublishLoadOrderHelper" AfterTargets="Build"
+          Condition="'$(BuildLoadOrderHelper)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(TargetDir)' != ''">
+    <Message Text="Publishing the self-contained load-order package inspector and pinned dependencies..." Importance="High" />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\LarianPackageInspector\Build.ps1&quot; -Configuration &quot;$(Configuration)&quot; -OutputDirectory &quot;$(TargetDir)Tools\LoadOrder&quot;" />
+    <Error Condition="!Exists('$(TargetDir)Tools\LoadOrder\package-manifest.json')" Text="Load-order helper publication did not produce its validated package manifest." />
+    <ItemGroup>
+      <FileWrites Include="$(TargetDir)Tools\LoadOrder\**\*" />
+    </ItemGroup>
+  </Target>
+</Project>

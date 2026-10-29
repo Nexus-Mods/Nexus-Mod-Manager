@@ -470,6 +470,7 @@
 				return false;
 			}
 			CollectionTargetMutationLease lease;
+			if (!_shell.ConfirmLoadOrderLeave()) return false;
 			if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out lease))
 			{
 				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SwitchOperationBusy",

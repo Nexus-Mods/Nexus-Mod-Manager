@@ -11,7 +11,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		Inventory, MissingPackage, InactiveDependency, ExcludedDependency, MissingDependency, DependencyVersion,
 		DependencyOrder, DeclaredConflict, DependencyCycle, CuratorOrder, CuratorDependencyConflict,
 		ScriptExtenderRequirement, EmbeddedModFixer, OverrideAlwaysActive, RecoveryRequired, AnalysisLimit, NativeMetadata,
-		SavedExclusionMismatch, CuratorModuleInactive, CuratorModuleUnavailable
+		SavedExclusionMismatch, CuratorModuleInactive, CuratorModuleUnavailable, UnverifiedModule, UnverifiedDependency
 	}
 
 	/// <summary>A localizable explanation and direction, separate from technical package evidence.</summary>
@@ -19,11 +19,12 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		/// <summary>Captures the finding without implying that every problem has a safe automatic solution.</summary>
 		internal LoadOrderIssue(LoadOrderIssueKind kind, LoadOrderDiagnosticSeverity severity, string message, string direction,
-			IEnumerable<string> identities = null, string path = null, bool automaticallyRepairable = false)
+			IEnumerable<string> identities = null, string path = null, bool automaticallyRepairable = false, string technicalDetails = null)
 		{
 			Kind = kind; Severity = severity; Message = message; Direction = direction; Path = path;
 			ModuleIdentities = Array.AsReadOnly((identities ?? Enumerable.Empty<string>()).ToArray());
 			AutomaticallyRepairable = automaticallyRepairable;
+			TechnicalDetails = technicalDetails;
 		}
 		public LoadOrderIssueKind Kind { get; }
 		public LoadOrderDiagnosticSeverity Severity { get; }
@@ -31,6 +32,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		public string Message { get; }
 		public string Direction { get; }
 		public string Path { get; }
+		public string TechnicalDetails { get; }
 		public IReadOnlyList<string> ModuleIdentities { get; }
 		public bool AutomaticallyRepairable { get; internal set; }
 	}

@@ -21,8 +21,9 @@ namespace Nexus.Client.ModManagement.LoadOrder
 	{
 		/// <summary>Exposes the intent and current evidence without moving content.</summary>
 		internal LoadOrderFolderRecovery(FolderRepairJournal journal, string directory, LoadOrderFolderRecoveryState state, string diagnostic)
-		{ RecoveryId = journal.Id; Directory = directory; State = state; Diagnostic = diagnostic; Items = Array.AsReadOnly(journal.Items); }
+		{ RecoveryId = journal.Id; GameProfile = journal.Profile; Directory = directory; State = state; Diagnostic = diagnostic; Items = Array.AsReadOnly(journal.Items); }
 		public string RecoveryId { get; }
+		public string GameProfile { get; }
 		public string Directory { get; }
 		public LoadOrderFolderRecoveryState State { get; }
 		public string Diagnostic { get; }
@@ -54,6 +55,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		internal LoadOrderFolderRepairReview(FolderRepairJournal journal, IEnumerable<LoadOrderIssue> issues)
 		{ Journal = journal; Issues = Array.AsReadOnly(issues.ToArray()); }
 		public string RecoveryId => Journal.Id;
+		public string RetainedContentDirectory => NativeLoadOrderService.FolderRecoveryPath(Journal.PackageRoot, Journal.Id);
 		public IReadOnlyList<LoadOrderFolderRepairItem> Items => Array.AsReadOnly(Journal.Items);
 		public IReadOnlyList<LoadOrderIssue> Issues { get; }
 	}
@@ -114,7 +116,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 					Id = Guid.NewGuid().ToString("N"), ModeId = ModeId, Target = authority.Target.Fingerprint, PackageRoot = Path.GetFullPath(root),
 					Profile = profile, ManifestIdentity = analysis.Document.Sha256, InventoryIdentity = NativeLoadOrderDraft.InventoryIdentity(analysis.Inventory), Items = items.ToArray()
 				}, issues);
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Retains reviewed content on the same volume outside Mods. The flushed journal remains available after success or interruption.</summary>
@@ -144,7 +146,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				try { MoveFolderItems(journal, false, LarianLoadOrderDocument.Hash(bytes), cancellationToken); }
 				catch (Exception error) { throw new LoadOrderFolderRepairException(directory, error); }
 				return directory;
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Explicitly restores retained items or completes interrupted moves, refusing unknown bytes, ownership, paths and occupied destinations.</summary>
@@ -159,7 +161,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				RequireNoPendingManifest(Manifest(journal.Profile));
 				MoveFolderItems(journal, restoreOriginal, identity, cancellationToken);
 				return directory;
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Inspects exact content locations and current ownership without automatically choosing a recovery direction.</summary>
@@ -184,7 +186,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				}
 				catch (Exception error) when (IsRecoveryError(error) || error is InvalidOperationException)
 				{ return new LoadOrderFolderRecovery(journal, directory, LoadOrderFolderRecoveryState.Conflict, error.Message); }
-			});
+			}, cancellationToken);
 		}
 
 		/// <summary>Reads strict bounded recovery metadata, bound to the current native target and selected opaque identity.</summary>
@@ -341,7 +343,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		}
 
 		/// <summary>Builds a same-volume destination outside the package folder from a validated opaque identity.</summary>
-		private static string FolderRecoveryPath(string root, string id)
+		internal static string FolderRecoveryPath(string root, string id)
 		{
 			Guid parsed;
 			if (!Guid.TryParseExact(id, "N", out parsed)) throw new InvalidDataException("Invalid folder recovery identity.");

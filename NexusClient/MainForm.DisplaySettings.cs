@@ -559,6 +559,7 @@ namespace Nexus.Client
 			_wabbajackGalleryControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_witcher3LoadOrderControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_managedContentComponentsControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
+			_loadOrderControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 		}
 
 		private sealed class ButtonPresentationScopeChoice

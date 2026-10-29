@@ -214,6 +214,7 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.CapturedInstallers.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.PackageValues.cs" />
     <Compile Include="CollectionManagement\CollectionArchiveComponentSelector.cs" />
     <Compile Include="CollectionManagement\CollectionWitcher3Data.cs" />
     <Compile Include="CollectionManagement\CollectionBaldursGate3Data.cs" />
@@ -658,10 +659,27 @@
     <Compile Include="ModManagement\InstallationLog\InstallLog.LoadOrder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeOrderEffectComparer.cs" />
     <Compile Include="ModManagement\LoadOrder\LoadOrderAnalysis.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderDiagnosticReport.cs" />
+    <Compile Include="ModManagement\LoadOrder\LoadOrderPackageInspectionCache.cs" />
     <Compile Include="ModManagement\LoadOrder\LarianLoadOrderAnalyzer.cs" />
     <Compile Include="ModManagement\LoadOrder\NativeLoadOrderService.Analysis.cs" />
     <Compile Include="ModManagement\LoadOrder\LoadOrderFolderRepair.cs" />
     <Compile Include="ModManagement\LoadOrder\LoadOrderAutomaticRepair.cs" />
+    <Compile Include="ModManagement\LoadOrder\LarianPackageInstallPlanner.cs" />
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderEditorSession.cs" />
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderControl.AutomaticFix.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderUiLayout.cs" />
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderControl.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderRepairDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ModManagement\LoadOrder\UI\LoadOrderRecoveryDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ModManagement\ManagedContent\ManagedContentOrderService.cs" />
     <Compile Include="ModManagement\ManagedContent\UI\IniOrderEditorDialog.cs">
       <SubType>Form</SubType>
@@ -1184,6 +1202,10 @@
     <EmbeddedResource Include="Resources\Icons\Minimal\Delete.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Refresh.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\GetModInfo.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\GameContent.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\Script.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\GameContent.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\Script.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Add.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\InstallEnable.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Disable.svg" />
@@ -1878,6 +1900,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\Support\BuildTasks\ReleaseDocumentation.targets" />
+  <Import Project="..\Support\BuildTasks\LoadOrderHelper.targets" />
   <Import Project="..\Stage\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('..\Stage\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.119\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

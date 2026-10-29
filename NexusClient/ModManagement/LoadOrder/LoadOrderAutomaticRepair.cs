@@ -45,7 +45,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 				analysis.Inventory.Diagnostics.Where(issue => issue.Path == null || !covered.Any(path => SamePath(path, issue.Path)) ||
 					issue.Kind != LoadOrderDiagnosticKind.UnexpectedFile && issue.Kind != LoadOrderDiagnosticKind.UnexpectedDirectory));
 			LoadOrderAnalysis afterCleanup = LarianLoadOrderAnalyzer.Analyze(analysis.Document, inventory, LarianOrderPreference.Decode(analysis.Preference), _capability.BuiltInModuleIdentities);
-			NativeLoadOrderRepairReview order = afterCleanup.HasAutomaticRepairs ? ReviewRepairs(profile, afterCleanup) : null;
+			NativeLoadOrderRepairReview order = afterCleanup.HasAutomaticRepairs ? ReviewRepairs(profile, afterCleanup, cancellationToken) : null;
 			return new LoadOrderAutomaticRepairReview(folder, order);
 		}
 
