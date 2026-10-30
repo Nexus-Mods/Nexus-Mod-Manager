@@ -9,6 +9,7 @@ using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.LoadOrder;
 using Nexus.Client.ModManagement.ManagedContent;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using NUnit.Framework;
@@ -183,7 +184,54 @@ namespace NexusClientTests
 			return null;
 		});
 
-		/// <summary>Preserves game-owned modules and unrelated settings, skips listed/disabled packages, and restores the original order.</summary>
+		/// <summary>Only complete matching add-on metadata can correct the provider's non-loadable display flag.</summary>
+		[TestCase(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Modules, LoadOrderModuleKind.AddOn, true, "Map", true)]
+		[TestCase(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Modules, LoadOrderModuleKind.Campaign, true, "Map", false)]
+		[TestCase(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Modules, LoadOrderModuleKind.AddOn, false, "Map", false)]
+		[TestCase(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Modules, LoadOrderModuleKind.AddOn, true, "GustavX", false)]
+		[TestCase(LoadOrderInspectionStatus.Partial, LoadOrderPackageKind.Modules, LoadOrderModuleKind.AddOn, true, "Map", false)]
+		[TestCase(LoadOrderInspectionStatus.Complete, LoadOrderPackageKind.Override, LoadOrderModuleKind.AddOn, true, "Map", false)]
+		[TestCase(LoadOrderInspectionStatus.Partial, LoadOrderPackageKind.Unknown, LoadOrderModuleKind.AddOn, true, "Map", false)]
+		public void ListedPackage_RequiresMatchingVerifiedAddOn(LoadOrderInspectionStatus status, LoadOrderPackageKind kind,
+			LoadOrderModuleKind moduleKind, bool matchingIdentity, string folder, bool included)
+		{
+			const string identity = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+			JObject entry = Entry(identity, "Stale"); entry["data"]["isListed"] = true;
+			entry["data"]["type"] = "Adventure"; entry["locked"] = true;
+			var metadata = new LoadOrderModuleMetadata(matchingIdentity ? identity : "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "Actual", folder, "15");
+			LoadOrderModuleInfo[] modules = kind == LoadOrderPackageKind.Modules
+				? new[] { new LoadOrderModuleInfo(metadata, moduleKind, LoadOrderContentFeatures.None, null, null, null) } : new LoadOrderModuleInfo[0];
+			var inspection = new LoadOrderPackageInspection(status, kind, modules, LoadOrderContentFeatures.None, new[] { "Stale.pak" });
+			BaldursGate3CollectionPreparation.ConfirmListedModule(entry, inspection);
+			Assert.That((bool)entry["data"]["isListed"], Is.EqualTo(!included));
+			Assert.That((string)entry["data"]["name"], Is.EqualTo(included ? "Actual" : "Stale"));
+			Assert.That((string)entry["data"]["version"], Is.EqualTo(included ? "15" : "1"));
+			Assert.That((bool)entry["enabled"], Is.True); Assert.That((bool)entry["locked"], Is.True);
+		}
+
+		/// <summary>Confirmed listed add-ons follow curator inclusion and selection rules without changing retained manifest bytes.</summary>
+		[TestCase(true)]
+		[TestCase(false)]
+		public void ListedPackage_PreservesCuratorInclusionAndSelectedMembership(bool enabled)
+		{
+			const string identity = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+			JObject retained = Entry(identity, "Map"); retained["data"]["isListed"] = true; retained["enabled"] = enabled;
+			JObject prepared = (JObject)retained.DeepClone();
+			var metadata = new LoadOrderModuleMetadata(identity, "Map", "Map", "15");
+			var module = new LoadOrderModuleInfo(metadata, LoadOrderModuleKind.AddOn, LoadOrderContentFeatures.None, null, null, null);
+			BaldursGate3CollectionPreparation.ConfirmListedModule(prepared, new LoadOrderPackageInspection(LoadOrderInspectionStatus.Complete,
+				LoadOrderPackageKind.Modules, new[] { module }, LoadOrderContentFeatures.None, new[] { "Map.pak" }));
+			var order = new JArray(prepared);
+			LarianOrderPreference selected = BaldursGate3CollectionPreparation.BuildScopedPreference(order, new HashSet<string>(new[] { "Map.pak" }));
+			CollectionAssert.AreEqual(enabled ? new[] { identity } : new string[0], selected.Order);
+			CollectionAssert.AreEqual(enabled ? new string[0] : new[] { identity }, selected.Excluded);
+			CollectionAssert.AreEqual(new[] { identity }, selected.Managed);
+			Assert.That(BaldursGate3CollectionPreparation.BuildScopedPreference(order, new HashSet<string>()).Managed, Is.Empty);
+			Assert.That((bool)retained["data"]["isListed"], Is.True);
+			Assert.That((string)retained["data"]["version"], Is.EqualTo("1"));
+		}
+
+		/// <summary>Preserves game-owned modules and unrelated settings, admits confirmed listed add-ons, and restores the original order.</summary>
 		[TestCase(false, false)]
 		[TestCase(true, false)]
 		[TestCase(false, true)]
@@ -201,8 +249,13 @@ namespace NexusClientTests
 					new[] { new StructuredXmlRecordField("UUID", "guid", new[] { "UUID" }, null, null) });
 				var store = new BaldursGate3CollectionRecordStore(rule, directory);
 				JObject listed = Entry("dddddddd-dddd-dddd-dddd-dddddddddddd", "Listed"); listed["data"]["isListed"] = true;
+				JObject confirmed = Entry("ffffffff-ffff-ffff-ffff-ffffffffffff", "Confirmed"); confirmed["data"]["isListed"] = true;
+				var module = new LoadOrderModuleInfo(new LoadOrderModuleMetadata("ffffffff-ffff-ffff-ffff-ffffffffffff", "Confirmed", "Confirmed", "15"),
+					LoadOrderModuleKind.AddOn, LoadOrderContentFeatures.None, null, null, null);
+				BaldursGate3CollectionPreparation.ConfirmListedModule(confirmed, new LoadOrderPackageInspection(LoadOrderInspectionStatus.Complete,
+					LoadOrderPackageKind.Modules, new[] { module }, LoadOrderContentFeatures.None, new[] { "Confirmed.pak" }));
 				JObject disabled = Entry("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", "Disabled"); disabled["enabled"] = false;
-				var order = new JArray(Entry("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "Two"), Entry("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "One"), listed, disabled);
+				var order = new JArray(Entry("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "Two"), Entry("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "One"), listed, disabled, confirmed);
 				if (partialSelection)
 				{
 					var existing = new XmlDocument(); existing.Load(path);
@@ -223,9 +276,9 @@ namespace NexusClientTests
 				store.WriteValue(path, identity, planned.Value);
 				var document = new XmlDocument(); document.Load(path);
 				string[] names = document.SelectNodes("//node[@id='ModuleShortDesc']/attribute[@id='Name']").Cast<XmlElement>().Select(node => node.GetAttribute("value")).ToArray();
-				CollectionAssert.AreEqual(partialSelection ? new[] { "GustavDev", "Two" } : new[] { "GustavDev", "Two", "One" }, names);
+				CollectionAssert.AreEqual(partialSelection ? new[] { "GustavDev", "Two" } : new[] { "GustavDev", "Two", "One", "Confirmed" }, names);
 				if (legacyOrder)
-					Assert.That(document.SelectNodes("//node[@id='ModOrder']/children/node").Count, Is.EqualTo(partialSelection ? 1 : 2));
+					Assert.That(document.SelectNodes("//node[@id='ModOrder']/children/node").Count, Is.EqualTo(partialSelection ? 1 : 3));
 				else Assert.That(document.SelectSingleNode("//node[@id='ModOrder']"), Is.Null);
 				Assert.That(document.SelectSingleNode("//attribute[@id='keep']").Attributes["value"].Value, Is.EqualTo("yes"));
 				byte[] installed; store.TryReadValue(path, identity, out installed); CollectionAssert.AreEqual(planned.Value, installed);

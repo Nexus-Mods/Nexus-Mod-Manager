@@ -26,37 +26,32 @@ internal static class PackageInspector
 		using Package package = new PackageReader().Read(path);
 		if (package.Files.Count > 1000000) throw new InvalidDataException("Package index exceeds the entry limit.");
 		var response = new Response { FileName = request.FileName, ReadFiles = readFiles };
-		Dictionary<string, PackagedFileInfo> entries = new(StringComparer.OrdinalIgnoreCase);
-		foreach (PackagedFileInfo entry in package.Files.Where(entry => !entry.IsDeletion()))
-		{
-			string name = entry.Name.Replace('\\', '/');
-			if (name.Split('/').Any(part => part == ".." || part == ".") || name.StartsWith('/') || name.Contains(':') || !entries.TryAdd(name, entry))
-				throw new InvalidDataException("Ambiguous or unsafe package entry name.");
-		}
+		ILookup<string, PackagedFileInfo> entries = package.Files.Where(entry => !entry.IsDeletion())
+			.ToLookup(entry => EntryName(entry.Name), StringComparer.OrdinalIgnoreCase);
 		long textBudget = 16 * 1024 * 1024;
 		foreach (var meta in entries.Where(item => Regex.IsMatch(item.Key, @"^Mods/[^/]+/meta\.lsx$", RegexOptions.IgnoreCase)))
 		{
 			if (response.Modules.Count >= 256) throw new InvalidDataException("Too many modules in one package.");
-			XDocument xml = ReadXml(ReadText(meta.Value, ref textBudget));
+			XDocument xml = ReadXml(ReadText(meta, ref textBudget));
 			XElement info = xml.Descendants("node").SingleOrDefault(node => (string)node.Attribute("id") == "ModuleInfo")
 				?? throw new InvalidDataException("Module metadata has no unique ModuleInfo node.");
+			string publishHandle = Attribute(info, "PublishHandle");
 			var module = new Module
 			{
 				Identity = Uuid(Attribute(info, "UUID")), Name = Required(Attribute(info, "Name"), 1024),
 				Folder = Required(Attribute(info, "Folder"), 1024), Version = Integer(Attribute(info, "Version64") ?? Attribute(info, "Version")),
 				Author = Attribute(info, "Author"), Description = Attribute(info, "Description"), Md5 = Attribute(info, "MD5"),
-				PublishHandle = Attribute(info, "PublishHandle"),
+				PublishHandle = String.IsNullOrWhiteSpace(publishHandle) ? null : Integer(publishHandle),
 				Kind = Attribute(info, "Type") == "Adventure" ? "Campaign" : "AddOn",
 				Tags = (Attribute(info, "Tags") ?? String.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
 				Dependencies = References(xml, "Dependencies"), Conflicts = References(xml, "Conflicts")
 			};
-			if (module.PublishHandle != null) Integer(module.PublishHandle);
 			string moduleRoot = meta.Key[..meta.Key.LastIndexOf('/')];
-			module.Features = DetectFeatures(entries.Keys.Where(name => name.StartsWith(moduleRoot + "/", StringComparison.OrdinalIgnoreCase)));
+			module.Features = DetectFeatures(entries.Select(item => item.Key).Where(name => name.StartsWith(moduleRoot + "/", StringComparison.OrdinalIgnoreCase)));
 			string configPath = moduleRoot + "/ScriptExtender/Config.json";
-			if (entries.TryGetValue(configPath, out PackagedFileInfo config))
+			if (entries.Contains(configPath))
 			{
-				using JsonDocument document = JsonDocument.Parse(ReadText(config, ref textBudget), new JsonDocumentOptions { MaxDepth = 32 });
+				using JsonDocument document = JsonDocument.Parse(ReadText(entries[configPath], ref textBudget), new JsonDocumentOptions { MaxDepth = 32 });
 				if (document.RootElement.TryGetProperty("RequiredVersion", out JsonElement version))
 				{
 					int required = version.GetInt32();
@@ -67,18 +62,18 @@ internal static class PackageInspector
 			}
 			response.Modules.Add(module);
 		}
-		response.Features = DetectFeatures(entries.Keys);
+		response.Features = DetectFeatures(entries.Select(item => item.Key));
 		foreach (var goal in entries.Where(item => item.Key.Contains("/Story/RawFiles/Goals/", StringComparison.OrdinalIgnoreCase)))
 		{
 			try
 			{
-				string text = ReadText(goal.Value, ref textBudget);
+				string text = ReadText(goal, ref textBudget);
 				if (!text.Contains("NRD_KillStory", StringComparison.Ordinal) && !text.Contains("NRD_BadCall", StringComparison.Ordinal)) continue;
 				response.Features |= Features.EmbeddedModFixer;
 				foreach (Module module in response.Modules.Where(module => goal.Key.StartsWith("Mods/" + module.Folder + "/", StringComparison.OrdinalIgnoreCase)))
 					module.Features |= Features.EmbeddedModFixer;
 			}
-			catch (InvalidDataException) { response.Status = "Partial"; response.TechnicalDetails = "Some script evidence exceeded inspection limits."; }
+			catch (InvalidDataException error) { response.Status = "Partial"; response.TechnicalDetails = "Some script evidence could not be inspected: " + error.Message; }
 		}
 		if (response.Modules.Select(module => module.Identity).Distinct(StringComparer.OrdinalIgnoreCase).Count() != response.Modules.Count)
 			throw new InvalidDataException("Multiple metadata files declare the same UUID.");
@@ -133,6 +128,15 @@ internal static class PackageInspector
 			throw new InvalidDataException("A package is missing or changed since enumeration.");
 	}
 
+	/// <summary>Normalizes indexed paths while retaining traversal and absolute-path rejection.</summary>
+	private static string EntryName(string name)
+	{
+		name = name.Replace('\\', '/');
+		if (name.Split('/').Any(part => part == ".." || part == ".") || name.StartsWith('/') || name.Contains(':'))
+			throw new InvalidDataException("Unsafe package entry name.");
+		return name;
+	}
+
 	/// <summary>Reports positive script/override evidence; custom Public folders are not presumed to be overrides.</summary>
 	private static Features DetectFeatures(IEnumerable<string> names)
 	{
@@ -143,14 +147,17 @@ internal static class PackageInspector
 			if (name.Contains("/Story/RawFiles/Goals/", StringComparison.OrdinalIgnoreCase)) features |= Features.OsirisScripts;
 			if (name.EndsWith("/ScriptExtender/Config.json", StringComparison.OrdinalIgnoreCase)) features |= Features.ScriptExtender;
 			if (name.EndsWith("/Story/RawFiles/Goals/ForceRecompile.txt", StringComparison.OrdinalIgnoreCase)) features |= Features.EmbeddedModFixer;
-			if (Regex.IsMatch(name, @"^(Mods|Public)/(Shared|SharedDev|Gustav|GustavDev|GustavX)/", RegexOptions.IgnoreCase)) features |= Features.GameFileOverrides;
+			if (Regex.IsMatch(name, @"^(Mods|Public)/(Game|Shared|SharedDev|Gustav|GustavDev|GustavX)/", RegexOptions.IgnoreCase)) features |= Features.GameFileOverrides;
 		}
 		return features;
 	}
 
-	/// <summary>Bounds metadata before invoking decompression, and never writes archive content to disk.</summary>
-	private static string ReadText(PackagedFileInfo file, ref long budget)
+	/// <summary>Requires unique inspected text and bounds decompression; duplicate uninspected assets do not invalidate module metadata.</summary>
+	private static string ReadText(IEnumerable<PackagedFileInfo> files, ref long budget)
 	{
+		PackagedFileInfo[] matches = files.Take(2).ToArray();
+		if (matches.Length != 1) throw new InvalidDataException("Ambiguous package metadata or script entry name.");
+		PackagedFileInfo file = matches[0];
 		ulong size = file.Size();
 		if (size > 1024 * 1024 || size > (ulong)Math.Max(budget, 0)) throw new InvalidDataException("Metadata or script inspection limit reached.");
 		budget -= (long)size;

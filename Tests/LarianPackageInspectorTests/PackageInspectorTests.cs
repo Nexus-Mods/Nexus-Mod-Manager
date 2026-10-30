@@ -74,14 +74,104 @@ public sealed class PackageInspectorTests
 	}
 
 	/// <summary>Recognized base-game paths distinguish actual override evidence from metadata absence.</summary>
-	[Test]
-	public async Task RecognizesBaseGameOverrideEvidence()
+	[TestCase("Public/Shared/Example.txt")]
+	[TestCase("Public/Game/GUI/Widgets/Dialogue.xaml")]
+	public async Task RecognizesBaseGameOverrideEvidence(string path)
 	{
 		using var fixture = new PackageFixture();
-		fixture.Add("Public/Shared/Example.txt", "fixture");
+		fixture.Add(path, "fixture");
 		Response response = PackageInspector.Inspect(await fixture.Pack());
+		Assert.That(response.Status, Is.EqualTo("Complete"));
 		Assert.That(response.Kind, Is.EqualTo("Override"));
 		Assert.That(response.Features.HasFlag(Features.GameFileOverrides), Is.True);
+	}
+
+	/// <summary>Empty optional publishing handles do not invalidate otherwise complete module metadata.</summary>
+	[TestCase("", null)]
+	[TestCase(" ", null)]
+	[TestCase("0", "0")]
+	[TestCase("18446744073709551615", "18446744073709551615")]
+	public async Task ReadsOptionalPublishingHandles(string value, string expected)
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111")
+			.Replace("</node>", $"<attribute id=\"PublishHandle\" value=\"{value}\"/></node>"));
+		Response response = PackageInspector.Inspect(await fixture.Pack());
+		Assert.That(response.Status, Is.EqualTo("Complete"));
+		Assert.That(response.Modules.Single().PublishHandle, Is.EqualTo(expected));
+		Assert.That(response.Modules.Single().Version, Is.EqualTo("18446744073709551615"));
+	}
+
+	/// <summary>Optional handles still reject nonnumeric, negative and overflowing populated values.</summary>
+	[TestCase("invalid")]
+	[TestCase("-1")]
+	[TestCase("18446744073709551616")]
+	public async Task RejectsInvalidPublishingHandles(string value)
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111")
+			.Replace("</node>", $"<attribute id=\"PublishHandle\" value=\"{value}\"/></node>"));
+		Request request = await fixture.Pack();
+		Assert.Throws<InvalidDataException>(() => PackageInspector.Inspect(request));
+	}
+
+	/// <summary>Repeated assets and editor files do not obscure a unique module record or script observations.</summary>
+	[TestCase("Mods/First/GUI/Library/Elements.xaml")]
+	[TestCase("Mods/First/mod_publish_logo.png")]
+	[TestCase(".vscode/settings.json")]
+	public async Task ReadsModulesWithDuplicateUninspectedEntries(string path)
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111"));
+		fixture.Add("Mods/First/ScriptExtender/Lua/BootstrapServer.lua", "-- fixture");
+		fixture.AddIndexed(path, "first asset");
+		fixture.AddIndexed(path.ToUpperInvariant().Replace('/', '\\'), "second asset");
+		Response response = PackageInspector.Inspect(await fixture.Pack());
+		Assert.That(response.Status, Is.EqualTo("Complete"));
+		Assert.That(response.Kind, Is.EqualTo("Modules"));
+		Assert.That(response.Modules.Single().Folder, Is.EqualTo("First"));
+		Assert.That(response.Modules.Single().Features.HasFlag(Features.LuaScripts), Is.True);
+	}
+
+	/// <summary>Inspected metadata and extender configuration remain ambiguous when indexed more than once.</summary>
+	[TestCase("Mods/First/meta.lsx")]
+	[TestCase("Mods/First/ScriptExtender/Config.json")]
+	public async Task RejectsDuplicateInspectedMetadata(string path)
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111"));
+		fixture.Add("Mods/First/ScriptExtender/Config.json", "{\"RequiredVersion\":29}");
+		fixture.AddIndexed(path.ToUpperInvariant(), "ambiguous content");
+		Request request = await fixture.Pack();
+		Assert.Throws<InvalidDataException>(() => PackageInspector.Inspect(request));
+	}
+
+	/// <summary>Duplicate story text remains partial evidence instead of choosing an arbitrary indexed entry.</summary>
+	[Test]
+	public async Task DuplicateScriptEvidenceRemainsPartial()
+	{
+		using var fixture = new PackageFixture();
+		fixture.Add("Mods/First/meta.lsx", Metadata("First", "11111111-1111-1111-1111-111111111111"));
+		fixture.AddIndexed("Mods/First/Story/RawFiles/Goals/Example.txt", "NRD_KillStory");
+		fixture.AddIndexed("Mods/First/Story/RawFiles/Goals/Example.txt", "// different content");
+		Response response = PackageInspector.Inspect(await fixture.Pack());
+		Assert.That(response.Status, Is.EqualTo("Partial"));
+		Assert.That(response.TechnicalDetails, Does.Contain("Ambiguous"));
+		Assert.That(response.Features.HasFlag(Features.OsirisScripts), Is.True);
+		Assert.That(response.Features.HasFlag(Features.EmbeddedModFixer), Is.False);
+	}
+
+	/// <summary>Accepting repeated assets does not relax indexed path validation.</summary>
+	[TestCase("../Other/Example.txt")]
+	[TestCase("Public/../Shared/Example.txt")]
+	[TestCase("/Public/Shared/Example.txt")]
+	[TestCase("C:/Public/Shared/Example.txt")]
+	public async Task RejectsUnsafeIndexedPaths(string path)
+	{
+		using var fixture = new PackageFixture();
+		fixture.AddIndexed(path, "fixture");
+		Request request = await fixture.Pack();
+		Assert.Throws<InvalidDataException>(() => PackageInspector.Inspect(request));
 	}
 
 	/// <summary>Untrusted XML cannot resolve files or external entities.</summary>
@@ -112,12 +202,18 @@ public sealed class PackageInspectorTests
 	private sealed class PackageFixture : IDisposable
 	{
 		private readonly string _root = Path.Combine(Path.GetTempPath(), "nmm-pak-fixture-" + Guid.NewGuid().ToString("N"));
+		private readonly List<PackageBuildInputFile> _indexedFiles = new();
 		/// <summary>Creates one source file in the isolated fixture tree.</summary>
 		internal void Add(string relative, string text)
 		{
 			string path = Path.Combine(_root, "Source", relative);
 			Directory.CreateDirectory(Path.GetDirectoryName(path));
 			File.WriteAllText(path, text);
+		}
+		/// <summary>Adds an exact index entry, including names that cannot be represented as distinct filesystem inputs.</summary>
+		internal void AddIndexed(string relative, string text)
+		{
+			_indexedFiles.Add(PackageBuildInputFile.CreateFromBlob(System.Text.Encoding.UTF8.GetBytes(text), relative));
 		}
 		/// <summary>Adds one malformed observed PAK without invoking a process.</summary>
 		internal ObservedFile CorruptPackage()
@@ -130,7 +226,9 @@ public sealed class PackageInspectorTests
 		internal async Task<Request> Pack(string name = "Example.pak")
 		{
 			string path = Path.Combine(_root, name);
-			await new Packager().CreatePackage(path, Path.Combine(_root, "Source"), new PackageBuildData());
+			string source = Path.Combine(_root, "Source");
+			Directory.CreateDirectory(source);
+			await new Packager().CreatePackage(path, source, new PackageBuildData { Files = _indexedFiles.ToList() });
 			var info = new FileInfo(path);
 			return new Request { SchemaVersion = 1, Provider = Protocol.Provider, Root = _root, FileName = name,
 				Files = new[] { new ObservedFile { FileName = name, Length = info.Length, LastWriteTimeUtcTicks = info.LastWriteTimeUtc.Ticks } } };

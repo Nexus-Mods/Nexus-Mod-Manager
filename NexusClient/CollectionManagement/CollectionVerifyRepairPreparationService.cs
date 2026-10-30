@@ -162,7 +162,8 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				if (Nexus.Client.Games.GameModeRuntimePolicies.For(_services.ModManager.GameMode.ModeId).CollectionOrderProvidesMetadata)
-					nativePreparer.ConfigureGamePackageFiles(resolvedPlan, preparationInputs.SelectMany(input => input.Member.HasVortexFileList ? input.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.LiveMod.GetFileList()), cancellationToken);
+					nativePreparer.ConfigureGamePackageFiles(resolvedPlan, preparationInputs.SelectMany(input => input.Member.HasVortexFileList ? input.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.LiveMod.GetFileList()), cancellationToken,
+						member => preparationInputs.Single(input => input.Member.MemberKey.Equals(member.MemberKey)).LiveMod);
 				IList<IMod> activeMods = _services.ModManager.ActiveMods.ToList();
 				CollectionMemberKey mergeOwner = ResolveDeterministicMergeOwner(state, preparationInputs, activeMods);
 				if (preparationInputs.Count(x => x.ContributesDeterministicMerge) > 1 && mergeOwner == null)

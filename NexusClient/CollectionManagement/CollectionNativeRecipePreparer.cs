@@ -504,8 +504,14 @@ namespace Nexus.Client.CollectionManagement
 			CollectionGamePreparation.ForMode(gameMode).RequireSupportedInstaller(member, mod);
 
 		/// <summary>Retains selected package inventory for the configured collection-owned settings provider.</summary>
-		internal bool ConfigureGamePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files, CancellationToken token) =>
-			GetRetainedPreparationManifest(plan, token).GameData.ConfigurePackageFiles(plan, files);
+		internal bool ConfigureGamePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files, CancellationToken token,
+			Func<ResolvedCollectionMemberPlan, IMod> source = null)
+		{
+			CollectionGamePreparation game = GetRetainedPreparationManifest(plan, token).GameData;
+			bool configured = game.ConfigurePackageFiles(plan, files);
+			if (configured && source != null) game.ConfirmPackageMetadata(plan, source, token);
+			return configured;
+		}
 
 
 		private PreparedCollectionNativeRecipe PrepareVortexFileListExact(ResolvedCollectionPlan plan,

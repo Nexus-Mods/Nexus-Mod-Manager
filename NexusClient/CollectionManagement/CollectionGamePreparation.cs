@@ -57,6 +57,8 @@ namespace Nexus.Client.CollectionManagement
 			IGameMode mode, ModInstallContext context, CancellationToken token) => throw new NotSupportedException("This preparation profile does not supply custom operations.");
 		/// <summary>Retains the selected package inventory for collection-owned metadata.</summary>
 		internal virtual bool ConfigurePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files) => false;
+		/// <summary>Rechecks provider display flags against exact selected archives before preparing owned settings.</summary>
+		internal virtual void ConfirmPackageMetadata(ResolvedCollectionPlan plan, Func<ResolvedCollectionMemberPlan, IMod> source, CancellationToken token) { }
 		/// <summary>Applies collection-owned settings after native file translation.</summary>
 		internal virtual ModInstallationRecipeInput ApplySettings(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
 			ModInstallationRecipeInput translated, IGameMode mode) => translated;

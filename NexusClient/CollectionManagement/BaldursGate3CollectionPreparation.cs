@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -19,6 +20,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly JObject _root;
 		private readonly JArray _order;
+		private JArray _preparedOrder;
 		private CollectionPlanIdentity _baldursGate3PackagePlan;
 		private HashSet<string> _baldursGate3PackageFiles;
 
@@ -34,6 +36,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Uses the selected archives' package inventory, including selected members already installed.</summary>
 		internal override bool ConfigurePackageFiles(ResolvedCollectionPlan plan, IEnumerable<string> files)
 		{
+			_preparedOrder = null;
 			JArray order = _order;
 			if (order == null || order.Count == 0) return false;
 			_baldursGate3PackageFiles = new HashSet<string>(files.Where(path => String.Equals(Path.GetExtension(path), ".pak", StringComparison.OrdinalIgnoreCase))
@@ -42,16 +45,109 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Corrects stale listed flags only when an exact selected archive confirms a loadable add-on.</summary>
+		internal override void ConfirmPackageMetadata(ResolvedCollectionPlan plan, Func<ResolvedCollectionMemberPlan, IMod> source, CancellationToken token)
+		{
+			JArray prepared = (JArray)_order.DeepClone();
+			var inspector = new LarianPackageInspectorClient(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "LoadOrder", "LarianPackageInspector.exe"));
+			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
+			{
+				token.ThrowIfCancellationRequested();
+				string fileId = _root["mods"]?[member.SourceOrdinal]?["source"]?["fileId"]?.ToString();
+				JObject[] listed = prepared.OfType<JObject>().Where(entry => (bool?)entry["data"]?["isListed"] == true &&
+					fileId != null && entry["fileId"]?.ToString() == fileId && _baldursGate3PackageFiles.Contains((string)entry["id"])).ToArray();
+				if (listed.Length == 0) continue;
+				if (!inspector.IsAvailable)
+				{
+					Trace.TraceWarning("Listed BG3 packages retain their collection exclusions because the package inspection helper is unavailable.");
+					break;
+				}
+				IMod mod = source(member);
+				if (mod == null) throw new InvalidDataException("The exact archive for a listed BG3 package is unavailable.");
+				InspectListedPackages(listed, mod, inspector, token);
+			}
+			_preparedOrder = prepared;
+		}
+
+		/// <summary>Stages only selected sibling packages and removes only temporary files created by this inspection.</summary>
+		private void InspectListedPackages(JObject[] listed, IMod mod, ILoadOrderPackageInspector inspector, CancellationToken token)
+		{
+			string[] paths = mod.GetFileList().Where(path => Path.GetExtension(path).Equals(".pak", StringComparison.OrdinalIgnoreCase) &&
+				_baldursGate3PackageFiles.Contains(Path.GetFileName(path.Replace('/', '\\')))).Take(1025).ToArray();
+			if (paths.Length > 1024 || paths.Select(path => Path.GetFileName(path.Replace('/', '\\'))).Distinct(StringComparer.OrdinalIgnoreCase).Count() != paths.Length)
+				throw new InvalidDataException("The selected listed BG3 package set is oversized or ambiguous.");
+			string staging = Path.Combine(Path.GetTempPath(), "NMM-CollectionListed-" + Guid.NewGuid().ToString("N"));
+			var created = new List<string>();
+			Directory.CreateDirectory(staging);
+			try
+			{
+				long total = 0;
+				foreach (string path in paths)
+				{
+					token.ThrowIfCancellationRequested();
+					string name = Path.GetFileName(path.Replace('/', '\\'));
+					LoadOrderInventoryValues.FileName(name);
+					string destination = Path.Combine(staging, name);
+					using (FileStream input = mod.GetFileStream(path))
+					{
+						if (input == null || input.Length < 1 || input.Length > 32L * 1024 * 1024 * 1024 || total > 64L * 1024 * 1024 * 1024 - input.Length)
+							throw new InvalidDataException("Listed BG3 packages exceed the bounded inspection size.");
+						long length = input.Length; input.Position = 0;
+						using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+						{
+							created.Add(destination); LarianPackageInstallPlanner.CopyPackage(input, output, length, token);
+						}
+						total += length;
+					}
+				}
+				LoadOrderPackageFile[] files = created.Select(LoadOrderPackageDirectoryScanner.Observe).ToArray();
+				foreach (JObject entry in listed)
+				{
+					token.ThrowIfCancellationRequested();
+					LoadOrderPackageFile file = files.SingleOrDefault(item => item.FileName.Equals((string)entry["id"], StringComparison.OrdinalIgnoreCase));
+					if (file == null) throw new InvalidDataException("A listed BG3 package is missing from its selected archive.");
+					LoadOrderPackageInspection inspection = inspector.Inspect(file, files, token);
+					if (inspection.Status == LoadOrderInspectionStatus.Failed || inspection.Status == LoadOrderInspectionStatus.Unavailable)
+						throw new InvalidDataException("A listed BG3 package could not be inspected: " + file.FileName + ". " + inspection.TechnicalDetails);
+					ConfirmListedModule(entry, inspection);
+					if (inspection.Status != LoadOrderInspectionStatus.Complete)
+						Trace.TraceWarning("Listed BG3 package {0} retains its collection exclusion after incomplete inspection: {1}", file.FileName, inspection.TechnicalDetails);
+				}
+			}
+			finally
+			{
+				foreach (string path in created)
+					try { File.Delete(path); }
+					catch (Exception error) when (error is IOException || error is UnauthorizedAccessException) { Trace.TraceWarning("Listed package inspection cleanup: {0}", error.Message); }
+				try { Directory.Delete(staging, false); }
+				catch (Exception error) when (error is IOException || error is UnauthorizedAccessException) { Trace.TraceWarning("Listed package inspection staging retained at {0}: {1}", staging, error.Message); }
+			}
+		}
+
+		/// <summary>Retains override, campaign and incomplete exclusions; confirmed metadata replaces only the prepared copy.</summary>
+		internal static void ConfirmListedModule(JObject entry, LoadOrderPackageInspection inspection)
+		{
+			if ((bool?)entry["data"]?["isListed"] != true || inspection.Status != LoadOrderInspectionStatus.Complete) return;
+			LoadOrderModuleInfo module = inspection.Modules.SingleOrDefault(item => item.Kind == LoadOrderModuleKind.AddOn &&
+				String.Equals(item.Metadata.Identity, (string)entry["data"]?["uuid"], StringComparison.OrdinalIgnoreCase));
+			if (module == null || new[] { "Gustav", "GustavDev", "GustavX", "Shared", "SharedDev" }.Contains(module.Metadata.Folder, StringComparer.OrdinalIgnoreCase)) return;
+			JObject data = (JObject)entry["data"];
+			data["folder"] = module.Metadata.Folder; data["name"] = module.Metadata.Name;
+			data["version"] = module.Metadata.Version; data["md5"] = module.Metadata.Md5 ?? String.Empty;
+			data["isListed"] = false;
+		}
+
 		/// <summary>Retains curator module ordering as one native-owned value instead of per-archive metadata appends.</summary>
 		internal override ModInstallationRecipeInput ApplySettings(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
 			ModInstallationRecipeInput translated, IGameMode gameMode)
 		{
-			JArray order = _order;
+			bool configured = plan.Identity.Equals(_baldursGate3PackagePlan);
+			JArray order = configured ? _preparedOrder ?? _order : _order;
 			if (order == null || order.Count == 0) return translated;
 			StructuredXmlRecordRule rule = (gameMode as IStructuredXmlRecordProvider)?.StructuredRecords;
 			if (rule == null) throw new NotSupportedException("BG3 Collection load order requires the configured native module-settings provider.");
 			bool scoped = (gameMode as ILoadOrderCapabilityProvider)?.LoadOrder != null;
-			ISet<string> packages = plan.Identity.Equals(_baldursGate3PackagePlan) ? _baldursGate3PackageFiles : null;
+			ISet<string> packages = configured ? _baldursGate3PackageFiles : null;
 			IEnumerable<BasicInstallGameSpecificValue> values = new BasicInstallGameSpecificValue[0];
 			if (member.MemberKey.Equals(plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey))
 			{

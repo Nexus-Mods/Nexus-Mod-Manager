@@ -1197,7 +1197,14 @@ namespace Nexus.Client.CollectionManagement
 					? input.Match.Member.VortexFileList.Items.Select(file => file.DestinationPath) : input.ManagedMod.GetFileList());
 				packages = packages.Concat(_services.ModManager.ActiveMods.Where(mod => installedKeys.Contains(_services.ModManager.InstallationLog.GetModKey(mod)))
 					.SelectMany(mod => _services.ModManager.InstallationLog.GetInstalledModFiles(mod)));
-				if (_nativeRecipePreparer.ConfigureGamePackageFiles(plan, packages, cancellationToken))
+				if (_nativeRecipePreparer.ConfigureGamePackageFiles(plan, packages, cancellationToken, member =>
+				{
+					NativeRecipePreparationInput input = inputs.SingleOrDefault(item => item.Match.Member.MemberKey.Equals(member.MemberKey));
+					if (input != null) return input.ManagedMod;
+					CollectionNativeModState native = acquisition.Members.Single(item => item.Match.Member.MemberKey.Equals(member.MemberKey)).Match.MatchedNativeMod;
+					return native == null ? null : _services.ModManager.ActiveMods.SingleOrDefault(mod =>
+						String.Equals(_services.ModManager.InstallationLog.GetModKey(mod), native.Identity.NativeModKey, StringComparison.OrdinalIgnoreCase));
+				}))
 					settingsOwner = plan.SelectedMembers.OrderBy(item => item.SourceOrdinal).First().MemberKey;
 			}
 

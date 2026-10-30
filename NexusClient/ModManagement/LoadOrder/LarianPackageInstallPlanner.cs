@@ -137,7 +137,7 @@ namespace Nexus.Client.ModManagement.LoadOrder
 		}
 
 		/// <summary>Streams bounded package bytes without allocating an entire PAK or silently accepting a changed stream.</summary>
-		private static void CopyPackage(Stream input, Stream output, long expected, CancellationToken token)
+		internal static void CopyPackage(Stream input, Stream output, long expected, CancellationToken token)
 		{
 			byte[] buffer = new byte[128 * 1024]; long copied = 0; int count;
 			while ((count = input.Read(buffer, 0, (int)Math.Min(buffer.Length, expected - copied + 1))) > 0)
