@@ -209,7 +209,8 @@ namespace Nexus.Client.ModManagement
 						Witcher3RootOwnershipGuard.RequireNativeMutation(EnvironmentInfo, GameMode.ModeId,
 							GameMode.GameModeEnvironmentInfo.InstallationPath,
 							GameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
-					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
+					// Reloading native state recreates missing-archive placeholders; match their persisted archive identity.
+					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Any(activeMod => ModComparer.Filename.Equals(activeMod, Mod));
 					bool booHasManagedFiles = DeploymentManager != null
 						? DeploymentManager.HasManagedFiles(Mod)
 						: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);

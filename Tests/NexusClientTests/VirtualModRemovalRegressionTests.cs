@@ -29,6 +29,58 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>A stale missing-archive placeholder still removes its exact installed registration.</summary>
+		[TestCase(ModInstallRoot.Data, ModInstallMethod.Virtual)]
+		[TestCase(ModInstallRoot.GameRoot, ModInstallMethod.Virtual)]
+		[TestCase(ModInstallRoot.GameRoot, ModInstallMethod.Direct)]
+		public void NativeUninstall_MissingArchivePlaceholderRemovesRegistrationByFilename(ModInstallRoot root, ModInstallMethod method)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod installed = fixture.CreateMod("MissingArchive");
+				IMod sibling = fixture.CreateMod("NewerArchive");
+				((InstallLog.DummyMod)sibling).ModName = installed.ModName;
+				fixture.InstallLog.AddActiveMod(installed, root, method);
+				fixture.InstallLog.AddActiveMod(sibling, root, method);
+				IMod selected = new InstallLog.DummyMod(installed.ModName, installed.Filename);
+				Assert.That(File.Exists(selected.Filename), Is.False);
+				Assert.That(fixture.InstallLog.ActiveMods.Contains(selected), Is.False,
+					"The selection must refer to a placeholder from before native state was reloaded.");
+				Assert.That(fixture.InstallLog.GetModKey(selected), Is.EqualTo(fixture.InstallLog.GetModKey(installed)));
+				Assert.That(fixture.Deployment.HasManagedFiles(selected), Is.False);
+
+				SynchronousUninstaller result = fixture.Uninstall(selected);
+
+				Assert.That(result.Succeeded, Is.True, result.CompletionMessage);
+				Assert.That(fixture.InstallLog.GetModKey(installed), Is.Null);
+				Assert.That(fixture.InstallLog.GetModKey(sibling), Is.Not.Null,
+					"A different archive with the same display name must remain installed.");
+			}
+		}
+
+		/// <summary>A disabled legacy Virtual mod remains removable when its archive and original placeholder are gone.</summary>
+		[TestCase(ModInstallRoot.Data)]
+		[TestCase(ModInstallRoot.GameRoot)]
+		public void NativeUninstall_ReloadedMissingArchiveRemovesInactiveLegacyLinks(ModInstallRoot root)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod installed = fixture.CreateMod("DisabledMissingArchive");
+				fixture.Install(installed, "Disabled.esp", "disabled mod");
+				fixture.Activator.VirtualLinks.Single().Active = false;
+				File.Delete(fixture.Deployed("Disabled.esp"));
+				IMod selected = new InstallLog.DummyMod(installed.ModName, installed.Filename);
+				Assert.That(fixture.Deployment.HasManagedFiles(selected), Is.False);
+
+				SynchronousUninstaller result = fixture.Uninstall(selected);
+
+				Assert.That(result.Succeeded, Is.True, result.CompletionMessage);
+				Assert.That(fixture.InstallLog.GetModKey(installed), Is.Null);
+				Assert.That(fixture.Activator.VirtualLinks, Is.Empty);
+				Assert.That(File.Exists(fixture.Staged(installed, "Disabled.esp")), Is.False);
+			}
+		}
+
 		/// <summary>Adjacent removals reuse their shifted position; an invalid hint still searches safely.</summary>
 		[Test]
 		public void LinkListRemoval_VerifiesAndReusesPositionWithoutRescanningUnrelatedLinks()

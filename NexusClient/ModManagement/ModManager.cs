@@ -1068,7 +1068,7 @@ namespace Nexus.Client.ModManagement
 		/// or <c>null</c> if no long-running operation needs to be done.</returns>
 		public IBackgroundTaskSet DeleteMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			bool isActive = InstallationLog.ActiveMods.Contains(p_modMod);
+			bool isActive = InstallationLog.ActiveMods.Any(activeMod => ModComparer.Filename.Equals(activeMod, p_modMod));
 			ModInstallContext installContext = isActive
 				? CaptureInstalledContext(p_modMod)
 				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
@@ -1328,7 +1328,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>An unstarted background task set to submit through <see cref="ModActivationMonitor"/>, or <c>null</c> when no managed state exists.</returns>
 		public IBackgroundTaskSet DeactivateMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			bool booIsInstallLogActive = InstallationLog.ActiveMods.Contains(p_modMod);
+			bool booIsInstallLogActive = InstallationLog.ActiveMods.Any(activeMod => ModComparer.Filename.Equals(activeMod, p_modMod));
 			bool booHasManagedFiles = DeploymentManager != null && DeploymentManager.HasManagedFiles(p_modMod);
 			if (!booIsInstallLogActive && !booHasManagedFiles)
 				return null;

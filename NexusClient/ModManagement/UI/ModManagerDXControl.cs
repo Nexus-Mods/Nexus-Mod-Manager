@@ -4862,7 +4862,13 @@
 					{
 						btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
 						{
-							if (!taskArgs.Success) return;
+							if (!taskArgs.Success)
+							{
+								System.Diagnostics.Trace.TraceError("Delete stopped while uninstalling '{0}' ({1}): {2}",
+									mod.ModName, mod.Filename, taskArgs.Message);
+								TaskSet_TaskSetCompleted(taskSender, taskArgs);
+								return;
+							}
 							if (InvokeRequired) Invoke((MethodInvoker)(() => deleteAfterDeactivate()));
 							else deleteAfterDeactivate();
 						};
