@@ -81,6 +81,121 @@
 			}
 		}
 
+		/// <summary>Legacy disable continues when the previous mesh is missing and retains its owner as inactive.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void LinkDisable_LegacyOverwriteRestorationIsTransactional(bool missingFallback)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod fallback = fixture.CreateMod("PreviousMesh");
+				IMod winner = fixture.CreateMod("MeshFixes");
+				const string relative = @"Meshes\Landscape\Rocks\rockcliffmineentrance.nif";
+				fixture.Install(fallback, relative, "previous mesh");
+				fixture.Install(winner, relative, "winning mesh");
+				if (missingFallback) File.Delete(fixture.Staged(fallback, relative));
+
+				var task = new SynchronousLinkDisableTask(winner, fixture);
+				Assert.DoesNotThrow(() => task.Execute());
+
+				if (missingFallback)
+				{
+					Assert.That(task.Status, Is.Not.EqualTo(Nexus.Client.BackgroundTasks.TaskStatus.Error));
+					Assert.That(File.Exists(fixture.Deployed(relative)), Is.False);
+					Assert.That(fixture.Activator.VirtualLinks.Single().Active, Is.False);
+					Assert.That(fixture.Activator.VirtualLinks.Single().ModInfo.ModFileName,
+						Is.EqualTo(Path.GetFileName(fallback.Filename)));
+				}
+				else
+				{
+					Assert.That(task.Status, Is.Not.EqualTo(Nexus.Client.BackgroundTasks.TaskStatus.Error));
+					Assert.That(File.ReadAllText(fixture.Deployed(relative)), Is.EqualTo("previous mesh"));
+					Assert.That(fixture.Activator.VirtualLinks.Count, Is.EqualTo(1));
+				}
+				Assert.That(fixture.InstallLog.GetModKey(winner), Is.Not.Null,
+					"Disabling must retain the installed mod's native registration.");
+			}
+		}
+
+		/// <summary>Replacement selection walks the remaining Virtual owners in priority order without discarding missing ones.</summary>
+		[TestCase(0)]
+		[TestCase(1)]
+		[TestCase(2)]
+		public void NativeUninstall_RestoresHighestAvailableVirtualReplacement(int missingCount)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod lowest = fixture.CreateMod("LowestReplacement");
+				IMod middle = fixture.CreateMod("MiddleReplacement");
+				IMod highest = fixture.CreateMod("HighestReplacement");
+				IMod removed = fixture.CreateMod("RemovedWinner");
+				fixture.Install(lowest, "Shared.nif", "lowest");
+				fixture.Install(middle, "Shared.nif", "middle");
+				fixture.Install(highest, "Shared.nif", "highest");
+				fixture.Install(removed, "Shared.nif", "removed");
+				if (missingCount > 0) File.Delete(fixture.Staged(highest, "Shared.nif"));
+				if (missingCount > 1) File.Delete(fixture.Staged(middle, "Shared.nif"));
+
+				SynchronousUninstaller result = fixture.Uninstall(removed);
+
+				Assert.That(result.Succeeded, Is.True, result.CompletionMessage);
+				Assert.That(File.ReadAllText(fixture.Deployed("Shared.nif")),
+					Is.EqualTo(missingCount == 0 ? "highest" : missingCount == 1 ? "middle" : "lowest"));
+				Assert.That(fixture.Activator.VirtualLinks.Count, Is.EqualTo(3));
+				IMod expected = missingCount == 0 ? highest : missingCount == 1 ? middle : lowest;
+				Assert.That(fixture.Activator.VirtualLinks.Single(link => link.Active).ModInfo.ModFileName,
+					Is.EqualTo(Path.GetFileName(expected.Filename)));
+				Assert.That(fixture.InstallLog.GetModKey(removed), Is.Null);
+				foreach (IMod retained in new[] { lowest, middle, highest })
+					Assert.That(fixture.InstallLog.GetModKey(retained), Is.Not.Null);
+			}
+		}
+
+		/// <summary>Missing replacement content does not block native unregistering or removal of the mod's other files.</summary>
+		[Test]
+		public void NativeUninstall_MissingReplacementContinuesThroughRemainingFiles()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod fallback = fixture.CreateMod("MissingReplacement");
+				IMod winner = fixture.CreateMod("RemovedMeshFixes");
+				fixture.Install(fallback, "Shared.nif", "previous mesh");
+				fixture.Install(winner, "Shared.nif", "winning mesh");
+				fixture.Install(winner, "Other.nif", "other mesh");
+				File.Delete(fixture.Staged(fallback, "Shared.nif"));
+
+				SynchronousUninstaller result = fixture.Uninstall(winner);
+
+				Assert.That(result.Succeeded, Is.True, result.CompletionMessage);
+				Assert.That(fixture.InstallLog.GetModKey(winner), Is.Null);
+				Assert.That(fixture.InstallLog.GetModKey(fallback), Is.Not.Null);
+				Assert.That(File.Exists(fixture.Deployed("Shared.nif")), Is.False);
+				Assert.That(File.Exists(fixture.Deployed("Other.nif")), Is.False);
+				Assert.That(fixture.Activator.VirtualLinks.Single().Active, Is.False);
+			}
+		}
+
+		/// <summary>Present but unreadable replacement content still reports failure and restores the removed winner.</summary>
+		[Test]
+		public void LinkDisable_LockedReplacementStillRollsBack()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod fallback = fixture.CreateMod("LockedReplacement");
+				IMod winner = fixture.CreateMod("KeptMeshFixes");
+				fixture.Install(fallback, "Locked.nif", "previous mesh");
+				fixture.Install(winner, "Locked.nif", "winning mesh");
+				using (var locked = new FileStream(fixture.Staged(fallback, "Locked.nif"), FileMode.Open, FileAccess.Read, FileShare.None))
+				{
+					var task = new SynchronousLinkDisableTask(winner, fixture);
+					Assert.DoesNotThrow(() => task.Execute());
+					Assert.That(task.Status, Is.EqualTo(Nexus.Client.BackgroundTasks.TaskStatus.Error));
+					Assert.That(File.ReadAllText(fixture.Deployed("Locked.nif")), Is.EqualTo("winning mesh"));
+					Assert.That(fixture.Activator.VirtualLinks.Count, Is.EqualTo(2));
+				}
+			}
+		}
+
 		/// <summary>Adjacent removals reuse their shifted position; an invalid hint still searches safely.</summary>
 		[Test]
 		public void LinkListRemoval_VerifiesAndReusesPositionWithoutRescanningUnrelatedLinks()
@@ -1378,6 +1493,16 @@
 			/// Runs the protected native uninstall body on the current test thread.
 			/// </summary>
 			public void Execute() { RunTasks(); }
+		}
+
+		/// <summary>Exercises the production disable task without starting a worker thread.</summary>
+		private sealed class SynchronousLinkDisableTask : LinkActivationTask
+		{
+			/// <summary>Binds the task to the fixture's real legacy Virtual deployment services.</summary>
+			public SynchronousLinkDisableTask(IMod mod, RemovalFixture fixture)
+				: base(fixture.Plugins, fixture.Activator, null, mod, true, null, ModInstallRoot.Data, fixture.Deployment) { }
+			/// <summary>Runs the production task body on the calling thread.</summary>
+			public void Execute() { DoWork(new object[0]); }
 		}
 	}
 }

@@ -148,6 +148,61 @@
 			}
 		}
 
+		/// <summary>Removing a Direct winner continues when the retained Virtual replacement source is missing.</summary>
+		[Test]
+		public void UninstallPromotedWinner_MissingVirtualReplacementRemainsInactive()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod fallback = environment.RegisterMod("MissingVirtualReplacement", ModInstallMethod.Virtual);
+				IMod winner = environment.RegisterMod("RemovedDirectWinner", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"meshes\missing-replacement.nif");
+				string source = environment.AddVirtualOwner(fallback, target, "fallback", true, 0);
+				environment.InstallDirect(winner, target, "winner");
+				File.Delete(source);
+
+				IReadOnlyCollection<string> absent = environment.Uninstall(winner);
+
+				CollectionAssert.Contains(absent, environment.Manager.GetDeploymentPath(target));
+				Assert.That(File.Exists(environment.Manager.GetDeploymentPath(target)), Is.False);
+				Assert.That(environment.InstallLog.GetModKey(winner), Is.Null);
+				Assert.That(environment.InstallLog.GetModKey(fallback), Is.Not.Null);
+				CollectionAssert.AreEqual(new[] { environment.Key(fallback) }, environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.That(environment.VirtualState.IsActive(target, environment.Key(fallback)), Is.False);
+			}
+		}
+
+		/// <summary>A missing promoted replacement yields to a lower owner and the stack records the restored physical winner.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void UninstallPromotedWinner_RestoresLowerAvailableOwner(bool lowerVirtual)
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod lower = environment.RegisterMod("LowerReplacement", lowerVirtual ? ModInstallMethod.Virtual : ModInstallMethod.Direct);
+				IMod missing = environment.RegisterMod("MissingHigherReplacement", ModInstallMethod.Virtual);
+				IMod removed = environment.RegisterMod("RemovedTopWinner", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"meshes\replacement-chain.nif");
+				if (lowerVirtual) environment.AddVirtualOwner(lower, target, "lower", true, 1);
+				else environment.InstallDirect(lower, target, "lower");
+				string source = lowerVirtual
+					? environment.AddVirtualOwner(missing, target, "missing", true, 0)
+					: environment.StageVirtual(missing, target, "missing");
+				if (!lowerVirtual) environment.InstallVirtual(missing, target, source, true);
+				environment.InstallDirect(removed, target, "removed");
+				File.Delete(source);
+
+				environment.Uninstall(removed);
+
+				Assert.That(environment.ReadTarget(target), Is.EqualTo("lower"));
+				CollectionAssert.AreEqual(new[] { environment.Key(missing), environment.Key(lower) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.That(environment.VirtualState.IsActive(target, environment.Key(missing)), Is.False);
+				Assert.That(environment.InstallLog.GetModKey(missing), Is.Not.Null);
+				if (lowerVirtual) Assert.That(environment.VirtualState.IsActive(target, environment.Key(lower)), Is.True);
+			}
+		}
+
 		[Test]
 		public void LinkActivationTask_DisableAndReactivatePromotedVirtualWinner_UsesCoordinator()
 		{

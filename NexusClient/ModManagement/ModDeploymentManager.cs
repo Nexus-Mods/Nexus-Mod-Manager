@@ -665,8 +665,7 @@ namespace Nexus.Client.ModManagement
 		private void RestorePromotedWinner(ModDeploymentTarget p_mdtTarget, string p_strDeploymentPath,
 			List<string> p_lstOwners, TxFileManager p_tfmFileManager, ICollection<string> p_colAbsentPaths)
 		{
-			string restoreOwnerKey = p_lstOwners.Count == 0 ? null : p_lstOwners[p_lstOwners.Count - 1];
-			if (restoreOwnerKey == null)
+			if (p_lstOwners.Count == 0)
 			{
 				VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
 				m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
@@ -674,17 +673,35 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
-			if (restoreOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+			for (int index = p_lstOwners.Count - 1; index >= 0; index--)
 			{
-				RestoreBackup(p_mdtTarget, restoreOwnerKey, p_strDeploymentPath, p_tfmFileManager);
-				m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
+				string restoreOwnerKey = p_lstOwners[index];
+				if (GetOwnerMethod(restoreOwnerKey) == ModInstallMethod.Virtual)
+				{
+					if (!TryRestoreVirtualWinnerAfterRemoval(p_mdtTarget, restoreOwnerKey, p_tfmFileManager))
+						continue;
+				}
+				else
+				{
+					if (IsReplacementSourceMissing(p_mdtTarget, restoreOwnerKey, GetOwnerBackupPath(p_mdtTarget, restoreOwnerKey)))
+						continue;
+					RestoreBackup(p_mdtTarget, restoreOwnerKey, p_strDeploymentPath, p_tfmFileManager);
+				}
+
+				if (p_lstOwners.Count == 1 && restoreOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+					m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
+				else
+				{
+					// The owner stack ends with the physical winner; retain skipped owners below it for later repair.
+					p_lstOwners.RemoveAt(index);
+					p_lstOwners.Add(restoreOwnerKey);
+					m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, p_lstOwners);
+				}
 				return;
 			}
 
-			if (GetOwnerMethod(restoreOwnerKey) == ModInstallMethod.Virtual)
-				m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, restoreOwnerKey, p_tfmFileManager);
-			else
-				RestoreBackup(p_mdtTarget, restoreOwnerKey, p_strDeploymentPath, p_tfmFileManager);
+			VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
+			p_colAbsentPaths.Add(p_strDeploymentPath);
 			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, p_lstOwners);
 		}
 
@@ -708,7 +725,13 @@ namespace Nexus.Client.ModManagement
 			{
 				RelocateLegacyVirtualOverwrite(p_mdtTarget, legacyOverwritePath, owners[0], p_tfmFileManager);
 				if (currentWinner)
-					m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, owners[owners.Count - 1], p_tfmFileManager);
+				{
+					for (int index = owners.Count - 1; index >= 0; index--)
+						if (TryRestoreVirtualWinnerAfterRemoval(p_mdtTarget, owners[index], p_tfmFileManager))
+							return;
+					VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
+					p_colAbsentPaths.Add(deploymentPath);
+				}
 				return;
 			}
 
@@ -719,6 +742,40 @@ namespace Nexus.Client.ModManagement
 				VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
 				p_colAbsentPaths.Add(deploymentPath);
 			}
+		}
+
+		/// <summary>Tries a Virtual replacement, retaining missing sources as inactive owners while selection continues.</summary>
+		private bool TryRestoreVirtualWinnerAfterRemoval(ModDeploymentTarget target, string ownerKey, TxFileManager fileManager)
+		{
+			string sourcePath = m_vmaVirtualModActivator.GetVirtualSourceForOwner(target, ownerKey);
+			if (IsReplacementSourceMissing(target, ownerKey, sourcePath))
+			{
+				m_vmaVirtualModActivator.SetVirtualLinkActiveState(target, ownerKey, false);
+				return false;
+			}
+
+			m_vmaVirtualModActivator.DeploySpecificVirtualLink(target, ownerKey, fileManager);
+			return true;
+		}
+
+		/// <summary>Identifies absent replacement content without treating access or destination failures as missing files.</summary>
+		private static bool IsReplacementSourceMissing(ModDeploymentTarget target, string ownerKey, string sourcePath)
+		{
+			try
+			{
+				if (String.IsNullOrWhiteSpace(sourcePath))
+					throw new FileNotFoundException("No staged replacement source was recorded.");
+				// GetAttributes distinguishes an absent source from access failures, which must still roll back removal.
+				File.GetAttributes(sourcePath);
+			}
+			catch (Exception error) when (error is FileNotFoundException || error is DirectoryNotFoundException)
+			{
+				Trace.TraceWarning("Skipping replacement for '{0}': owner '{1}' source '{2}' is missing; checking lower-priority owners.",
+					target, ownerKey, sourcePath);
+				return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>

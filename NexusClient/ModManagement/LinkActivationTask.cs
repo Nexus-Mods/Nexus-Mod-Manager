@@ -144,11 +144,11 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
         /// <summary>
-        /// Disables a Virtual mod through the method-neutral coordinator when it owns promoted targets.
+        /// Disables a Virtual mod through the transactional coordinator, including legacy overwrite restoration.
         /// </summary>
-        private bool DisablePromotedVirtualMod()
+        private bool DisableVirtualMod()
         {
-            if (Mod == null || DeploymentManager == null || !DeploymentManager.HasPromotedFiles(Mod))
+            if (Mod == null || DeploymentManager == null)
                 return false;
 
             ItemProgressMaximum = 1;
@@ -236,6 +236,22 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
+			try
+			{
+				return ChangeModActivation();
+			}
+			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+			{
+				TraceUtil.TraceException(error);
+				OverallMessage = LanguageManager.Format("Tasks.ModLinks.Failed", "LinkActivationTask failed: {0}", error.Message);
+				Status = TaskStatus.Error;
+				return null;
+			}
+		}
+
+		/// <summary>Changes deployment state while leaving expected filesystem failures to the task boundary.</summary>
+		private object ChangeModActivation()
+		{
             var lotsOfLinks = false;
 			var intProgress = 0;
 			double dblRatio = 0;
@@ -273,7 +289,7 @@ namespace Nexus.Client.ModManagement
 			}
 			else
 			{
-				if (Mod != null && !DisablePromotedVirtualMod())
+				if (Mod != null && !DisableVirtualMod())
 				{
 					var ivlLinks = VirtualModActivator.VirtualLinks
                         .Where(x => x.ModInfo != null && string.Equals(x.ModInfo.ModFileName, Path.GetFileName(Mod.Filename), StringComparison.OrdinalIgnoreCase))
