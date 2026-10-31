@@ -36,6 +36,7 @@ namespace Nexus.Client.GameStorage.UI
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
+        private bool _checksBusy;
         private int _draftGeneration;
         private readonly List<SimpleButton> _manualPathButtons = new List<SimpleButton>();
 
@@ -86,7 +87,7 @@ namespace Nexus.Client.GameStorage.UI
             manualPanel.Controls.Add(rolePaths);
             _manualInstallInfoEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.InstallInfo", "Install info"), 0);
             _manualModsEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.ModArchives", "Mod archives"), 1);
-            _manualVirtualInstallEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.VirtualInstall", "Virtual install"), 2);
+            _manualVirtualInstallEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.VirtualInstallOptional", "Virtual install (optional)"), 2);
             _manualLinkFolderEdit = CreateManualPathEdit(rolePaths, LanguageManager.Get("GameStorage.Common.LinkFolder", "Link folder"), 3);
             _manualInstallInfoEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualModsEdit.EditValueChanged += ManualPathEditValueChanged;
@@ -136,7 +137,7 @@ namespace Nexus.Client.GameStorage.UI
             NmmIconProvider.Bind(_legacySetupButton, NmmIconAction.Restore);
             NmmIconProvider.Bind(cancelButton, NmmIconAction.Cancel);
             _refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
-            _applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
+            _applyButton.Click += (sender, args) => { if (CanApply) ApplyRequested?.Invoke(this, EventArgs.Empty); };
             _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
             cancelButton.Click += (sender, args) => CancelRequested?.Invoke(this, EventArgs.Empty);
             buttonPanel.Controls.Add(_refreshButton);
@@ -152,12 +153,23 @@ namespace Nexus.Client.GameStorage.UI
             Controls.Add(manualPanel);
             Controls.Add(_descriptionEdit);
             Controls.Add(_titleLabel);
+            UpdateApplyState();
         }
 
         public GameStorageCandidate SelectedCandidate => _manualPathsEdited ? null : _candidateGridView.GetFocusedRow() as GameStorageCandidate;
 
         public string ManualVirtualInstallPath => _manualVirtualInstallEdit.Text;
         public int DraftGeneration => _draftGeneration;
+
+        /// <summary>Requires the two storage folders needed by both install methods before saving.</summary>
+        public bool CanApply => !_checksBusy && !string.IsNullOrWhiteSpace(_manualInstallInfoEdit.Text) &&
+            !string.IsNullOrWhiteSpace(_manualModsEdit.Text);
+
+        /// <summary>Updates Save immediately, including while draft validation is waiting for its timer.</summary>
+        private void UpdateApplyState()
+        {
+            _applyButton.Enabled = CanApply;
+        }
 
         public void SetApplyCaption(string caption)
         {
@@ -216,6 +228,7 @@ namespace Nexus.Client.GameStorage.UI
             {
                 _suppressManualPathChanged = false;
             }
+            UpdateApplyState();
         }
 
         private void ManualPathEditValueChanged(object sender, EventArgs e)
@@ -235,6 +248,7 @@ namespace Nexus.Client.GameStorage.UI
 
             _manualPathsEdited = true;
             _draftGeneration++;
+            UpdateApplyState();
             DraftChanged?.Invoke(this, EventArgs.Empty);
             _candidateGridView.ClearSelection();
             _candidateGridView.FocusedRowHandle = GridControl.InvalidRowHandle;
@@ -279,6 +293,7 @@ namespace Nexus.Client.GameStorage.UI
 
         public void SetLinkFolderRequired(bool required)
         {
+            required = required && !string.IsNullOrWhiteSpace(ManualVirtualInstallPath);
             _manualLinkFolderEdit.Enabled = required;
             if (_manualLinkFolderButton != null)
                 _manualLinkFolderButton.Enabled = required;
@@ -307,7 +322,8 @@ namespace Nexus.Client.GameStorage.UI
             _refreshButton.Enabled = !refreshing && !validating;
             // Initial save must not race a registry scan or newer draft validation.
             // Cancel remains usable throughout these read-only operations.
-            _applyButton.Enabled = !refreshing && !validating;
+            _checksBusy = refreshing || validating;
+            UpdateApplyState();
             _candidateStatusLabel.Text = description ?? string.Empty;
             _candidateStatusLabel.ToolTip = _candidateStatusLabel.Text;
         }

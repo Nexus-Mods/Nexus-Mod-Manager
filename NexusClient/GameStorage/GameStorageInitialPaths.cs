@@ -5,6 +5,7 @@
 	using System.IO;
 	using Nexus.Client.Games;
 	using Nexus.Client.Games.DataDriven;
+	using Nexus.Client.Settings;
 
 	/// <summary>The same per-role path defaults used by game initialization and explicit setup.
 	/// This method reads settings; it never creates a directory or saves any settings.</summary>
@@ -19,11 +20,11 @@
 			string id = factory.GameModeDescriptor.ModeId;
 			string root = GetInitialRoot(environment, id, gameInstallPath);
 			string savedVirtual = Read(environment.Settings.VirtualFolder, id);
-			string virtualPath = service.NormalizeVirtualInstallDirectory(
+			string virtualPath = environment.Settings.IsVirtualInstallDisabled(id) ? null : service.NormalizeVirtualInstallDirectory(
 				String.IsNullOrWhiteSpace(savedVirtual) ? root : savedVirtual);
 			string linkPath = Read(environment.Settings.HDLinkFolder, id) ?? Path.Combine(root, "LinkFolder");
 			bool multiHd = Read(environment.Settings.MultiHDInstall, id);
-			bool linkRequired = multiHd || service.IsLinkFolderRequired(virtualPath, gameInstallPath);
+			bool linkRequired = !String.IsNullOrWhiteSpace(virtualPath) && (multiHd || service.IsLinkFolderRequired(virtualPath, gameInstallPath));
 			return new GameStoragePathSet
 			{
 				GameId = id,

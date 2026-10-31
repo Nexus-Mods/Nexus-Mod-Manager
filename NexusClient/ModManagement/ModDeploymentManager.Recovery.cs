@@ -123,6 +123,11 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException("Invalid deployment root in recovery target.");
 
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, (string)p_xelRecord.Attribute("path"));
+			string deploymentState = (string)p_xelRecord.Attribute("deploymentState") ?? "Absent";
+			string virtualOwnerKey = (string)p_xelRecord.Attribute("virtualOwnerKey");
+			if (deploymentState == "Virtual" && !CanRestoreVirtualRecoveryTarget(target, virtualOwnerKey))
+				return;
+
 			XElement backupStates = p_xelRecord.Element("backups");
 			if (backupStates != null)
 			{
@@ -145,7 +150,6 @@ namespace Nexus.Client.ModManagement
 			}
 
 			string deploymentPath = GetDeploymentPath(target);
-			string deploymentState = (string)p_xelRecord.Attribute("deploymentState") ?? "Absent";
 			switch (deploymentState)
 			{
 				case "Absent":
@@ -158,13 +162,48 @@ namespace Nexus.Client.ModManagement
 					// Normal transaction rollback may already have restored the correct Virtual entry.
 					// The Virtual backend verifies both topology and source identity before replacing anything.
 					FileEntryKind expectedKind = ParseVirtualDeploymentKind(p_xelRecord);
-					m_vmaVirtualModActivator.RecoverVirtualDeploymentWinner(
-						target,
-						(string)p_xelRecord.Attribute("virtualOwnerKey"),
-						expectedKind);
+					try
+					{
+						m_vmaVirtualModActivator.RecoverVirtualDeploymentWinner(target, virtualOwnerKey, expectedKind);
+					}
+					catch (Exception error) when (error is FileNotFoundException || error is DirectoryNotFoundException)
+					{
+						// A source can disappear after the preflight. Do not prevent startup for one missing file.
+						Trace.TraceWarning("Skipping Virtual deployment recovery for '{0}', owner '{1}': {2}",
+							target, virtualOwnerKey, error.Message);
+					}
 					break;
 				default:
 					throw new InvalidDataException("Unknown deployment recovery state.");
+			}
+		}
+
+		/// <summary>
+		/// Skips unavailable Virtual recovery records before changing their files or backups.
+		/// Missing links and staged files must not prevent managing the rest of the game mode.
+		/// </summary>
+		private bool CanRestoreVirtualRecoveryTarget(ModDeploymentTarget target, string ownerKey)
+		{
+			string sourcePath = null;
+			if (m_vmaVirtualModActivator.GetVirtualOwnerKeys(target).Contains(ownerKey, StringComparer.OrdinalIgnoreCase))
+				sourcePath = m_vmaVirtualModActivator.GetVirtualSourceForOwner(target, ownerKey);
+			if (String.IsNullOrWhiteSpace(sourcePath))
+			{
+				Trace.TraceWarning("Skipping Virtual deployment recovery for '{0}', owner '{1}': no registered link or staged source. Existing files were left unchanged.",
+					target, ownerKey);
+				return false;
+			}
+
+			try
+			{
+				File.GetAttributes(sourcePath);
+				return true;
+			}
+			catch (Exception error) when (error is FileNotFoundException || error is DirectoryNotFoundException)
+			{
+				Trace.TraceWarning("Skipping Virtual deployment recovery for '{0}', owner '{1}': staged source '{2}' is missing. Existing files were left unchanged.",
+					target, ownerKey, sourcePath);
+				return false;
 			}
 		}
 

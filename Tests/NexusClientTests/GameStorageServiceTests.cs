@@ -97,12 +97,14 @@ namespace NexusClientTests
             Assert.That(File.ReadAllText(Path.Combine(paths.VirtualInstallPath, "Data", "Example.esp")), Is.EqualTo("plugin"));
         }
 
-        /// <summary>The public save path retains legacy VirtualFolder semantics and changes only the selected game's settings.</summary>
-        [Test]
-        public void ApplySelectedCandidatePaths_SavesConfirmedFoldersAndHistoricalVirtualRoot()
+        /// <summary>Saving preserves legacy Virtual roots or an intentional Direct-only selection without changing another game.</summary>
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void ApplySelectedCandidatePaths_SavesConfirmedFoldersAndHistoricalVirtualRoot(bool directOnly, bool initialSetup)
         {
             var strings = new System.Collections.Generic.Dictionary<string, Nexus.Client.Settings.PerGameModeSettings<string>>();
-            foreach (string name in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder" })
+            foreach (string name in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder", "PreferredInstallMethod" })
                 strings[name] = new Nexus.Client.Settings.PerGameModeSettings<string>();
             strings["ModFolder"]["SkyrimSE"] = "keep-other-game-setting";
             var multiDrive = new Nexus.Client.Settings.PerGameModeSettings<bool>();
@@ -122,16 +124,79 @@ namespace NexusClientTests
             });
             var service = new GameStorageService(environment);
             var paths = CreateStorage("Fallout4", "Selected");
-            File.WriteAllText(Path.Combine(paths.ModsPath, ".nmm-folder.json"), "invalid json");
+            if (!initialSetup)
+                File.WriteAllText(Path.Combine(paths.ModsPath, ".nmm-folder.json"), "invalid json");
+            GameStorageCandidate candidate = CreateCandidate(paths);
+            if (directOnly)
+                candidate.VirtualInstallPath = string.Empty;
 
             GameStorageHealthCheck health;
-            Assert.That(service.ApplySelectedCandidatePaths(paths, CreateCandidate(paths), out health), Is.True);
-            Assert.That(health.HasConfirmedPaths, Is.True);
+            bool saved = initialSetup ? service.ApplyInitialSetupCandidate(paths, candidate, true, out health)
+                : service.ApplySelectedCandidatePaths(paths, candidate, out health);
+            Assert.That(saved, Is.True);
+            Assert.That(health.HasConfirmedPaths, Is.EqualTo(!initialSetup));
             Assert.That(strings["InstallInfoFolder"][paths.GameId], Is.EqualTo(paths.InstallInfoPath));
             Assert.That(strings["ModFolder"][paths.GameId], Is.EqualTo(paths.ModsPath));
-            Assert.That(strings["VirtualFolder"][paths.GameId], Is.EqualTo(Path.GetDirectoryName(paths.VirtualInstallPath)));
+            Assert.That(strings["VirtualFolder"][paths.GameId], Is.EqualTo(directOnly ? string.Empty : Path.GetDirectoryName(paths.VirtualInstallPath)));
+            if (directOnly)
+            {
+                Assert.That(strings["PreferredInstallMethod"][paths.GameId], Is.EqualTo("Direct"));
+                var descriptor = InterfaceStub<Nexus.Client.Games.IGameModeDescriptor>.Create((method, args) =>
+                    method.Name == "get_ModeId" ? paths.GameId : method.Name == "get_Name" ? paths.GameName : null);
+                var factory = InterfaceStub<Nexus.Client.Games.IGameModeFactory>.Create((method, args) =>
+                    method.Name == "get_GameModeDescriptor" ? descriptor : null);
+                var reopened = Nexus.Client.GameStorage.GameStorageInitialPaths.Create(environment, service, factory, paths.GameInstallPath);
+                Assert.That(reopened.VirtualInstallPath, Is.Null);
+                Assert.That(reopened.LinkFolderRequired, Is.False);
+                Assert.That(service.ValidateStorage(reopened).IsUsable, Is.True);
+                paths.VirtualInstallPath = null;
+            }
             Assert.That(strings["ModFolder"]["SkyrimSE"], Is.EqualTo("keep-other-game-setting"));
             Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(service.ValidateStorage(paths)), Is.False);
+        }
+
+        /// <summary>Save reflects required edits immediately and is unavailable during checks; Virtual Install is optional.</summary>
+        [Test, Apartment(System.Threading.ApartmentState.STA), NonParallelizable]
+        public void SetupControl_SaveRequiresInstallInfoAndModsOnly()
+        {
+            using (var control = new Nexus.Client.GameStorage.UI.GameStorageSetupControl())
+            {
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var save = (System.Windows.Forms.Control)control.GetType().GetField("_applyButton", flags).GetValue(control);
+                Assert.That(save.Enabled, Is.False);
+                control.SetManualPaths(new GameStoragePathSet { InstallInfoPath = @"C:\Records", ModsPath = @"C:\Mods" });
+                Assert.That(save.Enabled, Is.True);
+                control.SetReadOnlyChecksBusy(true, false, "checking");
+                Assert.That(save.Enabled, Is.False);
+                control.SetReadOnlyChecksBusy(false, false, string.Empty);
+                Assert.That(save.Enabled, Is.True);
+                var installInfo = (System.Windows.Forms.Control)control.GetType().GetField("_manualInstallInfoEdit", flags).GetValue(control);
+                installInfo.Text = " ";
+                Assert.That(save.Enabled, Is.False);
+                installInfo.Text = @"C:\Records";
+                Assert.That(save.Enabled, Is.True);
+                var mods = (System.Windows.Forms.Control)control.GetType().GetField("_manualModsEdit", flags).GetValue(control);
+                mods.Text = string.Empty;
+                Assert.That(save.Enabled, Is.False);
+                control.SetReadOnlyChecksBusy(false, false, string.Empty);
+                Assert.That(save.Enabled, Is.False, "Finishing validation must not enable Save with a required folder still empty.");
+            }
+        }
+
+        /// <summary>Backend validation also rejects absent required folders rather than replacing a user's blank edit.</summary>
+        [TestCase(true)]
+        [TestCase(false)]
+        public void SelectedPaths_BlankRequiredFolderCannotBeSaved(bool missingInstallInfo)
+        {
+            var current = CreateStorage("Fallout4", "Current");
+            GameStorageCandidate candidate = CreateCandidate(current);
+            if (missingInstallInfo) candidate.InstallInfoPath = string.Empty;
+            else candidate.ModsPath = " ";
+            GameStoragePathSet selected = _service.ResolveExplicitlySelectedPaths(current, candidate);
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(selected, out health), Is.False);
+            Assert.That(_service.ApplyInitialSetupCandidate(current, candidate, out health), Is.False);
+            Assert.That(File.Exists(_service.RegistryPath), Is.False);
         }
 
         /// <summary>Confirmation belongs to one exact setup and expires when paths or on-disk metadata change.</summary>

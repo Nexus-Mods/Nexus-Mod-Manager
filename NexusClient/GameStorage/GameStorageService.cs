@@ -104,10 +104,10 @@ namespace Nexus.Client.GameStorage
 				VirtualInstallPath = virtualInstallPath,
 				LinkFolderPath = linkFolder,
 				LinkFolderRequired =
-					multiHd ||
+					!string.IsNullOrWhiteSpace(virtualInstallPath) && (multiHd ||
 					IsLinkFolderRequired(
 						virtualInstallPath,
-						gameMode.GameModeEnvironmentInfo.InstallationPath),
+						gameMode.GameModeEnvironmentInfo.InstallationPath)),
 				CompatibleSharedModsGameIds =
 					GameModeStorageSharingRegistry.GetMutuallyCompatibleModsStorageModeIds(gameId)
 			};
@@ -594,6 +594,8 @@ namespace Nexus.Client.GameStorage
 
 		public bool IsLinkFolderRequired(string virtualInstallPath, string gameInstallPath)
         {
+            if (string.IsNullOrWhiteSpace(virtualInstallPath))
+                return false;
             string virtualRoot = GetPathRoot(virtualInstallPath);
             string gameRoot = GetPathRoot(gameInstallPath);
             return !string.IsNullOrEmpty(virtualRoot) && !string.IsNullOrEmpty(gameRoot) && !string.Equals(virtualRoot, gameRoot, StringComparison.OrdinalIgnoreCase);
@@ -679,7 +681,11 @@ namespace Nexus.Client.GameStorage
             ValidateRootManifestMetadata(result, paths);
             ValidateFolder(result, paths, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, storageId, true);
             ValidateFolder(result, paths, GameStorageFolderRole.Mods, paths.ModsPath, storageId, true);
-            ValidateFolder(result, paths, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, storageId, true);
+            if (!string.IsNullOrWhiteSpace(paths.VirtualInstallPath))
+                ValidateFolder(result, paths, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, storageId, true);
+            else
+                Add(result, GameStorageFolderRole.VirtualInstall, null, GameStorageHealthStatus.VirtualInstallNotConfigured, false, true,
+                    LanguageManager.Get("GameStorage.Health.VirtualInstallNotConfigured", "No Virtual Install folder is selected. Only Direct Install is available."));
             ValidateInstallLog(result, paths.InstallInfoPath);
 
             if (paths.LinkFolderRequired)
@@ -804,7 +810,13 @@ namespace Nexus.Client.GameStorage
 
         private void ValidateFolder(GameStorageHealthCheck result, GameStoragePathSet paths, GameStorageFolderRole role, string path, string storageId, bool required)
         {
-            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                Add(result, role, path, MissingStatus(role), required, true,
+                    LanguageManager.Format("GameStorage.Health.FolderNotSelected", "Select a folder for {0} before saving.", GetRoleName(role)));
+                return;
+            }
+            if (!Directory.Exists(path))
             {
                 Add(result, role, path, MissingStatus(role), required, true, LanguageManager.Format("GameStorage.Health.FolderWillBeCreated", "The {0} folder does not exist yet. It will be created when you save these folders.", GetRoleName(role)));
                 return;
@@ -1109,7 +1121,8 @@ namespace Nexus.Client.GameStorage
         {
             yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.InstallInfo, paths.InstallInfoPath);
             yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.Mods, paths.ModsPath);
-            yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath);
+            if (!string.IsNullOrWhiteSpace(paths.VirtualInstallPath))
+                yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath);
             if (paths.LinkFolderRequired)
                 yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.LinkFolder, paths.LinkFolderPath);
         }
@@ -1393,7 +1406,8 @@ namespace Nexus.Client.GameStorage
                 string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
                 AreSamePaths(x.InstallInfoPath, paths.InstallInfoPath) &&
                 AreSamePaths(x.ModsPath, paths.ModsPath) &&
-                AreSamePaths(NormalizeVirtualInstallDirectory(x.VirtualInstallPath), paths.VirtualInstallPath) &&
+                (AreSamePaths(NormalizeVirtualInstallDirectory(x.VirtualInstallPath), paths.VirtualInstallPath) ||
+                    (string.IsNullOrWhiteSpace(x.VirtualInstallPath) && string.IsNullOrWhiteSpace(paths.VirtualInstallPath))) &&
                 (!paths.LinkFolderRequired || AreSamePaths(x.LinkFolderPath, paths.LinkFolderPath)))
                 .ToList();
 

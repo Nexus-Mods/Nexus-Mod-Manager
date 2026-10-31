@@ -368,6 +368,9 @@
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			m_booForceHardLinks = EnvironmentInfo.Settings.MultiHDInstall[GameMode.ModeId];
 			string strVirtualFolder = EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId];
+			// Direct-only games still use VMA metadata services, without configuring a Virtual install folder.
+			if (string.IsNullOrWhiteSpace(strVirtualFolder))
+				strVirtualFolder = GameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
 			m_strVirtualActivatorPath = Path.Combine(strVirtualFolder, ACTIVATOR_FOLDER);
 			m_strGameDataPath = GameMode.UsesPlugins ? GameMode.PluginDirectory : GameMode.InstallationPath;
 			m_strVirtualActivatorConfigPath = Path.Combine(m_strVirtualActivatorPath, ACTIVATOR_FILE);

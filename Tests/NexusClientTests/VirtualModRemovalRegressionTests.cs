@@ -7,6 +7,8 @@
 	using System.Reflection;
 	using System.Runtime.InteropServices;
 	using System.Runtime.Serialization;
+	using System.Text;
+	using System.Xml.Linq;
 	using ChinhDo.Transactions;
 	using Nexus.Client;
 	using Nexus.Client.CollectionManagement;
@@ -29,6 +31,72 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>A Direct-only game can initialize VMA metadata and deploy without filling the user's empty Virtual folder.</summary>
+		[Test]
+		public void DirectOnlyStorage_InitializesAndInstallsWithoutConfiguredVirtualFolder()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data, directOnly: true))
+			{
+				IMod mod = fixture.CreateMod("DirectOnly");
+				fixture.InstallLog.AddActiveMod(mod, ModInstallRoot.Data, ModInstallMethod.Direct);
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "DirectOnly.txt");
+				string payloadPath = Path.Combine(fixture.ModPath, "DirectOnly.payload");
+				File.WriteAllText(payloadPath, "direct payload");
+				using (var scope = new TransactionScope())
+				using (FileStream source = File.OpenRead(payloadPath))
+				{
+					fixture.Deployment.InstallDirectFile(mod, target, source, new TxFileManager());
+					scope.Complete();
+				}
+				Assert.That(File.ReadAllText(fixture.Deployed("DirectOnly.txt")), Is.EqualTo("direct payload"));
+				Assert.That(fixture.Environment.Settings.VirtualFolder["fallout4"], Is.Empty);
+				Assert.That(Path.IsPathRooted(fixture.Activator.VirtualPath), Is.True);
+				Assert.That(fixture.Activator.VirtualLinks, Is.Empty);
+			}
+		}
+
+		/// <summary>Real Virtual-owner lookup must not stop startup recovery when an old journal references a missing link or source.</summary>
+		[TestCase(ModInstallRoot.Data, false)]
+		[TestCase(ModInstallRoot.Data, true)]
+		[TestCase(ModInstallRoot.GameRoot, false)]
+		[TestCase(ModInstallRoot.GameRoot, true)]
+		public void StartupRecovery_MissingVirtualLinkOrSourceLeavesExistingFileAndRegistration(ModInstallRoot root, bool missingLink)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod mod = fixture.CreateMod("AnimationRecovery");
+				const string relative = @"meshes\actors\character\animations\Neto\F34R_10.hkx";
+				fixture.Install(mod, relative, "existing animation");
+				string ownerKey = fixture.InstallLog.GetModKey(mod);
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(fixture.GameMode, mod, relative, root);
+				string journal = Path.Combine(fixture.OverwritePath, "deployment", "_recovery", "missing-animation");
+				Directory.CreateDirectory(journal);
+				new XDocument(new XElement("deploymentRecovery",
+					new XAttribute("preCommitSequence", fixture.InstallLog.DeploymentCommitSequence)))
+					.Save(Path.Combine(journal, "transaction.xml"));
+				var record = new XElement("target",
+					new XAttribute("root", target.Root), new XAttribute("path", target.RelativePath),
+					new XAttribute("deploymentState", "Virtual"), new XAttribute("virtualOwnerKey", ownerKey));
+				byte[] payload = Encoding.UTF8.GetBytes(record.ToString(SaveOptions.DisableFormatting));
+				using (var stream = new FileStream(Path.Combine(journal, "targets.bin"), FileMode.Create, FileAccess.Write))
+				using (var writer = new BinaryWriter(stream, Encoding.UTF8))
+				{
+					writer.Write(payload.Length);
+					writer.Write(payload);
+				}
+				if (missingLink)
+					fixture.Activator.SetCurrentList(new List<IVirtualModLink>());
+				else
+					File.Delete(fixture.Staged(mod, relative));
+
+				Assert.DoesNotThrow(() => new ModDeploymentManager(fixture.InstallLog, fixture.Activator, fixture.GameMode));
+				Assert.That(File.ReadAllText(fixture.Deployed(relative)), Is.EqualTo("existing animation"));
+				Assert.That(fixture.InstallLog.GetModKey(mod), Is.EqualTo(ownerKey));
+				Assert.That(Directory.Exists(journal), Is.False);
+				Assert.DoesNotThrow(() => new ModDeploymentManager(fixture.InstallLog, fixture.Activator, fixture.GameMode));
+			}
+		}
+
 		/// <summary>A stale missing-archive placeholder still removes its exact installed registration.</summary>
 		[TestCase(ModInstallRoot.Data, ModInstallMethod.Virtual)]
 		[TestCase(ModInstallRoot.GameRoot, ModInstallMethod.Virtual)]
@@ -1267,7 +1335,7 @@
 			/// <summary>
 			/// Creates an isolated native deployment environment for the requested install root.
 			/// </summary>
-			public RemovalFixture(ModInstallRoot root, bool realFiles = true)
+			public RemovalFixture(ModInstallRoot root, bool realFiles = true, bool directOnly = false)
 			{
 				m_installRoot = root;
 				DataPath = Path.Combine(m_root, "Game", "Data");
@@ -1300,7 +1368,7 @@
 						default: return null;
 					}
 				});
-				var folders = new PerGameModeSettings<string>(); folders["fallout4"] = Path.Combine(m_root, "Virtual");
+				var folders = new PerGameModeSettings<string>(); folders["fallout4"] = directOnly ? String.Empty : Path.Combine(m_root, "Virtual");
 				var linkFolders = new PerGameModeSettings<string>(); linkFolders["fallout4"] = String.Empty;
 				var multiHd = new PerGameModeSettings<bool>(); multiHd["fallout4"] = false;
 				ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>

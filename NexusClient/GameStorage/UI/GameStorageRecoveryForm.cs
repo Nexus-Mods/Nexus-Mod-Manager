@@ -101,6 +101,8 @@ namespace Nexus.Client.GameStorage.UI
 
         private void ApplyRequested(object sender, EventArgs e)
         {
+            if (!_control.CanApply)
+                return;
             var selectedCandidate = _control.SelectedCandidate;
             var manualCandidate = selectedCandidate == null ? _control.ManualCandidate : null;
             var candidate = selectedCandidate ?? manualCandidate;

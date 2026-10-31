@@ -24,6 +24,7 @@ using Nexus.Transactions;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Games.Witcher3;
 using Nexus.Client.Util.Localization;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.ModManagement
 {
@@ -291,6 +292,9 @@ namespace Nexus.Client.ModManagement
 			
 			try
 			{
+				if (InstallContext.Method == ModInstallMethod.Virtual && EnvironmentInfo.Settings.IsVirtualInstallDisabled(GameMode.ModeId))
+					throw new InvalidOperationException(LanguageManager.Get("GameStorage.InstallMethod.VirtualFolderRequired",
+						"Select a Virtual Install folder in Game Storage setup before using Virtual Install. Direct Install is available without this folder."));
 				using (var mutationLease = AcquireMutationLease())
 				lock (objInstallLock)
 				{

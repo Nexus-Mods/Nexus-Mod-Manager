@@ -325,7 +325,9 @@
                     out p_vwmErrorMessage))
                 return false;
 
-            if (!string.IsNullOrEmpty(strUacCheckPath) && !string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
+            if (!string.IsNullOrEmpty(strUacCheckPath) &&
+                (!string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]) ||
+                 EnvironmentInfo.Settings.IsVirtualInstallDisabled(p_gmfGameModeFactory.GameModeDescriptor.ModeId)))
 			{
 				try
 				{
@@ -706,7 +708,11 @@
             string virtualFolderSetting = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
             string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
 
-            if (string.IsNullOrWhiteSpace(installInfoPath) || string.IsNullOrWhiteSpace(modsPath) || string.IsNullOrWhiteSpace(virtualFolderSetting))
+            if (string.IsNullOrWhiteSpace(installInfoPath) || string.IsNullOrWhiteSpace(modsPath))
+                return false;
+            if (EnvironmentInfo.Settings.IsVirtualInstallDisabled(gameId))
+                return true;
+            if (string.IsNullOrWhiteSpace(virtualFolderSetting))
                 return false;
 
             string virtualPath = gameStorageService.NormalizeVirtualInstallDirectory(virtualFolderSetting);

@@ -12,6 +12,7 @@
 	using Nexus.Client.Commands;
 	using Nexus.Client.Games.Tools;
 	using Nexus.Client.ModManagement;
+	using Nexus.Client.Settings;
 	using Nexus.Client.UI;
 
 	public partial class MainForm
@@ -471,6 +472,7 @@
 			_updatingInstallMethodSelector = true;
 			try
 			{
+				_installMethodSelector.Enabled = !ViewModel.EnvironmentInfo.Settings.IsVirtualInstallDisabled(ViewModel.GameMode.ModeId);
 				_installMethodSelector.EditValue = ViewModel.ModManagerVM.PreferredInstallMethod == ModInstallMethod.Direct
 					? L("MainForm.InstallMethod.Direct", "Direct")
 					: L("MainForm.InstallMethod.Virtual", "Virtual");
@@ -488,6 +490,11 @@
 		{
 			if (_updatingInstallMethodSelector || ViewModel?.ModManagerVM == null)
 				return;
+			if (ViewModel.EnvironmentInfo.Settings.IsVirtualInstallDisabled(ViewModel.GameMode.ModeId))
+			{
+				RefreshInstallMethodSelector();
+				return;
+			}
 
 			string selected = Convert.ToString(_installMethodSelector.EditValue);
 			ViewModel.ModManagerVM.PreferredInstallMethod = String.Equals(selected, L("MainForm.InstallMethod.Direct", "Direct"), StringComparison.CurrentCultureIgnoreCase)

@@ -337,6 +337,8 @@ namespace Nexus.Client.ModManagement.UI
 			get => Settings.GetPreferredInstallMethod(ModManager.GameMode.ModeId);
 			set
 			{
+				if (value == ModInstallMethod.Virtual && Settings.IsVirtualInstallDisabled(ModManager.GameMode.ModeId))
+					return;
 				if (PreferredInstallMethod == value)
 					return;
 

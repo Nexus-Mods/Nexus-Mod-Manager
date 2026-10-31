@@ -37,7 +37,8 @@ namespace Nexus.Client.GameStorage
             return status == GameStorageHealthStatus.Healthy ||
                 status == GameStorageHealthStatus.LegacyValidNeedsInitialization ||
                 status == GameStorageHealthStatus.CompatibleSharedModsLibrary ||
-                status == GameStorageHealthStatus.LinkFolderNotRequired;
+                status == GameStorageHealthStatus.LinkFolderNotRequired ||
+                status == GameStorageHealthStatus.VirtualInstallNotConfigured;
         }
 
         /// <summary>
@@ -178,7 +179,8 @@ namespace Nexus.Client.GameStorage
             LanguageManager.Get("GameStorage.HealthStatus.Unknown", "Unknown"),
             LanguageManager.Get("GameStorage.HealthStatus.InvalidManifest", "Invalid manifest"),
             LanguageManager.Get("GameStorage.HealthStatus.UnsupportedManifestVersion", "Unsupported manifest version"),
-            LanguageManager.Get("GameStorage.HealthStatus.FolderRoleCollision", "Folder role collision")
+            LanguageManager.Get("GameStorage.HealthStatus.FolderRoleCollision", "Folder role collision"),
+            LanguageManager.Get("GameStorage.HealthStatus.VirtualInstallNotConfigured", "Direct Install only")
         };
 
         private static readonly string[] ConfidenceNames =

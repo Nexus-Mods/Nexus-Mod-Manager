@@ -39,6 +39,7 @@ namespace Nexus.Client.Games.Settings
 				lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
 				Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
 				rdcDirectories.ViewModel = m_vmlViewModel.VirtualDirectoriesControlVM;
+				m_vmlViewModel.VirtualDirectoriesControlVM.PropertyChanged += (sender, args) => RefreshInstallMethodSelector();
 				RefreshInstallMethodSelector();
 				ApplyTheme(m_vmlViewModel.GameModeDescriptor.ModeTheme);
 			}
@@ -126,6 +127,9 @@ namespace Nexus.Client.Games.Settings
 			m_booUpdatingInstallMethod = true;
 			try
 			{
+				m_cbxInstallMethod.Enabled = !String.IsNullOrWhiteSpace(ViewModel.VirtualDirectoriesControlVM.VirtualDirectory);
+				if (!m_cbxInstallMethod.Enabled)
+					ViewModel.PreferredInstallMethod = ModInstallMethod.Direct;
 				m_cbxInstallMethod.SelectedIndex = ViewModel.PreferredInstallMethod == ModInstallMethod.Direct ? 1 : 0;
 				UpdateInstallMethodDescription();
 			}
@@ -150,6 +154,12 @@ namespace Nexus.Client.Games.Settings
 		{
 			if (m_lblInstallMethodDescription == null || m_cbxInstallMethod == null)
 				return;
+			if (!m_cbxInstallMethod.Enabled)
+			{
+				m_lblInstallMethodDescription.Text = LanguageManager.Get("GameStorage.Health.VirtualInstallNotConfigured",
+					"No Virtual Install folder is selected. Only Direct Install is available.");
+				return;
+			}
 
 			m_lblInstallMethodDescription.Text = m_cbxInstallMethod.SelectedIndex == 1
 				? LanguageManager.Get("GameStorage.InstallMethod.Direct.Description", "Direct Install copies mod files directly into the game folders without staging them in VirtualInstall. Virtual storage folders remain configured so you can switch back to Virtual Install at any time.")

@@ -155,7 +155,7 @@ namespace Nexus.Client.GameStorage.UI
         private void ApplyRequested(object sender, EventArgs e)
         {
             // Guard keyboard/programmatic activation as well as the disabled button.
-            if (_closing || _refreshBusy || _validationBusy)
+            if (_closing || !_control.CanApply)
                 return;
 
             var selectedCandidate = _control.SelectedCandidate;
@@ -363,7 +363,8 @@ namespace Nexus.Client.GameStorage.UI
                 ModsPath = candidate.ModsPath,
                 VirtualInstallPath = candidate.VirtualInstallPath,
                 LinkFolderPath = candidate.LinkFolderPath,
-                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath),
+                LinkFolderRequired = !string.IsNullOrWhiteSpace(candidate.VirtualInstallPath) &&
+                    (candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, _currentPaths.GameInstallPath)),
                 CompatibleSharedModsGameIds = _currentPaths.CompatibleSharedModsGameIds == null
                     ? new List<string>()
                     : new List<string>(_currentPaths.CompatibleSharedModsGameIds)

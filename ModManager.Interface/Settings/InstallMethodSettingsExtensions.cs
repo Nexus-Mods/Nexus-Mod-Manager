@@ -8,8 +8,17 @@ namespace Nexus.Client.Settings
 	/// </summary>
 	public static class InstallMethodSettingsExtensions
 	{
+		/// <summary>Recognizes an explicitly empty Virtual folder while preserving legacy unset settings.</summary>
+		public static bool IsVirtualInstallDisabled(this ISettings settings, string gameModeId)
+		{
+			if (settings == null)
+				throw new ArgumentNullException(nameof(settings));
+			return !string.IsNullOrWhiteSpace(gameModeId) && settings.VirtualFolder != null &&
+				settings.VirtualFolder.ContainsKey(gameModeId) && string.IsNullOrWhiteSpace(settings.VirtualFolder[gameModeId]);
+		}
+
 		/// <summary>
-		/// Gets the preferred install method for a game, defaulting missing or invalid values to Virtual.
+		/// Gets the preferred method, using Direct for an explicitly empty Virtual folder and legacy Virtual defaults otherwise.
 		/// </summary>
 		/// <param name="settings">The application settings.</param>
 		/// <param name="gameModeId">The game mode identifier.</param>
@@ -18,6 +27,8 @@ namespace Nexus.Client.Settings
 		{
 			if (settings == null)
 				throw new ArgumentNullException(nameof(settings));
+			if (settings.IsVirtualInstallDisabled(gameModeId))
+				return ModInstallMethod.Direct;
 			if (string.IsNullOrWhiteSpace(gameModeId) || settings.PreferredInstallMethod == null)
 				return ModInstallMethod.Virtual;
 

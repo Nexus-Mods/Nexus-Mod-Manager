@@ -740,23 +740,42 @@
 		}
 
 		/// <summary>
-		/// Verifies failed startup recovery retains its durable journal for a later retry.
+		/// Missing Virtual links or sources are skipped while other targets recover and subsequent startups remain usable.
 		/// </summary>
-		[Test]
-		public void PendingDeploymentRecoveryJournal_FailedVirtualRecoveryRetainsJournal()
+		[TestCase(false)]
+		[TestCase(true)]
+		public void PendingDeploymentRecoveryJournal_MissingVirtualStateDoesNotBlockStartup(bool missingLink)
 		{
 			using (var environment = new MixedTestEnvironment())
 			{
 				IMod virtualMod = environment.RegisterMod("BrokenRecoveryVirtual", ModInstallMethod.Virtual);
 				ModDeploymentTarget target = environment.Target(@"bin\recovery-missing-source.dll");
-				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null, false, true);
+				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null);
 				string transactionDirectory = environment.CreateVirtualRecoveryJournal(target, environment.Key(virtualMod));
-				File.Delete(environment.Manager.GetDeploymentPath(target));
-				File.Delete(source);
+				if (missingLink)
+				{
+					using (var scope = new TransactionScope())
+					{
+						environment.VirtualState.Activator.RemoveVirtualLinkRecord(target, environment.Key(virtualMod));
+						scope.Complete();
+					}
+				}
+				else
+					File.Delete(source);
 
-				Assert.Throws<FileNotFoundException>(() =>
+				IMod healthyMod = environment.RegisterMod("HealthyRecoveryVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget healthyTarget = environment.Target(@"bin\recovery-healthy.dll");
+				environment.AddVirtualOwner(healthyMod, healthyTarget, "healthy", true, 0, null);
+				environment.CreateVirtualRecoveryJournal(healthyTarget, environment.Key(healthyMod), transactionDirectory);
+				File.Delete(environment.Manager.GetDeploymentPath(healthyTarget));
+
+				Assert.DoesNotThrow(() =>
 					new ModDeploymentManager(environment.InstallLog, environment.VirtualState.Activator, environment.GameMode));
-				Assert.IsTrue(Directory.Exists(transactionDirectory));
+				Assert.AreEqual("virtual", environment.ReadTarget(target), "Skipped targets must retain their existing deployed files.");
+				Assert.AreEqual("healthy", environment.ReadTarget(healthyTarget), "Other records in the same journal must still recover.");
+				Assert.IsFalse(Directory.Exists(transactionDirectory));
+				Assert.DoesNotThrow(() =>
+					new ModDeploymentManager(environment.InstallLog, environment.VirtualState.Activator, environment.GameMode));
 			}
 		}
 
@@ -1247,11 +1266,11 @@
 			}
 
 			/// <summary>
-			/// Creates a durable pre-commit Virtual deployment journal for startup recovery tests.
+			/// Creates or appends to a durable pre-commit Virtual deployment journal for startup recovery tests.
 			/// </summary>
-			public string CreateVirtualRecoveryJournal(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+			public string CreateVirtualRecoveryJournal(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, string transactionDirectory = null)
 			{
-				string transactionDirectory = Path.Combine(OverwritePath, "deployment", "_recovery",
+				transactionDirectory = transactionDirectory ?? Path.Combine(OverwritePath, "deployment", "_recovery",
 					"test-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(transactionDirectory);
 				new XDocument(new XElement("deploymentRecovery",
@@ -1273,7 +1292,7 @@
 					new XElement("owners"),
 					new XElement("backups"));
 				byte[] payload = Encoding.UTF8.GetBytes(record.ToString(SaveOptions.DisableFormatting));
-				using (var stream = new FileStream(Path.Combine(transactionDirectory, "targets.bin"), FileMode.Create, FileAccess.Write, FileShare.None))
+				using (var stream = new FileStream(Path.Combine(transactionDirectory, "targets.bin"), FileMode.Append, FileAccess.Write, FileShare.None))
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8))
 				{
 					writer.Write(payload.Length);

@@ -89,7 +89,10 @@ namespace Nexus.Client.Games.Settings
 			if (!VirtualDirectoriesControlVM.ValidateSettings())
 				return false;
 
-			StoragePathsChanged = VirtualDirectoriesControlVM.SaveSettings();
+			if (String.IsNullOrWhiteSpace(VirtualDirectoriesControlVM.VirtualDirectory))
+				PreferredInstallMethod = ModInstallMethod.Direct;
+			else
+				StoragePathsChanged = VirtualDirectoriesControlVM.SaveSettings();
 			ModInstallMethod currentMethod = EnvironmentInfo.Settings.GetPreferredInstallMethod(GameModeDescriptor.ModeId);
 			if (currentMethod != PreferredInstallMethod)
 			{

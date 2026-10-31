@@ -130,6 +130,25 @@ namespace NexusClientTests
             Assert.AreEqual(ModInstallMethod.Direct, settings.GetPreferredInstallMethod("SkyrimSE"));
         }
 
+        /// <summary>An explicit blank Virtual folder forces Direct even if a previous preference still says Virtual.</summary>
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase(" ")]
+        public void PreferredInstallMethod_EmptyVirtualFolderForcesDirect(string virtualFolder)
+        {
+            var values = new PerGameModeSettings<string>();
+            values["Fallout4"] = "Virtual";
+            var folders = new PerGameModeSettings<string>();
+            folders["Fallout4"] = virtualFolder;
+            ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
+                method.Name == "get_PreferredInstallMethod" ? values : method.Name == "get_VirtualFolder" ? folders : null);
+
+            Assert.That(settings.GetPreferredInstallMethod("Fallout4"), Is.EqualTo(ModInstallMethod.Direct));
+            Assert.That(settings.GetPreferredInstallMethod("SkyrimSE"), Is.EqualTo(ModInstallMethod.Virtual), "Legacy unset settings keep their default.");
+            folders["Fallout4"] = @"C:\NMM\Fallout4";
+            Assert.That(settings.GetPreferredInstallMethod("Fallout4"), Is.EqualTo(ModInstallMethod.Virtual));
+        }
+
         [Test]
         public void Upgrade0500_OnlyBumpsVersionAndKeepsExistingRecordsImplicitVirtual()
         {

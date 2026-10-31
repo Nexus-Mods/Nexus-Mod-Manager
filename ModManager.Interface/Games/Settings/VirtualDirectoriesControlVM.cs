@@ -10,6 +10,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.Util.Localization;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -232,6 +233,8 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
+			if (EnvironmentInfo.Settings.IsVirtualInstallDisabled(GameModeDescriptor.ModeId) && String.IsNullOrWhiteSpace(VirtualDirectory))
+				return true;
 			return ValidateVirtualDirectory() && (!MultiHDInstall || ValidateLinkDirectory());
 		}
 
@@ -305,6 +308,13 @@ namespace Nexus.Client.Games.Settings
 		/// </summary>
 		public void LoadSettings()
 		{
+			if (EnvironmentInfo.Settings.IsVirtualInstallDisabled(GameModeDescriptor.ModeId))
+			{
+				VirtualDirectory = String.Empty;
+				LinkDirectory = String.Empty;
+				MultiHDInstall = false;
+				return;
+			}
 			string strRegGameMode = @"HKEY_LOCAL_MACHINE\SOFTWARE\NexusModManager\" + GameModeDescriptor.ModeId;
 			string strRegVirtual = String.Empty;
 			string strRegHDLink = String.Empty;

@@ -6,6 +6,8 @@ using System.Linq;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.Util.Localization;
+using Nexus.Client.ModManagement;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.GameStorage
 {
@@ -349,17 +351,18 @@ namespace Nexus.Client.GameStorage
                 return null;
 
             string virtualInstallPath = NormalizeVirtualInstallDirectory(
-                FirstConfiguredPath(candidate.VirtualInstallPath, currentPaths.VirtualInstallPath));
-            bool linkRequired = candidate.LinkFolderRequired ||
-                IsLinkFolderRequired(virtualInstallPath, currentPaths.GameInstallPath);
+                candidate.VirtualInstallPath ?? (candidate.InstallInfoPath != null && candidate.ModsPath != null
+                    ? null : currentPaths.VirtualInstallPath));
+            bool linkRequired = !string.IsNullOrWhiteSpace(virtualInstallPath) && (candidate.LinkFolderRequired ||
+                IsLinkFolderRequired(virtualInstallPath, currentPaths.GameInstallPath));
 
             return new GameStoragePathSet
             {
                 GameId = currentPaths.GameId,
                 GameName = currentPaths.GameName,
                 GameInstallPath = currentPaths.GameInstallPath,
-                InstallInfoPath = NormalizeDirectoryPath(FirstConfiguredPath(candidate.InstallInfoPath, currentPaths.InstallInfoPath)),
-                ModsPath = NormalizeDirectoryPath(FirstConfiguredPath(candidate.ModsPath, currentPaths.ModsPath)),
+                InstallInfoPath = NormalizeDirectoryPath(candidate.InstallInfoPath ?? currentPaths.InstallInfoPath),
+                ModsPath = NormalizeDirectoryPath(candidate.ModsPath ?? currentPaths.ModsPath),
                 VirtualInstallPath = virtualInstallPath,
                 LinkFolderPath = ResolveLinkFolderPath(currentPaths, candidate.LinkFolderPath, linkRequired),
                 LinkFolderRequired = linkRequired,
@@ -374,7 +377,7 @@ namespace Nexus.Client.GameStorage
             if (paths == null ||
                 !IsUsableDirectoryPath(paths.InstallInfoPath) ||
                 !IsUsableDirectoryPath(paths.ModsPath) ||
-                !IsUsableDirectoryPath(paths.VirtualInstallPath))
+                (!string.IsNullOrWhiteSpace(paths.VirtualInstallPath) && !IsUsableDirectoryPath(paths.VirtualInstallPath)))
             {
                 return false;
             }
@@ -382,11 +385,6 @@ namespace Nexus.Client.GameStorage
             return !paths.LinkFolderRequired ||
                 (IsUsableDirectoryPath(paths.LinkFolderPath) &&
                  IsLinkFolderOnGameDrive(paths.LinkFolderPath, paths.GameInstallPath));
-        }
-
-        private static string FirstConfiguredPath(string preferredPath, string fallbackPath)
-        {
-            return string.IsNullOrWhiteSpace(preferredPath) ? fallbackPath : preferredPath;
         }
 
         private static bool IsUsableDirectoryPath(string path)
@@ -449,6 +447,11 @@ namespace Nexus.Client.GameStorage
             var paths = CreatePathSetFromCandidate(
                 currentPaths,
                 candidate);
+            if (!CanApplyExplicitlySelectedPaths(paths))
+            {
+                healthCheck = ValidateStorage(paths);
+                return false;
+            }
             if (!TryGuardWitcherRecoveryPaths(paths, out healthCheck))
                 return false;
 
@@ -521,7 +524,9 @@ namespace Nexus.Client.GameStorage
 			// VirtualModActivator expects the parent directory and appends
 			// "VirtualInstall" itself.
 			_environmentInfo.Settings.VirtualFolder[gameId] =
-				GetVirtualFolderSettingPath(paths.VirtualInstallPath);
+				GetVirtualFolderSettingPath(paths.VirtualInstallPath) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(paths.VirtualInstallPath) && _environmentInfo.Settings.PreferredInstallMethod != null)
+                _environmentInfo.Settings.SetPreferredInstallMethod(gameId, ModInstallMethod.Direct);
 
 			_environmentInfo.Settings.HDLinkFolder[gameId] =
 				paths.LinkFolderRequired
@@ -777,6 +782,7 @@ namespace Nexus.Client.GameStorage
 				}
 
 				if (item.Role == GameStorageFolderRole.VirtualInstall &&
+					item.Status != GameStorageHealthStatus.VirtualInstallNotConfigured &&
 					item.Status != GameStorageHealthStatus.Healthy &&
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 					item.Status != GameStorageHealthStatus.MissingVirtualInstall &&
@@ -838,7 +844,8 @@ namespace Nexus.Client.GameStorage
 				if (item.Status == GameStorageHealthStatus.Healthy ||
 					item.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization ||
 					item.Status == GameStorageHealthStatus.CompatibleSharedModsLibrary ||
-					item.Status == GameStorageHealthStatus.LinkFolderNotRequired)
+					item.Status == GameStorageHealthStatus.LinkFolderNotRequired ||
+					item.Status == GameStorageHealthStatus.VirtualInstallNotConfigured)
 				{
 					continue;
 				}
@@ -1695,11 +1702,11 @@ namespace Nexus.Client.GameStorage
 				NormalizeVirtualInstallDirectory(
 					candidate.VirtualInstallPath);
 
-			bool linkRequired =
+			bool linkRequired = !string.IsNullOrWhiteSpace(virtualInstallPath) && (
 				candidate.LinkFolderRequired ||
 				IsLinkFolderRequired(
 					virtualInstallPath,
-					currentPaths.GameInstallPath);
+					currentPaths.GameInstallPath));
 
 			string linkFolderPath = ResolveLinkFolderPath(
 				currentPaths,
@@ -1834,10 +1841,10 @@ namespace Nexus.Client.GameStorage
                 candidate.VirtualInstallPath);
 
             candidate.LinkFolderRequired =
-                candidate.LinkFolderRequired ||
+                !string.IsNullOrWhiteSpace(candidate.VirtualInstallPath) && (candidate.LinkFolderRequired ||
                 IsLinkFolderRequired(
                     candidate.VirtualInstallPath,
-                    currentPaths.GameInstallPath);
+                    currentPaths.GameInstallPath));
 
             candidate.LinkFolderPath = ResolveLinkFolderPath(
                 currentPaths,
