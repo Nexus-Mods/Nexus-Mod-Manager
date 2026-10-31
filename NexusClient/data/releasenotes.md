@@ -1,5 +1,21 @@
 # NMM Community Edition release notes
 
+## Version 0.93.10
+
+**New features and improvements**
+
+- Game Storage can now be configured without a Virtual Install folder. These setups use **Direct Install** only.
+
+**Bug fixes**
+
+- Fixed game modes failing to open when virtual links were missing.
+- Fixed Game Storage validation preventing users from confirming their selected folders.
+- Fixed Game Storage setup accepting configurations without Install Info or Mods folders.
+- Fixed mod uninstallation failing when replaced files could not be restored.
+- Fixed mod deletion.
+- Fixed Starfield Creation plugin load order.
+- Fixed Baldur’s Gate 3 load-order parsing.
+
 ## Version 0.93.9
 
 **New features and improvements**
