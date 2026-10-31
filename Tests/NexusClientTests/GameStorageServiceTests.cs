@@ -50,6 +50,176 @@ namespace NexusClientTests
             Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(null), Is.True);
         }
 
+        /// <summary>A reviewed path choice survives restart and native identity resolution without repairing existing metadata.</summary>
+        [TestCase("invalid")]
+        [TestCase("future")]
+        [TestCase("other-game")]
+        [TestCase("mixed-identities")]
+        [TestCase("same-folder")]
+        public void ConfirmSelectedStoragePaths_MetadataWarnings_DoNotBlockConfirmedSelection(string problem)
+        {
+            var paths = CreateStorage("Fallout4", "Selected", withArchive: true, withVirtualFile: true);
+            Directory.CreateDirectory(paths.GameInstallPath);
+            string manifestPath = Path.Combine(paths.ModsPath, ".nmm-folder.json");
+            if (problem == "invalid" || problem == "future")
+                File.WriteAllText(manifestPath, problem == "invalid" ? "invalid json" : "{\"SchemaVersion\":999}");
+            else if (problem == "other-game")
+                WriteFolderManifest(paths.ModsPath, "SkyrimSE", "foreign-storage", "Mods");
+            else if (problem == "mixed-identities")
+            {
+                WriteFolderManifest(paths.InstallInfoPath, paths.GameId, "install-records-storage", "InstallInfo");
+                WriteFolderManifest(paths.ModsPath, paths.GameId, "archive-storage", "Mods");
+            }
+            else
+            {
+                paths.InstallInfoPath = paths.ModsPath;
+                WriteFolderManifest(paths.ModsPath, paths.GameId, "shared-folder-storage", "Mods");
+            }
+            string manifestBefore = File.ReadAllText(manifestPath);
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(_service.ValidateStorage(paths)), Is.True);
+
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(paths, out health), Is.True);
+            string registryBefore = File.ReadAllText(_service.RegistryPath);
+            var reopened = new GameStorageService(_service.RegistryDirectory, new Version(9, 0, 1));
+            GameStorageHealthCheck afterRestart = reopened.PrepareMetadataForMutation(paths);
+
+            Assert.That(afterRestart.HasConfirmedPaths, Is.True);
+            Assert.That(afterRestart.HasWarnings, Is.True, "Warnings remain available for inspection.");
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(afterRestart), Is.False);
+            var authority = new Nexus.Client.CollectionManagement.CollectionTargetIdentityResolver(reopened).Resolve(paths);
+            Assert.That(authority.StorageId, Is.EqualTo(health.StorageId));
+            if (problem == "mixed-identities")
+                Assert.That(authority.StorageId, Is.EqualTo("install-records-storage"));
+            Assert.That(File.ReadAllText(manifestPath), Is.EqualTo(manifestBefore));
+            Assert.That(File.ReadAllText(_service.RegistryPath), Is.EqualTo(registryBefore));
+            Assert.That(File.ReadAllText(Path.Combine(paths.ModsPath, "ExampleMod.7z")), Is.EqualTo("archive"));
+            Assert.That(File.ReadAllText(Path.Combine(paths.VirtualInstallPath, "Data", "Example.esp")), Is.EqualTo("plugin"));
+        }
+
+        /// <summary>The public save path retains legacy VirtualFolder semantics and changes only the selected game's settings.</summary>
+        [Test]
+        public void ApplySelectedCandidatePaths_SavesConfirmedFoldersAndHistoricalVirtualRoot()
+        {
+            var strings = new System.Collections.Generic.Dictionary<string, Nexus.Client.Settings.PerGameModeSettings<string>>();
+            foreach (string name in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder" })
+                strings[name] = new Nexus.Client.Settings.PerGameModeSettings<string>();
+            strings["ModFolder"]["SkyrimSE"] = "keep-other-game-setting";
+            var multiDrive = new Nexus.Client.Settings.PerGameModeSettings<bool>();
+            var settings = InterfaceStub<Nexus.Client.Settings.ISettings>.Create((method, args) =>
+            {
+                if (method.Name == "get_MultiHDInstall") return multiDrive;
+                if (method.Name.StartsWith("get_") && strings.ContainsKey(method.Name.Substring(4)))
+                    return strings[method.Name.Substring(4)];
+                return null;
+            });
+            var environment = InterfaceStub<Nexus.Client.IEnvironmentInfo>.Create((method, args) =>
+            {
+                if (method.Name == "get_Settings") return settings;
+                if (method.Name == "get_ApplicationPersonalDataFolderPath") return _tempRoot;
+                if (method.Name == "get_ApplicationVersion") return new Version(9, 0, 1);
+                return null;
+            });
+            var service = new GameStorageService(environment);
+            var paths = CreateStorage("Fallout4", "Selected");
+            File.WriteAllText(Path.Combine(paths.ModsPath, ".nmm-folder.json"), "invalid json");
+
+            GameStorageHealthCheck health;
+            Assert.That(service.ApplySelectedCandidatePaths(paths, CreateCandidate(paths), out health), Is.True);
+            Assert.That(health.HasConfirmedPaths, Is.True);
+            Assert.That(strings["InstallInfoFolder"][paths.GameId], Is.EqualTo(paths.InstallInfoPath));
+            Assert.That(strings["ModFolder"][paths.GameId], Is.EqualTo(paths.ModsPath));
+            Assert.That(strings["VirtualFolder"][paths.GameId], Is.EqualTo(Path.GetDirectoryName(paths.VirtualInstallPath)));
+            Assert.That(strings["ModFolder"]["SkyrimSE"], Is.EqualTo("keep-other-game-setting"));
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(service.ValidateStorage(paths)), Is.False);
+        }
+
+        /// <summary>Confirmation belongs to one exact setup and expires when paths or on-disk metadata change.</summary>
+        [TestCase("mods")]
+        [TestCase("game")]
+        [TestCase("metadata")]
+        [TestCase("sharing-policy")]
+        public void ConfirmSelectedStoragePaths_ChangedSelectionRequiresReview(string change)
+        {
+            var paths = CreateStorage("Fallout4", "Selected");
+            string manifestPath = Path.Combine(paths.InstallInfoPath, ".nmm-folder.json");
+            File.WriteAllText(manifestPath, "invalid json");
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(paths, out health), Is.True);
+
+            if (change == "mods")
+            {
+                paths.ModsPath = Path.Combine(_tempRoot, "OtherMods");
+                Directory.CreateDirectory(paths.ModsPath);
+            }
+            else if (change == "game")
+                paths.GameInstallPath = Path.Combine(_tempRoot, "OtherGame");
+            else if (change == "metadata")
+                File.WriteAllText(manifestPath, "different invalid json");
+            else
+                paths.CompatibleSharedModsGameIds.Add("SkyrimSE");
+
+            health = _service.ValidateStorage(paths);
+            Assert.That(health.HasConfirmedPaths, Is.False);
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(health), Is.True);
+        }
+
+        /// <summary>Explicitly choosing new folders creates them and accepts empty storage without touching the previous setup.</summary>
+        [Test]
+        public void ConfirmSelectedStoragePaths_NewFoldersAreCreatedAndRemembered()
+        {
+            var previous = CreateStorage("Fallout4", "Previous", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(previous);
+            var selected = CreateStorage("Fallout4", "Selected");
+            selected.InstallInfoPath = Path.Combine(_tempRoot, "New", "InstallInfo");
+            selected.ModsPath = Path.Combine(_tempRoot, "New", "Mods");
+            selected.VirtualInstallPath = Path.Combine(_tempRoot, "New", "VirtualInstall");
+
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(selected, out health), Is.True);
+            Assert.That(Directory.Exists(selected.InstallInfoPath), Is.True);
+            Assert.That(Directory.Exists(selected.ModsPath), Is.True);
+            Assert.That(Directory.Exists(selected.VirtualInstallPath), Is.True);
+            Assert.That(_service.PrepareMetadataForMutation(selected).HasConfirmedPaths, Is.True);
+            Assert.That(_service.ValidateStorage(selected).IsUsable, Is.True);
+            Assert.That(File.Exists(Path.Combine(selected.InstallInfoPath, "InstallLog.xml")), Is.False);
+            Assert.That(File.ReadAllText(Path.Combine(previous.ModsPath, "ExampleMod.7z")), Is.EqualTo("archive"));
+            Assert.That(File.ReadAllText(Path.Combine(previous.VirtualInstallPath, "Data", "Example.esp")), Is.EqualTo("plugin"));
+        }
+
+        /// <summary>A saved choice does not hide data that subsequently disappears or an inaccessible selected directory.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ConfirmSelectedStoragePaths_LaterMissingDataStillRequiresReview(bool missingDirectory)
+        {
+            var paths = CreateStorage("Fallout4", "Selected", withArchive: true, withVirtualFile: true);
+            File.WriteAllText(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json"), "invalid json");
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(paths, out health), Is.True);
+            File.Delete(Path.Combine(paths.ModsPath, "ExampleMod.7z"));
+            if (missingDirectory)
+                Directory.Delete(paths.ModsPath);
+
+            health = _service.ValidateStorage(paths);
+            Assert.That(health.HasConfirmedPaths, Is.False);
+            Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(health), Is.True);
+        }
+
+        /// <summary>Real filesystem failures remain actionable and never persist a successful confirmation.</summary>
+        [Test]
+        public void ConfirmSelectedStoragePaths_PathIsAFile_ReportsFailure()
+        {
+            var paths = CreateStorage("Fallout4", "Selected");
+            paths.ModsPath = Path.Combine(_tempRoot, "existing-file");
+            File.WriteAllText(paths.ModsPath, "keep this file");
+
+            GameStorageHealthCheck health;
+            Assert.That(_service.ConfirmSelectedStoragePaths(paths, out health), Is.False);
+            Assert.That(health.Items.Any(x => x.Status == GameStorageHealthStatus.NotWritable), Is.True);
+            Assert.That(File.Exists(_service.RegistryPath), Is.False);
+            Assert.That(File.ReadAllText(paths.ModsPath), Is.EqualTo("keep this file"));
+        }
+
         [Test]
         public void ValidateStorage_ValidLegacyFolders_IsReadOnly()
         {

@@ -511,7 +511,7 @@
                         }
                     }
 
-                    if (!storageHealth.IsHealthy)
+                    if (!storageHealth.IsHealthy && !storageHealth.HasConfirmedPaths)
                     {
                         ShowMessage(new ViewMessage(
                             storageHealth.ToUserMessage() + Environment.NewLine + Environment.NewLine +
@@ -625,6 +625,8 @@
 
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
             healthCheck = gameStorageService.ValidateStorage(paths);
+            if (healthCheck.HasConfirmedPaths)
+                return true;
             if (!healthCheck.IsHealthy &&
                 gameStorageService.ShouldAttemptKnownLegacyStorageMetadataRepair(healthCheck) &&
                 gameStorageService.RepairKnownLegacyStorageMetadata(paths))
@@ -673,18 +675,11 @@
                     return gameModeFactory.PerformInitialSetup(ShowView, ShowMessage);
                 }
 
-                if (gameStorageService.ApplyInitialSetupCandidate(paths, setupForm.SelectedCandidate, out healthCheck))
+                if (gameStorageService.ApplyInitialSetupCandidate(paths, setupForm.SelectedCandidate, true, out healthCheck))
                     return true;
 
-                if (gameStorageService.ApplySelectedCandidatePaths(paths, setupForm.SelectedCandidate))
-                {
-                    string warning = healthCheck?.ToUserMessage() ??
-                        LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated.");
-                    warning += Environment.NewLine + Environment.NewLine +
-                        LanguageManager.Get("GameStorage.Setup.ValidationContinue", "The folders you selected will be used anyway. Existing Game Storage metadata was left unchanged.");
-                    ShowMessage(new ViewMessage(warning, null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
+                if (gameStorageService.ApplySelectedCandidatePaths(paths, setupForm.SelectedCandidate, out healthCheck))
                     return true;
-                }
 
                 ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated."), null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
                 paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);

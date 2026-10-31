@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
@@ -490,7 +491,7 @@ namespace Nexus.Client.GameStorage
 
 		/// <summary>
 		/// Resolves a persisted Game Storage identity for the exact selected path set without creating metadata or
-		/// borrowing the active identity of another storage. Conflicting persisted evidence fails closed.
+		/// borrowing the active identity of another storage. Conflicting evidence requires an exact reviewed selection.
 		/// </summary>
 		public bool TryResolveExistingStorageId(GameStoragePathSet paths, out string storageId)
 		{
@@ -522,6 +523,8 @@ namespace Nexus.Client.GameStorage
         internal GameStorageHealthCheck PrepareMetadataForMutation(GameStoragePathSet paths)
         {
             GameStorageHealthCheck health = ValidateStorage(paths);
+            if (health.HasConfirmedPaths)
+                return health;
             if (!health.IsHealthy && ShouldAttemptKnownLegacyStorageMetadataRepair(health) &&
                 RepairKnownLegacyStorageMetadata(paths))
                 health = ValidateStorage(paths);
@@ -573,6 +576,8 @@ namespace Nexus.Client.GameStorage
 			// Validate the final native destinations before attempting any repair.
 			RequireWitcher3StorageWrite(paths);
 			var registry = LoadRegistry();
+			if (GetConfirmedStorageEntry(paths, registry) != null)
+				return;
 
 			TryRepairLegacyVirtualInstallManifestCollision(
 				paths,
@@ -693,7 +698,61 @@ namespace Nexus.Client.GameStorage
             }
 
             AddSuspiciousEmptyWarnings(result, paths, lastKnownGood);
+            GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
+            result.HasConfirmedPaths = result.IsUsable && confirmed != null &&
+                string.Equals(confirmed.StorageId, storageId, StringComparison.OrdinalIgnoreCase);
             return result;
+        }
+
+        /// <summary>
+        /// Finds an explicit choice only while its paths and manifest contents remain unchanged.
+        /// Missing directories and newly empty storage still require review through normal health checks.
+        /// </summary>
+        private GameStorageRegistryEntry GetConfirmedStorageEntry(GameStoragePathSet paths, GameStorageRegistry registry)
+        {
+            if (!registry.KnownStorages.Any(x => x != null &&
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(x.ConfirmedPathsFingerprint)))
+                return null;
+
+            string fingerprint = GetSelectedPathsFingerprint(paths);
+            return fingerprint == null ? null : registry.KnownStorages.FirstOrDefault(x => x != null &&
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(x.StorageId) &&
+                string.Equals(x.ConfirmedPathsFingerprint, fingerprint, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// Fingerprints exact selected paths and metadata without changing foreign, damaged or newer manifests.
+        /// Payload changes are deliberately excluded; normal storage-health checks handle missing data.
+        /// </summary>
+        private string GetSelectedPathsFingerprint(GameStoragePathSet paths)
+        {
+            var values = new List<string> { paths.GameId.ToUpperInvariant(), paths.LinkFolderRequired.ToString() };
+            foreach (string path in new[] { paths.GameInstallPath, paths.InstallInfoPath, paths.ModsPath,
+                paths.VirtualInstallPath, paths.LinkFolderRequired ? paths.LinkFolderPath : null })
+                values.Add(NormalizeDirectoryPath(path)?.ToUpperInvariant());
+            values.AddRange((paths.CompatibleSharedModsGameIds ?? new List<string>()).OrderBy(x => x, StringComparer.OrdinalIgnoreCase));
+
+            try
+            {
+                var metadataPaths = GetMetadataFolderAssignments(paths)
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                    .Select(x => Path.Combine(x.Value, GameStorageConstants.FolderManifestFileName)).ToList();
+                string root = TryGetSharedStorageRoot(paths);
+                if (!string.IsNullOrWhiteSpace(root))
+                    metadataPaths.Add(Path.Combine(root, GameStorageConstants.RootManifestFileName));
+                foreach (string path in metadataPaths)
+                    values.Add(File.Exists(path) ? Convert.ToBase64String(File.ReadAllBytes(path)) : null);
+                using (SHA256 hash = SHA256.Create())
+                    return Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(values))));
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                exception is System.Security.SecurityException || exception is ArgumentException || exception is NotSupportedException)
+            {
+                System.Diagnostics.Trace.TraceWarning("Could not read selected Game Storage metadata: {0}", exception.Message);
+                return null;
+            }
         }
 
         /// <summary>
@@ -747,7 +806,7 @@ namespace Nexus.Client.GameStorage
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                Add(result, role, path, MissingStatus(role), required, true, LanguageManager.Format("GameStorage.Health.MissingFolder.Message", "The {0} folder is does not exist yet. It will be created when this setup is applied.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.MissingFolder.Fix", "Restore the previous folder or create a new one."));
+                Add(result, role, path, MissingStatus(role), required, true, LanguageManager.Format("GameStorage.Health.FolderWillBeCreated", "The {0} folder does not exist yet. It will be created when you save these folders.", GetRoleName(role)));
                 return;
             }
 
@@ -1190,6 +1249,7 @@ namespace Nexus.Client.GameStorage
             entry.LinkFolderRequired = paths.LinkFolderRequired;
             entry.LastSeenUtc = now;
             entry.LastKnownGood = true;
+            entry.ConfirmedPathsFingerprint = null;
             entry.LastKnownArchiveCount = CountModArchives(paths.ModsPath);
             entry.LastKnownInstallLogPresent = InstallLog.HasPersistedLog(Path.Combine(paths.InstallInfoPath ?? string.Empty, "InstallLog.xml"));
             entry.LastKnownVirtualFileCount = CountVirtualInstallPayloadFiles(paths.VirtualInstallPath);
@@ -1197,13 +1257,20 @@ namespace Nexus.Client.GameStorage
         }
 
 		/// <summary>
-		/// Resolves one existing storage identity only when folder, registry and root-manifest evidence do not conflict.
+		/// Resolves an explicitly reviewed identity, or one on which folder, registry and root evidence agree.
 		/// </summary>
 		private bool TryResolveExistingStorageId(GameStoragePathSet paths, GameStorageRegistry registry, out string storageId)
 		{
 			storageId = null;
 			if (paths == null || registry == null)
 				return false;
+
+            GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
+            if (confirmed != null && Validate(paths, confirmed.StorageId, registry).HasConfirmedPaths)
+            {
+                storageId = confirmed.StorageId;
+                return true;
+            }
 
 			List<string> candidates = GetExistingStorageIds(paths, registry);
 			if (candidates.Count != 1)
@@ -1248,6 +1315,10 @@ namespace Nexus.Client.GameStorage
 
         private string ResolveStorageId(GameStoragePathSet paths, GameStorageRegistry registry)
         {
+            GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
+            if (confirmed != null)
+                return confirmed.StorageId;
+
             string manifestStorageId = ResolveConsistentFolderManifestStorageId(paths);
             if (!string.IsNullOrWhiteSpace(manifestStorageId))
                 return manifestStorageId;

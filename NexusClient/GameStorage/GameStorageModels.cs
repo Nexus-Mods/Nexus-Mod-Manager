@@ -79,6 +79,8 @@ namespace Nexus.Client.GameStorage
         public bool LinkFolderRequired { get; set; }
         public DateTime LastSeenUtc { get; set; }
         public bool LastKnownGood { get; set; }
+        /// <summary>Records an explicit folder choice without rewriting the selected folders' manifests.</summary>
+        public string ConfirmedPathsFingerprint { get; set; }
         public int LastKnownArchiveCount { get; set; }
         public bool LastKnownInstallLogPresent { get; set; }
         public int LastKnownVirtualFileCount { get; set; }

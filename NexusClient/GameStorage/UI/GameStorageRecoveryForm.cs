@@ -116,101 +116,38 @@ namespace Nexus.Client.GameStorage.UI
                 return;
             }
 
-            if (candidate.RequiresUserConfirmation)
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
+            GameStorageHealthCheck healthCheck = _service.ValidateRecoverySelection(currentPaths, candidate);
+            if (candidate.RequiresUserConfirmation || !healthCheck.IsHealthy)
             {
                 string confirmationMessage = candidate.IsSharedModsLibrary
                     ? (candidate.SharedModsDescription ?? LanguageManager.Get("GameStorage.SharedMods.CompatibleFallback", "This Mods folder is already used by a compatible Game Mode.")) + Environment.NewLine + Environment.NewLine +
                       LanguageManager.Format("GameStorage.Recovery.ConfirmSharedMods", "Use it as a shared Mods library for {0}? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode.", _gameMode.Name)
-                    : LanguageManager.Get("GameStorage.Recovery.ConfirmApply", "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.");
+                    : LanguageManager.Get("GameStorage.Common.ConfirmSelectedFolders", "Use these folders for this game? Missing folders will be created. Existing files will not be moved or deleted.");
+
+                if (!healthCheck.IsHealthy)
+                    confirmationMessage = healthCheck.ToUserMessage() + Environment.NewLine + Environment.NewLine + confirmationMessage;
 
                 var result = XtraMessageBox.Show(this, confirmationMessage, LanguageManager.Get("GameStorage.Recovery.ConfirmTitle", "Confirm Game Storage recovery"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
 
-            if (_service.ApplyRecoveryCandidate(_gameMode, candidate, out var healthCheck))
+            // Saving is the explicit acceptance of the reviewed empty folders and same-game IDs.
+            if (_service.ApplyRecoveryCandidate(_gameMode, candidate, true, true, out healthCheck) && healthCheck.IsHealthy)
             {
                 DialogResult = DialogResult.OK;
                 return;
             }
 
-            bool acceptStorageIdRebinding = false;
-            bool acceptSuspiciousEmptyFolders = false;
-
-            if (_service.CanAcceptSameGameStorageRebinding(healthCheck))
-            {
-                SetHealth(healthCheck);
-                var result = XtraMessageBox.Show(
-                    this,
-                    LanguageManager.Get(
-                        "GameStorage.Recovery.StorageRebindConfirmMessage",
-                        "The selected folders belong to this game, but some were recorded under a different Game Storage ID. Continuing will adopt these same-game folders as one Game Storage and update NMM's hidden storage metadata. No mod files will be moved, renamed, or deleted.\n\nDo you want to continue?"),
-                    LanguageManager.Get("GameStorage.Recovery.StorageRebindConfirmTitle", "Confirm Game Storage adoption"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-
-                if (result != DialogResult.Yes)
-                    return;
-
-                acceptStorageIdRebinding = true;
-            }
-
-            if (_service.CanAcceptSuspiciousEmptyFolders(healthCheck))
-            {
-                SetHealth(healthCheck);
-                var result = XtraMessageBox.Show(
-                    this,
-                    BuildSuspiciousEmptyConfirmation(healthCheck),
-                    LanguageManager.Get("GameStorage.Recovery.EmptyFoldersConfirmTitle", "Confirm empty Game Storage"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-
-                if (result != DialogResult.Yes)
-                    return;
-
-                acceptSuspiciousEmptyFolders = true;
-            }
-
-            if ((acceptStorageIdRebinding || acceptSuspiciousEmptyFolders) &&
-                _service.ApplyRecoveryCandidate(
-                    _gameMode,
-                    candidate,
-                    acceptSuspiciousEmptyFolders,
-                    acceptStorageIdRebinding,
-                    out healthCheck))
+            if (_service.ApplySelectedCandidatePaths(currentPaths, candidate, out healthCheck))
             {
                 DialogResult = DialogResult.OK;
                 return;
             }
 
             SetHealth(healthCheck);
-            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
-            if (_service.ApplySelectedCandidatePaths(currentPaths, candidate))
-            {
-                string warning = healthCheck?.ToUserMessage() ??
-                    LanguageManager.Get("GameStorage.Recovery.ApplyUnvalidatedWarning", "NMM could not validate the selected Game Storage folders.");
-                warning += Environment.NewLine + Environment.NewLine +
-                    LanguageManager.Get("GameStorage.Recovery.ApplyUnvalidatedContinue", "The folders you selected will be used anyway. Existing Game Storage metadata was left unchanged.");
-
-                XtraMessageBox.Show(this, warning, LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                DialogResult = DialogResult.OK;
-                return;
-            }
-
             XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Recovery.ApplyFailed", "The selected Game Storage candidate could not be applied."), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-
-        private string BuildSuspiciousEmptyConfirmation(GameStorageHealthCheck healthCheck)
-        {
-            var folders = healthCheck.Items
-                .Where(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder && x.Role.HasValue)
-                .Select(x => "- " + GameStorageLocalization.GetFolderRoleName(x.Role.Value) + ": " + x.Path)
-                .Distinct(StringComparer.OrdinalIgnoreCase);
-
-            return LanguageManager.Format(
-                "GameStorage.Recovery.EmptyFoldersConfirmMessage",
-                "NMM previously recorded data in this Game Storage, but the following selected folders are now empty:\n\n{0}\n\nContinuing will accept the current empty folders as intentional and replace the previous Game Storage snapshot. NMM will not move or delete any files.\n\nContinue only if the old data was intentionally removed or you deliberately want to start with an empty Game Storage.\n\nDo you want to continue?",
-                string.Join(Environment.NewLine, folders));
         }
 
         /// <summary>

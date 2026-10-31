@@ -21,6 +21,8 @@ namespace Nexus.Client.GameStorage
     {
         public string GameId { get; set; }
         public string StorageId { get; set; }
+        /// <summary>Whether the user confirmed these exact paths and their current metadata.</summary>
+        public bool HasConfirmedPaths { get; internal set; }
         public bool IsHealthy => Items.All(x => IsHealthyStatus(x.Status));
         public bool IsUsable => Items.All(IsUsableItem);
         public bool HasWarnings => Items.Any(x => !IsHealthyStatus(x.Status));
@@ -69,9 +71,9 @@ namespace Nexus.Client.GameStorage
         public string ToUserMessage()
         {
             var message = new StringBuilder();
-            message.AppendLine(LanguageManager.Get("GameStorage.Health.ValidationFailed", "NMM could not validate the Game Storage folders for this game."));
+            message.AppendLine(LanguageManager.Get("GameStorage.Health.SelectedFoldersReview", "Review the selected folders for this game:"));
             message.AppendLine();
-            foreach (var item in Items.Where(x => x.Status != GameStorageHealthStatus.Healthy && x.Status != GameStorageHealthStatus.LinkFolderNotRequired))
+            foreach (var item in Items.Where(x => !IsHealthyStatus(x.Status)))
             {
                 message.AppendLine(LanguageManager.Format("GameStorage.Health.Item", "{0}: {1}", GameStorageLocalization.GetHealthStatusName(item.Status), item.Message));
                 if (!string.IsNullOrWhiteSpace(item.Path))
@@ -80,7 +82,7 @@ namespace Nexus.Client.GameStorage
                     message.AppendLine("- " + fix);
                 message.AppendLine();
             }
-            message.AppendLine(LanguageManager.Get("GameStorage.Health.RecoveryPolicy", "NMM will not create replacement InstallInfo or Mods folders for an existing Game Storage. Missing VirtualInstall and required Link Folder directories may be created during recovery after the selected paths are confirmed."));
+            message.AppendLine(LanguageManager.Get("GameStorage.Health.SelectedPathsPolicy", "You can keep these folders or choose different ones. Missing folders can be created after confirmation. New install records will not contain your previous installed-mod history. Existing files will not be moved or deleted."));
             return message.ToString();
         }
     }

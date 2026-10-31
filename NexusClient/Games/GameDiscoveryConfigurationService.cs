@@ -166,9 +166,9 @@
 					{
 						string reason = health?.ToUserMessage() ?? LanguageManager.Get("GameDiscovery.SetupFailed", "Game Storage could not be configured.");
 						Trace.TraceWarning("Applying explicitly selected Game Discovery storage paths for {0}: {1}", id, reason);
-						if (!service.ApplySelectedCandidatePaths(paths, setup.SelectedCandidate))
+						if (!service.ApplySelectedCandidatePaths(paths, setup.SelectedCandidate, out health))
 						{
-							message = reason;
+							message = health?.ToUserMessage() ?? reason;
 							return false;
 						}
 					}

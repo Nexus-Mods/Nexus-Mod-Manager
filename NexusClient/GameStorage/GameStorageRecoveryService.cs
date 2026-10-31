@@ -254,25 +254,88 @@ namespace Nexus.Client.GameStorage
         /// completed from the current configuration and existing metadata is left unchanged.
         /// </summary>
         public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+        {
+            GameStorageHealthCheck healthCheck;
+            return ApplySelectedCandidatePaths(currentPaths, candidate, out healthCheck);
+        }
+
+        /// <summary>Persists an explicit folder choice and returns any filesystem or ownership failure.</summary>
+        public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
 		{
+			healthCheck = null;
 			Witcher3StorageMutationReservation reservation;
 			string failure;
 			if (!Witcher3StorageMutationReservation.TryAcquire(currentPaths == null ? null : currentPaths.GameId,
 				out reservation, out failure))
+			{
+                healthCheck = StorageCoordinationFailure(currentPaths == null ? null : currentPaths.GameId, failure);
 				return false;
+			}
 			using (reservation)
-				return ApplySelectedCandidatePathsUnderReservation(currentPaths, candidate);
+				return ApplySelectedCandidatePathsUnderReservation(currentPaths, candidate, out healthCheck);
 		}
 
-		private bool ApplySelectedCandidatePathsUnderReservation(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+        /// <summary>Confirms the exact destinations before saving the game's historical folder settings.</summary>
+		private bool ApplySelectedCandidatePathsUnderReservation(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
         {
             GameStoragePathSet paths = ResolveExplicitlySelectedPaths(currentPaths, candidate);
-            GameStorageHealthCheck witcherFailure;
-            if (!TryGuardWitcherRecoveryPaths(paths, out witcherFailure) || !CanApplyExplicitlySelectedPaths(paths))
+            if (!ConfirmSelectedStoragePaths(paths, out healthCheck))
                 return false;
 
             ApplyPathSet(paths);
             return true;
+        }
+
+        /// <summary>
+        /// Records a reviewed selection in the registry, accepting intentional empty/new folders.
+        /// Existing manifests and mod files remain untouched, including metadata from other games or newer NMM versions.
+        /// </summary>
+        internal bool ConfirmSelectedStoragePaths(GameStoragePathSet paths, out GameStorageHealthCheck healthCheck)
+        {
+            healthCheck = null;
+            if (!CanApplyExplicitlySelectedPaths(paths) || !TryGuardWitcherRecoveryPaths(paths, out healthCheck))
+                return false;
+
+            using (Witcher3StorageMutationReservation.Acquire(paths.GameId))
+            {
+                try
+                {
+                    RequireWitcher3StorageWrite(paths);
+                    CreateSetupFolders(paths);
+                    GameStorageRegistry registry = LoadRegistry();
+                    string storageId = GetExistingStorageIds(paths, registry).FirstOrDefault() ?? Guid.NewGuid().ToString("D");
+                    UpsertRegistryEntry(registry, paths, storageId, TryGetSharedStorageRoot(paths), DateTime.UtcNow);
+                    healthCheck = Validate(paths, storageId, registry);
+                    if (!healthCheck.IsUsable)
+                        return false;
+
+                    string fingerprint = GetSelectedPathsFingerprint(paths);
+                    if (fingerprint == null)
+                    {
+                        Add(healthCheck, null, null, GameStorageHealthStatus.Unknown, true, true,
+                            LanguageManager.Get("GameStorage.Setup.MetadataUnreadable", "NMM could not read the selected folders' metadata to save your confirmation. Check folder permissions and try again."));
+                        return false;
+                    }
+                    registry.KnownStorages.First(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase)).ConfirmedPathsFingerprint = fingerprint;
+                    RequireWitcher3StorageWrite(paths);
+                    SaveRegistryWithBackup(registry);
+                    healthCheck = ValidateStorage(paths);
+                    if (healthCheck.HasConfirmedPaths)
+                        return true;
+
+                    Add(healthCheck, null, RegistryPath, GameStorageHealthStatus.Unknown, true, true,
+                        LanguageManager.Get("GameStorage.Setup.ConfirmationNotSaved", "NMM could not save the selected folder configuration. Check that the Game Storage registry is writable and supported by this NMM version."));
+                    return false;
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                    exception is ArgumentException || exception is NotSupportedException || exception is System.Security.SecurityException)
+                {
+                    healthCheck = healthCheck ?? new GameStorageHealthCheck { GameId = paths.GameId };
+                    AddWriteFailure(healthCheck, paths, exception);
+                    return false;
+                }
+            }
         }
 
         /// <summary>
@@ -389,7 +452,17 @@ namespace Nexus.Client.GameStorage
             if (!TryGuardWitcherRecoveryPaths(paths, out healthCheck))
                 return false;
 
-            CreateSetupFolders(paths);
+            try
+            {
+                CreateSetupFolders(paths);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                exception is ArgumentException || exception is NotSupportedException || exception is System.Security.SecurityException)
+            {
+                healthCheck = new GameStorageHealthCheck { GameId = paths.GameId };
+                AddWriteFailure(healthCheck, paths, exception);
+                return false;
+            }
 
 			var registry = LoadRegistry();
 

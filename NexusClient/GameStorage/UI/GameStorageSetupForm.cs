@@ -29,6 +29,7 @@ namespace Nexus.Client.GameStorage.UI
         private bool _closing;
         private int _refreshGeneration;
         private string _candidateMessage = string.Empty;
+        private GameStorageHealthCheck _healthCheck;
 
         public GameStorageSetupForm(GameStorageService service, GameStoragePathSet currentPaths, GameStorageHealthCheck healthCheck, bool allowLegacySetup = true)
         {
@@ -106,6 +107,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void DraftChanged(object sender, EventArgs e)
         {
+            _healthCheck = null;
             // Discard pending validation as soon as the user types, not 400 ms later.
             CancellationTokenSource previousValidation = _draftCancellation;
             _draftCancellation = null;
@@ -171,12 +173,15 @@ namespace Nexus.Client.GameStorage.UI
                 return;
             }
 
-            if (candidate.RequiresUserConfirmation)
+            if (candidate.RequiresUserConfirmation || _healthCheck == null || !_healthCheck.IsHealthy)
             {
                 string confirmationMessage = candidate.IsSharedModsLibrary
                     ? (candidate.SharedModsDescription ?? LanguageManager.Get("GameStorage.SharedMods.CompatibleFallback", "This Mods folder is already used by a compatible Game Mode.")) + Environment.NewLine + Environment.NewLine +
                       LanguageManager.Format("GameStorage.Setup.ConfirmSharedMods", "Use it as a shared Mods library for {0}? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode.", _currentPaths.GameName)
-                    : LanguageManager.Get("GameStorage.Setup.ConfirmApply", "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.");
+                    : LanguageManager.Get("GameStorage.Common.ConfirmSelectedFolders", "Use these folders for this game? Missing folders will be created. Existing files will not be moved or deleted.");
+
+                if (_healthCheck != null && !_healthCheck.IsHealthy)
+                    confirmationMessage = _healthCheck.ToUserMessage() + Environment.NewLine + Environment.NewLine + confirmationMessage;
 
                 var result = XtraMessageBox.Show(this, confirmationMessage, LanguageManager.Get("GameStorage.Setup.ConfirmTitle", "Confirm Game Storage setup"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
@@ -284,11 +289,14 @@ namespace Nexus.Client.GameStorage.UI
                 Trace.TraceWarning("Game Storage draft validation failed: {0}", ex);
                 if (!_closing && !IsDisposed && ReferenceEquals(_draftCancellation, request) &&
                     generation == _control.DraftGeneration)
+                {
+                    _healthCheck = null;
                     _control.SetRows(new[] { new GameStorageSetupRow
                     {
                         Status = LanguageManager.Get("GameStorage.Setup.ValidationUnavailable", "Validation unavailable"),
                         Message = ex.Message
                     } });
+                }
             }
             finally
             {
@@ -333,6 +341,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void SetHealth(GameStorageHealthCheck healthCheck)
         {
+            _healthCheck = healthCheck;
             var rows = healthCheck?.Items.Select(x => new GameStorageSetupRow
             {
                 Role = GameStorageLocalization.GetFolderRoleName(x.Role),

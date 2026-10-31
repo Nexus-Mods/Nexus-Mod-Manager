@@ -5,6 +5,12 @@
   "culture": "en-US",
   "author": "NMM Community Edition",
   "strings": {
+    "GameStorage.Common.ConfirmSelectedFolders": "Use these folders for this game? Missing folders will be created. Existing files will not be moved or deleted.",
+    "GameStorage.Health.SelectedFoldersReview": "Review the selected folders for this game:",
+    "GameStorage.Health.SelectedPathsPolicy": "You can keep these folders or choose different ones. Missing folders can be created after confirmation. New install records will not contain your previous installed-mod history. Existing files will not be moved or deleted.",
+    "GameStorage.Health.FolderWillBeCreated": "The {0} folder does not exist yet. It will be created when you save these folders.",
+    "GameStorage.Setup.ConfirmationNotSaved": "NMM could not save the selected folder configuration. Check that the Game Storage registry is writable and supported by this NMM version.",
+    "GameStorage.Setup.MetadataUnreadable": "NMM could not read the selected folders' metadata to save your confirmation. Check folder permissions and try again.",
     "GameDiscovery.ResetSetup": "Reset game setup",
     "GameDiscovery.ResetSetupHint": "Return this game to To configure. Saved paths, installed mods and game files are preserved.",
     "GameDiscovery.SetupReset": "Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved.",

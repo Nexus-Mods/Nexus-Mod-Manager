@@ -84,12 +84,15 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
-		/// Returns whether Game Storage metadata contains an identity ambiguity that must fail closed.
+		/// Returns whether Game Storage metadata contains an identity ambiguity that has not been explicitly reviewed.
 		/// </summary>
 		internal static bool HasUnsafeIdentityMetadata(GameStorageHealthCheck health)
 		{
 			if (health == null)
 				return true;
+			if (health.HasConfirmedPaths)
+				// The registry records the exact reviewed paths and unchanged manifests; native ownership checks still apply.
+				return false;
 
 			return health.Items.Any(item => item.Status == GameStorageHealthStatus.MismatchedGame ||
 				item.Status == GameStorageHealthStatus.MismatchedStorageId ||
