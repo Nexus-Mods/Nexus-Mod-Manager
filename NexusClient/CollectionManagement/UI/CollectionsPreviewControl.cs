@@ -6026,13 +6026,14 @@ namespace Nexus.Client.CollectionManagement.UI
 					(revisionUpdateResults == null ? 0 : revisionUpdateResults.Count) + (verifyRepairResults == null ? 0 : verifyRepairResults.Count) +
 					(replacementInspections == null ? 0 : replacementInspections.Count) + (memberRemovalResults == null ? 0 : memberRemovalResults.Count) +
 					(effectRemovalResults == null ? 0 : effectRemovalResults.Count);
-				if (_managementWorkflow != null)
+				CollectionIdentity retainedPreviewCollection = _managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null;
+				if (_managementWorkflow != null && await _managementWorkflow.HasRetainedContentCleanupWorkAsync(token, retainedPreviewCollection))
 				{
+					if (!IsWorkflowContextCurrent(context, token)) return;
 					string cleanupStatus = L("Collections.Workflow.CleanupCurrentGame", "Cleaning stale retained Collection data for the current game...");
 					_workflowStatusLabel.Text = cleanupStatus;
 					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Recovering, cleanupStatus));
-					await _managementWorkflow.CleanupRetainedContentAsync(token,
-						_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null, 32, false);
+					await _managementWorkflow.CleanupRetainedContentAsync(token, retainedPreviewCollection, 32, false);
 				}
 
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
@@ -6050,7 +6051,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				RefreshManagedAssociations();
 				if (_snapshot != null)
 				{
-					// Cleanup has finished; recovery binding may return without replacing its temporary status.
+					// Startup checks have finished; recovery binding may leave its temporary status unchanged.
 					_workflowStatusLabel.Text = L("Collections.Workflow.Idle", "Workflow: idle");
 					RenderIssues(_snapshot);
 					BindMatchingRecovery();

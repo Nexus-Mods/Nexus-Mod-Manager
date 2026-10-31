@@ -29,6 +29,60 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		}
 
 		/// <summary>
+		/// Checks for real cleanup work without acquiring the writer gate, releasing references or touching payload files.
+		/// Existing downloads and installed Collections alone are not evidence of stale content.
+		/// </summary>
+		public bool HasPendingCleanup(CollectionTargetIdentity target, CollectionIdentity retainedPreviewCollection = null)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+			if (!_store.Exists)
+				return false;
+
+			bool hasRemovedReferences = false;
+			bool idle = _store.ExecuteRead((connection, transaction) =>
+			{
+				if (!IsIdleForCleanup(connection, transaction))
+					return false;
+				foreach (CollectionIdentity collection in GetRemovedCollections(connection, transaction, target, retainedPreviewCollection))
+				{
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = @"
+SELECT 1 FROM retained_artifact_references r
+JOIN collection_operations o ON r.owner_kind=@operation AND r.owner_id=o.operation_id
+WHERE o.origin=@origin AND o.collection_id=@collection_id AND o.phase=@completed LIMIT 1;";
+						command.Parameters.AddWithValue("@operation", (int)CollectionsRetainedArtifactOwnerKind.Operation);
+						command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+						command.Parameters.AddWithValue("@collection_id", collection.StableId);
+						command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+						hasRemovedReferences = command.ExecuteScalar() != null;
+					}
+					if (hasRemovedReferences)
+						break;
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = "SELECT 1 FROM collection_acquisition_requests WHERE revision_identity=@owner_id LIMIT 1;";
+						command.Parameters.AddWithValue("@owner_id", String.Empty);
+						foreach (string ownerId in GetRevisionOwnerIds(connection, transaction, collection))
+						{
+							command.Parameters["@owner_id"].Value = ownerId;
+							if (command.ExecuteScalar() == null) continue;
+							hasRemovedReferences = true;
+							break;
+						}
+					}
+					if (hasRemovedReferences)
+						break;
+				}
+				return true;
+			});
+			return idle && (hasRemovedReferences || GetPendingTombstones(1).Count > 0 || GetCleanupCandidates(1).Count > 0);
+		}
+
+		/// <summary>
 		/// Releases obsolete retention after verified Collection removal and reports whether the store is idle enough to collect content.
 		/// </summary>
 		/// <remarks>
@@ -44,61 +98,73 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			bool canCollect = false;
 			_store.ExecuteWrite((connection, transaction) =>
 			{
-				using (SQLiteCommand command = connection.CreateCommand())
-				{
-					command.Transaction = transaction;
-					command.CommandText = @"
+				if (!IsIdleForCleanup(connection, transaction))
+					return;
+				foreach (CollectionIdentity collection in GetRemovedCollections(connection, transaction, target, retainedPreviewCollection))
+					ReleaseRemovedCollectionReferences(connection, transaction, collection);
+				canCollect = true;
+			});
+			return canCollect;
+		}
+
+		/// <summary>Shares the active-operation/acquisition exclusion between preflight and the final write check.</summary>
+		private static bool IsIdleForCleanup(SQLiteConnection connection, SQLiteTransaction transaction)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
 SELECT 1 FROM collection_operations WHERE phase<>@completed
 UNION ALL
 SELECT 1 FROM collection_acquisition_requests
 WHERE state NOT IN (@pending, @verified, @cancelled, @failed)
    OR (state=@pending AND queue_operation_id IS NOT NULL)
 LIMIT 1;";
-					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
-					command.Parameters.AddWithValue("@pending", (int)CollectionAcquisitionPersistenceState.PendingUserAction);
-					command.Parameters.AddWithValue("@verified", (int)CollectionAcquisitionPersistenceState.Verified);
-					command.Parameters.AddWithValue("@cancelled", (int)CollectionAcquisitionPersistenceState.Cancelled);
-					command.Parameters.AddWithValue("@failed", (int)CollectionAcquisitionPersistenceState.Failed);
-					if (command.ExecuteScalar() != null)
-						return;
-				}
+				command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+				command.Parameters.AddWithValue("@pending", (int)CollectionAcquisitionPersistenceState.PendingUserAction);
+				command.Parameters.AddWithValue("@verified", (int)CollectionAcquisitionPersistenceState.Verified);
+				command.Parameters.AddWithValue("@cancelled", (int)CollectionAcquisitionPersistenceState.Cancelled);
+				command.Parameters.AddWithValue("@failed", (int)CollectionAcquisitionPersistenceState.Failed);
+				return command.ExecuteScalar() == null;
+			}
+		}
 
-				var removedCollections = new List<CollectionIdentity>();
-				using (SQLiteCommand command = connection.CreateCommand())
-				{
-					command.Transaction = transaction;
-					command.CommandText = @"
+		/// <summary>Finds verified removals while preserving installed associations, saved captures and the open preview.</summary>
+		private static List<CollectionIdentity> GetRemovedCollections(SQLiteConnection connection, SQLiteTransaction transaction,
+			CollectionTargetIdentity target, CollectionIdentity retainedPreviewCollection)
+		{
+			var removedCollections = new List<CollectionIdentity>();
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
 SELECT DISTINCT o.origin, o.collection_id
 FROM collection_operations o
 WHERE o.target_fingerprint=@target AND o.kind=@uninstall AND o.phase=@completed AND o.result_state=@committed
   AND NOT EXISTS (SELECT 1 FROM target_associations a WHERE a.origin=o.origin AND a.collection_id=o.collection_id)
   AND NOT EXISTS (SELECT 1 FROM local_captures c WHERE c.origin=o.origin AND c.collection_id=o.collection_id);";
-					command.Parameters.AddWithValue("@target", target.Fingerprint);
-					command.Parameters.AddWithValue("@uninstall", (int)CollectionOperationKind.UninstallCollectionEffects);
-					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
-					command.Parameters.AddWithValue("@committed", (int)CollectionOperationResultState.Committed);
-					using (SQLiteDataReader reader = command.ExecuteReader())
+				command.Parameters.AddWithValue("@target", target.Fingerprint);
+				command.Parameters.AddWithValue("@uninstall", (int)CollectionOperationKind.UninstallCollectionEffects);
+				command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+				command.Parameters.AddWithValue("@committed", (int)CollectionOperationResultState.Committed);
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
 					{
-						while (reader.Read())
-						{
-							CollectionOrigin origin = (CollectionOrigin)reader.GetInt32(0);
-							CollectionIdentity collection;
-							if (origin == CollectionOrigin.NexusMods)
-								collection = CollectionIdentity.FromNexus(reader.GetString(1));
-							else if (origin == CollectionOrigin.Local)
-								collection = CollectionIdentity.FromLocal(Guid.ParseExact(reader.GetString(1), "D"));
-							else
-								throw new CollectionsStoreSchemaException("Retained-content cleanup encountered an unsupported Collection origin.");
-							if (!collection.Equals(retainedPreviewCollection))
-								removedCollections.Add(collection);
-						}
+						CollectionOrigin origin = (CollectionOrigin)reader.GetInt32(0);
+						CollectionIdentity collection;
+						if (origin == CollectionOrigin.NexusMods)
+							collection = CollectionIdentity.FromNexus(reader.GetString(1));
+						else if (origin == CollectionOrigin.Local)
+							collection = CollectionIdentity.FromLocal(Guid.ParseExact(reader.GetString(1), "D"));
+						else
+							throw new CollectionsStoreSchemaException("Retained-content cleanup encountered an unsupported Collection origin.");
+						if (!collection.Equals(retainedPreviewCollection))
+							removedCollections.Add(collection);
 					}
 				}
-				foreach (CollectionIdentity collection in removedCollections)
-					ReleaseRemovedCollectionReferences(connection, transaction, collection);
-				canCollect = true;
-			});
-			return canCollect;
+			}
+			return removedCollections;
 		}
 
 		/// <summary>
@@ -122,26 +188,7 @@ WHERE owner_kind=@operation AND owner_id IN (
 				command.ExecuteNonQuery();
 			}
 
-			var revisionOwners = new List<string>();
-			using (SQLiteCommand command = connection.CreateCommand())
-			{
-				command.Transaction = transaction;
-				command.CommandText = @"
-SELECT revision_id, nexus_revision_number FROM collection_revisions
-WHERE origin=@origin AND collection_id=@collection_id;";
-				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
-				command.Parameters.AddWithValue("@collection_id", collection.StableId);
-				using (SQLiteDataReader reader = command.ExecuteReader())
-				{
-					while (reader.Read())
-					{
-						CollectionRevisionIdentity revision = collection.Origin == CollectionOrigin.NexusMods
-							? CollectionRevisionIdentity.FromNexus(collection, reader.GetString(0), reader.GetInt64(1))
-							: CollectionRevisionIdentity.FromLocal(collection, Guid.ParseExact(reader.GetString(0), "D"));
-						revisionOwners.Add(CollectionsRevisionSourceStore.GetRevisionOwnerId(revision));
-					}
-				}
-			}
+			List<string> revisionOwners = GetRevisionOwnerIds(connection, transaction, collection);
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
 				command.Transaction = transaction;
@@ -163,8 +210,33 @@ WHERE owner_kind=@download AND owner_id IN (
 					// Keep the definition, raw manifest/bundle and bundle-only content available for reinstall.
 					// Ordinary archives now live in Mods; completed operation/download references are disposable.
 				}
-
 			}
+		}
+
+		/// <summary>Uses the persisted revision identity format for both detecting and releasing obsolete acquisitions.</summary>
+		private static List<string> GetRevisionOwnerIds(SQLiteConnection connection, SQLiteTransaction transaction, CollectionIdentity collection)
+		{
+			var revisionOwners = new List<string>();
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
+SELECT revision_id, nexus_revision_number FROM collection_revisions
+WHERE origin=@origin AND collection_id=@collection_id;";
+				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+				command.Parameters.AddWithValue("@collection_id", collection.StableId);
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+					{
+						CollectionRevisionIdentity revision = collection.Origin == CollectionOrigin.NexusMods
+							? CollectionRevisionIdentity.FromNexus(collection, reader.GetString(0), reader.GetInt64(1))
+							: CollectionRevisionIdentity.FromLocal(collection, Guid.ParseExact(reader.GetString(0), "D"));
+						revisionOwners.Add(CollectionsRevisionSourceStore.GetRevisionOwnerId(revision));
+					}
+				}
+			}
+			return revisionOwners;
 		}
 
 		/// <summary>

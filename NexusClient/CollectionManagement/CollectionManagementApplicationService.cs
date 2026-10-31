@@ -1332,6 +1332,26 @@ namespace Nexus.Client.CollectionManagement
 			return CleanupRetainedContentAsync(cancellationToken, retainedPreviewCollection, Int32.MaxValue);
 		}
 
+		/// <summary>Checks optional startup maintenance off the UI thread without reserving the native target or changing retained data.</summary>
+		internal Task<bool> HasRetainedContentCleanupWorkAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection)
+		{
+			return Task.Run(() =>
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (!_store.Exists) return false;
+				try
+				{
+					CollectionTargetIdentity target = ResolveCurrentTarget();
+					return new CollectionsRetainedArtifactCleanupStore(_store).HasPendingCleanup(target, retainedPreviewCollection);
+				}
+				catch (Exception exception) when (!(exception is OutOfMemoryException) && !(exception is OperationCanceledException))
+				{
+					Trace.TraceWarning("Collection retained-content cleanup check deferred: " + exception);
+					return false;
+				}
+			}, cancellationToken);
+		}
+
 		/// <summary>Runs retained-content cleanup with an explicit per-pass artifact limit.</summary>
 		/// <remarks>Startup uses a bounded pass so stale retained content cannot monopolize the Collections page or target lease.</remarks>
 		public Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection,

@@ -14,6 +14,160 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionsRetainedArtifactCleanupStoreTests
 	{
+		/// <summary>Opening Collections without retained data must not provision a feature database for maintenance.</summary>
+		[Test]
+		public void CleanupPreflight_MissingStoreDoesNotCreateIt()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Assert.IsFalse(new CollectionsRetainedArtifactCleanupStore(store).HasPendingCleanup(CollectionTargetIdentity.FromFingerprint("target")));
+				Assert.IsFalse(store.Exists);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Downloaded and installed Collections with retained references are normal saved data, not stale cleanup work.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void CleanupPreflight_RetainedCollectionDoesNotNeedCleanup(bool installed)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				CollectionRevisionIdentity revision = SaveRevision(store);
+				var target = CollectionTargetIdentity.FromFingerprint("target");
+				if (installed)
+					new CollectionsAssociationStore(store).SaveAssociation(new CollectionTargetAssociation(Guid.NewGuid(), revision, target, CollectionAssociationState.Applied));
+				CollectionsRetainedArtifact artifact = Publish(new CollectionsRetainedArtifactStore(store), "retained download");
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				references.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Revision,
+					CollectionsRevisionSourceStore.GetRevisionOwnerId(revision), "manifest");
+				var cleanup = new CollectionsRetainedArtifactCleanupStore(store);
+
+				Assert.IsFalse(cleanup.HasPendingCleanup(target));
+				Assert.IsFalse(new CollectionsRetainedArtifactCleanupStore(new CollectionsStore(root)).HasPendingCleanup(target));
+				Assert.AreEqual(1, references.GetReferencesForArtifact(artifact.ArtifactId).Count);
+				Assert.IsTrue(File.Exists(BlobPath(store, artifact.ContentHash.Value)));
+				Assert.AreEqual(0, cleanup.GetPendingTombstones(1).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Unreferenced blobs and interrupted deletions still trigger cleanup, and a completed sweep is not repeated.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void CleanupPreflight_IdentifiesRealArtifactsWithoutChangingThem(bool tombstoned)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				CollectionsRetainedArtifact artifact = Publish(new CollectionsRetainedArtifactStore(store), "obsolete");
+				var cleanup = new CollectionsRetainedArtifactCleanupStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("target");
+				if (tombstoned) Assert.IsTrue(cleanup.TryMarkForCleanup(artifact.ArtifactId));
+
+				Assert.IsTrue(cleanup.HasPendingCleanup(target));
+				Assert.AreEqual(tombstoned, cleanup.IsMarkedForCleanup(artifact.ArtifactId));
+				Assert.IsTrue(File.Exists(BlobPath(store, artifact.ContentHash.Value)), "Preflight must not delete content.");
+				Assert.IsTrue(cleanup.TryCollectUnreferencedArtifact(artifact.ArtifactId));
+				Assert.IsFalse(cleanup.HasPendingCleanup(target));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Completed removals need maintenance only while disposable references remain, with preview and target exclusions intact.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void CleanupPreflight_RemovedReferencesAreDetectedOnce(bool acquisition)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				CollectionRevisionIdentity revision = SaveRevision(store);
+				var target = CollectionTargetIdentity.FromFingerprint("target");
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.UninstallCollectionEffects,
+					revision.Collection, target, revision, null, 1, CollectionOperationPhase.Completed, CollectionOperationResultState.Committed,
+					new CollectionNativeChildOperation[0]);
+				new CollectionsOperationStore(store).SaveOperation(operation);
+				CollectionsRetainedArtifact artifact = Publish(new CollectionsRetainedArtifactStore(store), "keep revision source");
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				references.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Revision,
+					CollectionsRevisionSourceStore.GetRevisionOwnerId(revision), "manifest");
+				if (acquisition)
+				{
+					string requestId = Guid.NewGuid().ToString("D");
+					store.ExecuteWrite((connection, transaction) =>
+					{
+						using (SQLiteCommand command = connection.CreateCommand())
+						{
+							command.Transaction = transaction;
+							command.CommandText = @"
+INSERT INTO collection_acquisition_requests(request_id, plan_id, plan_version, revision_identity, target_fingerprint,
+member_key_kind, member_key_value, requirement, artifact_scheme, artifact_stable_id, recipe_fingerprint, mode, state, updated_utc)
+VALUES(@request, 'plan', 1, @revision, @target, 1, 'member', 1, 'nexus', 'archive', 'recipe', 1, @cancelled, @utc);";
+							command.Parameters.AddWithValue("@request", requestId);
+							command.Parameters.AddWithValue("@revision", CollectionsRevisionSourceStore.GetRevisionOwnerId(revision));
+							command.Parameters.AddWithValue("@target", target.Fingerprint);
+							command.Parameters.AddWithValue("@cancelled", (int)CollectionAcquisitionPersistenceState.Cancelled);
+							command.Parameters.AddWithValue("@utc", DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture));
+							command.ExecuteNonQuery();
+						}
+					});
+					references.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, requestId, "archive");
+				}
+				else
+					references.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"), "operation");
+				var cleanup = new CollectionsRetainedArtifactCleanupStore(store);
+
+				Assert.IsTrue(cleanup.HasPendingCleanup(target));
+				Assert.IsFalse(cleanup.HasPendingCleanup(target, revision.Collection));
+				Assert.IsFalse(cleanup.HasPendingCleanup(CollectionTargetIdentity.FromFingerprint("other-game")));
+				Assert.AreEqual(2, references.GetReferencesForArtifact(artifact.ArtifactId).Count, "Preflight must not release references.");
+				Assert.IsTrue(cleanup.ReleaseRemovedCollectionContent(target));
+				Assert.AreEqual(1, references.GetReferencesForArtifact(artifact.ArtifactId).Count);
+				Assert.IsFalse(cleanup.HasPendingCleanup(target), "Old completed removal records alone must not cause another sweep.");
+				Assert.IsTrue(File.Exists(BlobPath(store, artifact.ContentHash.Value)));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Pending native work still defers cleanup even when an unreferenced artifact exists.</summary>
+		[Test]
+		public void CleanupPreflight_UnfinishedOperationDefersCollection()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				CollectionRevisionIdentity revision = SaveRevision(store);
+				var target = CollectionTargetIdentity.FromFingerprint("target");
+				new CollectionsOperationStore(store).SaveOperation(new CollectionOperation(CollectionOperationIdentity.CreateNew(),
+					CollectionOperationKind.UninstallCollectionEffects, revision.Collection, target, revision, null, 1,
+					CollectionOperationPhase.Preparing, CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]));
+				CollectionsRetainedArtifact artifact = Publish(new CollectionsRetainedArtifactStore(store), "wait for recovery");
+				var cleanup = new CollectionsRetainedArtifactCleanupStore(store);
+				Assert.IsFalse(cleanup.HasPendingCleanup(target));
+				Assert.IsFalse(cleanup.ReleaseRemovedCollectionContent(target));
+				Assert.IsTrue(File.Exists(BlobPath(store, artifact.ContentHash.Value)));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Creates a remembered revision without introducing an installed association or operation.</summary>
+		private static CollectionRevisionIdentity SaveRevision(CollectionsStore store)
+		{
+			CollectionIdentity collection = CollectionIdentity.FromNexus("cleanup-preflight");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision", 1);
+			new CollectionsCatalogStore(store).SaveDefinitionAndRevision(new CollectionDefinition(collection, "Collection", null, null),
+				new CollectionRevision(revision, "Revision 1", null, null));
+			return revision;
+		}
+
 		[Test]
 		public void CollectArchiveReference_DeletesOnlyCollectionMetadataAndLeavesLibraryArchiveIntact()
 		{
