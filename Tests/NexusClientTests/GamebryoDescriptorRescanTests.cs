@@ -123,6 +123,34 @@ namespace NexusClientTests
 				Is.EquivalentTo(new[] { Path.Combine(pluginDirectory, "Creation.esl"), Path.Combine(pluginDirectory, "NewCreation.esl") }));
 		}
 
+		/// <summary>Starfield uses the first existing CCC file, including an empty override; other modes retain merged lists.</summary>
+		[TestCase(true, true, false)]
+		[TestCase(true, true, true)]
+		[TestCase(true, false, false)]
+		[TestCase(false, true, false)]
+		public void OfficialLists_PreserveStarfieldCccPrecedence(bool starfield, bool userListExists, bool userListEmpty)
+		{
+			string gamePath = Path.Combine(_root, "Game");
+			Directory.CreateDirectory(gamePath);
+			SetGamePath(gamePath);
+			string userList = Path.Combine(_root, "User.ccc");
+			string gameList = Path.Combine(gamePath, "Starfield.ccc");
+			if (userListExists) File.WriteAllText(userList, userListEmpty ? String.Empty : "UserCreation.esm\r\nusercreation.esm\r\nSecondCreation.esm");
+			File.WriteAllText(gameList, "GameCreation.esm");
+			GameModeDefinition definition = CreateDefinition();
+			definition.Plugin.Policy = new GameModePluginPolicyDefinition { SchemaVersion = 1, UseStarfieldActivationRules = starfield };
+			definition.Plugin.OfficialUnmanagedPluginListFiles = new[] { userList, gameList };
+			var factory = new DataDrivenGameModeFactory(_environment, definition);
+			var expected = new System.Collections.Generic.List<string> { Path.Combine(gamePath, "Data", "Creation.esl") };
+			if (userListExists && !userListEmpty)
+			{
+				expected.Add(Path.Combine(gamePath, "Data", "UserCreation.esm"));
+				expected.Add(Path.Combine(gamePath, "Data", "SecondCreation.esm"));
+			}
+			if (!starfield || !userListExists) expected.Add(Path.Combine(gamePath, "Data", "GameCreation.esm"));
+			CollectionAssert.AreEqual(expected, factory.GameModeDescriptor.OrderedOfficialUnmanagedPluginNames);
+		}
+
 		/// <summary>
 		/// Applies the same per-game path settings that a confirmed scan updates.
 		/// </summary>

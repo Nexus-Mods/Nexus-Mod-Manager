@@ -93,9 +93,12 @@ namespace Nexus.Client.Games.Starfield
                 {
                     m_booCheckedCccFile = true;
 
-                    if (File.Exists(Path.Combine(InstallationPath, "Starfield.ccc")))
+                    string userCccPath = Path.Combine(EnvironmentInfo.PersonalDataFolderPath, "My Games", "Starfield", "Starfield.ccc");
+                    string cccPath = File.Exists(userCccPath) ? userCccPath : Path.Combine(InstallationPath, "Starfield.ccc");
+                    if (File.Exists(cccPath))
                     {
-                        var lines = File.ReadLines(Path.Combine(InstallationPath, "Starfield.ccc")).Where(line => !string.IsNullOrEmpty(line));
+                        var lines = File.ReadLines(cccPath).Select(line => line.Trim())
+                            .Where(line => !string.IsNullOrEmpty(line) && !line.StartsWith("#") && !line.StartsWith(";"));
                         OFFICIAL_UNMANAGED_PLUGINS = OFFICIAL_UNMANAGED_PLUGINS.Union(lines).ToArray();
                         m_booCheckedCccFile = true;
                     }

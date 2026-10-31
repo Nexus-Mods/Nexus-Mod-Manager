@@ -99,6 +99,7 @@
     "supportsPluginAutoSorting": false,
     "maxAllowedActivePluginsCount": 0,
     "officialUnmanagedPluginListFiles": [
+      "{Documents}\\My Games\\Starfield\\Starfield.ccc",
       "{GamePath}\\Starfield.ccc"
     ],
     "policy": {

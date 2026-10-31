@@ -313,7 +313,22 @@ namespace Nexus.Client.PluginManagement
 			if (!p_booRestrictionsDisabled)
 				return m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
 
-			return RestoreProtectedPluginPositions(plugins);
+			plugins = RestoreProtectedPluginPositions(plugins);
+			if (Policy.UseStarfieldActivationRules)
+			{
+				// Unrestricted mod sorting must still reflect the final section that Starfield actually loads.
+				List<Plugin> blueprints = m_psbSnapshotBuilder.CorrectStable(Policy, plugins)
+					.Where(IsBlueprintPlugin).ToList();
+				plugins.RemoveAll(IsBlueprintPlugin);
+				plugins.AddRange(blueprints);
+			}
+			return plugins;
+		}
+
+		/// <summary>Identifies the parsed native Blueprint section independently of activation and order locks.</summary>
+		private static bool IsBlueprintPlugin(Plugin plugin)
+		{
+			return plugin != null && plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0;
 		}
 
 		/// <summary>

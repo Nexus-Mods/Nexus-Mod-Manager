@@ -56,6 +56,41 @@ namespace NexusClientTests
             }
         }
 
+        /// <summary>Starfield's native Blueprint section survives startup and imported orders with sorting restrictions disabled.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void StarfieldOrder_BlueprintsRemainAfterParentsAndOrdinaryMods(bool restrictionsDisabled)
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Starfield.esm") { ProtectedFlag = true },
+                new PluginDefinition("SFBGS003.esm", "Starfield.esm") { ProtectedFlag = true },
+                new PluginDefinition("BlueprintShips-SFTA03.esm", "Starfield.esm", "SFTA03.esm") { BlueprintFlag = true },
+                new PluginDefinition("BlueprintShips-SFTA06.esm", "Starfield.esm", "SFTA06.esm") { BlueprintFlag = true },
+                new PluginDefinition("BlueprintShips-Starfield.esm", "Starfield.esm") { BlueprintFlag = true, ProtectedFlag = true },
+                new PluginDefinition("User.esm", "Starfield.esm"),
+                new PluginDefinition("SFTA03.esm", "Starfield.esm"),
+                new PluginDefinition("SFTA06.esm", "Starfield.esm")
+            }, new[] { "SFTA03.esm", "SFTA06.esm" }, p_booRestrictionsDisabled: restrictionsDisabled,
+                p_booIgnoreOfficialOrder: true, starfieldActivation: true))
+            {
+                Assert.That(context.Manager.CurrentSnapshot.Diagnostics.Any(x => x.Kind == PluginValidationIssueKind.MasterBelowDependent), Is.False);
+                Plugin[] requested = new[] { "Starfield.esm", "SFBGS003.esm", "BlueprintShips-SFTA03.esm",
+                    "BlueprintShips-SFTA06.esm", "BlueprintShips-Starfield.esm", "User.esm", "SFTA03.esm", "SFTA06.esm" }
+                    .Select(name => context.Manager.GetRegisteredPlugin(context.PathOf(name))).ToArray();
+                string[] resolved = context.Manager.ResolvePluginOrder(requested).Select(plugin => Path.GetFileName(plugin.Filename)).ToArray();
+                foreach (string[] order in new[] { context.ManagedPluginNames.ToArray(), resolved })
+                {
+                    Assert.That(Array.FindIndex(order, name => name.StartsWith("BlueprintShips-", StringComparison.OrdinalIgnoreCase)), Is.EqualTo(5));
+                    CollectionAssert.AreEquivalent(new[] { "BlueprintShips-SFTA03.esm", "BlueprintShips-SFTA06.esm", "BlueprintShips-Starfield.esm" }, order.Skip(5));
+                    Assert.That(Array.IndexOf(order, "SFTA03.esm"), Is.LessThan(Array.IndexOf(order, "BlueprintShips-SFTA03.esm")));
+                    Assert.That(Array.IndexOf(order, "SFTA06.esm"), Is.LessThan(Array.IndexOf(order, "BlueprintShips-SFTA06.esm")));
+                }
+                Assert.That(context.ActivePluginNames, Does.Contain("BlueprintShips-SFTA03.esm"));
+                Assert.That(context.ActivePluginNames, Does.Contain("BlueprintShips-SFTA06.esm"));
+            }
+        }
+
         /// <summary>Collection requests cannot toggle a blueprint independently, and dependency checks use its derived state.</summary>
         [Test]
         public void StarfieldActivation_CollectionAndDependenciesFollowParent()

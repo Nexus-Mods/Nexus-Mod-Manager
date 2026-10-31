@@ -71,10 +71,11 @@ namespace Nexus.Client.Games.DataDriven
 
         private IEnumerable<string> GetOfficialUnmanagedPluginNames()
         {
-            var plugins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var plugins = new List<string>();
+            var seenPlugins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string plugin in _definition.OrderedOfficialUnmanagedPluginNames ?? new string[0])
             {
-                if (!string.IsNullOrWhiteSpace(plugin))
+                if (!string.IsNullOrWhiteSpace(plugin) && seenPlugins.Add(plugin.Trim()))
                     plugins.Add(plugin.Trim());
             }
 
@@ -95,8 +96,11 @@ namespace Nexus.Client.Games.DataDriven
                         Trace.TraceWarning("Ignoring invalid plugin name '{0}' from official unmanaged plugin list: {1}", plugin, resolvedPath);
                         continue;
                     }
-                    plugins.Add(plugin);
+                    if (seenPlugins.Add(plugin)) plugins.Add(plugin);
                 }
+                // Starfield reads the first existing CCC location; the per-user file supersedes the installation file.
+                if (_definition.Plugin.Policy != null && _definition.Plugin.Policy.UseStarfieldActivationRules == true)
+                    break;
             }
 
             return plugins;
