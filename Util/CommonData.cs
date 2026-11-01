@@ -22,7 +22,8 @@
 		/// (c) should change when there is a minor alteration to the program.
 		/// Something akin to a minor bug fix, or a typo correction.
 		/// </remarks>
-		public const string VersionString = "0.93.10";
+		public const string VersionString = "0.93.11" +
+			"";
 
 		/// <summary>
 		/// Gets the full name of the mod manager.

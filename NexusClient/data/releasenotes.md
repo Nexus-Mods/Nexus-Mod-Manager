@@ -1,5 +1,14 @@
 # NMM Community Edition release notes
 
+## Version 0.93.11
+
+**Bug fixes**
+
+- Fixed an unnecessary Collection cleanup pass when first opening the Collections tab.
+- Fixed saved categories being reset or replaced during startup and failed category updates.
+- Fixed Witcher 3 Remastered setup being blocked when reusing the original Witcher 3 Mods, Install Info, Virtual Install, and Link Folder paths.
+- Fixed Game Storage warnings blocking users from saving their selected folders.
+
 ## Version 0.93.10
 
 **New features and improvements**
