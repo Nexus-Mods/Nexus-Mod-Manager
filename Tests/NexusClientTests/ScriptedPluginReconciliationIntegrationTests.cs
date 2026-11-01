@@ -20,6 +20,43 @@ namespace NexusClientTests
     [NonParallelizable]
     public class ScriptedPluginReconciliationIntegrationTests
     {
+        /// <summary>Removing a deleted plugin updates both committed collections observed by the Plugins tab.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void DeletedPluginCleanupUpdatesCommittedDisplayCollections(bool starfieldActivation)
+        {
+            using (var context = new PluginManagerTestContext(new[] {
+                new PluginDefinition("Removed.esp"), new PluginDefinition("Keep.esp") },
+                new[] { "Removed.esp", "Keep.esp" }, starfieldActivation: starfieldActivation))
+            {
+                string path = context.PathOf("Removed.esp");
+                File.Delete(path);
+                Assert.That(context.Manager.IsActivatiblePluginFile(path), Is.False);
+                Assert.That(context.Manager.IsPluginRegistered(path), Is.True);
+                int orderChanges = 0;
+                int activeChanges = 0;
+                context.Manager.ObservedManagedPlugins.CollectionChanged += (sender, args) => orderChanges++;
+                context.Manager.ObservedActivePlugins.CollectionChanged += (sender, args) => activeChanges++;
+                var installer = new Nexus.Client.ModManagement.ModFileInstaller(null, null, null, context.Manager,
+                    null, null, null, true, null, Path.GetDirectoryName(path));
+
+                using (var transaction = new Nexus.Transactions.TransactionScope())
+                {
+                    installer.PluginCheck(path, true);
+                    transaction.Complete();
+                }
+
+                Assert.That(context.Manager.IsPluginRegistered(path), Is.False);
+                Assert.That(context.Manager.ObservedManagedPlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
+                    Is.EquivalentTo(new[] { "Keep.esp" }));
+                Assert.That(context.Manager.ObservedActivePlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
+                    Is.EquivalentTo(new[] { "Keep.esp" }));
+                Assert.That(orderChanges, Is.GreaterThan(0));
+                Assert.That(activeChanges, Is.GreaterThan(0));
+                Assert.That(File.Exists(context.PathOf("Keep.esp")), Is.True);
+            }
+        }
+
         /// <summary>Direct and bulk actions preserve official state while blueprints follow their editable parents.</summary>
         [TestCase(false)]
         [TestCase(true)]
@@ -697,7 +734,7 @@ namespace NexusClientTests
                         case "GetUpdatedPluginInfo":
                             return null;
                         case "IsActivatiblePluginFile":
-                            return m_dicDefinitions.ContainsKey((string)args[0]);
+                            return File.Exists((string)args[0]) && m_dicDefinitions.ContainsKey((string)args[0]);
                         default:
                             return null;
                     }

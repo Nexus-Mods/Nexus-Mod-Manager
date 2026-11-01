@@ -298,7 +298,8 @@ namespace Nexus.Client.ModManagement
 									List<string> removedPlugins = new List<string>();
 									foreach (string path in removalTask.AbsentPaths)
 									{
-										if (PluginManager.IsActivatiblePluginFile(path))
+										// The file is already absent; match its existing registration.
+										if (PluginManager.IsPluginRegistered(path))
 											removedPlugins.Add(path);
 									}
 									if (removedPlugins.Count > 0)

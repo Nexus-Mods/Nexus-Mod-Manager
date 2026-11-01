@@ -1384,7 +1384,7 @@
 				Environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) => method.Name == "get_Settings" ? settings : null);
 				Plugins = InterfaceStub<IPluginManager>.Create((method, args) =>
 				{
-					if (method.Name == "IsActivatiblePluginFile") return Path.GetExtension((string)args[0]) == ".esp";
+					if (method.Name == "IsActivatiblePluginFile" || method.Name == "IsPluginRegistered") return Path.GetExtension((string)args[0]) == ".esp";
 					if (method.Name == "RemovePlugins") RemovedPlugins.AddRange((IEnumerable<string>)args[0]);
 					return null;
 				});

@@ -474,7 +474,7 @@ namespace Nexus.Client.ModManagement
         public bool PluginCheck(string p_strPath, bool p_booRemove)
 		{
 			if (IsPlugin)
-				if (PluginManager.IsActivatiblePluginFile(p_strPath))
+				if (p_booRemove ? PluginManager.IsPluginRegistered(p_strPath) : PluginManager.IsActivatiblePluginFile(p_strPath))
 				{
 					if (p_booRemove)
 					{
@@ -726,7 +726,7 @@ namespace Nexus.Client.ModManagement
 					}
 
 					if (IsPlugin)
-						if ((PluginManager.IsActivatiblePluginFile(strInstallFilePath)) && !booRestoreFile)
+						if (!booRestoreFile && PluginManager.IsPluginRegistered(strInstallFilePath))
 							PluginManager.RemovePlugin(strInstallFilePath);
 
 					if (booRestoreFile)

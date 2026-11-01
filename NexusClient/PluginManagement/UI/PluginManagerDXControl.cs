@@ -1428,6 +1428,14 @@
 			RequestManagedPluginsRefresh();
 		}
 
+		/// <summary>Reconciles a previously hidden Plugins tab with the latest committed plugin collections.</summary>
+		protected override void OnVisibleChanged(EventArgs e)
+		{
+			base.OnVisibleChanged(e);
+			if (Visible && _viewModel != null)
+				RequestManagedPluginsRefresh();
+		}
+
 		/// <summary>Resumes pending refreshes when a previously hidden Plugins tab creates its handle.</summary>
 		protected override void OnHandleCreated(EventArgs e)
 		{

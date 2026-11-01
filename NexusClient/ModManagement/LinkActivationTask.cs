@@ -176,7 +176,7 @@ namespace Nexus.Client.ModManagement
             if (PluginManager != null && absentPaths.Count > 0)
             {
                 List<string> removedPlugins = absentPaths
-                    .Where(PluginManager.IsActivatiblePluginFile)
+                    .Where(PluginManager.IsPluginRegistered)
                     .ToList();
                 if (removedPlugins.Count > 0)
                     PluginManager.RemovePlugins(removedPlugins);
