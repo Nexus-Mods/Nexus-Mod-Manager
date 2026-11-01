@@ -379,6 +379,46 @@ namespace Nexus.Client.GameStorage
                    paths.CompatibleSharedModsGameIds.Contains(otherGameId, StringComparer.OrdinalIgnoreCase);
         }
 
+        /// <summary>Recognizes compatible Witcher native records without extending native sharing to unrelated modes.</summary>
+        private static bool IsCompatibleSharedNativeGame(GameStoragePathSet paths, string otherGameId)
+        {
+            return paths != null && Witcher3RootOwnershipGuard.CanShareNativeStorage(paths.GameId, otherGameId);
+        }
+
+        /// <summary>Verifies that a shared native folder still uses the selected InstallInfo ledger's identity.</summary>
+        private bool HasCompatibleNativeLedger(GameStoragePathSet paths, string storageId)
+        {
+            GameStorageFolderManifest info = ReadFolderManifest(paths.InstallInfoPath);
+            if (info == null || info.FolderRole != GameStorageFolderRole.InstallInfo || string.IsNullOrWhiteSpace(storageId))
+                return false;
+            List<GameStorageFolderBinding> bindings = GetManifestBindings(info);
+            return bindings.Count > 0 && bindings.All(binding =>
+                (string.Equals(binding.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) ||
+                 IsCompatibleSharedNativeGame(paths, binding.GameId)) &&
+                string.Equals(binding.StorageId, storageId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>Returns the original native storage namespace used for mode-specific link subfolders.</summary>
+        internal string GetNativeStorageModeId(GameStoragePathSet paths)
+        {
+            GameStorageFolderManifest manifest = ReadFolderManifest(paths.InstallInfoPath);
+            if (manifest != null && manifest.FolderRole == GameStorageFolderRole.InstallInfo &&
+                (string.Equals(paths.GameId, manifest.GameId, StringComparison.OrdinalIgnoreCase) ||
+                 IsCompatibleSharedNativeGame(paths, manifest.GameId)))
+                return manifest.GameId;
+            if (_environmentInfo != null && Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId))
+            {
+                string counterpart = Witcher3RootOwnershipGuard.CounterpartModeId(paths.GameId);
+                string currentLink = paths.LinkFolderPath ?? _environmentInfo.Settings.HDLinkFolder[paths.GameId];
+                string otherLink = _environmentInfo.Settings.HDLinkFolder[counterpart];
+                if (AreSamePaths(currentLink, otherLink) &&
+                    Directory.Exists(Path.Combine(otherLink, counterpart, Nexus.Client.ModManagement.VirtualModActivator.ACTIVATOR_LINK_FOLDER)) &&
+                    !Directory.Exists(Path.Combine(currentLink, paths.GameId, Nexus.Client.ModManagement.VirtualModActivator.ACTIVATOR_LINK_FOLDER)))
+                    return counterpart;
+            }
+            return paths.GameId;
+        }
+
         private List<string> GetSharedModsGameIds(GameStoragePathSet paths, GameStorageFolderManifest manifest)
         {
             return GetManifestBindings(manifest)
@@ -488,6 +528,23 @@ namespace Nexus.Client.GameStorage
 			string storageId = ResolveStorageId(paths, registry);
 			return Validate(paths, storageId, registry);
 		}
+
+        /// <summary>Previews folder choices with advisory native-ownership information, without adopting or changing any storage.</summary>
+        public GameStorageHealthCheck ValidateStorageForSetup(GameStoragePathSet paths)
+        {
+            GameStorageHealthCheck health = ValidateStorage(paths);
+            GameStorageHealthCheck ownershipWarning;
+            if (!TryGuardWitcherRecoveryPaths(paths, out ownershipWarning) && ownershipWarning != null)
+            {
+                foreach (GameStorageHealthItem item in ownershipWarning.Items)
+                {
+                    item.Status = GameStorageHealthStatus.Warning;
+                    item.IsRequired = false;
+                    health.Items.Add(item);
+                }
+            }
+            return health;
+        }
 
 		/// <summary>
 		/// Resolves a persisted Game Storage identity for the exact selected path set without creating metadata or
@@ -906,13 +963,17 @@ namespace Nexus.Client.GameStorage
                 return;
             }
 
+            bool needsSharedBinding = currentBinding == null;
+            if (currentBinding == null)
+                currentBinding = bindings.FirstOrDefault(binding => IsCompatibleSharedNativeGame(paths, binding.GameId));
             if (currentBinding == null)
             {
                 Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, LanguageManager.Format("GameStorage.Health.ManifestOtherGame.Message", "The {0} manifest belongs to another game.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.SelectCorrectFolder.Fix", "Select the correct folder for this game."));
                 return;
             }
 
-            if (bindings.Any(x => !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase)))
+            if (bindings.Any(x => !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                !IsCompatibleSharedNativeGame(paths, x.GameId)))
             {
                 Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, LanguageManager.Format("GameStorage.Health.FolderCannotBeShared.Message", "The {0} folder cannot be shared between Game Modes.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.SelectExclusiveFolder.Fix", "Select an exclusive folder for this Game Mode."));
                 return;
@@ -924,7 +985,8 @@ namespace Nexus.Client.GameStorage
                 return;
             }
 
-            Add(result, role, path, GameStorageHealthStatus.Healthy, required, true, LanguageManager.Format("GameStorage.Health.FolderValid.Message", "The {0} folder is valid.", GetRoleName(role)));
+            Add(result, role, path, needsSharedBinding ? GameStorageHealthStatus.LegacyValidNeedsInitialization : GameStorageHealthStatus.Healthy,
+                required, true, LanguageManager.Format("GameStorage.Health.FolderValid.Message", "The {0} folder is valid.", GetRoleName(role)));
         }
 
         /// <summary>
@@ -1082,7 +1144,9 @@ namespace Nexus.Client.GameStorage
                 if (read.Status != GameStorageMetadataReadStatus.Valid)
                     throw new InvalidOperationException("Game Storage write blocked: an existing storage folder manifest cannot be verified at " + assignment.Value);
                 if (GetManifestBindings(read.Value).Any(binding =>
-                    String.Equals(binding.GameId, counterpart, StringComparison.OrdinalIgnoreCase)))
+                    String.Equals(binding.GameId, counterpart, StringComparison.OrdinalIgnoreCase) &&
+                    !(assignment.Key == GameStorageFolderRole.Mods ? IsCompatibleSharedModsGame(paths, binding.GameId) :
+                        (IsCompatibleSharedNativeGame(paths, binding.GameId) && HasCompatibleNativeLedger(paths, binding.StorageId)))))
                     throw new InvalidOperationException("Game Storage write blocked: another game edition already claims " + assignment.Value);
             }
 
@@ -1092,7 +1156,8 @@ namespace Nexus.Client.GameStorage
             if (rootRead.Status == GameStorageMetadataReadStatus.Missing) return;
             if (rootRead.Status != GameStorageMetadataReadStatus.Valid)
                 throw new InvalidOperationException("Game Storage write blocked: the existing storage root manifest cannot be verified at " + root);
-            if (String.Equals(rootRead.Value.GameId, counterpart, StringComparison.OrdinalIgnoreCase))
+            if (String.Equals(rootRead.Value.GameId, counterpart, StringComparison.OrdinalIgnoreCase) &&
+                !(IsCompatibleSharedNativeGame(paths, rootRead.Value.GameId) && HasCompatibleNativeLedger(paths, rootRead.Value.StorageId)))
                 throw new InvalidOperationException("Game Storage write blocked: another game edition already claims the storage root " + root);
         }
 
@@ -1165,7 +1230,9 @@ namespace Nexus.Client.GameStorage
 
             var existing = existingRead.Status == GameStorageMetadataReadStatus.Valid ? existingRead.Value : null;
             var manifest = existing ?? new GameStorageFolderManifest { CreatedUtc = now };
-            var bindings = role == GameStorageFolderRole.Mods
+            string nativeModeId = role != GameStorageFolderRole.Mods && Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId)
+                ? GetNativeStorageModeId(paths) : paths.GameId;
+            var bindings = role == GameStorageFolderRole.Mods || Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId)
                 ? GetManifestBindings(manifest)
                 : new List<GameStorageFolderBinding>();
 
@@ -1175,6 +1242,17 @@ namespace Nexus.Client.GameStorage
             {
                 throw new InvalidOperationException("The selected Mods folder is bound to an unrelated Game Mode.");
             }
+
+            if (role != GameStorageFolderRole.Mods && bindings.Any(existingBinding =>
+                !string.Equals(existingBinding.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                (!IsCompatibleSharedNativeGame(paths, existingBinding.GameId) ||
+                 !string.Equals(existingBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))))
+                throw new InvalidOperationException("The selected native folder belongs to an incompatible storage.");
+
+            if (IsCompatibleSharedNativeGame(paths, nativeModeId) && !bindings.Any(existingBinding =>
+                string.Equals(existingBinding.GameId, nativeModeId, StringComparison.OrdinalIgnoreCase)))
+                bindings.Add(new GameStorageFolderBinding { GameId = nativeModeId, StorageId = storageId,
+                    CreatedUtc = now, LastSeenUtc = now, LastSeenByVersion = _applicationVersion.ToString() });
 
             var binding = bindings.FirstOrDefault(x =>
                 string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase));
@@ -1197,7 +1275,10 @@ namespace Nexus.Client.GameStorage
             manifest.App = GameStorageConstants.ApplicationName;
             manifest.FolderRole = role;
             manifest.StorageId = storageId;
-            manifest.GameId = paths.GameId;
+            // Keep the original native namespace so the same Link Folder suffix is
+            // used from either edition; additional users are recorded in Bindings.
+            if (role == GameStorageFolderRole.Mods || !IsCompatibleSharedNativeGame(paths, manifest.GameId))
+                manifest.GameId = nativeModeId;
             manifest.LastSeenUtc = now;
             manifest.LastSeenByVersion = _applicationVersion.ToString();
             manifest.Bindings = bindings;
@@ -1214,6 +1295,14 @@ namespace Nexus.Client.GameStorage
             GameStorageRootManifest existing = existingRead.Status == GameStorageMetadataReadStatus.Valid
                 ? existingRead.Value
                 : null;
+            if (existing != null && IsCompatibleSharedNativeGame(paths, existing.GameId) &&
+                string.Equals(existing.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
+                RootManifestFolderMatches(root, existing, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath) &&
+                RootManifestFolderMatches(root, existing, GameStorageFolderRole.Mods, paths.ModsPath) &&
+                RootManifestFolderMatches(root, existing, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath) &&
+                existing.LinkFolderRequired == paths.LinkFolderRequired &&
+                (!paths.LinkFolderRequired || RootManifestFolderMatches(root, existing, GameStorageFolderRole.LinkFolder, paths.LinkFolderPath)))
+                return;
             DateTime createdUtc = existing != null &&
                 string.Equals(existing.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(existing.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
@@ -1386,7 +1475,8 @@ namespace Nexus.Client.GameStorage
                 return;
 
             string storageId = GetManifestBindings(manifest)
-                .Where(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+                .Where(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) ||
+                    (expectedRole != GameStorageFolderRole.Mods && IsCompatibleSharedNativeGame(paths, x.GameId)))
                 .Select(x => x.StorageId)
                 .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
             if (!string.IsNullOrWhiteSpace(storageId))
@@ -1403,7 +1493,7 @@ namespace Nexus.Client.GameStorage
                 return null;
 
             var exactMatches = registry.KnownStorages.Where(x =>
-                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) || IsCompatibleSharedNativeGame(paths, x.GameId)) &&
                 AreSamePaths(x.InstallInfoPath, paths.InstallInfoPath) &&
                 AreSamePaths(x.ModsPath, paths.ModsPath) &&
                 (AreSamePaths(NormalizeVirtualInstallDirectory(x.VirtualInstallPath), paths.VirtualInstallPath) ||
@@ -1440,7 +1530,8 @@ namespace Nexus.Client.GameStorage
             GameStorageRootManifest manifest = ReadRootManifest(root);
             if (manifest == null ||
                 string.IsNullOrWhiteSpace(manifest.StorageId) ||
-                !string.Equals(manifest.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+                (!string.Equals(manifest.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                 !IsCompatibleSharedNativeGame(paths, manifest.GameId)))
             {
                 return null;
             }

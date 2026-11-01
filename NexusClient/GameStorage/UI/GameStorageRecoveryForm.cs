@@ -144,6 +144,8 @@ namespace Nexus.Client.GameStorage.UI
 
             if (_service.ApplySelectedCandidatePaths(currentPaths, candidate, out healthCheck))
             {
+                if (healthCheck != null && healthCheck.HasWarnings)
+                    XtraMessageBox.Show(this, healthCheck.ToUserMessage(), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 DialogResult = DialogResult.OK;
                 return;
             }

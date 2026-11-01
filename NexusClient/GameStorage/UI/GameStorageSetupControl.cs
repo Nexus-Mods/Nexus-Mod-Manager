@@ -36,7 +36,6 @@ namespace Nexus.Client.GameStorage.UI
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
-        private bool _checksBusy;
         private int _draftGeneration;
         private readonly List<SimpleButton> _manualPathButtons = new List<SimpleButton>();
 
@@ -162,7 +161,7 @@ namespace Nexus.Client.GameStorage.UI
         public int DraftGeneration => _draftGeneration;
 
         /// <summary>Requires the two storage folders needed by both install methods before saving.</summary>
-        public bool CanApply => !_checksBusy && !string.IsNullOrWhiteSpace(_manualInstallInfoEdit.Text) &&
+        public bool CanApply => !string.IsNullOrWhiteSpace(_manualInstallInfoEdit.Text) &&
             !string.IsNullOrWhiteSpace(_manualModsEdit.Text);
 
         /// <summary>Updates Save immediately, including while draft validation is waiting for its timer.</summary>
@@ -316,13 +315,12 @@ namespace Nexus.Client.GameStorage.UI
             }
         }
 
-        /// <summary>Reports discovery/validation progress without blocking Cancel.</summary>
+        /// <summary>Reports read-only progress while folder selection and Save remain available.</summary>
         public void SetReadOnlyChecksBusy(bool refreshing, bool validating, string description)
         {
             _refreshButton.Enabled = !refreshing && !validating;
-            // Initial save must not race a registry scan or newer draft validation.
-            // Cancel remains usable throughout these read-only operations.
-            _checksBusy = refreshing || validating;
+            // Searches are advisory. The save path validates the exact selected
+            // folders again and coordinates any metadata writes independently.
             UpdateApplyState();
             _candidateStatusLabel.Text = description ?? string.Empty;
             _candidateStatusLabel.ToolTip = _candidateStatusLabel.Text;

@@ -149,6 +149,7 @@
 		private bool m_booDisableLinkCreation = false;
 		private bool m_booDisableIniLogging = false;
 		private bool m_booForceHardLinks = false;
+		private readonly string m_strLinkFolderModeId;
 		private string m_strGameDataPath = string.Empty;
 		private string m_strVirtualActivatorPath = string.Empty;
 		private string m_strVirtualActivatorConfigPath = string.Empty;
@@ -225,7 +226,7 @@
 					{
 						string strLink = EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId];
 						if (!string.IsNullOrWhiteSpace(strLink))
-							return Path.Combine(strLink, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
+							return Path.Combine(strLink, m_strLinkFolderModeId, ACTIVATOR_LINK_FOLDER);
 						else
 							return string.Empty;
 					}
@@ -366,6 +367,11 @@
 			GameMode = p_gmdGameMode;
 			ModInstallLog = p_ilgModInstallLog;
 			EnvironmentInfo = p_eifEnvironmentInfo;
+			// Compatible Witcher editions retain the original native link namespace.
+			m_strLinkFolderModeId = Witcher3.Witcher3RootOwnershipGuard.IsWitcherMode(GameMode.ModeId)
+				? new GameStorage.GameStorageService(EnvironmentInfo).GetNativeStorageModeId(
+					new GameStorage.GameStoragePathSet { GameId = GameMode.ModeId,
+						InstallInfoPath = GameMode.GameModeEnvironmentInfo.InstallInfoDirectory }) : GameMode.ModeId;
 			m_booForceHardLinks = EnvironmentInfo.Settings.MultiHDInstall[GameMode.ModeId];
 			string strVirtualFolder = EnvironmentInfo.Settings.VirtualFolder[GameMode.ModeId];
 			// Direct-only games still use VMA metadata services, without configuring a Virtual install folder.
@@ -381,7 +387,7 @@
 
 			if (!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId]))
 			{
-				string strHDLink = Path.Combine(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId], GameMode.ModeId), ACTIVATOR_LINK_FOLDER);
+				string strHDLink = Path.Combine(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[GameMode.ModeId], m_strLinkFolderModeId), ACTIVATOR_LINK_FOLDER);
 
 				if (!Directory.Exists(strHDLink))
 					Directory.CreateDirectory(strHDLink);
@@ -509,7 +515,7 @@
 				if (!string.IsNullOrEmpty(HDLinkFolder))
 					FileUtil.ForceDelete(HDLinkFolder);
 
-				string strHDLink = Path.Combine(NewLinkFolder, GameMode.ModeId, ACTIVATOR_LINK_FOLDER);
+				string strHDLink = Path.Combine(NewLinkFolder, m_strLinkFolderModeId, ACTIVATOR_LINK_FOLDER);
 
 				if (!Directory.Exists(strHDLink))
 					Directory.CreateDirectory(strHDLink);

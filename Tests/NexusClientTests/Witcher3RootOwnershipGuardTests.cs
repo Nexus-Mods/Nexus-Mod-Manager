@@ -115,6 +115,9 @@ namespace NexusClientTests
 			installInfo[otherModeId] = otherInfo;
 			var setup = new PerGameModeSettings<bool>();
 			setup[otherModeId] = completed;
+			var modFolders = new PerGameModeSettings<string>();
+			var linkFolders = new PerGameModeSettings<string>();
+			var multiDrive = new PerGameModeSettings<bool>();
 			var virtualFolders = new PerGameModeSettings<string>();
 			virtualFolders[otherModeId] = otherVirtualRoot;
 			virtualFolders[Witcher3RootOwnershipGuard.CounterpartModeId(otherModeId)] = currentVirtualRoot;
@@ -126,6 +129,9 @@ namespace NexusClientTests
 					case "get_InstallInfoFolder": return installInfo;
 					case "get_CompletedSetup": return setup;
 					case "get_VirtualFolder": return virtualFolders;
+					case "get_ModFolder": return modFolders;
+					case "get_HDLinkFolder": return linkFolders;
+					case "get_MultiHDInstall": return multiDrive;
 					default: return null;
 				}
 			});
@@ -136,6 +142,122 @@ namespace NexusClientTests
 				if (method.Name == "get_ApplicationVersion") return new Version(0, 93, 1);
 				return null;
 			});
+		}
+
+		/// <summary>Both editions can reopen one physical installation using the same native records.</summary>
+		[TestCase("Witcher3", "Witcher3Remastered", false)]
+		[TestCase("Witcher3Remastered", "Witcher3", false)]
+		[TestCase("Witcher3Remastered", "Witcher3", true)]
+		public void SharedNativeFoldersKeepOneAuthority(string currentMode, string otherMode, bool directOnly)
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			string info = Path.Combine(_fixture, "Shared", "InstallInfo");
+			string virtualParent = directOnly ? null : Path.Combine(_fixture, "Shared");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(info);
+			File.WriteAllText(Path.Combine(info, "InstallLog.xml"), "<installLog />");
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, otherMode,
+				virtualParent, virtualParent);
+
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, currentMode, root, info).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, currentMode, root, info).AllowsNativeMutation, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForStorageTransition(environment, currentMode, root, info,
+				directOnly ? null : Path.Combine(virtualParent, "VirtualInstall")).AllowsNativeMutation, Is.True);
+			Assert.That(File.ReadAllText(Path.Combine(info, "InstallLog.xml")), Is.EqualTo("<installLog />"));
+		}
+
+		/// <summary>Switching editions preserves one storage ID, all manifest bindings and the original link namespace.</summary>
+		[TestCase("Witcher3", "Witcher3Remastered")]
+		[TestCase("Witcher3Remastered", "Witcher3")]
+		public void SharedStoragePreservesIdentityAndNativeFiles(string originalMode, string secondMode)
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			string storageRoot = Path.Combine(_fixture, "Shared");
+			string info = Path.Combine(storageRoot, "InstallInfo");
+			string mods = Path.Combine(storageRoot, "Mods");
+			string virtualPath = Path.Combine(storageRoot, "VirtualInstall");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(info);
+			Directory.CreateDirectory(mods);
+			Directory.CreateDirectory(virtualPath);
+			string log = Path.Combine(info, "InstallLog.xml");
+			string payload = Path.Combine(virtualPath, "existing-staged-mod.bin");
+			string archive = Path.Combine(mods, "existing-mod.7z");
+			File.WriteAllText(log, "<installLog />");
+			File.WriteAllText(payload, "staged mod");
+			File.WriteAllText(archive, "archive");
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, secondMode, storageRoot, storageRoot);
+			environment.Settings.InstallationPaths[originalMode] = root;
+			environment.Settings.InstallInfoFolder[originalMode] = info;
+			environment.Settings.ModFolder[originalMode] = mods;
+			environment.Settings.ModFolder[secondMode] = mods;
+			var service = new GameStorageService(environment);
+			var paths = new GameStoragePathSet { GameId = originalMode, GameName = originalMode,
+				GameInstallPath = root, InstallInfoPath = info, ModsPath = mods, VirtualInstallPath = virtualPath,
+				CompatibleSharedModsGameIds = new System.Collections.Generic.List<string> { secondMode } };
+			service.InitializeMetadataForStorage(paths);
+			string originalId;
+			Assert.That(service.TryResolveExistingStorageId(paths, out originalId), Is.True);
+			paths.GameId = secondMode;
+			paths.CompatibleSharedModsGameIds = new System.Collections.Generic.List<string> { originalMode };
+
+			Assert.That(service.ValidateStorage(paths).IsHealthy, Is.True);
+			service.InitializeMetadataForStorage(paths);
+
+			string sharedId;
+			Assert.That(service.TryResolveExistingStorageId(paths, out sharedId), Is.True);
+			Assert.That(sharedId, Is.EqualTo(originalId));
+			Assert.That(service.GetNativeStorageModeId(paths), Is.EqualTo(originalMode));
+			foreach (string folder in new[] { info, mods, virtualPath })
+			{
+				GameStorageFolderManifest manifest = Newtonsoft.Json.JsonConvert.DeserializeObject<GameStorageFolderManifest>(
+					File.ReadAllText(Path.Combine(folder, ".nmm-folder.json")));
+				Assert.That(manifest.Bindings.Count, Is.EqualTo(2));
+			}
+			Assert.That(File.ReadAllText(log), Is.EqualTo("<installLog />"));
+			Assert.That(File.ReadAllText(payload), Is.EqualTo("staged mod"));
+			Assert.That(File.ReadAllText(archive), Is.EqualTo("archive"));
+			GameStorageCandidate candidate = service.DiscoverRecoveryCandidates(paths).Find(item =>
+				item.InstallInfoPath == info && item.VirtualInstallPath == virtualPath);
+			Assert.That(candidate, Is.Not.Null);
+			Assert.That(candidate.InstallInfoPath, Is.EqualTo(info));
+			Assert.That(candidate.VirtualInstallPath, Is.EqualTo(virtualPath));
+		}
+
+		/// <summary>First-time metadata adoption keeps an older setup's existing mode-specific Link Folder.</summary>
+		[Test]
+		public void SharedLegacyStorageWithoutManifestsKeepsExistingLinkNamespace()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Game");
+			string info = Path.Combine(_fixture, "Shared", "InstallInfo");
+			string mods = Path.Combine(_fixture, "Shared", "Mods");
+			string virtualParent = Path.Combine(_fixture, "Shared");
+			string link = Path.Combine(_fixture, "Links");
+			string oldLinks = Path.Combine(link, "Witcher3", "NMMLink");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(info);
+			Directory.CreateDirectory(mods);
+			Directory.CreateDirectory(Path.Combine(virtualParent, "VirtualInstall"));
+			Directory.CreateDirectory(oldLinks);
+			File.WriteAllText(Path.Combine(info, "InstallLog.xml"), "<installLog />");
+			File.WriteAllText(Path.Combine(oldLinks, "existing-mod.bin"), "existing links");
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, "Witcher3", virtualParent, virtualParent);
+			environment.Settings.HDLinkFolder["Witcher3"] = link;
+			environment.Settings.HDLinkFolder["Witcher3Remastered"] = link;
+			var service = new GameStorageService(environment);
+			var paths = new GameStoragePathSet { GameId = "Witcher3Remastered", GameName = "Remastered",
+				GameInstallPath = root, InstallInfoPath = info, ModsPath = mods,
+				VirtualInstallPath = Path.Combine(virtualParent, "VirtualInstall"), LinkFolderPath = link,
+				CompatibleSharedModsGameIds = new System.Collections.Generic.List<string> { "Witcher3" } };
+
+			Assert.That(service.GetNativeStorageModeId(paths), Is.EqualTo("Witcher3"));
+			service.InitializeMetadataForStorage(paths);
+			Assert.That(service.GetNativeStorageModeId(paths), Is.EqualTo("Witcher3"));
+			Assert.That(File.ReadAllText(Path.Combine(oldLinks, "existing-mod.bin")), Is.EqualTo("existing links"));
+			Assert.That(Directory.Exists(Path.Combine(link, "Witcher3Remastered", "NMMLink")), Is.False);
 		}
 
 		[Test]

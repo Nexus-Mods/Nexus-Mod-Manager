@@ -135,7 +135,7 @@
 
 			var service = new GameStorageService(_environment);
 			GameStoragePathSet paths = GameStorageInitialPaths.Create(_environment, service, factory, installedPath);
-			GameStorageHealthCheck health = service.ValidateStorage(paths);
+			GameStorageHealthCheck health = service.ValidateStorageForSetup(paths);
 			using (var setup = new GameStorageSetupForm(service, paths, health, false))
 			{
 				// Register only after the user saves the selected storage paths.
@@ -183,6 +183,8 @@
 					_environment.Settings.InstalledGamesDetected = true;
 					_environment.Settings.Save();
 					message = LanguageManager.Format("GameDiscovery.Configured", "{0} is configured. Select Manage to open it.", factory.GameModeDescriptor.Name);
+					if (health != null && health.HasWarnings)
+						message += System.Environment.NewLine + System.Environment.NewLine + health.ToUserMessage();
 					return true;
 				}
 			}

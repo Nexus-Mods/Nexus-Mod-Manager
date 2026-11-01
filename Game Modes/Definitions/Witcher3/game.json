@@ -68,6 +68,11 @@
     "pathAdjustmentProfile": "none",
     "supportsGameRootInstall": false
   },
+  "storage": {
+    "shareModsStorageWith": [
+      "Witcher3Remastered"
+    ]
+  },
   "compatibilityNotes": [
     "Preserves the original Witcher3 ModeId, game-root deployment and explicit mod-folder archive layouts. It does not reuse the separate Witcher3Remastered edition adapter or implement Script Merger, mods.settings ordering or menu merging."
   ]

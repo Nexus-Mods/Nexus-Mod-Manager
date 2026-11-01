@@ -26,6 +26,7 @@ namespace Nexus.Client.GameStorage
             int currentScore = GetPathSetEvidenceScore(currentPaths, 5);
             AddCandidate(candidates, CreateCandidateFromPathSet("Proposed setup", currentPaths, null, currentScore, GetConfidenceLevel(currentScore), true,
                 "Current per-game path settings."));
+            AddSharedWitcherStorageCandidate(currentPaths, candidates);
 
             foreach (var entry in registry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
                 AddCandidate(candidates, CreateCandidateFromRegistry(entry, entry.LastKnownGood ? "Known good registry" : "Known registry", entry.LastKnownGood ? 95 : 75));
@@ -53,6 +54,36 @@ namespace Nexus.Client.GameStorage
                 .OrderByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
                 .ToList();
+        }
+
+        /// <summary>Offers the other Witcher mode's complete storage as an explicit choice for the same physical installation.</summary>
+        private void AddSharedWitcherStorageCandidate(GameStoragePathSet currentPaths, List<GameStorageCandidate> candidates)
+        {
+            if (_environmentInfo == null || !Witcher3RootOwnershipGuard.IsWitcherMode(currentPaths.GameId))
+                return;
+            string counterpart = Witcher3RootOwnershipGuard.CounterpartModeId(currentPaths.GameId);
+            var settings = _environmentInfo.Settings;
+            string info = settings.InstallInfoFolder[counterpart];
+            string mods = settings.ModFolder[counterpart];
+            if (string.IsNullOrWhiteSpace(info) || string.IsNullOrWhiteSpace(mods))
+                return;
+            var paths = new GameStoragePathSet
+            {
+                GameId = currentPaths.GameId, GameName = currentPaths.GameName,
+                GameInstallPath = currentPaths.GameInstallPath, InstallInfoPath = info, ModsPath = mods,
+                VirtualInstallPath = NormalizeVirtualInstallDirectory(settings.VirtualFolder[counterpart]),
+                LinkFolderPath = settings.HDLinkFolder[counterpart],
+                LinkFolderRequired = settings.MultiHDInstall[counterpart],
+                CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds
+            };
+            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForStorageTransition(
+                _environmentInfo, paths.GameId, paths.GameInstallPath, paths.InstallInfoPath, paths.VirtualInstallPath);
+            if (!decision.AllowsNativeMutation)
+                return;
+            GameStorageRegistry registry = LoadRegistry();
+            AddCandidate(candidates, CreateCandidateFromPathSet("Shared Witcher 3 storage", paths,
+                ResolveStorageId(paths, registry), 96, GameStorageCandidateConfidence.High, true,
+                LanguageManager.Get("GameStorage.Witcher.SharedEvidence", "Reuse the other Witcher mode's install records, mod archives and staged files for this game installation.")));
         }
 
         public List<GameStorageCandidate> DiscoverRecoveryCandidatesFromRoot(IGameMode gameMode, string rootPath)
@@ -242,9 +273,9 @@ namespace Nexus.Client.GameStorage
                 Status = GameStorageHealthStatus.Unknown,
                 IsRequired = true,
                 IsRecoverable = false,
-                Message = "Game storage recovery blocked to prevent duplicate native storage ownership: " + reason,
+                Message = LanguageManager.Format("GameStorage.Witcher.OwnershipReview", "Witcher 3 storage needs review: {0}", reason),
                 SuggestedFixes = new List<string> {
-                    "Select an independent physical game installation, or perform a separately verified native ownership migration."
+                    LanguageManager.Get("GameStorage.Witcher.OwnershipAdvice", "To reuse the same Witcher installation, select its existing InstallInfo and VirtualInstall folders in both modes. Existing mod files and install records will be reused.")
                 }
             });
             return false;
@@ -261,7 +292,7 @@ namespace Nexus.Client.GameStorage
             return ApplySelectedCandidatePaths(currentPaths, candidate, out healthCheck);
         }
 
-        /// <summary>Persists an explicit folder choice and returns any filesystem or ownership failure.</summary>
+        /// <summary>Persists an explicit folder choice; optional metadata and ownership checks remain advisory.</summary>
         public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
 		{
 			healthCheck = null;
@@ -281,10 +312,55 @@ namespace Nexus.Client.GameStorage
 		private bool ApplySelectedCandidatePathsUnderReservation(GameStoragePathSet currentPaths, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
         {
             GameStoragePathSet paths = ResolveExplicitlySelectedPaths(currentPaths, candidate);
-            if (!ConfirmSelectedStoragePaths(paths, out healthCheck))
+            if (_environmentInfo == null)
+            {
+                healthCheck = new GameStorageHealthCheck { GameId = paths == null ? null : paths.GameId };
+                Add(healthCheck, null, null, GameStorageHealthStatus.Unknown, true, false,
+                    LanguageManager.Get("GameStorage.Setup.SettingsUnavailable", "Folder preferences cannot be saved without the active game settings."));
                 return false;
+            }
+            if (!CanApplyExplicitlySelectedPaths(paths))
+            {
+                healthCheck = paths == null ? null : ValidateStorageForSetup(paths);
+                return false;
+            }
 
-            ApplyPathSet(paths);
+            // Choosing folders does not adopt another mode's native state. Creating
+            // empty directories and saving preferences must not depend on helper metadata.
+            try
+            {
+                CreateSetupFolders(paths);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                exception is ArgumentException || exception is NotSupportedException || exception is System.Security.SecurityException)
+            {
+                healthCheck = new GameStorageHealthCheck { GameId = paths.GameId };
+                AddWriteFailure(healthCheck, paths, exception);
+                return false;
+            }
+
+            bool metadataConfirmed;
+            try
+            {
+                metadataConfirmed = ConfirmSelectedStoragePaths(paths, out healthCheck);
+            }
+            catch (InvalidOperationException exception)
+            {
+                // A native ownership warning must not prevent saving folder preferences.
+                System.Diagnostics.Trace.TraceWarning("Game Storage confirmation was skipped: {0}", exception.Message);
+                healthCheck = null;
+                metadataConfirmed = false;
+            }
+            if (!metadataConfirmed)
+            {
+                if (healthCheck != null)
+                    System.Diagnostics.Trace.TraceWarning("Game Storage confirmation was skipped: {0}", healthCheck.ToUserMessage());
+                healthCheck = ValidateStorageForSetup(paths);
+                Add(healthCheck, null, null, GameStorageHealthStatus.Warning, false, true,
+                    LanguageManager.Get("GameStorage.Setup.PathsSavedWithoutMetadata", "The selected folders will be saved. Game Storage could not record their metadata; existing install records and mod files will be left untouched."));
+            }
+
+            ApplyPathSet(paths, false);
             return true;
         }
 
@@ -508,11 +584,11 @@ namespace Nexus.Client.GameStorage
 			return healthCheck.IsHealthy;
 		}
 
-		private void ApplyPathSet(GameStoragePathSet paths)
+		/// <summary>Saves legacy folder preferences; native adoption retains its separate ownership preflight.</summary>
+		private void ApplyPathSet(GameStoragePathSet paths, bool requireNativeOwnership = true)
 		{
-			// A candidate may have been approved before another process changed native
-			// ownership. Revalidate the exact destination before persisting settings.
-			RequireWitcher3StorageWrite(paths);
+			if (requireNativeOwnership)
+				RequireWitcher3StorageWrite(paths);
 			string gameId = paths.GameId;
 
 			_environmentInfo.Settings.InstallInfoFolder[gameId] =
@@ -1152,15 +1228,14 @@ namespace Nexus.Client.GameStorage
                 string.Equals(
                     x.GameId,
                     currentPaths.GameId,
-                    StringComparison.OrdinalIgnoreCase));
+                    StringComparison.OrdinalIgnoreCase) || IsCompatibleSharedNativeGame(currentPaths, x.GameId));
             if (currentBinding == null)
                 return false;
 
             if (bindings.Any(x =>
-                !string.Equals(
-                    x.GameId,
-                    currentPaths.GameId,
-                    StringComparison.OrdinalIgnoreCase)))
+                (!string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                 !IsCompatibleSharedNativeGame(currentPaths, x.GameId)) ||
+                !string.Equals(x.StorageId, currentBinding.StorageId, StringComparison.OrdinalIgnoreCase)))
             {
                 return false;
             }
@@ -1182,7 +1257,8 @@ namespace Nexus.Client.GameStorage
                 .Where(x => string.Equals(
                     x.GameId,
                     currentPaths.GameId,
-                    StringComparison.OrdinalIgnoreCase))
+                    StringComparison.OrdinalIgnoreCase) ||
+                    (role != GameStorageFolderRole.Mods && IsCompatibleSharedNativeGame(currentPaths, x.GameId)))
                 .Select(x => x.StorageId)
                 .FirstOrDefault();
         }

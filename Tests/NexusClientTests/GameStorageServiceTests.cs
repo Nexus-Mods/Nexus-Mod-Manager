@@ -155,7 +155,83 @@ namespace NexusClientTests
             Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(service.ValidateStorage(paths)), Is.False);
         }
 
-        /// <summary>Save reflects required edits immediately and is unavailable during checks; Virtual Install is optional.</summary>
+        /// <summary>Saving folder preferences succeeds despite helper warnings without adopting another game's native data.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        [NonParallelizable]
+        public void ApplySelectedCandidatePaths_MetadataWarningsRemainAdvisory(bool witcherOwnershipConflict)
+        {
+            var previousPolicies = Nexus.Client.Games.GameModeRuntimePolicies.All.ToArray();
+            try
+            {
+                string gameId = witcherOwnershipConflict ? "Witcher3Remastered" : "Fallout4";
+                if (witcherOwnershipConflict)
+                    Nexus.Client.Games.GameModeRuntimePolicies.Replace(new[] {
+                        new System.Collections.Generic.KeyValuePair<string, Nexus.Client.Games.GameModeRuntimePolicy>(gameId,
+                            new Nexus.Client.Games.GameModeRuntimePolicy { NativeRootOwnershipProfile = "witcher3" }) });
+                var strings = new System.Collections.Generic.Dictionary<string, Nexus.Client.Settings.PerGameModeSettings<string>>();
+                foreach (string name in new[] { "InstallationPaths", "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder", "PreferredInstallMethod" })
+                    strings[name] = new Nexus.Client.Settings.PerGameModeSettings<string>();
+                var completed = new Nexus.Client.Settings.PerGameModeSettings<bool>();
+                var multiDrive = new Nexus.Client.Settings.PerGameModeSettings<bool>();
+                var settings = InterfaceStub<Nexus.Client.Settings.ISettings>.Create((method, args) =>
+                {
+                    if (method.Name == "get_CompletedSetup") return completed;
+                    if (method.Name == "get_MultiHDInstall") return multiDrive;
+                    if (method.Name.StartsWith("get_") && strings.ContainsKey(method.Name.Substring(4)))
+                        return strings[method.Name.Substring(4)];
+                    return null;
+                });
+                var environment = InterfaceStub<Nexus.Client.IEnvironmentInfo>.Create((method, args) =>
+                {
+                    if (method.Name == "get_Settings") return settings;
+                    if (method.Name == "get_ApplicationPersonalDataFolderPath") return _tempRoot;
+                    if (method.Name == "get_ApplicationVersion") return new Version(9, 0, 1);
+                    return null;
+                });
+                var service = new GameStorageService(environment);
+                GameStoragePathSet paths = CreateStorage(gameId, "Selected", withArchive: true, withVirtualFile: true);
+                Directory.CreateDirectory(paths.GameInstallPath);
+                string preservedFile;
+                if (witcherOwnershipConflict)
+                {
+                    GameStoragePathSet legacy = CreateStorage("Witcher3", "Legacy");
+                    strings["InstallationPaths"]["Witcher3"] = paths.GameInstallPath;
+                    strings["InstallInfoFolder"]["Witcher3"] = legacy.InstallInfoPath;
+                    completed["Witcher3"] = true;
+                    preservedFile = Path.Combine(legacy.InstallInfoPath, "InstallLog.xml");
+                }
+                else
+                {
+                    Directory.CreateDirectory(service.RegistryDirectory);
+                    preservedFile = service.RegistryPath;
+                    File.WriteAllText(preservedFile, "{\"SchemaVersion\":999,\"KnownStorages\":[]}");
+                }
+                byte[] original = File.ReadAllBytes(preservedFile);
+                GameStorageCandidate candidate = CreateCandidate(paths);
+                candidate.ModsPath = Path.Combine(_tempRoot, "NewModLibrary");
+
+                GameStorageHealthCheck health;
+                Assert.That(service.ApplySelectedCandidatePaths(paths, candidate, out health), Is.True);
+
+                Assert.That(strings["ModFolder"][gameId], Is.EqualTo(candidate.ModsPath));
+                Assert.That(Directory.Exists(candidate.ModsPath), Is.True);
+                Assert.That(health.HasWarnings, Is.True);
+                Assert.That(health.HasConfirmedPaths, Is.False);
+                Assert.That(File.ReadAllBytes(preservedFile), Is.EqualTo(original));
+                Assert.That(File.Exists(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json")), Is.False);
+                Assert.That(File.ReadAllText(Path.Combine(paths.VirtualInstallPath, "Data", "Example.esp")), Is.EqualTo("plugin"));
+                if (witcherOwnershipConflict)
+                    Assert.Throws<InvalidOperationException>(() => service.InitializeMetadataForStorage(paths),
+                        "Choosing folders must not bypass the native ownership guard.");
+            }
+            finally
+            {
+                Nexus.Client.Games.GameModeRuntimePolicies.Replace(previousPolicies);
+            }
+        }
+
+        /// <summary>Save reflects required edits immediately and remains available during advisory checks; Virtual Install is optional.</summary>
         [Test, Apartment(System.Threading.ApartmentState.STA), NonParallelizable]
         public void SetupControl_SaveRequiresInstallInfoAndModsOnly()
         {
@@ -167,7 +243,7 @@ namespace NexusClientTests
                 control.SetManualPaths(new GameStoragePathSet { InstallInfoPath = @"C:\Records", ModsPath = @"C:\Mods" });
                 Assert.That(save.Enabled, Is.True);
                 control.SetReadOnlyChecksBusy(true, false, "checking");
-                Assert.That(save.Enabled, Is.False);
+                Assert.That(save.Enabled, Is.True);
                 control.SetReadOnlyChecksBusy(false, false, string.Empty);
                 Assert.That(save.Enabled, Is.True);
                 var installInfo = (System.Windows.Forms.Control)control.GetType().GetField("_manualInstallInfoEdit", flags).GetValue(control);

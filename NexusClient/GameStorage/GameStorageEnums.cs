@@ -33,7 +33,8 @@ namespace Nexus.Client.GameStorage
         InvalidManifest,
         UnsupportedManifestVersion,
         FolderRoleCollision,
-        VirtualInstallNotConfigured
+        VirtualInstallNotConfigured,
+        Warning
     }
 
     public enum GameStorageCandidateConfidence

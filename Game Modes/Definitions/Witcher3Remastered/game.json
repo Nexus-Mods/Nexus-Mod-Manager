@@ -175,12 +175,17 @@
       "editing": "reviewed-sequential-ini-v1"
     }
   },
+  "storage": {
+    "shareModsStorageWith": [
+      "Witcher3"
+    ]
+  },
   "compatibilityNotes": [
     "Dedicated Remastered native basic-package management is enabled with physical-root, edition and ownership validation; Windows gameplay/runtime validation is still required.",
     "Requires 5.x executable-version evidence and no stale DX11 executable; DX12 alone never establishes Remastered.",
-    "Uses the witcher3 Nexus catalog while keeping an independent NMM ModeId and native ownership namespace.",
-    "Never shares native game storage or InstallLog with Witcher3. In-place upgrades require reviewed migration or an independent physical installation.",
+    "Uses the witcher3 Nexus catalog and keeps its NMM ModeId while supporting the original Witcher3 native storage.",
+    "Can reuse Witcher3 Mods, InstallInfo, VirtualInstall and Link Folder paths. A shared physical game installation must reuse the same native ledger and staged files, preserving their existing storage identity.",
     "Witcher mod folders are not Bethesda plugins. Explicitly approved order and enablement changes publish to Documents/The Witcher 3/mods.settings.",
-    "Collections support basic Witcher packages, folder load order, menu records and curator-bundled Script Merger output through reviewed native recipes. Scripted packages, automatic script merging and migration of a Legacy-managed root remain outside this adapter."
+    "Collections support basic Witcher packages, folder load order, menu records and curator-bundled Script Merger output through reviewed native recipes. Scripted packages and automatic script merging remain outside this adapter."
   ]
 }

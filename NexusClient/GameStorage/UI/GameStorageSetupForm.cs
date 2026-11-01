@@ -274,7 +274,7 @@ namespace Nexus.Client.GameStorage.UI
                     try
                     {
                         request.Token.ThrowIfCancellationRequested();
-                        return _service.ValidateStorage(snapshot);
+                        return _service.ValidateStorageForSetup(snapshot);
                     }
                     finally { _readGate.Release(); }
                 }, request.Token);

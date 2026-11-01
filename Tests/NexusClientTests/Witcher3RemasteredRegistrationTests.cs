@@ -52,9 +52,6 @@ namespace NexusClientTests
             definition.ModInstall.PathAdjustmentProfile = "cyberpunk2077";
             AssertInvalid(definition, "modInstall");
             definition = CreateDefinition();
-            definition.Storage = new GameModeStorageDefinition { ShareModsStorageWith = new[] { "Witcher3" } };
-            AssertInvalid(definition, "storage.shareModsStorageWith");
-            definition = CreateDefinition();
             definition.GameExecutables = new[] { @"bin\x64\witcher3.exe", @"bin\x64_dx12\witcher3.exe" };
             AssertInvalid(definition, "gameExecutables");
             definition = CreateDefinition();
@@ -63,6 +60,16 @@ namespace NexusClientTests
             definition = CreateDefinition();
             definition.BehaviorProfile = "generic";
             AssertInvalid(definition, "behaviorProfile");
+        }
+
+        /// <summary>Sharing the original Witcher archive library is valid without changing native adapter capabilities.</summary>
+        [Test]
+        public void RemasteredDefinitionAllowsSharedWitcherStorage()
+        {
+            GameModeDefinition definition = CreateDefinition();
+            definition.Storage = new GameModeStorageDefinition { ShareModsStorageWith = new[] { "Witcher3" } };
+            Assert.That(new GameModeDefinitionValidator().Validate(definition)
+                .Where(issue => issue.Severity == GameModeDefinitionIssueSeverity.Error), Is.Empty);
         }
 
         [Test]

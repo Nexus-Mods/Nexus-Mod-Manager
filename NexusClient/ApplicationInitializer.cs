@@ -491,28 +491,9 @@
 
                 if (!storageHealth.IsHealthy)
                 {
-                    // Technically usable folders can still have conflicting identity metadata.
-                    // Recover those before native store initialization requires canonical authority.
-                    if (RequiresGameStorageRecovery(storageHealth))
-                    {
-                        var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
-
-                        if (!(recoveryResult is DialogResult) || (DialogResult)recoveryResult != DialogResult.OK)
-                        {
-                            GameStorageSetupWasCancelled = true;
-                            p_vwmErrorMessage = null;
-                            return false;
-                        }
-
-                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
-                        if (RequiresGameStorageRecovery(storageHealth))
-                        {
-                            p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null,
-                                LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning);
-                            return false;
-                        }
-                    }
-
+                    // Game Storage advises on the saved folders. Opening the helper or
+                    // cancelling recovery must not be a prerequisite for using NMM.
+                    // Native stores retain their own identity and ownership checks.
                     if (!storageHealth.IsHealthy && !storageHealth.HasConfirmedPaths)
                     {
                         ShowMessage(new ViewMessage(
@@ -651,7 +632,7 @@
         {
             usedLegacySetup = false;
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
-            var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorage(paths);
+            var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorageForSetup(paths);
 
             while (true)
             {
@@ -681,7 +662,12 @@
                     return true;
 
                 if (gameStorageService.ApplySelectedCandidatePaths(paths, setupForm.SelectedCandidate, out healthCheck))
+                {
+                    if (healthCheck != null && healthCheck.HasWarnings)
+                        ShowMessage(new ViewMessage(healthCheck.ToUserMessage(), null,
+                            LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning));
                     return true;
+                }
 
                 ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated."), null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
                 paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);

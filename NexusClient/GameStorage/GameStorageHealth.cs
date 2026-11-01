@@ -180,7 +180,8 @@ namespace Nexus.Client.GameStorage
             LanguageManager.Get("GameStorage.HealthStatus.InvalidManifest", "Invalid manifest"),
             LanguageManager.Get("GameStorage.HealthStatus.UnsupportedManifestVersion", "Unsupported manifest version"),
             LanguageManager.Get("GameStorage.HealthStatus.FolderRoleCollision", "Folder role collision"),
-            LanguageManager.Get("GameStorage.HealthStatus.VirtualInstallNotConfigured", "Direct Install only")
+            LanguageManager.Get("GameStorage.HealthStatus.VirtualInstallNotConfigured", "Direct Install only"),
+            LanguageManager.Get("GameStorage.HealthStatus.Warning", "Warning")
         };
 
         private static readonly string[] ConfidenceNames =
@@ -199,6 +200,7 @@ namespace Nexus.Client.GameStorage
                 { "Last-known-good backup", LanguageManager.Get("GameStorage.CandidateKind.LastKnownGoodBackup", "Last-known-good backup") },
                 { "Existing shared-root setup", LanguageManager.Get("GameStorage.CandidateKind.ExistingSharedRootSetup", "Existing shared-root setup") },
                 { "Shared root + game-drive staging", LanguageManager.Get("GameStorage.CandidateKind.SharedRootGameDriveStaging", "Shared root + game-drive staging") },
+                { "Shared Witcher 3 storage", LanguageManager.Get("GameStorage.CandidateKind.SharedWitcherStorage", "Shared Witcher 3 storage") },
                 { "Shared Mods library", LanguageManager.Get("GameStorage.CandidateKind.SharedModsLibrary", "Shared Mods library") },
                 { "Shared Mods library backup", LanguageManager.Get("GameStorage.CandidateKind.SharedModsLibraryBackup", "Shared Mods library backup") },
                 { "Selected root manifest", LanguageManager.Get("GameStorage.CandidateKind.SelectedRootManifest", "Selected root manifest") },

@@ -54,9 +54,6 @@ namespace Nexus.Client.Games.DataDriven
                 definition.ModInstall.SupportsGameRootInstall != false ||
                 !string.IsNullOrWhiteSpace(definition.ModInstall.ManagedInstallationPath))
                 issues.Add(Error(definition, "modInstall", "The Remastered profile requires ordinary Data-root installation with path adjustment set to none."));
-            if (definition.Storage != null && definition.Storage.ShareModsStorageWith != null &&
-                definition.Storage.ShareModsStorageWith.Length > 0)
-                issues.Add(Error(definition, "storage.shareModsStorageWith", "Witcher3Remastered must not share native storage with another ModeId."));
             if (definition.Launcher == null ||
                 !DataDrivenDefinitionRules.PathsEqual(definition.Launcher.DefaultExecutable, @"bin\x64_dx12\witcher3.exe"))
                 issues.Add(Error(definition, "launcher.defaultExecutable", "The Remastered launcher must be the DX12 executable."));
