@@ -148,7 +148,7 @@ namespace Nexus.Client.Games
 				List<GameDiscoveryInstallationCandidate> discovered;
 				byMode.TryGetValue(id, out discovered);
 				var candidates = new List<GameDiscoveryInstallationCandidate>();
-				if (!String.IsNullOrWhiteSpace(executablePath))
+				if (QuickGameDiscovery.IsVerifiedGameRoot(mode, executablePath))
 					candidates.Add(new GameDiscoveryInstallationCandidate(id, executablePath, "Saved"));
 				if (discovered != null)
 					foreach (var candidate in discovered)
@@ -166,7 +166,7 @@ namespace Nexus.Client.Games
 					(hasAnyStoragePath && !legacyStorageComplete && !completedSetup);
 				bool startupDefault = settings.RememberGameMode &&
 					String.Equals(settings.RememberedGameMode, id, StringComparison.OrdinalIgnoreCase);
-				IReadOnlyList<string> missingFiles = managed
+				IReadOnlyList<string> missingFiles = managed || !String.IsNullOrWhiteSpace(executablePath) || !String.IsNullOrWhiteSpace(installedPath)
 					? FindMissingGameFiles(mode, String.IsNullOrWhiteSpace(executablePath) ? installedPath : executablePath) : new string[0];
 				collection = GameDiscoverySectionPreference.GetCollection(settings, id, missingFiles.Count > 0, collection);
 				result.Add(new GameDiscoveryEntry(id, mode.Name, collection, installedPath,

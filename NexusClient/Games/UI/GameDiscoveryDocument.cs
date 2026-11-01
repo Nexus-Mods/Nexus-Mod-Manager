@@ -32,6 +32,7 @@
 		private readonly SimpleButton _startupDefault;
 		private readonly SimpleButton _locate;
 		private readonly SimpleButton _resetSetup;
+		private readonly SimpleButton _forgetConfiguration;
 		private readonly TableLayoutPanel _locateActions;
 		private readonly TableLayoutPanel _recoveryPanel;
 		private readonly LabelControl _recoveryHint;
@@ -440,10 +441,11 @@
 				LocateRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId));
 			};
 			// Keep recovery actions above the selector so the details card cannot clip a button below it.
-			_locateActions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+			_locateActions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Margin = Padding.Empty };
 			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
-			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 			_resetSetup = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false,
 				Text = L("GameDiscovery.ResetSetup", "Reset game setup"),
 				ToolTip = L("GameDiscovery.ResetSetupHint", "Return this game to To configure. Saved paths, installed mods and game files are preserved.") };
@@ -486,6 +488,16 @@
 					ConfirmInstallationRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
 			};
 			_locateActions.Controls.Add(_confirmInstallation, 1, 0);
+			_forgetConfiguration = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(3, 1, 0, 5),
+				Text = L("GameDiscovery.ForgetConfiguration", "Forget configuration...") };
+			NmmIconProvider.BindDialogButton(_forgetConfiguration, NmmIconAction.Reset);
+			_forgetConfiguration.Click += (sender, args) =>
+			{
+				if (_forgetConfiguration.Enabled && SelectedEntry != null)
+					ResetSetupRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, forgetConfiguration: true));
+			};
+			_locateActions.Controls.Add(_forgetConfiguration, 0, 1);
+			_locateActions.SetColumnSpan(_forgetConfiguration, 2);
 			_candidatePanel.Controls.Add(candidateLayout);
 			card.Controls.Add(_candidatePanel, 0, 10);
 
@@ -1333,10 +1345,15 @@
 			bool showConfirmation = missing && hasDetectedReplacement;
 			_confirmInstallation.Visible = showConfirmation;
 			_confirmInstallation.Enabled = readyForAction && CanConfirmInstallation(entry, _selectedInstallationRoot, _activeModeId);
+			_forgetConfiguration.Visible = entry != null;
+			_forgetConfiguration.Enabled = readyForAction && entry != null;
 			_locateActions.ColumnStyles[0].Width = showConfirmation ? 50 : 100;
 			_locateActions.ColumnStyles[1].Width = showConfirmation ? 50 : 0;
+			bool showLocationActions = showLocate || showReset || showConfirmation;
+			_locateActions.RowStyles[0].Height = showLocationActions ? 50 : 0;
+			_locateActions.RowStyles[1].Height = showLocationActions ? 50 : 100;
 			// Visible reflects ancestor visibility during hidden-tab binding; size rows from the intended state.
-			_detailLayout.RowStyles[9].Height = showLocate || showReset ? 42 : 0;
+			_detailLayout.RowStyles[9].Height = entry != null ? (showLocationActions ? 84 : 42) : 0;
 			_detailLayout.RowStyles[10].Height = showCandidates ? 83 : 0;
 			_installations.Enabled = readyForAction && (canConfigure || hasDetectedReplacement && !activeMissing) && _installations.Properties.Items.Count > 0;
 			ResizeCanvas();

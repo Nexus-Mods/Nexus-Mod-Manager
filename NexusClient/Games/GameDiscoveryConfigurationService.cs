@@ -89,6 +89,63 @@
 			}
 		}
 
+		/// <summary>Clears one game's saved setup paths while preserving on-disk storage, profiles and mod files.</summary>
+		internal static void ForgetConfiguration(ISettings settings, string modeId)
+		{
+			if (settings == null) throw new ArgumentNullException(nameof(settings));
+			if (String.IsNullOrWhiteSpace(modeId)) throw new ArgumentException("A game mode is required.", nameof(modeId));
+			lock (settings)
+			{
+				var restore = new List<Action>();
+				string[] installed = settings.InstalledGames.Cast<string>().ToArray();
+				bool remembered = settings.RememberGameMode;
+				string rememberedMode = settings.RememberedGameMode;
+				try
+				{
+					foreach (var dictionary in new[] { settings.InstallationPaths, settings.ExecutablePaths,
+						settings.InstallInfoFolder, settings.ModFolder, settings.VirtualFolder, settings.HDLinkFolder,
+						settings.PreferredInstallMethod })
+						ForgetSetting(dictionary, modeId, restore);
+					ForgetSetting(settings.CompletedSetup, modeId, restore);
+					ForgetSetting(settings.MultiHDInstall, modeId, restore);
+					ForgetSetting(settings.DelayedSettings, modeId, restore);
+					foreach (string id in installed.Where(id => String.Equals(id, modeId, StringComparison.OrdinalIgnoreCase)))
+						settings.InstalledGames.Remove(id);
+					if (String.Equals(rememberedMode, modeId, StringComparison.OrdinalIgnoreCase))
+					{
+						settings.RememberGameMode = false;
+						settings.RememberedGameMode = String.Empty;
+					}
+					var sections = settings.GameDiscoverySections;
+					restore.Add(() => settings.GameDiscoverySections = sections);
+					settings.GameDiscoverySections = CopySettings(sections);
+					settings.GameDiscoverySections[modeId] = nameof(GameDiscoveryCollection.Supported);
+					settings.Save();
+				}
+				catch
+				{
+					for (int index = restore.Count - 1; index >= 0; index--) restore[index]();
+					settings.InstalledGames.Clear();
+					settings.InstalledGames.AddRange(installed);
+					settings.RememberGameMode = remembered;
+					settings.RememberedGameMode = rememberedMode;
+					throw;
+				}
+			}
+		}
+
+		/// <summary>Removes only the selected mode's key and records its exact value for a failed-save rollback.</summary>
+		private static void ForgetSetting<T>(IDictionary<string, T> dictionary, string modeId, IList<Action> restore)
+		{
+			if (dictionary == null) return;
+			foreach (string key in dictionary.Keys.Where(key => String.Equals(key, modeId, StringComparison.OrdinalIgnoreCase)).ToArray())
+			{
+				T value = dictionary[key];
+				restore.Add(() => dictionary[key] = value);
+				dictionary.Remove(key);
+			}
+		}
+
 		/// <summary>Copies a per-game setting dictionary so a failed save can restore the original state.</summary>
 		private static PerGameModeSettings<T> CopySettings<T>(PerGameModeSettings<T> source)
 		{

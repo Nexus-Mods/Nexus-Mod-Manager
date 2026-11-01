@@ -188,7 +188,11 @@
 			if (_disposed || _teardownFailed || _shell.IsFirstSessionLoading) return;
 			GameDiscoveryEntry entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
 				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
-			if (entry == null || entry.Collection != GameDiscoveryCollection.Managed) return;
+			if (entry == null || (!e.ForgetConfiguration && entry.Collection != GameDiscoveryCollection.Managed)) return;
+			if (e.ForgetConfiguration && XtraMessageBox.Show(_shell,
+				LanguageManager.Get("GameDiscovery.ForgetConfirm", "Forget this game's saved setup? Game and storage paths, deferred setup changes and startup selection will be cleared. Mod archives, installed files, profiles and install records on disk will be preserved."),
+				LanguageManager.Get("GameDiscovery.ForgetConfiguration", "Forget configuration..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
 				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase) && !TryLeaveCurrentGame()) return;
 
@@ -211,11 +215,16 @@
 							"A mod or Collection operation is running. Finish it before saving Game Storage."));
 						return;
 					}
-					using (reservation) GameDiscoveryConfigurationService.ResetSetup(_environment.Settings, entry.ModeId);
+					using (reservation)
+					{
+						if (e.ForgetConfiguration) GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
+						else GameDiscoveryConfigurationService.ResetSetup(_environment.Settings, entry.ModeId);
+					}
 					_shell.ReprojectGameDiscoveryCatalog();
 					_shell.SelectGameInDiscovery(entry.ModeId);
-					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupReset",
-						"Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved."));
+					_shell.SetGameLoadMessage(e.ForgetConfiguration
+						? LanguageManager.Get("GameDiscovery.ConfigurationForgotten", "Saved game setup cleared. Mod files, profiles and install records have been preserved.")
+						: LanguageManager.Get("GameDiscovery.SetupReset", "Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved."));
 				}
 				catch (Exception exception) when (!(exception is OutOfMemoryException))
 				{

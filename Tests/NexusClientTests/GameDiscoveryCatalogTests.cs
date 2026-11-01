@@ -110,6 +110,67 @@ namespace NexusClientTests
 			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EquivalentTo(files));
 		}
 
+		/// <summary>Forgetting setup works without a game session and preserves other games and all on-disk data.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ForgetConfiguration_ClearsOnlySetupAndRollsBackFailedSave(bool failSave)
+		{
+			var settings = NewSettings();
+			settings.InstallationPaths["Example"] = _gameRoot;
+			settings.ExecutablePaths["Example"] = _gameRoot;
+			settings.CompletedSetup["Example"] = true;
+			settings.InstallInfoFolder["Example"] = Path.Combine(_gameRoot, "InstallInfo");
+			settings.VirtualFolder["Example"] = _gameRoot;
+			settings.ModFolder["Example"] = _gameRoot;
+			settings.InstallationPaths["Other"] = "keep-other-game";
+			settings.InstalledGames.Add("Example");
+			settings.InstalledGames.Add("Other");
+			settings.RememberGameMode = true;
+			settings.RememberedGameMode = "Example";
+			string[] files = Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories);
+			ISettings memory = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				if (method.Name == "Save")
+				{
+					if (failSave) throw new IOException("Simulated save failure");
+					return null;
+				}
+				return method.Invoke(settings, args);
+			});
+
+			if (failSave) Assert.Throws<IOException>(() => GameDiscoveryConfigurationService.ForgetConfiguration(memory, "Example"));
+			else GameDiscoveryConfigurationService.ForgetConfiguration(memory, "Example");
+
+			Assert.That(settings.InstallationPaths.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.ExecutablePaths.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.InstallInfoFolder.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.VirtualFolder.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.ModFolder.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.CompletedSetup.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.RememberGameMode, Is.EqualTo(failSave));
+			Assert.That(settings.InstalledGames.Contains("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.InstallationPaths["Other"], Is.EqualTo("keep-other-game"));
+			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EquivalentTo(files));
+			if (!failSave)
+			{
+				GameDiscoveryEntry entry = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Example") }, settings,
+					new[] { new GameDiscoveryInstallationCandidate("Example", _gameRoot, "Steam") }).Entries.Single();
+				Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.Supported));
+			}
+		}
+
+		/// <summary>A removed saved path is not presented as a detected installation, even for unfinished setup.</summary>
+		[Test]
+		public void MissingSavedInstallation_IsNotADetectedCandidate()
+		{
+			var settings = NewSettings();
+			settings.ExecutablePaths["Example"] = Path.Combine(_gameRoot, "Removed");
+			settings.InstalledGames.Add("Example");
+			GameDiscoveryEntry entry = Single(settings, "Example");
+			Assert.That(entry.Candidates, Is.Empty);
+			Assert.That(entry.IsInstallationMissing, Is.True);
+		}
+
 		/// <summary>Confirming a moved game updates only its installation and keeps legacy storage pending review.</summary>
 		[TestCase(false)]
 		[TestCase(true)]
@@ -379,7 +440,7 @@ namespace NexusClientTests
 			var catalog = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Old"), new Descriptor("New") }, settings, candidates);
 			var old = catalog.Entries.Single(e => e.ModeId == "Old");
 			Assert.That(old.Candidates.Count, Is.EqualTo(2));
-			Assert.That(old.Candidates[0].Source, Is.EqualTo("Saved"));
+			Assert.That(old.Candidates[0].Source, Is.EqualTo("Steam"));
 			Assert.That(old.Candidates[1].GameRoot, Is.EqualTo(@"E:\NewGame"));
 			Assert.That(catalog.ToConfigure.Count(), Is.EqualTo(2));
 			Assert.That(settings.ExecutablePaths["Old"], Is.EqualTo(@"C:\OldGame"));

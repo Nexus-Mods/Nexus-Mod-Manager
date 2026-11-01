@@ -468,6 +468,54 @@ namespace NexusClientTests
 			Assert.That(Directory.Exists(Path.Combine(_fixture, "NewInfo")), Is.False);
 		}
 
+		/// <summary>Removing the old game directory must not require reinstalling it before opening an independent edition.</summary>
+		[Test]
+		public void RemovedLegacyGameRootDoesNotBlockIndependentRemasteredStorage()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string removed = Path.Combine(_fixture, "RemovedLegacyGame");
+			string root = Path.Combine(_fixture, "Remastered");
+			string oldInfo = Path.Combine(_fixture, "OldInfo");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(oldInfo);
+			File.WriteAllText(Path.Combine(oldInfo, "InstallLog.xml"), "<installLog />");
+			IEnvironmentInfo environment = CreateEnvironment(removed, oldInfo, true,
+				currentVirtualRoot: Path.Combine(_fixture, "NewVirtual"));
+
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root,
+				Path.Combine(_fixture, "NewInfo")).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered", root,
+				Path.Combine(_fixture, "NewInfo")).AllowsNativeMutation, Is.True);
+			Assert.That(Directory.Exists(removed), Is.False);
+			Assert.That(File.ReadAllText(Path.Combine(oldInfo, "InstallLog.xml")), Is.EqualTo("<installLog />"));
+		}
+
+		/// <summary>Forgotten setup retains location-specific history without reserving unrelated new installations.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ForgottenLegacySetupChecksHistoricalLocationsInsteadOfGlobalOwnership(bool overlapsHistory)
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "Remastered");
+			Directory.CreateDirectory(root);
+			string historicalInfo = Path.Combine(_fixture, "OldInfo");
+			IEnvironmentInfo environment = CreateEnvironment(null, null, false,
+				currentVirtualRoot: Path.Combine(_fixture, "NewVirtual"));
+			var storage = new GameStorageService(environment);
+			Directory.CreateDirectory(storage.RegistryDirectory);
+			string registry = Newtonsoft.Json.JsonConvert.SerializeObject(new GameStorageRegistry {
+				KnownStorages = new System.Collections.Generic.List<GameStorageRegistryEntry> {
+					new GameStorageRegistryEntry { GameId = "Witcher3", LastKnownInstallLogPresent = true,
+						InstallInfoPath = historicalInfo } } });
+			File.WriteAllText(storage.RegistryPath, registry);
+
+			Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForNativeMutation(environment,
+				"Witcher3Remastered", root, overlapsHistory ? historicalInfo : Path.Combine(_fixture, "NewInfo"));
+
+			Assert.That(decision.AllowsNativeMutation, Is.EqualTo(!overlapsHistory));
+			Assert.That(File.ReadAllText(storage.RegistryPath), Is.EqualTo(registry));
+		}
+
 		[Test]
 		public void IntegratedPreflightAllowsSeparatePhysicalInstallationsOnWindows()
 		{

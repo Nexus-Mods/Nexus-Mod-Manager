@@ -16,7 +16,9 @@ namespace Nexus.Client.Games
 				// An explicit incomplete setup plus ToConfigure is persisted by installation confirmation.
 				bool pendingSetup = settings.CompletedSetup != null && settings.CompletedSetup.TryGetValue(modeId, out completed) && !completed;
 				if (saved == nameof(GameDiscoveryCollection.ToConfigure) && (missing || pendingSetup)) return GameDiscoveryCollection.ToConfigure;
-				if (missing && saved == nameof(GameDiscoveryCollection.Supported)) return GameDiscoveryCollection.Supported;
+				if (saved == nameof(GameDiscoveryCollection.Supported) && (missing ||
+					!settings.CompletedSetup.ContainsKey(modeId) && !settings.InstallationPaths.ContainsKey(modeId) &&
+					!settings.ExecutablePaths.ContainsKey(modeId))) return GameDiscoveryCollection.Supported;
 			}
 			return automaticCollection;
 		}

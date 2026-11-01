@@ -126,6 +126,39 @@ namespace Nexus.Client.ModManagement.Witcher3
 				// Continue through the existing independent-storage diagnostics.
 				System.Diagnostics.Trace.TraceInformation("Witcher shared storage could not be established: {0}", error.Message);
 			}
+			// After an explicit configuration reset, retained storage history is still
+			// checked by location. It does not reserve every future Witcher installation.
+			if (String.IsNullOrWhiteSpace(otherRoot) && String.IsNullOrWhiteSpace(otherInfo) &&
+				String.IsNullOrWhiteSpace(otherVirtualSetting))
+			{
+				try
+				{
+					ResolveOptional(currentGameRoot, true);
+					string currentInfo = ResolveOptional(currentInstallInfo, false);
+					string currentVirtual = useProposedVirtualInstall ? ResolveVirtualPath(proposedVirtualInstall) :
+						ResolveVirtual(storage, settings.VirtualFolder[currentModeId]);
+					foreach (GameStorageNativeOwnershipLocation claim in storage.GetKnownNativeOwnershipLocations(otherMode))
+					{
+						if ((claim.HadInstallLog && String.IsNullOrWhiteSpace(claim.InstallInfoPath)) ||
+							(claim.HadVirtualPayload && String.IsNullOrWhiteSpace(claim.VirtualInstallPath)))
+							return Unverifiable("A previous Witcher 3 native owner has an incomplete storage-location record.");
+						string historicalInfo = ResolveOptional(claim.InstallInfoPath, false);
+						Witcher3RootOwnershipDecision infoDecision = Witcher3RootOwnershipPolicy.EvaluateHistoricalInstallInfo(currentInfo, historicalInfo);
+						if (!infoDecision.AllowsNativeMutation) return infoDecision;
+						Witcher3RootOwnershipDecision storageDecision = Witcher3RootOwnershipPolicy.EvaluateNativeStorage(
+							currentVirtual, ResolveVirtualPath(claim.VirtualInstallPath), currentInfo, historicalInfo);
+						if (!storageDecision.AllowsNativeMutation) return storageDecision;
+					}
+					return new Witcher3RootOwnershipDecision(Witcher3RootOwnershipStatus.Allowed,
+						"Retained Witcher storage locations are independent of the selected installation.");
+				}
+				catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+					error is ArgumentException || error is NotSupportedException || error is System.Security.SecurityException ||
+					error is System.ComponentModel.Win32Exception || error is System.Runtime.InteropServices.ExternalException)
+				{
+					return Unverifiable("Cannot verify retained Witcher storage locations: " + error.Message);
+				}
+			}
 			bool footprint;
 			try
 			{
@@ -151,7 +184,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 			try
 			{
 				string currentPhysical = ResolveOptional(currentGameRoot, true);
-				string otherPhysical = ResolveOptional(otherRoot, hasState);
+				// A removed game folder must not make independent storage unusable.
+				string otherPhysical = ResolveOptional(otherRoot, false);
 				string currentInfoPhysical = ResolveOptional(currentInstallInfo, false);
 				string otherInfoPhysical = ResolveOptional(otherInfo, false);
 				Witcher3RootOwnershipDecision rootDecision = forNativeMutation
