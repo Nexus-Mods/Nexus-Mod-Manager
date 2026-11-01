@@ -458,8 +458,8 @@ namespace Nexus.Client.ModManagement.UI
 
 		/// <summary>
 		/// Category XML loading/backup is prepared before Mods controls subscribe. Only
-		/// the read/metadata-loading portion runs on a worker; mutations to managed mod
-		/// assignments stay on the UI/native-session thread after ProfileManager exists.
+		/// the read/metadata-loading portion runs on a worker. Saved category definitions
+		/// and mod assignments remain authoritative until an explicit category update.
 		/// </summary>
 		internal static PreparedModCategories PrepareCategories(ModManager modManager)
 		{
@@ -467,9 +467,9 @@ namespace Nexus.Client.ModManagement.UI
 			var manager = new CategoryManager(modManager.CurrentGameModeModDirectory, "categories");
 			if (!manager.IsValidPath)
 				manager.Backup();
-			// The current UI has no legacy first-use category prompt. Load the bundled
-			// definitions for a new library as well as an existing saved category list.
-			// Assignment migration still runs after ProfileManager has been initialized.
+			// Use bundled definitions only for a new library. Missing categories in a
+			// saved list may have been deliberately removed by older NMM versions,
+			// which did not persist removed-category metadata.
 			manager.LoadCategories(modManager.CurrentGameModeDefaultCategories);
 			return new PreparedModCategories(manager, manager.IsValidPath);
 		}
@@ -487,7 +487,7 @@ namespace Nexus.Client.ModManagement.UI
 
 		/// <summary>
 		/// Uses category definitions prepared before UI attachment. Normal legacy callers
-		/// retain the exact same category loading and migration behavior.
+		/// retain the same category loading behavior.
 		/// </summary>
 		internal ModManagerVM(ModManager p_mmdModManager, IProfileManager p_prmProfileManager, ISettings p_setSettings,
 			Theme p_thmTheme, PreparedModCategories preparedCategories)
@@ -508,12 +508,6 @@ namespace Nexus.Client.ModManagement.UI
 					(downloadRouting.UseRememberedModeAsDefault || downloadRouting.LegacySelectionToggle) ? ModManager.GameMode.ModeId : downloadRouting.DefaultMode);
 				Settings.Save();
 			}
-
-			// Run the same legacy custom-category migration *after* the native profile
-			// manager exists. Only XML loading/backup is prepared on the worker thread.
-			if (m_booIsCategoryInitialized)
-				CategoryManager.RepairBundledRepositoryCategories(
-					ModManager.CurrentGameModeDefaultCategories, ModManager.RemapCategoryAssignments);
 
 			AddModCommand = new Command<string>(LanguageManager.Get("Mods.Actions.Add.Name", "Add Mod"), LanguageManager.Get("Mods.Actions.Add.Description", "Adds a mod to the manager."), AddMod);
 			DeleteModCommand = new Command<IMod>(LanguageManager.Get("Mods.Actions.Delete.Name", "Delete Mod"), LanguageManager.Get("Mods.Actions.Delete.Description", "Deletes the selected mod."), DeleteMod);
@@ -1463,14 +1457,16 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Finalizes a category update, optionally falling back to bundled defaults and resetting mod assignments when requested.
+		/// Finalizes a successful category update and resets mod assignments only when requested.
 		/// </summary>
-		/// <param name="p_booUseDefaultCategories">Whether the online update failed and bundled repository categories must be used.</param>
+		/// <param name="p_booUseDefaultCategories">Whether the online update failed. Retained for caller compatibility; failed updates leave the saved setup in place.</param>
 		/// <param name="p_booResetCategoryAssignments">Whether every mod should be reassigned to its Nexus category.</param>
 		public bool CompleteCategoriesUpdate(bool p_booUseDefaultCategories, bool p_booResetCategoryAssignments)
 		{
+			// Bundled definitions can be older than the saved list. Replacing it after
+			// a failed fetch can orphan assignments to newer repository categories.
 			if (p_booUseDefaultCategories)
-				CategoryManager.ResetRepositoryCategories(ModManager.CurrentGameModeDefaultCategories, ModManager.RemapCategoryAssignments);
+				return false;
 
 			if (p_booResetCategoryAssignments)
 			{
@@ -1573,9 +1569,6 @@ namespace Nexus.Client.ModManagement.UI
 			else
 			{
 				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
-				this.CategoryManager.RepairBundledRepositoryCategories(
-					ModManager.CurrentGameModeDefaultCategories,
-					ModManager.RemapCategoryAssignments);
 			}
 		}
 

@@ -89,6 +89,9 @@ namespace Nexus.Client.ModManagement
 				fetchStopwatch.Stop();
 				Trace.TraceInformation("NMM category-definition fetch completed: elapsedMs={0}, returned={1}.",
 					fetchStopwatch.ElapsedMilliseconds, categories == null ? -1 : categories.Count);
+				if (categories == null || categories.Count == 0)
+					return LanguageManager.Get("Tasks.Categories.EmptyResponse", "Nexus returned no categories. Please try again later.");
+
 				if (categories.Count > 0)
 				{
 					List<IModCategory> repositoryCategories = new List<IModCategory>(categories.Count);

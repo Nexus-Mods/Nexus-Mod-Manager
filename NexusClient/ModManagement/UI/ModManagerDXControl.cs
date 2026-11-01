@@ -5937,7 +5937,7 @@
 			ProgressDialog.ShowDialog(this, e.Argument);
 			_disableSummary = false;
 			if (e.Argument.ReturnValue != null)
-				ExtendedMessageBox.Show(this, LanguageManager.Get("Categories.Update.OnlineFallback.Message", "Unable to update the category list online, it will use base categories:") + Environment.NewLine + e.Argument.ReturnValue, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this, LanguageManager.Get("Categories.Update.Failed.Preserved.Message", "Unable to update the category list online. No category reset will be performed:") + Environment.NewLine + e.Argument.ReturnValue, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			CategoriesUpdateCheckTask categoryUpdateTask = e.Argument as CategoriesUpdateCheckTask;
 			bool resetCategoryAssignments = categoryUpdateTask == null || categoryUpdateTask.ResetCategoryAssignmentsAfterUpdate;
 			_viewModel?.CompleteCategoriesUpdate(e.Argument.ReturnValue != null, resetCategoryAssignments);

@@ -51,6 +51,96 @@
 			Assert.That(prepared.Manager.FindCategory(1).CategoryName, Is.EqualTo("Fallout 4"));
 		}
 
+		/// <summary>Both startup paths and the legacy reload preserve saved layouts without importing bundled categories.</summary>
+		[TestCase(false, false)]
+		[TestCase(false, true)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void StartupAndReload_PreserveSavedCategories(bool preparedStartup, bool legacyCategories)
+		{
+			if (legacyCategories)
+				WriteLegacyCategories();
+			else
+				WritePersistedCategories(new ModCategory(1000005, "Clothing - Backpacks", "My Backpacks"));
+			CategoryManager expected = CreateManager();
+			expected.LoadCategories(DefaultCategories);
+			byte[] savedCategories = File.ReadAllBytes(_categoryFile);
+			ModManager modManager = CreateCategoryModManager();
+			Nexus.Client.ModManagement.UI.ModManagerVM.PreparedModCategories prepared = preparedStartup
+				? Nexus.Client.ModManagement.UI.ModManagerVM.PrepareCategories(modManager) : null;
+			Nexus.Client.ModManagement.UI.ModManagerVM viewModel = new Nexus.Client.ModManagement.UI.ModManagerVM(
+				modManager, null, null, null, prepared);
+
+			Assert.That(viewModel.CategoryManager.Categories.Select(category => category.Id),
+				Is.EquivalentTo(expected.Categories.Select(category => category.Id)));
+			Assert.That(File.ReadAllBytes(_categoryFile), Is.EqualTo(savedCategories));
+
+			viewModel.CheckCategoryManager();
+			viewModel.CheckCategoryManager();
+
+			Assert.That(File.ReadAllBytes(_categoryFile), Is.EqualTo(savedCategories));
+		}
+
+		/// <summary>A failed refresh or reset keeps online-only categories and never starts an assignment reset.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void FailedCategoryUpdate_PreservesSavedSetup(bool resetAssignments)
+		{
+			CategoryManager categories = CreateManager();
+			categories.LoadCategories(DefaultCategories);
+			categories.MergeRepositoryCategories(new[] { new ModCategory(999, "New Nexus category", "New Nexus category") }, null);
+			categories.AddCategory(new ModCategory(1000005, "My mods", "My mods"));
+			byte[] savedCategories = File.ReadAllBytes(_categoryFile);
+			ModManager modManager = CreateCategoryModManager();
+			Nexus.Client.ModManagement.UI.ModManagerVM viewModel = new Nexus.Client.ModManagement.UI.ModManagerVM(
+				modManager, null, null, null,
+				new Nexus.Client.ModManagement.UI.ModManagerVM.PreparedModCategories(categories, true));
+			int assignmentResets = 0;
+			viewModel.UpdatingCategory += (sender, args) => assignmentResets++;
+
+			Assert.That(viewModel.CompleteCategoriesUpdate(true, resetAssignments), Is.False);
+
+			Assert.That(assignmentResets, Is.Zero);
+			Assert.That(categories.FindCategory(999).CategoryName, Is.EqualTo("New Nexus category"));
+			Assert.That(categories.FindCategory(1000005).CategoryName, Is.EqualTo("My mods"));
+			Assert.That(File.ReadAllBytes(_categoryFile), Is.EqualTo(savedCategories));
+		}
+
+		/// <summary>An empty Nexus response must fail so completion cannot clear assignments after an unsuccessful fetch.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void EmptyCategoryResponse_IsReportedAsFailure(bool nullResponse)
+		{
+			CategoryManager categories = CreateManager();
+			categories.LoadCategories(DefaultCategories);
+			byte[] savedCategories = File.ReadAllBytes(_categoryFile);
+			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
+				method.Name == "GetCategories" ? (nullResponse ? null : new List<CategoriesInfo>()) : null);
+			CategoriesUpdateCheckTask task = new CategoriesUpdateCheckTask(CreateCategoryModManager(), categories, repository, true);
+
+			object result = typeof(CategoriesUpdateCheckTask).GetMethod("DoWork",
+				System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+				.Invoke(task, new object[] { new object[0] });
+
+			Assert.That(result, Is.TypeOf<string>());
+			Assert.That((string)result, Is.Not.Empty);
+			Assert.That(File.ReadAllBytes(_categoryFile), Is.EqualTo(savedCategories));
+		}
+
+		/// <summary>Creates only the game-mode dependencies required by category startup, without native install services.</summary>
+		private ModManager CreateCategoryModManager()
+		{
+			Nexus.Client.Games.IGameModeEnvironmentInfo environment = InterfaceStub<Nexus.Client.Games.IGameModeEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_ModDirectory" ? _rootPath : null);
+			Nexus.Client.Games.IGameMode gameMode = InterfaceStub<Nexus.Client.Games.IGameMode>.Create((method, args) =>
+				method.Name == "get_GameModeEnvironmentInfo" ? (object)environment :
+				method.Name == "get_GameDefaultCategories" ? DefaultCategories : null);
+			ModManager modManager = (ModManager)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(ModManager));
+			typeof(ModManager).GetField("<GameMode>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+				.SetValue(modManager, gameMode);
+			return modManager;
+		}
+
 		/// <summary>Bundled Oblivion defaults retain the Nexus IDs needed by freshly downloaded archives.</summary>
 		[Test]
 		public void OblivionBundledCategories_IncludeCurrentRepositoryDefinitions()
