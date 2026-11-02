@@ -711,6 +711,7 @@
     <Compile Include="ModManagement\Witcher3\Witcher3RootOwnershipPolicy.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3PhysicalPathIdentity.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3RootOwnershipGuard.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3RootOwnershipGuard.Consent.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3ComponentDiskObservation.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3ComponentDiskScan.cs" />
     <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsDocument.cs" />
@@ -1593,6 +1594,9 @@
     <Compile Include="GameStorage\GameStorageModels.cs" />
     <Compile Include="GameStorage\GameStorageService.cs" />
     <Compile Include="GameStorage\GameStorageService.EmptySetup.cs" />
+    <Compile Include="GameStorage\GameStorageService.UserChoice.cs" />
+    <Compile Include="GameStorage\GameStorageSessionConsent.cs" />
+    <Compile Include="GameStorage\UI\GameStorageWarningForm.cs" />
     <Compile Include="GameStorage\GameStorageInitialPaths.cs" />
     <Compile Include="GameStorage\Witcher3StorageMutationReservation.cs" />
     <Compile Include="GameStorage\GameStorageRecoveryService.cs" />

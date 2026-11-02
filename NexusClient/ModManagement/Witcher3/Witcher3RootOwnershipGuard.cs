@@ -8,10 +8,10 @@ namespace Nexus.Client.ModManagement.Witcher3
 {
 	/// <summary>
 	/// Preflight for Witcher edition storage. Both modes can reuse the same physical game,
-	/// InstallInfo and VirtualInstall as one native owner. Independent ledgers cannot claim
-	/// the same game root. This read-only check never copies or rewrites native state.
+	/// InstallInfo and VirtualInstall as one native owner. Independent ledgers produce a warning
+	/// that the user can accept for the selected paths and session. This check never rewrites native state.
 	/// </summary>
-	public static class Witcher3RootOwnershipGuard
+	public static partial class Witcher3RootOwnershipGuard
 	{
 		public const string LegacyModeId = "Witcher3";
 		public const string RemasteredModeId = "Witcher3Remastered";
@@ -84,7 +84,23 @@ namespace Nexus.Client.ModManagement.Witcher3
 					decision.Reason + " No ownership migration is performed automatically.");
 		}
 
+		/// <summary>Respects an explicit Continue choice at every subsequent startup, setup and native-operation ownership check.</summary>
 		private static Witcher3RootOwnershipDecision CheckCore(IEnvironmentInfo environment,
+			string currentModeId, string currentGameRoot, string currentInstallInfo,
+			bool forNativeMutation, string proposedVirtualInstall = null, bool useProposedVirtualInstall = false)
+		{
+			Witcher3RootOwnershipDecision decision = EvaluateCore(environment, currentModeId, currentGameRoot, currentInstallInfo,
+				forNativeMutation, proposedVirtualInstall, useProposedVirtualInstall);
+			if (decision.AllowsNormalInitialization) return decision;
+			string virtualInstall = useProposedVirtualInstall ? proposedVirtualInstall :
+				GetConfiguredVirtualPath(environment, currentModeId);
+			return HasSessionApproval(environment, currentModeId, currentGameRoot, currentInstallInfo, virtualInstall)
+				? new Witcher3RootOwnershipDecision(Witcher3RootOwnershipStatus.Allowed, "The user chose to continue with these Witcher 3 game and storage paths for this session.")
+				: decision;
+		}
+
+		/// <summary>Evaluates saved and physical ownership evidence independently of the user's session choice.</summary>
+		private static Witcher3RootOwnershipDecision EvaluateCore(IEnvironmentInfo environment,
 			string currentModeId, string currentGameRoot, string currentInstallInfo,
 			bool forNativeMutation, string proposedVirtualInstall = null, bool useProposedVirtualInstall = false)
 		{
@@ -134,6 +150,8 @@ namespace Nexus.Client.ModManagement.Witcher3
 				try
 				{
 					ResolveOptional(currentGameRoot, true);
+					if (storage.IsNativeSetupVerifiablyEmpty(otherMode, null, null))
+						return new Witcher3RootOwnershipDecision(Witcher3RootOwnershipStatus.Allowed, "Retained Witcher native setup records are verified empty.");
 					string currentInfo = ResolveOptional(currentInstallInfo, false);
 					string currentVirtual = useProposedVirtualInstall ? ResolveVirtualPath(proposedVirtualInstall) :
 						ResolveVirtual(storage, settings.VirtualFolder[currentModeId]);
@@ -181,19 +199,21 @@ namespace Nexus.Client.ModManagement.Witcher3
 			if (hasState && String.IsNullOrWhiteSpace(otherInfo))
 				return Unverifiable("The other Witcher 3 mode has native state, but its InstallInfo directory is not configured.");
 
+			bool emptySetup = storage.IsNativeSetupVerifiablyEmpty(otherMode, otherInfo, otherVirtualSetting);
 			try
 			{
 				string currentPhysical = ResolveOptional(currentGameRoot, true);
+				// A verified empty setup does not reserve a game root; native role overlap checks still apply.
 				// A removed game folder must not make independent storage unusable.
-				string otherPhysical = ResolveOptional(otherRoot, false);
+				string otherPhysical = emptySetup ? null : ResolveOptional(otherRoot, false);
 				string currentInfoPhysical = ResolveOptional(currentInstallInfo, false);
 				string otherInfoPhysical = ResolveOptional(otherInfo, false);
 				Witcher3RootOwnershipDecision rootDecision = forNativeMutation
 					? Witcher3RootOwnershipPolicy.EvaluateNativeMutation(currentPhysical, otherPhysical,
-						currentInfoPhysical, otherInfoPhysical, hasState, configured,
+						currentInfoPhysical, otherInfoPhysical, hasState && !emptySetup, configured,
 						String.Equals(currentModeId, RemasteredModeId, StringComparison.OrdinalIgnoreCase))
 					: Witcher3RootOwnershipPolicy.Evaluate(currentPhysical, otherPhysical,
-						currentInfoPhysical, otherInfoPhysical, hasState, configured);
+						currentInfoPhysical, otherInfoPhysical, hasState && !emptySetup, configured);
 				if (!forNativeMutation || !rootDecision.AllowsNativeMutation)
 					return rootDecision;
 

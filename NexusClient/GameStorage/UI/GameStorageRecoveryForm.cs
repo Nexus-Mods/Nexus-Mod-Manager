@@ -119,21 +119,8 @@ namespace Nexus.Client.GameStorage.UI
             }
 
             GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
+            if (!_service.ReviewStorageWarnings(this, _service.ResolveRecoveryPaths(currentPaths, candidate))) return;
             GameStorageHealthCheck healthCheck = _service.ValidateRecoverySelection(currentPaths, candidate);
-            if (candidate.RequiresUserConfirmation || !healthCheck.IsHealthy)
-            {
-                string confirmationMessage = candidate.IsSharedModsLibrary
-                    ? (candidate.SharedModsDescription ?? LanguageManager.Get("GameStorage.SharedMods.CompatibleFallback", "This Mods folder is already used by a compatible Game Mode.")) + Environment.NewLine + Environment.NewLine +
-                      LanguageManager.Format("GameStorage.Recovery.ConfirmSharedMods", "Use it as a shared Mods library for {0}? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode.", _gameMode.Name)
-                    : LanguageManager.Get("GameStorage.Common.ConfirmSelectedFolders", "Use these folders for this game? Missing folders will be created. Existing files will not be moved or deleted.");
-
-                if (!healthCheck.IsHealthy)
-                    confirmationMessage = healthCheck.ToUserMessage() + Environment.NewLine + Environment.NewLine + confirmationMessage;
-
-                var result = XtraMessageBox.Show(this, confirmationMessage, LanguageManager.Get("GameStorage.Recovery.ConfirmTitle", "Confirm Game Storage recovery"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
-                if (result != DialogResult.OK)
-                    return;
-            }
 
             // Saving is the explicit acceptance of the reviewed empty folders and same-game IDs.
             if (_service.ApplyRecoveryCandidate(_gameMode, candidate, true, true, out healthCheck) && healthCheck.IsHealthy)

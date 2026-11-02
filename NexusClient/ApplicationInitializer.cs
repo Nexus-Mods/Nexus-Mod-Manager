@@ -185,34 +185,36 @@
 
 		#endregion
 
-        /// <summary>
-        /// Blocks a second independently managed game edition from opening the same physical
-        /// installation or native InstallInfo. No automatic log reassignment/migration is safe.
-        /// This is a startup boundary, not a replacement for per-operation native ownership rules.
-        /// </summary>
-        private bool TryValidateWitcher3RootOwnership(string modeId, string gamePath,
-            string installInfoPath, out ViewMessage errorMessage)
+        /// <summary>Gives every game the same Continue or Cancel choice before using storage with advisory findings.</summary>
+        private bool TryReviewGameStorage(string modeId, string gamePath, string installInfoPath, out ViewMessage errorMessage)
         {
             errorMessage = null;
-            if (!(Nexus.Client.Games.GameModeRuntimePolicies.For(modeId).NativeRootOwnershipProfile != null))
-                return true;
-
-            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
-                EnvironmentInfo, modeId, gamePath, installInfoPath);
-            if (decision.AllowsNormalInitialization)
-                return true;
-
-            string otherModeId = Witcher3RootOwnershipGuard.CounterpartModeId(modeId);
-            string message = "NMM cannot open this game mode safely. " + decision.Reason +
-                Environment.NewLine + Environment.NewLine +
-                "Current mode: " + modeId + Environment.NewLine +
-                "Other mode: " + otherModeId + Environment.NewLine +
-                "Game directory: " + (gamePath ?? "(unknown)") + Environment.NewLine + Environment.NewLine +
-                "No files or InstallLog records have been transferred. Use separate physical game installations " +
-                "or a future explicitly reviewed ownership migration. Do not copy or delete either mode's InstallLog.";
-            Trace.TraceWarning("Game-root ownership preflight blocked initialization: " +
-                decision.Status + " - " + decision.Reason);
-            errorMessage = new ViewMessage(message, null, "Game-root ownership protection", MessageBoxIcon.Error);
+            // Incomplete first-time setup is reviewed after the user has selected the required folders.
+            if (String.IsNullOrWhiteSpace(installInfoPath) || String.IsNullOrWhiteSpace(EnvironmentInfo.Settings.ModFolder[modeId])) return true;
+            var storage = new GameStorageService(EnvironmentInfo);
+            string virtualInstall = GameStorageSessionConsent.ConfiguredVirtualPath(EnvironmentInfo, modeId);
+            var paths = new GameStoragePathSet { GameId = modeId, GameInstallPath = gamePath, InstallInfoPath = installInfoPath,
+                ModsPath = EnvironmentInfo.Settings.ModFolder[modeId], VirtualInstallPath = virtualInstall,
+                LinkFolderPath = EnvironmentInfo.Settings.HDLinkFolder[modeId],
+                LinkFolderRequired = !String.IsNullOrWhiteSpace(virtualInstall) && (EnvironmentInfo.Settings.MultiHDInstall[modeId] || storage.IsLinkFolderRequired(virtualInstall, gamePath)),
+                CompatibleSharedModsGameIds = GameModeStorageSharingRegistry.GetMutuallyCompatibleModsStorageModeIds(modeId) };
+            if (storage.HasApprovedStoragePaths(paths)) return true;
+            GameStorageHealthCheck health = storage.InspectStorageWarnings(paths);
+            if (!health.HasWarnings) return true;
+            Action approve = GameStorageSessionConsent.CreateStorageApproval(EnvironmentInfo, paths);
+            string message = GameStorageWarningForm.CreateMessage(paths, health);
+            Trace.TraceWarning("Game Storage warning for {0}: {1}", modeId, health.ToUserMessage());
+            object choice = ShowViewFactory(() => new GameStorageWarningForm(message), true);
+            if (!(choice is DialogResult) || (DialogResult)choice != DialogResult.OK)
+            {
+                GameStorageSetupWasCancelled = true;
+                return false;
+            }
+            approve();
+            Trace.TraceInformation("The user chose Continue for the reviewed Game Storage folders: " + modeId);
+            if (storage.HasApprovedStoragePaths(paths)) return true;
+            errorMessage = new ViewMessage(LanguageManager.Get("GameStorage.Warning.PathsChanged", "The storage paths changed while the warning was open. Review the updated paths and try again."),
+                LanguageManager.Get("GameStorage.Warning.Title", "Game Storage warning"), MessageBoxIcon.Warning);
             return false;
         }
 
@@ -317,10 +319,10 @@
                 strUacCheckPath = p_gmfGameModeFactory.GameModeDescriptor.InstallationPath;
             }
 
-            // W3R.5: check physical ownership BEFORE initial Game Storage setup or native services.
-            // Discovery of a new edition alone is not an ownership claim; persisted state is.
+            // Review Game Storage warnings before setup or native services for every game.
+            // Saved paths describe configuration and do not prove an older game is installed.
             if (!String.IsNullOrWhiteSpace(strUacCheckPath) &&
-                !TryValidateWitcher3RootOwnership(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
+                !TryReviewGameStorage(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
                     strUacCheckPath, EnvironmentInfo.Settings.InstallInfoFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId],
                     out p_vwmErrorMessage))
                 return false;
@@ -464,7 +466,7 @@
             }
 
             // Repeat after game-mode construction: setup/discovery may have changed the real target.
-            if (!TryValidateWitcher3RootOwnership(gameMode.ModeId,
+            if (!TryReviewGameStorage(gameMode.ModeId,
                 gameMode.GameModeEnvironmentInfo.InstallationPath,
                 gameMode.GameModeEnvironmentInfo.InstallInfoDirectory, out p_vwmErrorMessage))
                 return false;
@@ -603,10 +605,11 @@
         private bool TryInitializeConfiguredGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, out GameStorageHealthCheck healthCheck)
         {
             healthCheck = null;
+            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
+            if (gameStorageService.HasApprovedStoragePaths(paths))
+                return gameStorageService.ConfirmSelectedStoragePaths(paths, out healthCheck);
             if (!HasConfiguredGameStoragePaths(gameModeFactory.GameModeDescriptor.ModeId, gameStorageService, gameInstallPath))
                 return false;
-
-            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
             healthCheck = gameStorageService.ValidateStorage(paths);
             if (healthCheck.HasConfirmedPaths)
                 return true;
@@ -663,7 +666,7 @@
 
                 if (gameStorageService.ApplySelectedCandidatePaths(paths, setupForm.SelectedCandidate, out healthCheck))
                 {
-                    if (healthCheck != null && healthCheck.HasWarnings)
+                    if (healthCheck != null && healthCheck.HasWarnings && !healthCheck.HasConfirmedPaths)
                         ShowMessage(new ViewMessage(healthCheck.ToUserMessage(), null,
                             LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning));
                     return true;

@@ -344,6 +344,7 @@
     <Compile Include="Witcher3DownloadModeTests.cs" />
     <Compile Include="GameModeRuntimePolicyTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
+    <Compile Include="GameStorageUserChoiceTests.cs" />
     <Compile Include="EmptySetupCleanupTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />

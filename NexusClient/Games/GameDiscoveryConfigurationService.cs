@@ -99,6 +99,7 @@
 		{
 			if (settings == null) throw new ArgumentNullException(nameof(settings));
 			if (String.IsNullOrWhiteSpace(modeId)) throw new ArgumentException("A game mode is required.", nameof(modeId));
+			GameStorageSessionConsent.Revoke(settings, modeId);
 			lock (settings)
 			{
 				bool previousSetup;
@@ -122,6 +123,7 @@
 		{
 			if (settings == null) throw new ArgumentNullException(nameof(settings));
 			if (String.IsNullOrWhiteSpace(modeId)) throw new ArgumentException("A game mode is required.", nameof(modeId));
+			GameStorageSessionConsent.Revoke(settings, modeId);
 			lock (settings)
 			{
 				var restore = new List<Action>();

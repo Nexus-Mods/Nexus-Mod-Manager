@@ -144,6 +144,105 @@ namespace NexusClientTests
 			});
 		}
 
+		/// <summary>A completed metadata-only setup does not reserve a physical game root, even when its empty InstallLog still exists.</summary>
+		[TestCase("xml")]
+		[TestCase("sqlite")]
+		[TestCase("metadata")]
+		public void EmptyPriorSetupDoesNotBlockSameGameRoot(string format)
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "ReusedGame");
+			string info = Path.Combine(_fixture, "LegacyInfo");
+			string oldVirtual = Path.Combine(_fixture, "LegacyStaging");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(info);
+			Directory.CreateDirectory(Path.Combine(oldVirtual, "VirtualInstall"));
+			string log = Path.Combine(info, "InstallLog.xml");
+			if (format == "xml") File.WriteAllText(log, "<installLog fileVersion='0.6.0.0'><modList/></installLog>");
+			if (format == "sqlite")
+			{
+				Nexus.Client.ModManagement.InstallationLog.InstallLogSqliteStore.CreateFromDocument(Path.ChangeExtension(log, ".sqlite"),
+					new System.Xml.Linq.XDocument(new System.Xml.Linq.XElement("installLog", new System.Xml.Linq.XAttribute("fileVersion", "0.6.0.0"), new System.Xml.Linq.XElement("modList"))));
+				Nexus.Client.ModManagement.NativeStoreAuthority.Mark(Path.ChangeExtension(log, ".sqlite"));
+			}
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, otherVirtualRoot: oldVirtual, currentVirtualRoot: Path.Combine(_fixture, "NewStaging"));
+			string[] files = Directory.GetFiles(_fixture, "*", SearchOption.AllDirectories);
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, Path.Combine(_fixture, "NewInfo")).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered", root, Path.Combine(_fixture, "NewInfo")).AllowsNativeMutation, Is.True);
+			Assert.That(Directory.GetFiles(_fixture, "*", SearchOption.AllDirectories), Is.EquivalentTo(files));
+		}
+
+		/// <summary>Real, unreadable, lost and interrupted native state still produce a warning until the user explicitly continues.</summary>
+		[TestCase("installed-mod")]
+		[TestCase("unreadable")]
+		[TestCase("missing-authority")]
+		[TestCase("virtual-payload")]
+		public void ContinueHonorsReviewedPathsAcrossAllOwnershipChecks(string conflict)
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "ReusedGame");
+			string info = Path.Combine(_fixture, "LegacyInfo");
+			string targetInfo = Path.Combine(_fixture, "RemasteredInfo");
+			string virtualParent = Path.Combine(_fixture, "NewStaging");
+			string topology = Path.Combine(virtualParent, "VirtualInstall");
+			string legacyStaging = Path.Combine(_fixture, "LegacyStaging");
+			Directory.CreateDirectory(root);
+			Directory.CreateDirectory(info);
+			Directory.CreateDirectory(Path.Combine(legacyStaging, "VirtualInstall"));
+			string log = Path.Combine(info, "InstallLog.xml");
+			File.WriteAllText(log, conflict == "unreadable" ? "broken" : "<installLog fileVersion='0.6.0.0'><modList>" +
+				(conflict == "installed-mod" ? "<mod path='mod.7z'/>" : "") + "</modList></installLog>");
+			if (conflict == "missing-authority") File.WriteAllText(Path.ChangeExtension(log, ".sqlite.authority"), "keep missing authority evidence");
+			if (conflict == "virtual-payload") File.WriteAllText(Path.Combine(legacyStaging, "VirtualInstall", "keep.esp"), "mod");
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, otherVirtualRoot: legacyStaging, currentVirtualRoot: virtualParent);
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, targetInfo).AllowsNormalInitialization, Is.False);
+			Action approve = Witcher3RootOwnershipGuard.CreateSessionApproval(environment, "Witcher3Remastered", root, targetInfo, topology);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered", root, targetInfo).AllowsNativeMutation, Is.False, "Displaying a warning or choosing Cancel must not authorize anything.");
+			approve();
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, targetInfo).AllowsNormalInitialization, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForNativeMutation(environment, "Witcher3Remastered", root, targetInfo).AllowsNativeMutation, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForStorageTransition(environment, "Witcher3Remastered", root, targetInfo, topology).AllowsNativeMutation, Is.True);
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, targetInfo + "Changed").AllowsNormalInitialization, Is.False);
+			Assert.That(Witcher3RootOwnershipGuard.CheckForStorageTransition(environment, "Witcher3Remastered", root, targetInfo, topology + "Changed").AllowsNativeMutation, Is.False);
+			IEnvironmentInfo independentSession = CreateEnvironment(root, info, true, otherVirtualRoot: legacyStaging, currentVirtualRoot: virtualParent);
+			Assert.That(Witcher3RootOwnershipGuard.Check(independentSession, "Witcher3Remastered", root, targetInfo).AllowsNormalInitialization, Is.False);
+			Assert.That(File.ReadAllText(log), Is.EqualTo(conflict == "unreadable" ? "broken" : "<installLog fileVersion='0.6.0.0'><modList>" +
+				(conflict == "installed-mod" ? "<mod path='mod.7z'/>" : "") + "</modList></installLog>"));
+			environment.Settings.InstallInfoFolder["Witcher3"] = info + "Changed";
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, targetInfo).AllowsNormalInitialization, Is.False);
+			environment.Settings.InstallInfoFolder["Witcher3"] = info;
+			Witcher3RootOwnershipGuard.RevokeSessionApproval(environment.Settings, "Witcher3Remastered");
+			Assert.That(Witcher3RootOwnershipGuard.Check(environment, "Witcher3Remastered", root, targetInfo).AllowsNormalInitialization, Is.False);
+		}
+
+		/// <summary>Continuing with conflicted storage records an explicit path choice without rewriting the original manifests.</summary>
+		[Test]
+		public void ApprovedStorageConfirmationPreservesCounterpartManifests()
+		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT) Assert.Ignore("Windows filesystem identity API");
+			string root = Path.Combine(_fixture, "ReusedGame");
+			string info = Path.Combine(_fixture, "SharedInfo");
+			string mods = Path.Combine(_fixture, "Downloads");
+			string staging = Path.Combine(_fixture, "SelectedStaging");
+			string topology = Path.Combine(staging, "VirtualInstall");
+			foreach (string folder in new[] { root, info, mods, topology }) Directory.CreateDirectory(folder);
+			string manifest = Path.Combine(info, ".nmm-folder.json");
+			string original = Newtonsoft.Json.JsonConvert.SerializeObject(new GameStorageFolderManifest { SchemaVersion = 2,
+				GameId = "Witcher3", StorageId = "keep-original", FolderRole = GameStorageFolderRole.InstallInfo });
+			File.WriteAllText(manifest, original);
+			File.WriteAllText(Path.Combine(info, "InstallLog.xml"), "<installLog fileVersion='0.6.0.0'><modList><mod path='mod.7z'/></modList></installLog>");
+			IEnvironmentInfo environment = CreateEnvironment(root, info, true, otherVirtualRoot: Path.Combine(_fixture, "OtherStaging"), currentVirtualRoot: staging);
+			var paths = new GameStoragePathSet { GameId = "Witcher3Remastered", GameInstallPath = root, InstallInfoPath = info,
+				ModsPath = mods, VirtualInstallPath = topology };
+			var storage = new GameStorageService(environment);
+			GameStorageSessionConsent.CreateStorageApproval(environment, paths)();
+			GameStorageHealthCheck health;
+			Assert.That(storage.ConfirmSelectedStoragePaths(paths, out health), Is.True);
+			Assert.That(health.HasConfirmedPaths, Is.True);
+			Assert.That(File.ReadAllText(manifest), Is.EqualTo(original));
+			Assert.That(File.Exists(Path.Combine(topology, ".nmm-folder.json")), Is.False);
+		}
+
 		/// <summary>Both editions can reopen one physical installation using the same native records.</summary>
 		[TestCase("Witcher3", "Witcher3Remastered", false)]
 		[TestCase("Witcher3Remastered", "Witcher3", false)]

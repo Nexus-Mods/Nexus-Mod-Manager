@@ -14,6 +14,52 @@ namespace Nexus.Client.GameStorage
 {
     public partial class GameStorageService
     {
+        /// <summary>Proves that configured and historical native stores contain no installed ownership without changing files or settings.</summary>
+        internal bool IsNativeSetupVerifiablyEmpty(string gameId, string installInfo, string virtualParent)
+        {
+            try
+            {
+                var snapshot = new EmptySetupCleanupPlan();
+                var locations = new List<GameStorageRegistryEntry>();
+                if (!String.IsNullOrWhiteSpace(installInfo))
+                    locations.Add(new GameStorageRegistryEntry { GameId = gameId, InstallInfoPath = installInfo,
+                        VirtualInstallPath = NormalizeVirtualInstallDirectory(virtualParent), ModsPath = GetSettingValue(_environmentInfo.Settings.ModFolder, gameId),
+                        LinkFolderPath = GetSettingValue(_environmentInfo.Settings.HDLinkFolder, gameId) });
+                foreach (string file in new[] { RegistryPath, LastKnownGoodPath })
+                {
+                    snapshot.ObserveFile(file);
+                    var read = ReadRegistryResult(file);
+                    if (read.Status == GameStorageMetadataReadStatus.Missing) continue;
+                    if (read.Status != GameStorageMetadataReadStatus.Valid) return false;
+                    locations.AddRange((read.Value.KnownStorages ?? new List<GameStorageRegistryEntry>()).Where(entry => entry != null &&
+                        String.Equals(entry.GameId, gameId, StringComparison.OrdinalIgnoreCase) && (entry.LastKnownInstallLogPresent || entry.LastKnownVirtualFileCount > 0)));
+                }
+                if (locations.Count == 0) return false;
+                foreach (GameStorageRegistryEntry location in locations)
+                {
+                    if (String.IsNullOrWhiteSpace(location.InstallInfoPath) || !Directory.Exists(location.InstallInfoPath)) return false;
+                    string topology = CleanupVirtualDirectory(location.InstallInfoPath, location.VirtualInstallPath);
+                    if (location.LastKnownInstallLogPresent && !File.Exists(Path.Combine(location.InstallInfoPath, "InstallLog.xml")) &&
+                        !File.Exists(Path.Combine(location.InstallInfoPath, "InstallLog.sqlite"))) return false;
+                    if (location.LastKnownVirtualFileCount > 0 && !File.Exists(Path.Combine(topology, "VirtualModConfig.xml")) &&
+                        !File.Exists(Path.Combine(topology, "VirtualModConfig.sqlite"))) return false;
+                    var paths = new GameStoragePathSet { GameId = gameId, InstallInfoPath = location.InstallInfoPath,
+                        VirtualInstallPath = topology, ModsPath = location.ModsPath, LinkFolderPath = location.LinkFolderPath };
+                    InspectEmptySetupDirectory(snapshot, location.InstallInfoPath, paths);
+                    InspectEmptySetupDirectory(snapshot, topology, paths);
+                    if (!String.IsNullOrWhiteSpace(location.LinkFolderPath))
+                        InspectEmptySetupDirectory(snapshot, Path.Combine(location.LinkFolderPath, gameId, "NMMLink"), paths);
+                }
+                snapshot.ValidateUnchanged();
+                return true;
+            }
+            catch (Exception error) when (IsCleanupInspectionError(error))
+            {
+                System.Diagnostics.Trace.TraceInformation("Native storage could not be verified as empty for {0}: {1}", gameId, error.Message);
+                return false;
+            }
+        }
+
         /// <summary>Plans explicit cleanup without opening a game session, migrating stores or following directory links.</summary>
         internal EmptySetupCleanupPlan PlanEmptySetupCleanup(string gameId)
         {
@@ -384,8 +430,8 @@ namespace Nexus.Client.GameStorage
             Retained.AddRange(other.Retained);
         }
 
-        /// <summary>Revalidates the preview, rolls file changes back on failure, and never recursively deletes directories.</summary>
-        internal void Execute(Action saveSettings)
+        /// <summary>Checks that a read-only inspection still describes the same files and directories.</summary>
+        internal void ValidateUnchanged()
         {
             foreach (var item in _observed)
             {
@@ -401,6 +447,12 @@ namespace Nexus.Client.GameStorage
                     !Directory.Exists(item.Key) || !Directory.GetFileSystemEntries(item.Key).OrderBy(entry => entry, StringComparer.OrdinalIgnoreCase).SequenceEqual(item.Value, StringComparer.OrdinalIgnoreCase))
                     throw new IOException(LanguageManager.Get("GameDiscovery.CleanupChanged", "Setup files changed. Review the cleanup again."));
             }
+        }
+
+        /// <summary>Revalidates the preview, rolls file changes back on failure, and never recursively deletes directories.</summary>
+        internal void Execute(Action saveSettings)
+        {
+            ValidateUnchanged();
             var changed = new List<string>();
             try
             {

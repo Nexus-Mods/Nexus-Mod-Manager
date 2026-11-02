@@ -231,6 +231,7 @@ namespace Nexus.Client.GameStorage
 			GameStoragePathSet paths,
 			GameStorageRegistry registry)
 		{
+			if (HasApprovedStoragePaths(paths)) return false;
 			if (paths == null ||
 				registry == null ||
 				string.IsNullOrWhiteSpace(paths.ModsPath) ||
@@ -582,6 +583,11 @@ namespace Nexus.Client.GameStorage
             GameStorageHealthCheck health = ValidateStorage(paths);
             if (health.HasConfirmedPaths)
                 return health;
+            if (HasApprovedStoragePaths(paths))
+            {
+                GameStorageHealthCheck confirmed;
+                return ConfirmSelectedStoragePaths(paths, out confirmed) ? confirmed : confirmed ?? health;
+            }
             if (!health.IsHealthy && ShouldAttemptKnownLegacyStorageMetadataRepair(health) &&
                 RepairKnownLegacyStorageMetadata(paths))
                 health = ValidateStorage(paths);
@@ -762,7 +768,7 @@ namespace Nexus.Client.GameStorage
 
             AddSuspiciousEmptyWarnings(result, paths, lastKnownGood);
             GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
-            result.HasConfirmedPaths = result.IsUsable && confirmed != null &&
+            result.HasConfirmedPaths = HasApprovedStoragePaths(paths) || result.IsUsable && confirmed != null &&
                 string.Equals(confirmed.StorageId, storageId, StringComparison.OrdinalIgnoreCase);
             return result;
         }
@@ -1164,10 +1170,20 @@ namespace Nexus.Client.GameStorage
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
             // Shared publication boundary: invoked by recovery, initial setup, direct
-            // initialization, and the legacy manifest repair. Never publish a second
-            // native root owner based solely on an earlier dialog/startup check.
+            // initialization, and the legacy manifest repair. Unconfirmed callers must
+            // pass the current ownership check; Continue records paths without replacing manifests.
             RequireWitcher3StorageWrite(paths);
             DateTime now = DateTime.UtcNow;
+            if (HasApprovedStoragePaths(paths))
+            {
+                // User approval accepts these paths, not a rewrite of another setup's recovery metadata.
+                storageId = GetAcceptedStorageId(paths, registry);
+                UpsertRegistryEntry(registry, paths, storageId, TryGetSharedStorageRoot(paths), now);
+                registry.KnownStorages.First(entry => String.Equals(entry.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                    String.Equals(entry.StorageId, storageId, StringComparison.OrdinalIgnoreCase)).ConfirmedPathsFingerprint = GetSelectedPathsFingerprint(paths);
+                if (CanWriteApprovedRegistry()) SaveRegistryWithBackup(registry);
+                return;
+            }
             WriteFolderManifests(paths, storageId, now);
 
             string root = TryGetSharedStorageRoot(paths);
@@ -1367,6 +1383,12 @@ namespace Nexus.Client.GameStorage
 			if (paths == null || registry == null)
 				return false;
 
+            if (HasApprovedStoragePaths(paths))
+            {
+                storageId = GetAcceptedStorageId(paths, registry);
+                return true;
+            }
+
             GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
             if (confirmed != null && Validate(paths, confirmed.StorageId, registry).HasConfirmedPaths)
             {
@@ -1417,6 +1439,7 @@ namespace Nexus.Client.GameStorage
 
         private string ResolveStorageId(GameStoragePathSet paths, GameStorageRegistry registry)
         {
+            if (HasApprovedStoragePaths(paths)) return GetAcceptedStorageId(paths, registry);
             GameStorageRegistryEntry confirmed = GetConfirmedStorageEntry(paths, registry);
             if (confirmed != null)
                 return confirmed.StorageId;

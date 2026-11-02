@@ -220,17 +220,28 @@ namespace Nexus.Client.GameStorage
 			return health;
 		}
 
+        /// <summary>Combines root ownership and folder metadata warnings without changing the reviewed paths.</summary>
+        internal Witcher3RootOwnershipDecision InspectWitcherOwnership(GameStoragePathSet paths)
+        {
+            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.CheckForStorageTransition(
+                _environmentInfo, paths.GameId, paths.GameInstallPath, paths.InstallInfoPath, paths.VirtualInstallPath);
+            if (!decision.AllowsNativeMutation || HasApprovedStoragePaths(paths)) return decision;
+            try { RequireNoForeignWitcher3ManifestClaims(paths); return decision; }
+            catch (InvalidOperationException error)
+            { return new Witcher3RootOwnershipDecision(Witcher3RootOwnershipStatus.UnverifiablePriorOwner, error.Message); }
+        }
+
         /// <summary>
         /// W3R mode ownership is tied to a physical game root, not to a selected
-        /// InstallInfo folder. Explicit recovery and the unvalidated path fallback
-        /// must not bind a second mode's native state to that same installation.
-        /// This check is read-only and deliberately does not migrate ownership.
+        /// InstallInfo folder. Recovery and path fallback require the same reviewed session
+        /// choice when a conflict exists. This check does not migrate ownership.
         /// </summary>
         private bool TryGuardWitcherRecoveryPaths(GameStoragePathSet paths,
             out GameStorageHealthCheck failure)
         {
             failure = null;
             if (paths == null) return false;
+            if (HasApprovedStoragePaths(paths)) return true;
             if (!(Nexus.Client.Games.GameModeRuntimePolicies.For(paths.GameId).NativeRootOwnershipProfile != null)) return true;
 
             string reason = null;
@@ -245,6 +256,7 @@ namespace Nexus.Client.GameStorage
                         paths.VirtualInstallPath);
                     if (decision.AllowsNativeMutation)
                     {
+                        if (HasApprovedStoragePaths(paths)) return true;
                         try
                         {
                             // This also runs before setup/recovery creates any directories.
@@ -381,10 +393,11 @@ namespace Nexus.Client.GameStorage
                     RequireWitcher3StorageWrite(paths);
                     CreateSetupFolders(paths);
                     GameStorageRegistry registry = LoadRegistry();
-                    string storageId = GetExistingStorageIds(paths, registry).FirstOrDefault() ?? Guid.NewGuid().ToString("D");
+                    string storageId = HasApprovedStoragePaths(paths) ? GetAcceptedStorageId(paths, registry)
+                        : GetExistingStorageIds(paths, registry).FirstOrDefault() ?? Guid.NewGuid().ToString("D");
                     UpsertRegistryEntry(registry, paths, storageId, TryGetSharedStorageRoot(paths), DateTime.UtcNow);
                     healthCheck = Validate(paths, storageId, registry);
-                    if (!healthCheck.IsUsable)
+                    if (!healthCheck.IsUsable && !HasApprovedStoragePaths(paths))
                         return false;
 
                     string fingerprint = GetSelectedPathsFingerprint(paths);
@@ -397,7 +410,7 @@ namespace Nexus.Client.GameStorage
                     registry.KnownStorages.First(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase)).ConfirmedPathsFingerprint = fingerprint;
                     RequireWitcher3StorageWrite(paths);
-                    SaveRegistryWithBackup(registry);
+                    if (!HasApprovedStoragePaths(paths) || CanWriteApprovedRegistry()) SaveRegistryWithBackup(registry);
                     healthCheck = ValidateStorage(paths);
                     if (healthCheck.HasConfirmedPaths)
                         return true;
@@ -458,7 +471,7 @@ namespace Nexus.Client.GameStorage
                 return false;
             }
 
-            return !paths.LinkFolderRequired ||
+            return HasApprovedStoragePaths(paths) || !paths.LinkFolderRequired ||
                 (IsUsableDirectoryPath(paths.LinkFolderPath) &&
                  IsLinkFolderOnGameDrive(paths.LinkFolderPath, paths.GameInstallPath));
         }
