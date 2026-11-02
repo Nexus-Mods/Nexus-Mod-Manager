@@ -12,6 +12,7 @@
 	using InitializationTaskStatus = Nexus.Client.BackgroundTasks.TaskStatus;
 	using Nexus.Client.Games;
 	using Nexus.Client.Games.UI;
+	using Nexus.Client.GameStorage;
 	using Nexus.Client.ModManagement.UI;
 	using Nexus.Client.Settings;
 	using Nexus.Client.CollectionManagement;
@@ -172,13 +173,14 @@
 				chooser.Description = LanguageManager.Format("GameDiscovery.LocatePrompt",
 					"Select the installation folder for {0}.", factory.GameModeDescriptor.Name);
 				if (chooser.ShowDialog(_shell) != DialogResult.OK) return;
-				if (!QuickGameDiscovery.IsVerifiedGameRoot(factory.GameModeDescriptor, chooser.SelectedPath))
+				string selectedRoot = QuickGameDiscovery.ResolveSavedGameRoot(factory.GameModeDescriptor, chooser.SelectedPath);
+				if (selectedRoot == null)
 				{
 					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.InvalidLocation",
 						"The selected folder is not a valid installation of this game/edition."));
 					return;
 				}
-				ConfigureGame(e.ModeId, chooser.SelectedPath, true);
+				ConfigureGame(e.ModeId, selectedRoot, true);
 			}
 		}
 
@@ -189,10 +191,6 @@
 			GameDiscoveryEntry entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
 				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
 			if (entry == null || (!e.ForgetConfiguration && entry.Collection != GameDiscoveryCollection.Managed)) return;
-			if (e.ForgetConfiguration && XtraMessageBox.Show(_shell,
-				LanguageManager.Get("GameDiscovery.ForgetConfirm", "Forget this game's saved setup? Game and storage paths, deferred setup changes and startup selection will be cleared. Mod archives, installed files, profiles and install records on disk will be preserved."),
-				LanguageManager.Get("GameDiscovery.ForgetConfiguration", "Forget configuration..."),
-				MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
 			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
 				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase) && !TryLeaveCurrentGame()) return;
 
@@ -217,7 +215,33 @@
 					}
 					using (reservation)
 					{
-						if (e.ForgetConfiguration) GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
+						if (e.ForgetConfiguration)
+						{
+							EmptySetupCleanupPlan cleanup = new GameStorageService(_environment).PlanEmptySetupCleanup(entry.ModeId);
+							string prompt = LanguageManager.Get("GameDiscovery.ForgetConfirm", "Forget this game's saved setup? Game and storage paths, deferred setup changes and startup selection will be cleared. Mod archives, installed files, profiles and install records on disk will be preserved.");
+							if (cleanup.HasChanges)
+								prompt = LanguageManager.Get("GameDiscovery.CleanupChoice", "Forget this game's saved setup?\n\nYes: also remove verified empty NMM setup files and folders, and update storage history.\nNo: clear saved paths only and keep all files.\nCancel: keep the setup.\n\nEmpty setup paths to clean or update:") +
+									Environment.NewLine + String.Join(Environment.NewLine, cleanup.ChangedPaths);
+							if (cleanup.Retained.Count > 0)
+								prompt += Environment.NewLine + Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") +
+									Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
+							DialogResult choice = XtraMessageBox.Show(_shell, prompt,
+								LanguageManager.Get("GameDiscovery.ForgetConfiguration", "Forget configuration..."),
+								cleanup.HasChanges ? MessageBoxButtons.YesNoCancel : MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+							if (choice == DialogResult.Cancel || !cleanup.HasChanges && choice != DialogResult.Yes) return;
+							if (cleanup.HasChanges && choice == DialogResult.Yes)
+							{
+								cleanup.Execute(() => GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId));
+								_shell.ReprojectGameDiscoveryCatalog();
+								_shell.SelectGameInDiscovery(entry.ModeId);
+								string message = LanguageManager.Get("GameDiscovery.CleanupComplete", "Saved setup cleared and verified empty NMM setup data removed. Mod files and profiles were preserved. Historical registry backups are retained for recovery.");
+								if (cleanup.Retained.Count > 0) message += Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") +
+									Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
+								_shell.SetGameLoadMessage(message);
+								return;
+							}
+							GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
+						}
 						else GameDiscoveryConfigurationService.ResetSetup(_environment.Settings, entry.ModeId);
 					}
 					_shell.ReprojectGameDiscoveryCatalog();
@@ -297,6 +321,10 @@
 									"A mod or Collection operation is running. Finish it before saving Game Storage."));
 								return;
 							}
+							string warning = GameDiscoveryConfigurationService.GetNoMansSkyRootCorrectionWarning(_environment.Settings, factory, candidatePath);
+							if (warning != null && XtraMessageBox.Show(_shell, warning,
+								LanguageManager.Get("GameDiscovery.ConfirmInstallation", "Confirm installation path"),
+								MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
 							configured = GameDiscoveryConfigurationService.ConfirmInstallation(_environment.Settings, factory, candidatePath, out result);
 						}
 					}

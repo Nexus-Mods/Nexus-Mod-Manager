@@ -40,7 +40,7 @@ namespace Nexus.Client.Games
 			bool hasLegacyStoragePaths, bool needsAttention, bool startupDefault,
 			IReadOnlyList<GameDiscoveryInstallationCandidate> candidates, DateTime? lastPlayedUtc = null,
 			IReadOnlyList<string> missingRequiredFiles = null, string savedModFolder = null,
-			string savedInstallInfoFolder = null, string savedVirtualFolder = null)
+			string savedInstallInfoFolder = null, string savedVirtualFolder = null, bool requiresPathConfirmation = false)
 		{
 			ModeId = modeId;
 			Name = name;
@@ -50,6 +50,7 @@ namespace Nexus.Client.Games
 			SavedModFolder = savedModFolder;
 			SavedInstallInfoFolder = savedInstallInfoFolder;
 			SavedVirtualFolder = savedVirtualFolder;
+			RequiresPathConfirmation = requiresPathConfirmation;
 			CompletedSetup = completedSetup;
 			HasLegacyStoragePaths = hasLegacyStoragePaths;
 			NeedsAttention = needsAttention;
@@ -70,13 +71,15 @@ namespace Nexus.Client.Games
 		public string SavedInstallInfoFolder { get; }
 		/// <summary>Gets the configured Virtual folder as retained in per-game settings.</summary>
 		public string SavedVirtualFolder { get; }
+		/// <summary>A verified legacy path correction awaits explicit confirmation before any runtime paths change.</summary>
+		public bool RequiresPathConfirmation { get; }
 		public bool CompletedSetup { get; }
 		public bool HasLegacyStoragePaths { get; }
 		/// <summary>Shallow settings evidence only; not a filesystem/storage health verdict.</summary>
 		public bool NeedsAttention { get; }
 		/// <summary>Required files absent at catalog refresh; saved setup and storage remain untouched.</summary>
 		public IReadOnlyList<string> MissingRequiredFiles { get; }
-		public bool IsInstallationMissing => MissingRequiredFiles.Count > 0;
+		public bool IsInstallationMissing => RequiresPathConfirmation || MissingRequiredFiles.Count > 0;
 		public bool IsStartupDefault { get; }
 		public IReadOnlyList<GameDiscoveryInstallationCandidate> Candidates { get; }
 		/// <summary>Last successful game-mode entry or game launch through NMM, or null when no valid history is available.</summary>
@@ -148,8 +151,14 @@ namespace Nexus.Client.Games
 				List<GameDiscoveryInstallationCandidate> discovered;
 				byMode.TryGetValue(id, out discovered);
 				var candidates = new List<GameDiscoveryInstallationCandidate>();
-				if (QuickGameDiscovery.IsVerifiedGameRoot(mode, executablePath))
-					candidates.Add(new GameDiscoveryInstallationCandidate(id, executablePath, "Saved"));
+				string savedRoot = QuickGameDiscovery.ResolveSavedGameRoot(mode, executablePath);
+				string installedRoot = String.Equals(id, "NoMansSky", StringComparison.OrdinalIgnoreCase)
+					? QuickGameDiscovery.ResolveSavedGameRoot(mode, installedPath) : null;
+				bool requiresPathConfirmation = savedRoot != null && !SamePath(savedRoot, executablePath) ||
+					installedRoot != null && !SamePath(installedRoot, installedPath);
+				if (savedRoot == null && requiresPathConfirmation) savedRoot = installedRoot;
+				if (savedRoot != null)
+					candidates.Add(new GameDiscoveryInstallationCandidate(id, savedRoot, "Saved"));
 				if (discovered != null)
 					foreach (var candidate in discovered)
 						if (!candidates.Any(existing => SamePath(existing.GameRoot, candidate.GameRoot)))
@@ -172,7 +181,7 @@ namespace Nexus.Client.Games
 				result.Add(new GameDiscoveryEntry(id, mode.Name, collection, installedPath,
 					executablePath, completedSetup, legacyStorageComplete, needsAttention, startupDefault,
 					candidates.AsReadOnly(), GetLastPlayedUtc(settings.LastGameLaunchUtc, id), missingFiles,
-					modFolder, installInfo, virtualFolder));
+					modFolder, installInfo, virtualFolder, requiresPathConfirmation));
 			}
 
 			var savedIds = new HashSet<string>(installedIds, StringComparer.OrdinalIgnoreCase);

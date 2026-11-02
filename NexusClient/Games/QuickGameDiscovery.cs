@@ -131,6 +131,26 @@ namespace Nexus.Client.Games
 			}
 		}
 
+		/// <summary>Resolves the legacy NMS executable directory to a verified root without changing saved paths.</summary>
+		internal static string ResolveSavedGameRoot(IGameModeDescriptor descriptor, string path)
+		{
+			if (IsVerifiedGameRoot(descriptor, path)) return path;
+			if (descriptor == null || !String.Equals(descriptor.ModeId, "NoMansSky", StringComparison.OrdinalIgnoreCase) ||
+				String.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path)) return null;
+			try
+			{
+				string directory = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				if (!String.Equals(Path.GetFileName(directory), "Binaries", StringComparison.OrdinalIgnoreCase)) return null;
+				string root = Path.GetDirectoryName(directory);
+				return IsVerifiedGameRoot(descriptor, root) ? root : null;
+			}
+			catch (Exception error) when (error is IOException || error is UnauthorizedAccessException ||
+				error is SecurityException || error is ArgumentException || error is NotSupportedException)
+			{
+				return null;
+			}
+		}
+
 		/// <summary>Read-only executable + edition check; also suitable for a future manual-path flow.</summary>
 		public static bool IsVerifiedGameRoot(IGameModeDescriptor descriptor, string path)
 		{

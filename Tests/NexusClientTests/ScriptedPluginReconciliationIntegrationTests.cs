@@ -33,10 +33,11 @@ namespace NexusClientTests
                 File.Delete(path);
                 Assert.That(context.Manager.IsActivatiblePluginFile(path), Is.False);
                 Assert.That(context.Manager.IsPluginRegistered(path), Is.True);
+                PluginManager manager = (PluginManager)context.Manager;
                 int orderChanges = 0;
                 int activeChanges = 0;
-                context.Manager.ObservedManagedPlugins.CollectionChanged += (sender, args) => orderChanges++;
-                context.Manager.ObservedActivePlugins.CollectionChanged += (sender, args) => activeChanges++;
+                manager.ObservedManagedPlugins.CollectionChanged += (sender, args) => orderChanges++;
+                manager.ObservedActivePlugins.CollectionChanged += (sender, args) => activeChanges++;
                 var installer = new Nexus.Client.ModManagement.ModFileInstaller(null, null, null, context.Manager,
                     null, null, null, true, null, Path.GetDirectoryName(path));
 
@@ -47,9 +48,9 @@ namespace NexusClientTests
                 }
 
                 Assert.That(context.Manager.IsPluginRegistered(path), Is.False);
-                Assert.That(context.Manager.ObservedManagedPlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
+                Assert.That(manager.ObservedManagedPlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
                     Is.EquivalentTo(new[] { "Keep.esp" }));
-                Assert.That(context.Manager.ObservedActivePlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
+                Assert.That(manager.ObservedActivePlugins.Select(plugin => Path.GetFileName(plugin.Filename)),
                     Is.EquivalentTo(new[] { "Keep.esp" }));
                 Assert.That(orderChanges, Is.GreaterThan(0));
                 Assert.That(activeChanges, Is.GreaterThan(0));

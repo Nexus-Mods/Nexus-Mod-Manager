@@ -222,6 +222,8 @@ namespace NexusClientTests
 				Assert.That(entry.IsInstallationMissing, Is.False);
 				Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.ToConfigure));
 				Assert.That(entry.Candidates.Single().GameRoot, Is.EqualTo(_gameRoot));
+			Assert.That(GameDiscoveryDocument.GetInstallationChoices(entry).Single().GameRoot, Is.EqualTo(_gameRoot));
+			Assert.That(GameDiscoveryDocument.CanConfirmInstallation(entry, _gameRoot, null), Is.True);
 				Assert.That(GameSessionEntryGate.CanManage(entry), Is.False);
 				settings.CompletedSetup["Example"] = true;
 				Assert.That(Single(settings, "Example").Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
@@ -230,6 +232,74 @@ namespace NexusClientTests
 			Assert.That(settings.InstallInfoFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "InstallInfo")));
 			Assert.That(settings.VirtualFolder["Example"], Is.EqualTo(Path.Combine(_gameRoot, "StagedMods")));
 			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EqualTo(files));
+		}
+
+		/// <summary>Legacy NMS Binaries paths are offered as verified corrections without silently changing storage or saved paths.</summary>
+		[TestCase(true, true)]
+		[TestCase(true, false)]
+		[TestCase(false, true)]
+		public void NoMansSky_LegacyPathsRequireExplicitRootConfirmation(bool oldInstallation, bool oldExecutable)
+		{
+			string binaries = Path.Combine(_gameRoot, "Binaries");
+			Directory.CreateDirectory(binaries);
+			File.WriteAllText(Path.Combine(binaries, "NMS.exe"), "game");
+			var settings = NewSettings();
+			settings.CompletedSetup["NoMansSky"] = true;
+			settings.InstallationPaths["NoMansSky"] = oldInstallation ? binaries : _gameRoot;
+			settings.ExecutablePaths["NoMansSky"] = oldExecutable ? binaries : _gameRoot;
+			settings.ModFolder["NoMansSky"] = Path.Combine(_gameRoot, "Archives");
+			var definition = new GameModeDefinition { ModeId = "NoMansSky", Name = "No Man's Sky", BehaviorProfile = "generic", GameExecutables = new[] { @"Binaries\NMS.exe" } };
+			ISettings memory = InterfaceStub<ISettings>.Create((method, args) => method.Name == "Save" ? null : method.Invoke(settings, args));
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) => method.Name == "get_Settings" ? memory : null);
+			var factory = new DataDrivenGameModeFactory(environment, definition);
+			GameDiscoveryEntry entry = GameDiscoveryCatalogBuilder.Build(new[] { factory.GameModeDescriptor }, settings).Entries.Single();
+			Assert.That(entry.RequiresPathConfirmation, Is.True);
+			Assert.That(GameSessionEntryGate.CanManage(entry), Is.False);
+			Assert.That(entry.Candidates.Single().GameRoot, Is.EqualTo(_gameRoot));
+			Assert.That(settings.InstallationPaths["NoMansSky"], Is.EqualTo(oldInstallation ? binaries : _gameRoot));
+			Assert.That(settings.ExecutablePaths["NoMansSky"], Is.EqualTo(oldExecutable ? binaries : _gameRoot));
+			string message;
+			Assert.That(GameDiscoveryConfigurationService.ConfirmInstallation(memory, factory, entry.Candidates.Single().GameRoot, out message), Is.True);
+			Assert.That(settings.InstallationPaths["NoMansSky"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ExecutablePaths["NoMansSky"], Is.EqualTo(_gameRoot));
+			Assert.That(settings.ModFolder["NoMansSky"], Is.EqualTo(Path.Combine(_gameRoot, "Archives")));
+			Assert.That(Directory.Exists(Path.Combine(binaries, "GAMEDATA")), Is.False);
+		}
+
+		/// <summary>Correcting a legacy install base warns about existing ownership and never mutates the files during review.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void NoMansSky_LegacyOwnershipRequiresWarningBeforeRebasing(bool hasMod)
+		{
+			string binaries = Path.Combine(_gameRoot, "Binaries");
+			Directory.CreateDirectory(binaries);
+			File.WriteAllText(Path.Combine(binaries, "NMS.exe"), "game");
+			string info = Path.Combine(_gameRoot, "InstallInfo");
+			Directory.CreateDirectory(info);
+			string log = Path.Combine(info, "InstallLog.xml");
+			File.WriteAllText(log, "<installLog fileVersion='0.6.0.0'><modList>" + (hasMod ? "<mod path='example.7z'/>" : "") + "</modList></installLog>");
+			string before = File.ReadAllText(log);
+			var settings = NewSettings();
+			settings.InstallationPaths["NoMansSky"] = binaries;
+			settings.InstallInfoFolder["NoMansSky"] = info;
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) => method.Name == "get_Settings" ? settings : null);
+			var factory = new DataDrivenGameModeFactory(environment, new GameModeDefinition { ModeId = "NoMansSky", BehaviorProfile = "generic", GameExecutables = new[] { @"Binaries\NMS.exe" } });
+			Assert.That(GameDiscoveryConfigurationService.GetNoMansSkyRootCorrectionWarning(settings, factory, _gameRoot) != null, Is.EqualTo(hasMod));
+			Assert.That(settings.InstallationPaths["NoMansSky"], Is.EqualTo(binaries));
+			Assert.That(File.ReadAllText(log), Is.EqualTo(before));
+		}
+
+		/// <summary>A missing NMS executable or another game's Binaries directory is never accepted as a legacy correction.</summary>
+		[TestCase("NoMansSky")]
+		[TestCase("OtherGame")]
+		public void LegacyBinariesCorrection_RequiresTheNmsModeAndExecutable(string modeId)
+		{
+			string binaries = Path.Combine(_gameRoot, "Binaries");
+			Directory.CreateDirectory(binaries);
+			var descriptor = new DataDrivenGameModeDescriptor(null, new GameModeDefinition { ModeId = modeId, GameExecutables = new[] { @"Binaries\NMS.exe" } });
+			Assert.That(QuickGameDiscovery.ResolveSavedGameRoot(descriptor, binaries), Is.Null);
+			File.WriteAllText(Path.Combine(binaries, "NMS.exe"), "game");
+			Assert.That(QuickGameDiscovery.ResolveSavedGameRoot(descriptor, binaries), Is.EqualTo(modeId == "NoMansSky" ? _gameRoot : null));
 		}
 
 		/// <summary>Provides a real executable for admission-policy cases that represent an installed game.</summary>

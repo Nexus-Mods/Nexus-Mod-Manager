@@ -1152,7 +1152,7 @@
 		internal static IEnumerable<GameDiscoveryInstallationCandidate> GetInstallationChoices(GameDiscoveryEntry entry)
 		{
 			return entry == null ? Enumerable.Empty<GameDiscoveryInstallationCandidate>() : entry.Candidates.Where(candidate =>
-				!entry.IsInstallationMissing || (!String.Equals(candidate.Source, "Saved", StringComparison.OrdinalIgnoreCase) &&
+				!entry.IsInstallationMissing || entry.RequiresPathConfirmation || (!String.Equals(candidate.Source, "Saved", StringComparison.OrdinalIgnoreCase) &&
 				 !String.Equals(candidate.GameRoot.TrimEnd('\\', '/'), (entry.SavedExecutablePath ?? String.Empty).TrimEnd('\\', '/'),
 					 StringComparison.OrdinalIgnoreCase)));
 		}
@@ -1200,7 +1200,9 @@
 			_installationPath.Properties.AppearanceReadOnly.ForeColor = missing ? errorColor : Color.Empty;
 			_installationWarning.Appearance.ForeColor = errorColor;
 			_installationWarning.Visible = missing;
-			_installationWarning.Text = missing ? L("GameDiscovery.InstallationMissingFeedback",
+			_installationWarning.Text = entry?.RequiresPathConfirmation == true
+				? L("GameDiscovery.LegacyRootFeedback", "The game was found. The saved path points to Binaries instead of the game folder. Confirm the detected installation path before configuring storage.")
+				: missing ? L("GameDiscovery.InstallationMissingFeedback",
 				"The game appears to be uninstalled or incomplete: required game files are missing.") : String.Empty;
 			_installationWarning.ToolTip = missing ? String.Join(Environment.NewLine, entry.MissingRequiredFiles) : String.Empty;
 			_detailLayout.RowStyles[4].Height = missing ? 82 : 38;
@@ -1244,8 +1246,9 @@
 			if (missing)
 			{
 				lines.Add(_installationWarning.Text);
-				lines.Add(L("GameDiscovery.MissingRequiredFiles", "Missing required files or folder:") + Environment.NewLine +
-					String.Join(Environment.NewLine, entry.MissingRequiredFiles));
+				if (!entry.RequiresPathConfirmation)
+					lines.Add(L("GameDiscovery.MissingRequiredFiles", "Missing required files or folder:") + Environment.NewLine +
+						String.Join(Environment.NewLine, entry.MissingRequiredFiles));
 				lines.Add(String.Empty);
 			}
 			if (entry.NeedsAttention)
@@ -1284,6 +1287,7 @@
 
 		private string GetStatus(GameDiscoveryEntry entry)
 		{
+			if (entry.RequiresPathConfirmation) return "!  " + L("GameDiscovery.PathConfirmationStatus", "Installation path needs confirmation");
 			if (entry.IsInstallationMissing) return "!  " + L("GameDiscovery.InstallationMissingStatus", "Installation missing or incomplete");
 			if (entry.NeedsAttention) return "!  " + L("GameDiscovery.NeedsAttention", "Needs attention");
 			switch (entry.Collection)

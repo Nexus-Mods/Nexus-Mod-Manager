@@ -22,6 +22,34 @@
 			_environment = environment ?? throw new ArgumentNullException(nameof(environment));
 		}
 
+		/// <summary>Warns before explicitly changing the NMS install base when legacy ownership records are not verifiably empty.</summary>
+		internal static string GetNoMansSkyRootCorrectionWarning(ISettings settings, IGameModeFactory factory, string selectedRoot)
+		{
+			if (!String.Equals(factory.GameModeDescriptor.ModeId, "NoMansSky", StringComparison.OrdinalIgnoreCase)) return null;
+			string installed;
+			if (!settings.InstallationPaths.TryGetValue("NoMansSky", out installed) || String.IsNullOrWhiteSpace(installed)) return null;
+			string corrected = QuickGameDiscovery.ResolveSavedGameRoot(factory.GameModeDescriptor, installed);
+			if (corrected == null || String.Equals(corrected.TrimEnd('\\', '/'), installed.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase) ||
+				!String.Equals(corrected.TrimEnd('\\', '/'), selectedRoot.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return null;
+			string info;
+			if (!settings.InstallInfoFolder.TryGetValue("NoMansSky", out info) || String.IsNullOrWhiteSpace(info)) return null;
+			bool hasState = false;
+			try
+			{
+				foreach (string name in new[] { "InstallLog.xml", "InstallLog.sqlite", "InstallLog.sqlite.authority" })
+				{
+					string file = System.IO.Path.Combine(info, name);
+					if (System.IO.File.Exists(file) && !GameStorageService.IsEmptyNativeSetupFile(file, "InstallLog")) hasState = true;
+				}
+			}
+			catch (Exception error) when (error is System.IO.IOException || error is UnauthorizedAccessException ||
+				error is System.Data.SQLite.SQLiteException || error is System.Xml.XmlException)
+			{
+				hasState = true;
+			}
+			return hasState ? LanguageManager.Format("GameDiscovery.LegacyRootStateWarning", "NMM has existing or unreadable install records for {0}. Correcting the installation path changes the base used for mod operations; it does not move installed files or rewrite those records. Existing mods may need reconciliation or reinstallation. Update the path anyway?", installed) : null;
+		}
+
 		/// <summary>Confirms only the game installation and leaves existing mod storage pending explicit configuration.</summary>
 		internal static bool ConfirmInstallation(ISettings settings, IGameModeFactory factory, string selectedRoot, out string message)
 		{

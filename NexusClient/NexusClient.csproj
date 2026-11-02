@@ -1592,6 +1592,7 @@
     <Compile Include="GameStorage\GameStorageHealth.cs" />
     <Compile Include="GameStorage\GameStorageModels.cs" />
     <Compile Include="GameStorage\GameStorageService.cs" />
+    <Compile Include="GameStorage\GameStorageService.EmptySetup.cs" />
     <Compile Include="GameStorage\GameStorageInitialPaths.cs" />
     <Compile Include="GameStorage\Witcher3StorageMutationReservation.cs" />
     <Compile Include="GameStorage\GameStorageRecoveryService.cs" />
