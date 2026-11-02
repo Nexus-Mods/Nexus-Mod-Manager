@@ -1,5 +1,20 @@
 # NMM Community Edition release notes
 
+## Version 0.93.12
+
+**New features and improvements**
+
+- Game Storage warnings now offer **Continue** and **Cancel** for all supported games.
+- Added **Forget configuration** in Game Discovery to clear stale or incomplete game setups while preserving mod files and profiles.
+- Added optional cleanup of verified empty setup data, with a preview of the files and folders affected. Shared storage and user data are preserved.
+
+**Bug fixes**
+
+- Fixed the Plugins tab not refreshing after uninstalling mods.
+- Fixed removed game installations being reported as detected from saved paths.
+- Fixed stale Witcher 3 setup data blocking Witcher 3 Remastered after the original game was uninstalled.
+- Fixed No Man's Sky setups using a legacy `Binaries` path being reported as missing. NMM now offers confirmation of the correct game folder.
+
 ## Version 0.93.11
 
 **Bug fixes**

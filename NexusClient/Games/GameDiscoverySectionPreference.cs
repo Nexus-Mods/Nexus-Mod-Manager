@@ -17,8 +17,9 @@ namespace Nexus.Client.Games
 				bool pendingSetup = settings.CompletedSetup != null && settings.CompletedSetup.TryGetValue(modeId, out completed) && !completed;
 				if (saved == nameof(GameDiscoveryCollection.ToConfigure) && (missing || pendingSetup)) return GameDiscoveryCollection.ToConfigure;
 				if (saved == nameof(GameDiscoveryCollection.Supported) && (missing ||
-					!settings.CompletedSetup.ContainsKey(modeId) && !settings.InstallationPaths.ContainsKey(modeId) &&
-					!settings.ExecutablePaths.ContainsKey(modeId))) return GameDiscoveryCollection.Supported;
+					(settings.CompletedSetup == null || !settings.CompletedSetup.ContainsKey(modeId)) &&
+					(settings.InstallationPaths == null || !settings.InstallationPaths.ContainsKey(modeId)) &&
+					(settings.ExecutablePaths == null || !settings.ExecutablePaths.ContainsKey(modeId)))) return GameDiscoveryCollection.Supported;
 			}
 			return automaticCollection;
 		}

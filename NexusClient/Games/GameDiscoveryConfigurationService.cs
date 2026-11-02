@@ -127,7 +127,8 @@
 			lock (settings)
 			{
 				var restore = new List<Action>();
-				string[] installed = settings.InstalledGames.Cast<string>().ToArray();
+				SettingsList installedGames = settings.InstalledGames;
+				string[] installed = installedGames == null ? new string[0] : installedGames.Cast<string>().ToArray();
 				bool remembered = settings.RememberGameMode;
 				string rememberedMode = settings.RememberedGameMode;
 				try
@@ -140,7 +141,7 @@
 					ForgetSetting(settings.MultiHDInstall, modeId, restore);
 					ForgetSetting(settings.DelayedSettings, modeId, restore);
 					foreach (string id in installed.Where(id => String.Equals(id, modeId, StringComparison.OrdinalIgnoreCase)))
-						settings.InstalledGames.Remove(id);
+						installedGames.Remove(id);
 					if (String.Equals(rememberedMode, modeId, StringComparison.OrdinalIgnoreCase))
 					{
 						settings.RememberGameMode = false;
@@ -155,8 +156,11 @@
 				catch
 				{
 					for (int index = restore.Count - 1; index >= 0; index--) restore[index]();
-					settings.InstalledGames.Clear();
-					settings.InstalledGames.AddRange(installed);
+					if (installedGames != null)
+					{
+						installedGames.Clear();
+						installedGames.AddRange(installed);
+					}
 					settings.RememberGameMode = remembered;
 					settings.RememberedGameMode = rememberedMode;
 					throw;

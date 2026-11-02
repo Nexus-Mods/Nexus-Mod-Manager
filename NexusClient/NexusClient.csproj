@@ -1453,6 +1453,9 @@
     <Compile Include="Games\GameDiscoveryConfigurationService.cs" />
     <Compile Include="Games\GameSessionEntryGate.cs" />
     <Compile Include="Games\UI\GameDiscoveryGameRequestedEventArgs.cs" />
+    <Compile Include="Games\UI\GameDiscoveryForgetConfigurationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Games\GameDiscoveryRecursiveScanner.cs" />
     <Compile Include="Games\QuickGameDiscovery.cs" />
     <Compile Include="Games\UI\GameDiscoveryDocument.cs">
@@ -1596,7 +1599,9 @@
     <Compile Include="GameStorage\GameStorageService.EmptySetup.cs" />
     <Compile Include="GameStorage\GameStorageService.UserChoice.cs" />
     <Compile Include="GameStorage\GameStorageSessionConsent.cs" />
-    <Compile Include="GameStorage\UI\GameStorageWarningForm.cs" />
+    <Compile Include="GameStorage\UI\GameStorageWarningForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="GameStorage\GameStorageInitialPaths.cs" />
     <Compile Include="GameStorage\Witcher3StorageMutationReservation.cs" />
     <Compile Include="GameStorage\GameStorageRecoveryService.cs" />

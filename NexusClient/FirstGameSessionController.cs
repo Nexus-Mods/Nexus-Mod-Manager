@@ -184,15 +184,47 @@
 			}
 		}
 
-		/// <summary>Reopens setup after closing an idle active session without removing game or mod files.</summary>
-		private void OnResetSetupRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
+		/// <summary>Keeps asynchronous setup action failures visible instead of escaping the WinForms event handler.</summary>
+		private async void OnResetSetupRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
 		{
-			if (_disposed || _teardownFailed || _shell.IsFirstSessionLoading) return;
+			try { await ResetGameSetupAsync(e); }
+			catch (Exception exception) when (!(exception is OutOfMemoryException))
+			{
+				Trace.TraceError("Could not start setup action for {0}: {1}", e.ModeId, exception);
+				ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.SetupActionFailed", "The game setup action could not be completed.") + Environment.NewLine + exception.Message);
+			}
+		}
+
+		/// <summary>Forgets paths without disk inspection unless the user explicitly requests optional cleanup.</summary>
+		private async Task ResetGameSetupAsync(GameDiscoveryGameRequestedEventArgs e)
+		{
+			if (_disposed || _shell.IsDisposed) return;
 			GameDiscoveryEntry entry = _shell.GameDiscoveryCatalog?.Entries.FirstOrDefault(item =>
 				String.Equals(item.ModeId, e.ModeId, StringComparison.OrdinalIgnoreCase));
-			if (entry == null || (!e.ForgetConfiguration && entry.Collection != GameDiscoveryCollection.Managed)) return;
+			if (entry == null)
+			{
+				ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.SetupSelectionMissing", "This game selection is no longer available. Refresh Game Discovery and try again."));
+				return;
+			}
+			if (!e.ForgetConfiguration && entry.Collection != GameDiscoveryCollection.Managed) return;
+			bool inspectCleanup = false;
+			if (e.ForgetConfiguration)
+			{
+				using (var choice = new GameDiscoveryForgetConfigurationForm(entry.Name))
+				{
+					DialogResult result = choice.ShowDialog(_shell);
+					if (result != DialogResult.Yes && result != DialogResult.No) return;
+					inspectCleanup = result == DialogResult.No;
+				}
+			}
+			bool affectsCurrentSession = String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase);
+			if (_shell.IsFirstSessionLoading || _teardownFailed && affectsCurrentSession)
+			{
+				ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.SetupUnavailable", "A game session is loading or could not be closed. Finish loading, or restart NMM after a session error, then try again."));
+				return;
+			}
 			if (_gate.State == GameSessionEntryGate.EntryState.Ready &&
-				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase) && !TryLeaveCurrentGame()) return;
+				String.Equals(_gate.ModeId, entry.ModeId, StringComparison.OrdinalIgnoreCase) && !TryLeaveCurrentGame(true)) return;
 
 			bool ownsSetupMutex;
 			using (var setupMutex = new Mutex(true,
@@ -200,63 +232,91 @@
 			{
 				if (!ownsSetupMutex)
 				{
-					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.GameAlreadyRunning",
-						"This game is already managed by another NMM process."));
+					ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.GameAlreadyRunning", "This game is already managed by another NMM process."));
 					return;
 				}
+				bool showingProgress = false;
 				try
 				{
 					CollectionTargetMutationLease reservation;
 					if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out reservation))
 					{
-						_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.StorageBusy",
-							"A mod or Collection operation is running. Finish it before saving Game Storage."));
+						ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.StorageBusy", "A mod or Collection operation is running. Finish it before saving Game Storage."));
 						return;
 					}
 					using (reservation)
 					{
-						if (e.ForgetConfiguration)
+						EmptySetupCleanupPlan cleanup = null;
+						bool cleanedEmptyData = false;
+						if (inspectCleanup)
 						{
-							EmptySetupCleanupPlan cleanup = new GameStorageService(_environment).PlanEmptySetupCleanup(entry.ModeId);
-							string prompt = LanguageManager.Get("GameDiscovery.ForgetConfirm", "Forget this game's saved setup? Game and storage paths, deferred setup changes and startup selection will be cleared. Mod archives, installed files, profiles and install records on disk will be preserved.");
-							if (cleanup.HasChanges)
-								prompt = LanguageManager.Get("GameDiscovery.CleanupChoice", "Forget this game's saved setup?\n\nYes: also remove verified empty NMM setup files and folders, and update storage history.\nNo: clear saved paths only and keep all files.\nCancel: keep the setup.\n\nEmpty setup paths to clean or update:") +
-									Environment.NewLine + String.Join(Environment.NewLine, cleanup.ChangedPaths);
+							_shell.IsFirstSessionLoading = true;
+							_shell.SetGameLoadStatus(entry.Name, true);
+							showingProgress = true;
+							_shell.SetGameLoadMessage(LanguageManager.Format("GameDiscovery.CleanupInspecting", "Checking empty setup data for {0}...", entry.Name));
+							try
+							{
+								cleanup = await Task.Run(() => new GameStorageService(_environment).PlanEmptySetupCleanup(entry.ModeId));
+							}
+							catch (Exception exception) when (!(exception is OutOfMemoryException))
+							{
+								Trace.TraceWarning("Could not inspect optional setup cleanup for {0}: {1}", entry.ModeId, exception);
+								cleanup = new EmptySetupCleanupPlan();
+								cleanup.Retained.Add(exception.Message);
+							}
+							if (_disposed || _shell.IsDisposed) return;
+							string prompt = cleanup.HasChanges
+								? LanguageManager.Get("GameDiscovery.CleanupChoice", "Forget this game's saved setup?\n\nYes: also remove verified empty NMM setup files and folders, and update storage history.\nNo: clear saved paths only and keep all files.\nCancel: keep the setup.\n\nEmpty setup paths to clean or update:") + Environment.NewLine + String.Join(Environment.NewLine, cleanup.ChangedPaths)
+								: LanguageManager.Get("GameDiscovery.CleanupNothingRemovable", "No setup data could be verified as safe to remove. Forget this game's configuration while keeping all files?");
 							if (cleanup.Retained.Count > 0)
-								prompt += Environment.NewLine + Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") +
-									Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
-							DialogResult choice = XtraMessageBox.Show(_shell, prompt,
-								LanguageManager.Get("GameDiscovery.ForgetConfiguration", "Forget configuration..."),
+								prompt += Environment.NewLine + Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") + Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
+							DialogResult choice = XtraMessageBox.Show(_shell, prompt, LanguageManager.Get("GameDiscovery.ForgetConfiguration", "Forget configuration..."),
 								cleanup.HasChanges ? MessageBoxButtons.YesNoCancel : MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
 							if (choice == DialogResult.Cancel || !cleanup.HasChanges && choice != DialogResult.Yes) return;
 							if (cleanup.HasChanges && choice == DialogResult.Yes)
 							{
 								cleanup.Execute(() => GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId));
-								_shell.ReprojectGameDiscoveryCatalog();
-								_shell.SelectGameInDiscovery(entry.ModeId);
-								string message = LanguageManager.Get("GameDiscovery.CleanupComplete", "Saved setup cleared and verified empty NMM setup data removed. Mod files and profiles were preserved. Historical registry backups are retained for recovery.");
-								if (cleanup.Retained.Count > 0) message += Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") +
-									Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
-								_shell.SetGameLoadMessage(message);
-								return;
+								cleanedEmptyData = true;
 							}
-							GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
+							else GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
 						}
+						else if (e.ForgetConfiguration) GameDiscoveryConfigurationService.ForgetConfiguration(_environment.Settings, entry.ModeId);
 						else GameDiscoveryConfigurationService.ResetSetup(_environment.Settings, entry.ModeId);
+						_shell.ReprojectGameDiscoveryCatalog();
+						_shell.SelectGameInDiscovery(entry.ModeId);
+						string message = cleanedEmptyData
+							? LanguageManager.Get("GameDiscovery.CleanupComplete", "Saved setup cleared and verified empty NMM setup data removed. Mod files and profiles were preserved. Historical registry backups are retained for recovery.")
+							: e.ForgetConfiguration ? LanguageManager.Get("GameDiscovery.ConfigurationForgotten", "Saved game setup cleared. Mod files, profiles and install records have been preserved.")
+							: LanguageManager.Get("GameDiscovery.SetupReset", "Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved.");
+						if (cleanedEmptyData && cleanup.Retained.Count > 0)
+							message += Environment.NewLine + LanguageManager.Get("GameDiscovery.CleanupRetained", "Preserved (shared storage, user data or unverified files):") + Environment.NewLine + String.Join(Environment.NewLine, cleanup.Retained.Distinct());
+						_shell.SetGameLoadMessage(message);
 					}
-					_shell.ReprojectGameDiscoveryCatalog();
-					_shell.SelectGameInDiscovery(entry.ModeId);
-					_shell.SetGameLoadMessage(e.ForgetConfiguration
-						? LanguageManager.Get("GameDiscovery.ConfigurationForgotten", "Saved game setup cleared. Mod files, profiles and install records have been preserved.")
-						: LanguageManager.Get("GameDiscovery.SetupReset", "Game setup reset. Select Configure game storage to set it up again. Saved paths, installed mods and game files have been preserved."));
 				}
 				catch (Exception exception) when (!(exception is OutOfMemoryException))
 				{
 					Trace.TraceError("Could not reset game setup for {0}: {1}", entry.ModeId, exception);
-					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SetupFailed", "Game Storage could not be configured.") + " " + exception.Message);
+					ShowSetupActionFailure(LanguageManager.Get("GameDiscovery.SetupActionFailed", "The game setup action could not be completed.") + Environment.NewLine + exception.Message);
 				}
-				finally { setupMutex.ReleaseMutex(); }
+				finally
+				{
+					// WinForms resumes this event on its UI thread, which also owns the per-game mutex.
+					if (showingProgress && !_shell.IsDisposed)
+					{
+						_shell.IsFirstSessionLoading = false;
+						_shell.SetGameLoadStatus(entry.Name, false);
+					}
+					setupMutex.ReleaseMutex();
+				}
 			}
+		}
+
+		/// <summary>Makes rejected setup actions visible even when the discovery status footer is off-screen.</summary>
+		private void ShowSetupActionFailure(string message)
+		{
+			if (_disposed || _shell.IsDisposed) return;
+			_shell.SetGameLoadMessage(message);
+			XtraMessageBox.Show(_shell, message, LanguageManager.Get("GameDiscovery.SetupActionTitle", "Game setup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 
 		private void OnConfigureRequested(object sender, GameDiscoveryGameRequestedEventArgs e)
@@ -498,20 +558,22 @@
 		/// <summary>Leave one completely idle managed session before beginning another.
 		/// The process-wide mutation barrier spans UI unbinding, IPC shutdown and service release;
 		/// it is deliberately released BEFORE the next initializer starts.</summary>
-		private bool TryLeaveCurrentGame()
+		private bool TryLeaveCurrentGame(bool showFailure = false)
 		{
 			string reason;
 			if (!_shell.CanDetachGame(out reason))
 			{
-				_shell.SetGameLoadMessage(reason);
+				if (showFailure) ShowSetupActionFailure(reason);
+				else _shell.SetGameLoadMessage(reason);
 				return false;
 			}
 			CollectionTargetMutationLease lease;
 			if (!_shell.ConfirmLoadOrderLeave()) return false;
 			if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireIdleSessionTransition(out lease))
 			{
-				_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SwitchOperationBusy",
-					"A native mod or Collection operation is still active. Try again after it finishes."));
+				string message = LanguageManager.Get("GameDiscovery.SwitchOperationBusy", "A native mod or Collection operation is still active. Try again after it finishes.");
+				if (showFailure) ShowSetupActionFailure(message);
+				else _shell.SetGameLoadMessage(message);
 				return false;
 			}
 
@@ -538,8 +600,9 @@
 				{
 					_teardownFailed = true;
 					Trace.TraceError("Game-session teardown failed; refusing to attach another game: {0}", exception);
-					_shell.SetGameLoadMessage(LanguageManager.Get("GameDiscovery.SwitchFailed",
-						"Could not safely close the current game session. Restart NMM before managing a different game."));
+					string message = LanguageManager.Get("GameDiscovery.SwitchFailed", "Could not safely close the current game session. Restart NMM before managing a different game.");
+					if (showFailure) ShowSetupActionFailure(message);
+					else _shell.SetGameLoadMessage(message);
 					return false;
 				}
 				finally

@@ -34,6 +34,7 @@
 		private readonly SimpleButton _resetSetup;
 		private readonly SimpleButton _forgetConfiguration;
 		private readonly TableLayoutPanel _locateActions;
+		private readonly Panel _locationActions;
 		private readonly TableLayoutPanel _recoveryPanel;
 		private readonly LabelControl _recoveryHint;
 		private readonly SimpleButton _moveToConfigure;
@@ -402,6 +403,7 @@
 			};
 			card.Controls.Add(_startupDefault, 0, 7);
 
+			Padding actionButtonMargin = new Padding(0, 0, 0, 6);
 			_primaryAction = new SimpleButton
 			{
 				Dock = DockStyle.Fill,
@@ -412,28 +414,29 @@
 			};
 			NmmIconProvider.BindDialogButton(_primaryAction, NmmIconAction.ChangeGame);
 			_primaryAction.Click += (sender, args) => InvokePrimaryAction();
-			var actionPanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Margin = Padding.Empty };
+			var actionPanel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = Color.Transparent };
 			actionPanel.Controls.Add(_primaryAction);
-			_recoveryPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = Padding.Empty, Visible = false };
+			_recoveryPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = Padding.Empty, Padding = Padding.Empty, Visible = false };
+			_recoveryPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 			_recoveryPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 			_recoveryHint = new LabelControl { Dock = DockStyle.Fill, UseMnemonic = false, AutoSizeMode = LabelAutoSizeMode.None,
 				Appearance = { TextOptions = { WordWrap = DevExpress.Utils.WordWrap.Wrap, VAlignment = DevExpress.Utils.VertAlignment.Top } } };
 			_recoveryPanel.Controls.Add(_recoveryHint, 0, 0);
-			_moveToConfigure = new SimpleButton { Dock = DockStyle.Fill,
+			_moveToConfigure = new SimpleButton { Dock = DockStyle.Fill, Margin = actionButtonMargin,
 				Text = String.Format(L("GameDiscovery.MoveToSection", "Move to \"{0}\""), L("GameDiscovery.ToConfigure", "To configure")),
 				ToolTip = L("GameDiscovery.MoveToConfigureHint", "Keep this game listed for setup later. Saved configuration and mod data are preserved.") };
 			_moveToConfigure.Click += (sender, args) => RequestSectionMove(GameDiscoveryCollection.ToConfigure);
 			_recoveryPanel.Controls.Add(_moveToConfigure, 0, 1);
-			_moveToSupported = new SimpleButton { Dock = DockStyle.Fill,
+			_moveToSupported = new SimpleButton { Dock = DockStyle.Fill, Margin = actionButtonMargin,
 				Text = String.Format(L("GameDiscovery.MoveToSection", "Move to \"{0}\""), L("GameDiscovery.Supported", "Supported")),
 				ToolTip = L("GameDiscovery.MoveToSupportedHint", "Remove this game from your current setup list. Saved configuration and mod data are preserved.") };
 			_moveToSupported.Click += (sender, args) => RequestSectionMove(GameDiscoveryCollection.Supported);
 			_recoveryPanel.Controls.Add(_moveToSupported, 0, 2);
 			actionPanel.Controls.Add(_recoveryPanel);
 			card.Controls.Add(actionPanel, 0, 8);
-			_locate = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false, Text = L("GameDiscovery.Locate", "Locate game...") };
+			_locate = new SimpleButton { Dock = DockStyle.Fill, Margin = Padding.Empty, Visible = false, Text = L("GameDiscovery.Locate", "Locate game...") };
 			NmmIconProvider.BindDialogButton(_locate, NmmIconAction.Browse);
 			_locate.Click += (sender, args) =>
 			{
@@ -446,7 +449,7 @@
 			_locateActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 0));
 			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 			_locateActions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
-			_resetSetup = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(0, 1, 0, 5), Visible = false,
+			_resetSetup = new SimpleButton { Dock = DockStyle.Fill, Margin = Padding.Empty, Visible = false,
 				Text = L("GameDiscovery.ResetSetup", "Reset game setup"),
 				ToolTip = L("GameDiscovery.ResetSetupHint", "Return this game to To configure. Saved paths, installed mods and game files are preserved.") };
 			NmmIconProvider.BindDialogButton(_resetSetup, NmmIconAction.Reset);
@@ -456,10 +459,11 @@
 				if (_resetSetup.Enabled && entry != null && entry.Collection == GameDiscoveryCollection.Managed)
 					ResetSetupRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(entry.ModeId));
 			};
-			var locationActions = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Margin = Padding.Empty };
-			locationActions.Controls.Add(_locate);
-			locationActions.Controls.Add(_resetSetup);
-			_locateActions.Controls.Add(locationActions, 0, 0);
+			// PanelControl content insets and ignored child Margins made these actions wider and taller than their neighbors.
+			_locationActions = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, Padding = actionButtonMargin, BackColor = Color.Transparent };
+			_locationActions.Controls.Add(_locate);
+			_locationActions.Controls.Add(_resetSetup);
+			_locateActions.Controls.Add(_locationActions, 0, 0);
 			card.Controls.Add(_locateActions, 0, 9);
 
 			_candidatePanel = new PanelControl { Dock = DockStyle.Fill, BorderStyle = BorderStyles.NoBorder, Visible = false };
@@ -479,7 +483,7 @@
 				UpdateActions();
 			};
 			candidateLayout.Controls.Add(_installations, 0, 1);
-			_confirmInstallation = new SimpleButton { Dock = DockStyle.Fill, Visible = false, Margin = new Padding(3, 1, 0, 5),
+			_confirmInstallation = new SimpleButton { Dock = DockStyle.Fill, Visible = false, Margin = actionButtonMargin,
 				Text = L("GameDiscovery.ConfirmInstallation", "Confirm installation path") };
 			NmmIconProvider.BindDialogButton(_confirmInstallation, NmmIconAction.ChangeGame);
 			_confirmInstallation.Click += (sender, args) =>
@@ -488,7 +492,7 @@
 					ConfirmInstallationRequested?.Invoke(this, new GameDiscoveryGameRequestedEventArgs(SelectedEntry.ModeId, _selectedInstallationRoot));
 			};
 			_locateActions.Controls.Add(_confirmInstallation, 1, 0);
-			_forgetConfiguration = new SimpleButton { Dock = DockStyle.Fill, Margin = new Padding(3, 1, 0, 5),
+			_forgetConfiguration = new SimpleButton { Dock = DockStyle.Fill, Margin = actionButtonMargin,
 				Text = L("GameDiscovery.ForgetConfiguration", "Forget configuration...") };
 			NmmIconProvider.BindDialogButton(_forgetConfiguration, NmmIconAction.Reset);
 			_forgetConfiguration.Click += (sender, args) =>
@@ -1351,6 +1355,8 @@
 			_confirmInstallation.Enabled = readyForAction && CanConfirmInstallation(entry, _selectedInstallationRoot, _activeModeId);
 			_forgetConfiguration.Visible = entry != null;
 			_forgetConfiguration.Enabled = readyForAction && entry != null;
+			_locationActions.Padding = new Padding(0, 0, showConfirmation ? 3 : 0, 6);
+			_confirmInstallation.Margin = new Padding(showConfirmation ? 3 : 0, 0, 0, 6);
 			_locateActions.ColumnStyles[0].Width = showConfirmation ? 50 : 100;
 			_locateActions.ColumnStyles[1].Width = showConfirmation ? 50 : 0;
 			bool showLocationActions = showLocate || showReset || showConfirmation;

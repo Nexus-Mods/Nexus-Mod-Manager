@@ -159,6 +159,50 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Managed legacy setups can be forgotten with or without their installation and without initialized optional settings.</summary>
+		[TestCase(false, false)]
+		[TestCase(true, false)]
+		[TestCase(false, true)]
+		[TestCase(true, true)]
+		public void ForgetManagedLegacySetup_ToleratesMissingSettingsAndInstallation(bool missingInstallation, bool failSave)
+		{
+			var settings = NewSettings();
+			settings.InstalledGames = null;
+			settings.CompletedSetup = null;
+			settings.ExecutablePaths = null;
+			settings.MultiHDInstall = null;
+			settings.DelayedSettings = null;
+			settings.PreferredInstallMethod = null;
+			string installed = missingInstallation ? Path.Combine(_gameRoot, "Uninstalled") : _gameRoot;
+			settings.InstallationPaths["Example"] = installed;
+			settings.InstallInfoFolder["Example"] = Path.Combine(_gameRoot, "Info");
+			settings.ModFolder["Example"] = Path.Combine(_gameRoot, "Archives");
+			settings.VirtualFolder["Example"] = Path.Combine(_gameRoot, "Staging");
+			settings.InstallationPaths["Other"] = "keep other game";
+			File.WriteAllText(Path.Combine(_gameRoot, "keep.7z"), "archive");
+			string[] before = Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories);
+			GameDiscoveryEntry entry = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Example") }, settings).Entries.Single();
+			Assert.That(entry.Collection, Is.EqualTo(GameDiscoveryCollection.Managed));
+			Assert.That(entry.IsInstallationMissing, Is.EqualTo(missingInstallation));
+			ISettings memory = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				if (method.Name != "Save") return method.Invoke(settings, args);
+				if (failSave) throw new IOException("Simulated save failure");
+				return null;
+			});
+			if (failSave) Assert.Throws<IOException>(() => GameDiscoveryConfigurationService.ForgetConfiguration(memory, "Example"));
+			else GameDiscoveryConfigurationService.ForgetConfiguration(memory, "Example");
+			GameDiscoveryEntry after = GameDiscoveryCatalogBuilder.Build(new[] { new Descriptor("Example") }, settings).Entries.Single();
+			Assert.That(after.Collection, Is.EqualTo(failSave ? GameDiscoveryCollection.Managed : GameDiscoveryCollection.Supported));
+			Assert.That(settings.InstallationPaths.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.InstallInfoFolder.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.ModFolder.ContainsKey("Example"), Is.EqualTo(failSave));
+			Assert.That(settings.InstalledGames, Is.Null);
+			Assert.That(settings.InstallationPaths["Other"], Is.EqualTo("keep other game"));
+			Assert.That(Directory.GetFiles(_gameRoot, "*", SearchOption.AllDirectories), Is.EquivalentTo(before));
+			Assert.That(File.ReadAllText(Path.Combine(_gameRoot, "keep.7z")), Is.EqualTo("archive"));
+		}
+
 		/// <summary>A removed saved path is not presented as a detected installation, even for unfinished setup.</summary>
 		[Test]
 		public void MissingSavedInstallation_IsNotADetectedCandidate()

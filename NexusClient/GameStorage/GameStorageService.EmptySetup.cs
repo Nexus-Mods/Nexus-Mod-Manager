@@ -106,9 +106,10 @@ namespace Nexus.Client.GameStorage
                         var local = new EmptySetupCleanupPlan();
                         var otherPaths = entries.Where(entry => !String.Equals(entry.GameId, gameId, StringComparison.OrdinalIgnoreCase))
                             .SelectMany(entry => new[] { entry.InstallInfoPath, entry.ModsPath, entry.VirtualInstallPath, entry.LinkFolderPath });
-                        foreach (var dictionary in new[] { settings.InstallInfoFolder, settings.ModFolder, settings.VirtualFolder, settings.HDLinkFolder })
+                        foreach (var dictionary in new[] { settings.InstallInfoFolder, settings.ModFolder, settings.VirtualFolder, settings.HDLinkFolder }.Where(dictionary => dictionary != null))
                             otherPaths = otherPaths.Concat(dictionary.Where(pair => !String.Equals(pair.Key, gameId, StringComparison.OrdinalIgnoreCase)).Select(pair => pair.Value));
-                        string[] protectedPaths = settings.InstallationPaths.Values.Concat(settings.ExecutablePaths.Values).Concat(otherPaths)
+                        string[] protectedPaths = (settings.InstallationPaths == null ? Enumerable.Empty<string>() : settings.InstallationPaths.Values)
+                            .Concat(settings.ExecutablePaths == null ? Enumerable.Empty<string>() : settings.ExecutablePaths.Values).Concat(otherPaths)
                             .Where(path => !String.IsNullOrWhiteSpace(path)).ToArray();
                         if (folders.Any(folder => protectedPaths.Any(other => CleanupPathsOverlap(folder, other))))
                             throw new InvalidDataException(LanguageManager.Get("GameDiscovery.CleanupShared", "Shared storage or a game installation is preserved."));
