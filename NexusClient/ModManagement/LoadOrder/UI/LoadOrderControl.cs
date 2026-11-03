@@ -809,7 +809,7 @@ namespace Nexus.Client.ModManagement.LoadOrder.UI
 					DefaultExt = "json", AddExtension = true, RestoreDirectory = true, FileName = "NMM-LoadOrder-Report-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".json", OverwritePrompt = true
 				})
 				{
-					if (dialog.ShowDialog(this) != DialogResult.OK) return;
+					if (DevExpressFileDialog.ShowDialog(dialog, this, "LoadOrder.ExportReport") != DialogResult.OK) return;
 					File.WriteAllText(dialog.FileName, report, new System.Text.UTF8Encoding(false));
 					_status.Text = String.Format(T("ReportExported", "Diagnostic report saved: {0}"), dialog.FileName);
 				}

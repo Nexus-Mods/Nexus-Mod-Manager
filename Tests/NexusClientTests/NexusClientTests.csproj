@@ -395,6 +395,7 @@
     <Compile Include="NexusSessionLifecycleTests.cs" />
     <Compile Include="AuthenticationFormTaskTests.cs" />
     <Compile Include="ProgramUpdaterChangeLogTests.cs" />
+    <Compile Include="DevExpressFileDialogTests.cs" />
     <Compile Include="PluginStartupStateTests.cs" />
     <Compile Include="ReadOnlyStartupTests.cs" />
     <Compile Include="PluginExportTests.cs" />

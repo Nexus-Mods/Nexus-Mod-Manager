@@ -404,7 +404,7 @@
 			{
 				dialog.Filter = LanguageManager.Get("Common.FileDialog.ImageFilter", "Image files") + "|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|" + LanguageManager.Get("Common.FileDialog.AllFiles", "All files") + "|*.*";
 				dialog.Title = LanguageManager.Get("Mods.ModTagger.ScreenshotDialog.Title", "Select mod screenshot");
-				if (dialog.ShowDialog(this) != DialogResult.OK)
+				if (DevExpressFileDialog.ShowDialog(dialog, this, "Mods.SelectScreenshot") != DialogResult.OK)
 					return;
 
 				try

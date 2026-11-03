@@ -2410,7 +2410,7 @@
             {
                 dialog.FileName = _viewModel.GetDefaultExportFilename();
                 dialog.Filter = _viewModel.GetExportFilterString();
-                if (dialog.ShowDialog(this) == DialogResult.OK)
+                if (DevExpressFileDialog.ShowDialog(dialog, this, "Plugins.ExportLoadOrder") == DialogResult.OK)
                     _viewModel.ExportLoadOrderToFileCommand.Execute(dialog.FileName);
             }
         }
@@ -2425,7 +2425,7 @@
             using (XtraOpenFileDialog dialog = new XtraOpenFileDialog())
             {
                 dialog.Filter = _viewModel.GetImportFilterString();
-                if (dialog.ShowDialog(this) == DialogResult.OK)
+                if (DevExpressFileDialog.ShowDialog(dialog, this, "Plugins.ImportLoadOrder") == DialogResult.OK)
                     _viewModel.ImportLoadOrderFromFileCommand.Execute(dialog.FileName);
             }
         }

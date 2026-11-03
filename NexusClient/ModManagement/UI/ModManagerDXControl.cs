@@ -5530,7 +5530,7 @@
 					dialog.RestoreDirectory = true;
 					dialog.Filter = LanguageManager.Get("Mods.FileDialog.ModArchivesLabel", "Mod Archives") + "|*.zip;*.7z;*.rar;*.fomod;*.omod|" + LanguageManager.Get("Common.FileDialog.AllFilesLabel", "All Files") + "|*.*";
 					dialog.Multiselect = true;
-					if (dialog.ShowDialog(this) != DialogResult.OK) return;
+					if (DevExpressFileDialog.ShowDialog(dialog, this, "Mods.AddArchive") != DialogResult.OK) return;
 
 					FileNames = dialog.FileNames;
 					_filesEdit.Text = FileNames.Length == 1
@@ -5780,7 +5780,7 @@
 			{
 				sfd.FileName = _viewModel.GetDefaultExportFilename();
 				sfd.Filter = _viewModel.GetExportFilterString();
-				return sfd.ShowDialog(this) == DialogResult.OK ? sfd.FileName : null;
+				return DevExpressFileDialog.ShowDialog(sfd, this, "Mods.ExportList") == DialogResult.OK ? sfd.FileName : null;
 			}
 		}
 

@@ -4349,7 +4349,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				dialog.CheckPathExists = true;
 				dialog.Multiselect = false;
 				dialog.Filter = L("Collections.Preview.ImportFilter", "Collection bundle or manifest|*.zip;*.7z;*.rar;collection.json|All files|*.*");
-				if (dialog.ShowDialog(this) != DialogResult.OK || !IsActionContextCurrent(context))
+				if (DevExpressFileDialog.ShowDialog(dialog, this, "Collections.ImportBundle") != DialogResult.OK || !IsActionContextCurrent(context))
 					return;
 
 				CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Importing, L("Collections.Workflow.Importing", "Importing and retaining the Collection source..."));
@@ -4921,7 +4921,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				dialog.CheckPathExists = true;
 				dialog.Multiselect = false;
 				dialog.Filter = L("Collections.Acquisition.SelectArchiveFilter", "Mod archives|*.zip;*.7z;*.rar|All files|*.*");
-				if (dialog.ShowDialog(this) != DialogResult.OK || !IsActionContextCurrent(context))
+				if (DevExpressFileDialog.ShowDialog(dialog, this, "Collections.SelectArchive") != DialogResult.OK || !IsActionContextCurrent(context))
 					return;
 
 				CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing,
@@ -5522,7 +5522,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Title = L("Collections.TechnicalReport.SaveTitle", "Export Collections Technical Report")
 			})
 			{
-				if (dialog.ShowDialog(this) != DialogResult.OK)
+				if (DevExpressFileDialog.ShowDialog(dialog, this, "Collections.ExportReport") != DialogResult.OK)
 					return;
 				try
 				{

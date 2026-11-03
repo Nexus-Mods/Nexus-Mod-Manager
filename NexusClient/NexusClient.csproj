@@ -520,6 +520,7 @@
     </Compile>
     <Compile Include="UI\DevExpressBarItemCommandBinding.cs" />
     <Compile Include="UI\DevExpressDisplaySettings.cs" />
+    <Compile Include="UI\DevExpressFileDialog.cs" />
     <Compile Include="UI\DevExpressLocalization.cs" />
     <Compile Include="UI\DiagnosticTextBox.cs">
       <SubType>Component</SubType>

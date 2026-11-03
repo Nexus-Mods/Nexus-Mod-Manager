@@ -108,7 +108,7 @@ namespace Nexus.Client.ModManagement.UI
 		}
 		private void btSelectFile_Click(object sender, System.EventArgs e)
 		{
-			if (fdFile.ShowDialog() == DialogResult.OK)
+			if (DevExpressFileDialog.ShowDialog(fdFile, this, "Backup.Restore") == DialogResult.OK)
 			{
 				BackupManager bkManager = new BackupManager(ModManager, ProfileManager);
 				bkManager.Initialize();
