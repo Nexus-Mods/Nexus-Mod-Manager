@@ -137,6 +137,9 @@ Type: files; Name: "{app}\GameModes\SkyrimVR.dll"
 Source: "..\Stage\Release\*.exe"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.config"; Excludes: "{#NonRuntimeFiles},{#RetiredGameModeConfigs}"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.dll"; Excludes: "{#NonRuntimeFiles},{#RetiredGameModeDlls}"; DestDir: {app}; Flags: ignoreversion
+; SQLite requires architecture-specific native libraries beside the application.
+Source: "..\Stage\Release\x86\SQLite.Interop.dll"; DestDir: {app}\x86; Flags: ignoreversion
+Source: "..\Stage\Release\x64\SQLite.Interop.dll"; DestDir: {app}\x64; Flags: ignoreversion
 Source: "..\Stage\Release\data\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\Languages\*"; Excludes: "{#NonRuntimeFiles}"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\GameModes\*"; Excludes: "{#NonRuntimeFiles},Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll,GamebryoBase.dll,GamebryoBase.dll.config,{#RetiredGameModeDlls},{#RetiredGameModeConfigs}"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
