@@ -281,7 +281,7 @@
 			// The process bootstrap supplies the concrete environment; the VM exposes only IEnvironmentInfo.
 			_shellEnvironmentInfo = viewModel.EnvironmentInfo as EnvironmentInfo
 				?? throw new ArgumentException("The main window requires the application EnvironmentInfo.", nameof(viewModel));
-			Icon = Properties.Resources.NMM_CE_P_Logo;
+			IconOptions.Icon = Properties.Resources.NMM_CE_P_Logo;
 			_gameDiscoveryRegistry = supportedGames;
 
 			// Restore the global skin before any DevExpress controls are created.
@@ -394,7 +394,7 @@
 			_persistentSessionShell = true;
 			_shellEnvironmentInfo = environmentInfo ?? throw new ArgumentNullException(nameof(environmentInfo));
 			// Windows sees the shell before a game attaches, so its taskbar icon must already be assigned.
-			Icon = Properties.Resources.NMM_CE_P_Logo;
+			IconOptions.Icon = Properties.Resources.NMM_CE_P_Logo;
 			InitializeDevExpressLookAndFeel(_shellEnvironmentInfo);
 			InitializeGameDiscoveryDocument();
 			InitializeMainLocalizationCache();
@@ -3451,7 +3451,7 @@
 		/// <param name="theme">The theme to apply.</param>
 		protected void ApplyTheme(Theme theme)
 		{
-			Icon = Properties.Resources.NMM_CE_P_Logo;
+			IconOptions.Icon = Properties.Resources.NMM_CE_P_Logo;
 
 			// The Change Game action now uses the shared semantic SVG palette.
 			// Do not rasterize/tint it here; skin and accessibility colors are resolved centrally.
