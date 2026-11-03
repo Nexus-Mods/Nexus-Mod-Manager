@@ -23,11 +23,11 @@
 			RegexOptions.CultureInvariant);
 
 		private static readonly Regex LocalHelperKeyRegex = new Regex(
-			@"\bL\s*\(\s*""(?<key>[^""]+)""(?<dynamic>\s*\+)?",
+			@"\b(?:L|T)\s*\(\s*""(?<key>[^""]+)""(?<dynamic>\s*\+)?",
 			RegexOptions.CultureInvariant);
 
 		private static readonly Regex LocalHelperPrefixRegex = new Regex(
-			@"\bstring\s+L\s*\([^)]*\)\s*(?:=>|\{\s*return)\s*LanguageManager\.Get\s*\(\s*""(?<prefix>[^""]+)""\s*\+\s*key\b",
+			@"\bstring\s+(?:L|T)\s*\([^)]*\)\s*(?:=>|\{\s*return)\s*LanguageManager\.Get\s*\(\s*""(?<prefix>[^""]+)""\s*\+\s*key\b",
 			RegexOptions.CultureInvariant);
 
 		private static readonly Regex FormatItemRegex = new Regex(
@@ -74,6 +74,25 @@
 			Assert.That(pack.Name, Is.EqualTo(LanguageManager.DefaultLanguageName));
 			Assert.That(pack.Culture, Is.EqualTo(LanguageManager.DefaultLanguageId));
 			Assert.That(pack.Strings, Is.Not.Null.And.Not.Empty);
+		}
+
+		/// <summary>Includes diagnostic and repair keys that are composed from enum names at runtime.</summary>
+		[Test]
+		public void EnglishTemplateContainsDynamicLoadOrderKeys()
+		{
+			LanguagePack pack = LoadEnglishTemplate(FindRepositoryRoot());
+			foreach (string kind in Enum.GetNames(typeof(Nexus.Client.ModManagement.LoadOrder.LoadOrderDiagnosticKind)))
+			{
+				Assert.That(pack.Strings.ContainsKey("LoadOrder.Diagnostics." + kind + ".Message"), Is.True, kind);
+				Assert.That(pack.Strings.ContainsKey("LoadOrder.Diagnostics." + kind + ".Direction"), Is.True, kind);
+			}
+			foreach (string kind in Enum.GetNames(typeof(Nexus.Client.ModManagement.LoadOrder.LoadOrderIssueKind)).Where(kind => kind != "Inventory"))
+			{
+				Assert.That(pack.Strings.ContainsKey("LoadOrder.Issues." + kind + ".Message"), Is.True, kind);
+				Assert.That(pack.Strings.ContainsKey("LoadOrder.Issues." + kind + ".Direction"), Is.True, kind);
+			}
+			foreach (string kind in Enum.GetNames(typeof(Nexus.Client.ModManagement.LoadOrder.LoadOrderRepairKind)))
+				Assert.That(pack.Strings.ContainsKey("LoadOrder.Repairs." + kind), Is.True, kind);
 		}
 
 		[Test]
@@ -159,8 +178,7 @@
 					string source = File.ReadAllText(file);
 					AddMatches(keys, dynamicPrefixes, LanguageManagerKeyRegex, source);
 
-					Match helper = LocalHelperPrefixRegex.Match(source);
-					AddMatches(keys, dynamicPrefixes, LocalHelperKeyRegex, source, helper.Success ? helper.Groups["prefix"].Value : String.Empty);
+					AddMatches(keys, dynamicPrefixes, LocalHelperKeyRegex, source, GetLocalHelperPrefix(source));
 					// Collection messages also pass keys through presentation helpers and conditional expressions.
 					AddMatches(keys, dynamicPrefixes, CollectionKeyRegex, source);
 				}
@@ -169,6 +187,28 @@
 			// Enum-derived families are composed at runtime; a prefix is not itself a missing key.
 			keys.UnionWith(catalogKeys.Where(key => dynamicPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.Ordinal))));
 			return keys;
+		}
+
+		/// <summary>Resolves both direct localization helpers and the shared helpers used by newer UI surfaces.</summary>
+		private static string GetLocalHelperPrefix(string source)
+		{
+			Match helper = LocalHelperPrefixRegex.Match(source);
+			if (helper.Success) return helper.Groups["prefix"].Value;
+			if (Regex.IsMatch(source, @"\bWabbajackUi\.L\s*\(\s*key\s*,")) return "Wabbajack.";
+			if (Regex.IsMatch(source, @"\bLoadOrder(?:Control|EditorSession)\.T\s*\(\s*key\s*,")) return "LoadOrder.UI.";
+			if (Regex.IsMatch(source, @"\bnamespace\s+Nexus\.Client\.ModManagement\.LoadOrder\.UI\b")) return "LoadOrder.UI.";
+			return String.Empty;
+		}
+
+		/// <summary>Checks the prefixes of delegated helpers so catalog coverage does not inspect shortened keys.</summary>
+		[TestCase("private static string L(string key, string fallback) { return WabbajackUi.L(key, fallback); }", "Wabbajack.")]
+		[TestCase("internal static string T(string key, string fallback) => LoadOrderEditorSession.T(key, fallback);", "LoadOrder.UI.")]
+		[TestCase("private static string T(string key, string fallback) => LoadOrderControl.T(key, fallback);", "LoadOrder.UI.")]
+		[TestCase("internal static string T(string key, string fallback) => LanguageManager.Get(\"LoadOrder.UI.\" + key, fallback);", "LoadOrder.UI.")]
+		[TestCase("namespace Nexus.Client.ModManagement.LoadOrder.UI { public partial class LoadOrderControl { } }", "LoadOrder.UI.")]
+		public void LocalHelperPrefixResolvesSharedUiHelpers(string source, string expected)
+		{
+			Assert.That(GetLocalHelperPrefix(source), Is.EqualTo(expected));
 		}
 
 		private static void AddMatches(ISet<string> keys, ISet<string> dynamicPrefixes, Regex regex, string source, string prefix = "")
