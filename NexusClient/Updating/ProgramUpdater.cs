@@ -394,31 +394,11 @@ using Nexus.Client.Util.Localization;
 
             foreach (var version in newerVersions)
             {
-                var body = version["body"].Value<string>().Replace("\r\n", Environment.NewLine);
+                var body = version["body"].Value<string>() ?? string.Empty;
 
                 var paragraph = new StringBuilder($"<h2>{version["tag_name"].Value<string>()}</h2>");
                 
-                var newFeaturesRaw = Regex.Match(body, @"\*\*[nN]ew [fF]eatures\*\*(.+)\*\*[bB]", RegexOptions.Singleline).Groups[1].Value;
-                var newFeatures = newFeaturesRaw.TrimEnd(' ', '-').Trim(' ', '\r', '\n').Split('\n');
-
-                paragraph.AppendLine($"<h3>{LanguageManager.Get("Updater.Changelog.NewFeatures", "New Features")}</h3><ul>");
-
-                foreach (var feature in newFeatures)
-                {
-                    paragraph.AppendLine($"<li>{feature.Trim().TrimStart(' ', '-')}</li>");
-                }
-
-                var bugFixesRaw = Regex.Match(body, @"\*\*[bB]ugfixes\*\*(.+)", RegexOptions.Singleline).Groups[1].Value;
-                var bugFixes = bugFixesRaw.Trim(' ', '\r', '\n').Split('\n');
-
-                paragraph.AppendLine($"</ul><h3>{LanguageManager.Get("Updater.Changelog.BugFixes", "Bug fixes")}</h3><ul>");
-
-                foreach (var bugFix in bugFixes)
-                {
-                    paragraph.AppendLine($"<li>{bugFix.Trim().TrimStart(' ', '-')}</li>");
-                }
-
-                paragraph.AppendLine("</ul>");
+                AppendReleaseNotes(paragraph, body);
 
                 changeLog.AppendLine($"<p>{paragraph}</p>");
                 changeLog.AppendLine("<hr />");
@@ -428,6 +408,79 @@ using Nexus.Client.Util.Localization;
             changeLog.AppendLine("</body></html>");
 
             return changeLog.ToString();
+        }
+
+        /// <summary>
+        /// Appends release sections using either legacy bold headings or Markdown headings.
+        /// </summary>
+        private static void AppendReleaseNotes(StringBuilder paragraph, string body)
+        {
+            MatchCollection headings = Regex.Matches(body,
+                @"^[ \t]*(?:#{1,6}[ \t]+|\*\*)(?<title>New[ \t]+Features|Bug[ \t]*fixes(?:[ \t]*&[ \t]*Improvements)?)(?:\*\*)?[ \t]*:?[ \t]*#*[ \t]*\r?$",
+                RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+            for (int index = 0; index < headings.Count; index++)
+            {
+                Match heading = headings[index];
+                string localizedTitle = heading.Groups["title"].Value.StartsWith("New", StringComparison.OrdinalIgnoreCase)
+                    ? LanguageManager.Get("Updater.Changelog.NewFeatures", "New Features")
+                    : LanguageManager.Get("Updater.Changelog.BugFixes", "Bug fixes");
+
+                int start = heading.Index + heading.Length;
+                int end = index + 1 < headings.Count ? headings[index + 1].Index : body.Length;
+                string section = body.Substring(start, end - start);
+                if (string.IsNullOrWhiteSpace(section))
+                {
+                    continue;
+                }
+
+                paragraph.AppendLine($"<h3>{WebUtility.HtmlEncode(localizedTitle)}</h3>");
+                AppendChangeLogLines(paragraph, section);
+            }
+
+            // Release authors need not use our historical section names to publish readable notes.
+            if (headings.Count == 0)
+            {
+                AppendChangeLogLines(paragraph, body);
+            }
+        }
+
+        /// <summary>
+        /// Appends nonempty release-note lines as encoded HTML with basic list and inline formatting.
+        /// </summary>
+        private static void AppendChangeLogLines(StringBuilder paragraph, string text)
+        {
+            bool inList = false;
+            foreach (string rawLine in text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || Regex.IsMatch(line, @"^[-*_]{3,}$"))
+                {
+                    continue;
+                }
+
+                bool isListItem = Regex.IsMatch(line, @"^[-*+]\s+");
+                if (isListItem != inList)
+                {
+                    paragraph.AppendLine(isListItem ? "<ul>" : "</ul>");
+                    inList = isListItem;
+                }
+
+                if (isListItem)
+                {
+                    line = line.Substring(1).TrimStart();
+                }
+
+                string html = WebUtility.HtmlEncode(line);
+                html = Regex.Replace(html, @"\*\*(.+?)\*\*", "<strong>$1</strong>");
+                html = Regex.Replace(html, @"`([^`]+)`", "<code>$1</code>");
+                paragraph.AppendLine(isListItem ? $"<li>{html}</li>" : $"<p>{html}</p>");
+            }
+
+            if (inList)
+            {
+                paragraph.AppendLine("</ul>");
+            }
         }
 
         /// <summary>
