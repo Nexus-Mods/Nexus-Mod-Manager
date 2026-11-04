@@ -1,5 +1,16 @@
 # NMM Community Edition release notes
 
+## Version 0.93.13
+
+**Bug fixes**
+
+- Fixed a Skyrim GOG/SE startup crash when checking overlapping saved game setups.
+- Fixed missing SQLite libraries in the installer package.
+- Fixed release notes not displaying correctly in the new version popup.
+- Fixed NMM's taskbar icon.
+- Fixed load and save dialogs not reopening in the last used folder.
+- Updated all existing localizations.
+
 ## Version 0.93.12
 
 **New features and improvements**
