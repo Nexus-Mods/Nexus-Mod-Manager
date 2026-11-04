@@ -131,6 +131,42 @@ namespace NexusClientTests
             Assert.That(File.Exists(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json")), Is.False);
         }
 
+        /// <summary>Overlapping game roots warn for unverified native data without modifying either setup or rejecting empty stores.</summary>
+        [TestCase("empty", false)]
+        [TestCase("install-info-payload", true)]
+        [TestCase("virtual-payload", true)]
+        [TestCase("invalid-log", true)]
+        [TestCase("installed-mod", true)]
+        public void OverlappingGameRoot_InspectsOtherSetupWithoutThrowing(string state, bool expectWarning)
+        {
+            GameStoragePathSet paths = Paths("SkyrimGOG");
+            string otherInfo = Path.Combine(_root, "OtherStorage", "Info");
+            string otherVirtualParent = Path.Combine(_root, "OtherStorage");
+            string otherVirtual = Path.Combine(otherVirtualParent, "VirtualInstall");
+            Directory.CreateDirectory(otherInfo);
+            Directory.CreateDirectory(otherVirtual);
+            _values.InstallationPaths["SkyrimSE"] = paths.GameInstallPath;
+            _values.InstallInfoFolder["SkyrimSE"] = otherInfo;
+            _values.VirtualFolder["SkyrimSE"] = otherVirtualParent;
+            if (state == "install-info-payload") File.WriteAllText(Path.Combine(otherInfo, "keep.txt"), "user data");
+            if (state == "virtual-payload") File.WriteAllText(Path.Combine(otherVirtual, "keep.esp"), "mod payload");
+            if (state == "invalid-log") File.WriteAllText(Path.Combine(otherInfo, "InstallLog.xml"), "<broken");
+            if (state == "installed-mod") File.WriteAllText(Path.Combine(otherInfo, "InstallLog.xml"),
+                "<installLog fileVersion='0.6.0.0'><modList><mod key='user' path='archive.7z'/></modList></installLog>");
+            var original = Directory.GetFiles(_root, "*", SearchOption.AllDirectories).ToDictionary(file => file, File.ReadAllBytes);
+            string[] directories = Directory.GetDirectories(_root, "*", SearchOption.AllDirectories);
+
+            Assert.That(_service.IsNativeSetupVerifiablyEmpty("SkyrimSE", otherInfo, otherVirtualParent), Is.EqualTo(!expectWarning));
+            GameStorageHealthCheck health = _service.InspectStorageWarnings(paths);
+            Assert.That(health.Items.Any(item => item.Status == GameStorageHealthStatus.Warning && item.Message.Contains("SkyrimSE")), Is.EqualTo(expectWarning));
+            Assert.That(Directory.GetFiles(_root, "*", SearchOption.AllDirectories), Is.EquivalentTo(original.Keys));
+            foreach (var file in original) Assert.That(File.ReadAllBytes(file.Key), Is.EqualTo(file.Value));
+            Assert.That(Directory.GetDirectories(_root, "*", SearchOption.AllDirectories), Is.EquivalentTo(directories));
+            Assert.That(_values.InstallationPaths["SkyrimSE"], Is.EqualTo(paths.GameInstallPath));
+            Assert.That(_values.InstallInfoFolder["SkyrimSE"], Is.EqualTo(otherInfo));
+            Assert.That(_values.VirtualFolder["SkyrimSE"], Is.EqualTo(otherVirtualParent));
+        }
+
         /// <summary>A link-folder drive warning cannot reject a saved selection after Continue.</summary>
         [TestCase("SkyrimSE")]
         [TestCase("Fallout4")]

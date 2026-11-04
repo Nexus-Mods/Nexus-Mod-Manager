@@ -351,7 +351,7 @@ namespace Nexus.Client.GameStorage
         /// <summary>Limits best-effort inspection failures to recoverable data and filesystem errors.</summary>
         private static bool IsCleanupInspectionError(Exception error)
         {
-            return error is IOException || error is UnauthorizedAccessException || error is ArgumentException || error is NotSupportedException ||
+            return error is InvalidDataException || error is IOException || error is UnauthorizedAccessException || error is ArgumentException || error is NotSupportedException ||
                 error is System.Security.SecurityException || error is JsonException || error is System.Xml.XmlException || error is SQLiteException;
         }
     }
