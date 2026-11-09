@@ -1,5 +1,12 @@
 # NMM Community Edition release notes
 
+## Version 0.93.14
+
+**Bug fixes**
+
+- Fixed a random crash when starting Gamebryo game modes.
+- Fixed Game Storage configuration loops and old folder settings overriding newly saved paths.
+
 ## Version 0.93.13
 
 **Bug fixes**
