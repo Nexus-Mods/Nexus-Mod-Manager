@@ -691,7 +691,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						booReady = IsFileReady(strPath, ForcedReadOnly);
 					}
 
-					if (!m_booDisposed && !CheckSameFileHash(strFile, strPath))
+					if (!m_booDisposed && booReady != false && !CheckSameFileHash(strFile, strPath))
 					{
 						if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
 						{
@@ -803,6 +803,9 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 		}
 
+		/// <summary>
+		/// Checks for changed file contents, retaining the previous hash when the file is unavailable.
+		/// </summary>
 		private bool CheckSameFileHash(string p_strName, string p_strFilePath)
 		{
 			if (String.IsNullOrWhiteSpace(p_strName) || String.IsNullOrWhiteSpace(p_strFilePath))
@@ -816,11 +819,20 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 			string strHash;
 
-			using (var fs = new FileStream(p_strFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-			using (SHA256 sha = SHA256.Create())
+			try
 			{
-				byte[] hash = sha.ComputeHash(fs);
-				strHash = BitConverter.ToString(hash).Replace("-", string.Empty);
+				using (FileStream fs = new FileStream(p_strFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+				using (SHA256 sha = SHA256.Create())
+				{
+					byte[] hash = sha.ComputeHash(fs);
+					strHash = BitConverter.ToString(hash).Replace("-", string.Empty);
+				}
+			}
+			catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+			{
+				// A watcher notification can outlive a file that is being replaced, even after the readiness check.
+				System.Diagnostics.Trace.TraceWarning("Could not read plugin-state file '{0}'; retaining the previous state: {1}", p_strFilePath, exception.Message);
+				return true;
 			}
 
 			lock (m_objLock)

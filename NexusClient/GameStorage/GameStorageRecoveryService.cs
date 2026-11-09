@@ -625,6 +625,19 @@ namespace Nexus.Client.GameStorage
 			_environmentInfo.Settings.MultiHDInstall[gameId] =
 				paths.LinkFolderRequired;
 
+			// An explicit storage selection supersedes older queued folder changes.
+			// Keep unrelated settings and other games' pending changes intact.
+			if (_environmentInfo.Settings.DelayedSettings != null)
+				foreach (string scope in new[] { "ALL", gameId })
+				{
+					KeyedSettings<string> pending = _environmentInfo.Settings.DelayedSettings[scope];
+					if (pending == null) continue;
+					foreach (string setting in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder", "MultiHDInstall" })
+						pending.Remove(setting + "~" + gameId);
+					if (string.IsNullOrWhiteSpace(paths.VirtualInstallPath))
+						pending.Remove("PreferredInstallMethod~" + gameId);
+				}
+
 			_environmentInfo.Settings.Save();
 		}
 

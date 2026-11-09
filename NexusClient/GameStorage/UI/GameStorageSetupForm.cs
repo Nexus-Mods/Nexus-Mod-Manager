@@ -149,6 +149,7 @@ namespace Nexus.Client.GameStorage.UI
 
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetManualPaths(paths);
+            _control.SelectCandidate(candidate);
             _ = ValidateDraftAsync(paths, _control.DraftGeneration);
         }
 

@@ -213,6 +213,93 @@ namespace NexusClientTests
 			finally { File.Delete(path); }
 		}
 
+		/// <summary>Failed watcher reads retain the last hash so a subsequent valid change is still detected.</summary>
+		[TestCase("plugins.txt", "missingFile")]
+		[TestCase("plugins.txt", "missingDirectory")]
+		[TestCase("plugins.txt", "locked")]
+		[TestCase("plugins.txt", "directory")]
+		[TestCase("loadorder.txt", "missingFile")]
+		[TestCase("loadorder.txt", "missingDirectory")]
+		[TestCase("loadorder.txt", "locked")]
+		[TestCase("loadorder.txt", "directory")]
+		public void PluginStateHash_UnavailableFileRetainsHashAndRecovers(string name, string failure)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NmmPluginHash-" + Guid.NewGuid().ToString("N"));
+			string stateDirectory = Path.Combine(root, "state");
+			Directory.CreateDirectory(stateDirectory);
+			try
+			{
+				string path = Path.Combine(stateDirectory, name);
+				File.WriteAllText(path, "Example.esp");
+				PluginOrderManager manager = (PluginOrderManager)FormatterServices.GetUninitializedObject(typeof(PluginOrderManager));
+				GC.SuppressFinalize(manager);
+				Dictionary<string, string> hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { name, null } };
+				SetField(manager, "m_dicFileHashes", hashes);
+				MethodInfo checkHash = typeof(PluginOrderManager).GetMethod("CheckSameFileHash", BindingFlags.NonPublic | BindingFlags.Instance);
+				object[] arguments = { name, path };
+				Assert.AreEqual(false, checkHash.Invoke(manager, arguments));
+				Assert.AreEqual(true, checkHash.Invoke(manager, arguments));
+				string previousHash = hashes[name];
+
+				if (failure != "locked") File.Delete(path);
+				if (failure == "missingDirectory") Directory.Delete(stateDirectory);
+				if (failure == "directory") Directory.CreateDirectory(path);
+				using (FileStream locked = failure == "locked" ? File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null)
+				{
+					Assert.AreEqual(true, checkHash.Invoke(manager, arguments));
+					Assert.AreEqual(previousHash, hashes[name]);
+				}
+
+				if (failure == "directory") Directory.Delete(path);
+				Directory.CreateDirectory(stateDirectory);
+				File.WriteAllText(path, "Changed.esp");
+				Assert.AreEqual(false, checkHash.Invoke(manager, arguments));
+				Assert.AreEqual(true, checkHash.Invoke(manager, arguments));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Unavailable watcher input leaves plugin lists untouched and always re-enables notifications.</summary>
+		[TestCase("plugins.txt", false)]
+		[TestCase("plugins.txt", true)]
+		[TestCase("loadorder.txt", false)]
+		[TestCase("loadorder.txt", true)]
+		public void PluginStateWatcher_UnavailableFilePreservesState(string name, bool lockedFile)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NmmPluginWatcher-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string path = Path.Combine(root, name);
+				if (lockedFile) File.WriteAllText(path, "Example.esp");
+				PluginOrderManager manager = (PluginOrderManager)FormatterServices.GetUninitializedObject(typeof(PluginOrderManager));
+				GC.SuppressFinalize(manager);
+				Dictionary<string, string> hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { name, "previous" } };
+				List<string> active = new List<string> { "Example.esp" };
+				List<string> order = new List<string> { "Example.esp", "Disabled.esp" };
+				SetField(manager, "m_dicFileHashes", hashes);
+				SetField(manager, "TaskList", new ThreadSafeObservableList<WriteLoadOrderTask>());
+				SetField(manager, "<LastValidActiveList>k__BackingField", active);
+				SetField(manager, "<LastValidLoadOrder>k__BackingField", order);
+				manager.ActivePluginUpdate += (sender, args) => Assert.Fail("Unavailable state must not publish activation changes.");
+				manager.LoadOrderUpdate += (sender, args) => Assert.Fail("Unavailable state must not publish load-order changes.");
+				using (FileSystemWatcher watcher = new FileSystemWatcher(root))
+				using (FileStream locked = lockedFile ? File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null)
+				{
+					watcher.EnableRaisingEvents = true;
+					FileSystemEventArgs change = new FileSystemEventArgs(WatcherChangeTypes.Changed, root, name);
+					typeof(PluginOrderManager).GetMethod("FileWatcherOnChangedTxt", BindingFlags.NonPublic | BindingFlags.Instance)
+						.Invoke(manager, new object[] { watcher, change });
+					Assert.IsTrue(watcher.EnableRaisingEvents);
+				}
+				Assert.AreEqual("previous", hashes[name]);
+				CollectionAssert.AreEqual(new[] { "Example.esp" }, active);
+				CollectionAssert.AreEqual(new[] { "Example.esp", "Disabled.esp" }, order);
+				Assert.AreEqual(lockedFile, File.Exists(path));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>Cached active masters bypass the repeated official-list path resolution.</summary>
 		[TestCase("Example.esp")]
 		[TestCase("EXAMPLE.ESP")]

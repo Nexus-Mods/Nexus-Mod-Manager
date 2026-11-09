@@ -162,6 +162,7 @@ namespace Nexus.Client.GameStorage.UI
             GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetManualPaths(paths);
+            _control.SelectCandidate(candidate);
             SetHealth(_service.ValidateRecoverySelection(currentPaths, candidate));
         }
 

@@ -35,7 +35,7 @@ namespace Nexus.Client.GameStorage.UI
         private readonly Timer _manualValidationTimer;
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
-        private bool _manualPathsEdited;
+        private GameStorageCandidate _selectedCandidate;
         private int _draftGeneration;
         private readonly List<SimpleButton> _manualPathButtons = new List<SimpleButton>();
 
@@ -155,7 +155,7 @@ namespace Nexus.Client.GameStorage.UI
             UpdateApplyState();
         }
 
-        public GameStorageCandidate SelectedCandidate => _manualPathsEdited ? null : _candidateGridView.GetFocusedRow() as GameStorageCandidate;
+        public GameStorageCandidate SelectedCandidate => _selectedCandidate;
 
         public string ManualVirtualInstallPath => _manualVirtualInstallEdit.Text;
         public int DraftGeneration => _draftGeneration;
@@ -185,6 +185,7 @@ namespace Nexus.Client.GameStorage.UI
                 candidate.ModsPath,
                 candidate.VirtualInstallPath,
                 candidate.LinkFolderPath);
+            _selectedCandidate = candidate;
         }
 
         public GameStorageCandidate ManualCandidate
@@ -221,7 +222,7 @@ namespace Nexus.Client.GameStorage.UI
                 _manualModsEdit.Text = modsPath ?? string.Empty;
                 _manualVirtualInstallEdit.Text = virtualInstallPath ?? string.Empty;
                 _manualLinkFolderEdit.Text = linkFolderPath ?? string.Empty;
-                _manualPathsEdited = false;
+                _selectedCandidate = null;
             }
             finally
             {
@@ -245,7 +246,7 @@ namespace Nexus.Client.GameStorage.UI
             if (_suppressManualPathChanged)
                 return;
 
-            _manualPathsEdited = true;
+            _selectedCandidate = null;
             _draftGeneration++;
             UpdateApplyState();
             DraftChanged?.Invoke(this, EventArgs.Empty);
@@ -344,7 +345,7 @@ namespace Nexus.Client.GameStorage.UI
         /// </summary>
         public void ClearCandidateSelection()
         {
-            _manualPathsEdited = true;
+            _selectedCandidate = null;
             _candidateGridView.ClearSelection();
             _candidateGridView.FocusedRowHandle = GridControl.InvalidRowHandle;
         }
@@ -367,7 +368,7 @@ namespace Nexus.Client.GameStorage.UI
             if (rowHandle < 0)
                 return;
 
-            _manualPathsEdited = false;
+            _selectedCandidate = candidates[index];
             _candidateGridView.FocusedRowHandle = rowHandle;
             _candidateGridView.ClearSelection();
             _candidateGridView.SelectRow(rowHandle);

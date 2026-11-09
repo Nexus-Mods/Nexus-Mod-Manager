@@ -99,6 +99,7 @@ namespace NexusClientTests
 
         /// <summary>Saving preserves legacy Virtual roots or an intentional Direct-only selection without changing another game.</summary>
         [TestCase(false, false)]
+        [TestCase(false, true)]
         [TestCase(true, false)]
         [TestCase(true, true)]
         public void ApplySelectedCandidatePaths_SavesConfirmedFoldersAndHistoricalVirtualRoot(bool directOnly, bool initialSetup)
@@ -108,9 +109,20 @@ namespace NexusClientTests
                 strings[name] = new Nexus.Client.Settings.PerGameModeSettings<string>();
             strings["ModFolder"]["SkyrimSE"] = "keep-other-game-setting";
             var multiDrive = new Nexus.Client.Settings.PerGameModeSettings<bool>();
+            var delayed = new Nexus.Client.Settings.PerGameModeSettings<Nexus.Client.Settings.KeyedSettings<string>>();
+            foreach (string scope in new[] { "ALL", "Fallout4", "SkyrimSE" })
+            {
+                var pending = new Nexus.Client.Settings.KeyedSettings<string>();
+                foreach (string setting in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder", "MultiHDInstall", "PreferredInstallMethod" })
+                    pending[setting + "~Fallout4"] = "stale-folder-setting";
+                pending["ModFolder~SkyrimSE"] = "keep-other-game-folder";
+                pending["ToolFolder~Fallout4"] = "keep-tool-folder";
+                delayed[scope] = pending;
+            }
             var settings = InterfaceStub<Nexus.Client.Settings.ISettings>.Create((method, args) =>
             {
                 if (method.Name == "get_MultiHDInstall") return multiDrive;
+                if (method.Name == "get_DelayedSettings") return delayed;
                 if (method.Name.StartsWith("get_") && strings.ContainsKey(method.Name.Substring(4)))
                     return strings[method.Name.Substring(4)];
                 return null;
@@ -152,6 +164,16 @@ namespace NexusClientTests
                 paths.VirtualInstallPath = null;
             }
             Assert.That(strings["ModFolder"]["SkyrimSE"], Is.EqualTo("keep-other-game-setting"));
+            foreach (string scope in new[] { "ALL", paths.GameId })
+            {
+                foreach (string setting in new[] { "InstallInfoFolder", "ModFolder", "VirtualFolder", "HDLinkFolder", "MultiHDInstall" })
+                    Assert.That(delayed[scope].ContainsKey(setting + "~" + paths.GameId), Is.False,
+                        "An older queued folder must not replace the newly saved selection at startup.");
+                Assert.That(delayed[scope].ContainsKey("PreferredInstallMethod~" + paths.GameId), Is.EqualTo(!directOnly));
+                Assert.That(delayed[scope]["ModFolder~SkyrimSE"], Is.EqualTo("keep-other-game-folder"));
+                Assert.That(delayed[scope]["ToolFolder~Fallout4"], Is.EqualTo("keep-tool-folder"));
+            }
+            Assert.That(delayed["SkyrimSE"].Count, Is.EqualTo(8), "Another game's pending settings must be preserved.");
             Assert.That(Nexus.Client.ApplicationInitializer.RequiresGameStorageRecovery(service.ValidateStorage(paths)), Is.False);
         }
 
@@ -256,6 +278,38 @@ namespace NexusClientTests
                 Assert.That(save.Enabled, Is.False);
                 control.SetReadOnlyChecksBusy(false, false, string.Empty);
                 Assert.That(save.Enabled, Is.False, "Finishing validation must not enable Save with a required folder still empty.");
+            }
+        }
+
+        /// <summary>Browsing a different detected row cannot replace the setup explicitly previewed in the path editors.</summary>
+        [Test, Apartment(System.Threading.ApartmentState.STA), NonParallelizable]
+        public void SetupControl_FocusedRowDoesNotReplacePreviewedFolders()
+        {
+            using (var control = new Nexus.Client.GameStorage.UI.GameStorageSetupControl())
+            {
+                GameStorageCandidate selected = CreateCandidate(CreateStorage("FalloutNV", "Selected"));
+                GameStorageCandidate old = CreateCandidate(CreateStorage("FalloutNV", "Old"));
+                control.SetCandidates(new[] { selected, old });
+                control.CreateControl();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var grid = (DevExpress.XtraGrid.GridControl)control.GetType().GetField("_candidateGridControl", flags).GetValue(control);
+                grid.ForceInitialize();
+                var view = (DevExpress.XtraGrid.Views.Grid.GridView)grid.MainView;
+                control.SelectCandidate(selected);
+                control.PreviewCandidate(selected);
+
+                view.FocusedRowHandle = view.GetRowHandle(1);
+                Assert.That(view.GetFocusedRow(), Is.SameAs(old));
+                Assert.That(control.SelectedCandidate, Is.SameAs(selected));
+                Assert.That(control.ManualCandidate.InstallInfoPath, Is.EqualTo(selected.InstallInfoPath));
+                Assert.That(control.ManualCandidate.ModsPath, Is.EqualTo(selected.ModsPath));
+
+                var mods = (System.Windows.Forms.Control)control.GetType().GetField("_manualModsEdit", flags).GetValue(control);
+                mods.Text = Path.Combine(_tempRoot, "CustomMods");
+                Assert.That(control.SelectedCandidate, Is.Null, "Editing a path must discard the detected candidate identity.");
+                Assert.That(control.ManualCandidate.ModsPath, Is.EqualTo(mods.Text));
+                control.SetManualPaths(new GameStoragePathSet { InstallInfoPath = selected.InstallInfoPath, ModsPath = selected.ModsPath });
+                Assert.That(control.SelectedCandidate, Is.Null, "Setting paths alone must not reuse a previously previewed candidate.");
             }
         }
 
