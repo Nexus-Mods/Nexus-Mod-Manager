@@ -472,6 +472,58 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("Creature Spawn Chance Fix.esp", "Through the Valleys Patch.esp")));
 		}
 
+		/// <summary>Fallout 4 masterlist groups preserve order through groups without assigned Collection plugins.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Normalize_Fallout4MasterlistGroupsPreserveTransitiveOrder(bool includeEmptyGroups)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"Late.esp\",\"group\":\"Late Fixes & Changes\"},{\"name\":\"Base.esp\",\"group\":\"default\"},{\"name\":\"Framework.esm\",\"group\":\"Resources & Frameworks\"}]" +
+				(includeEmptyGroups ? ",\"groups\":[]}" : "}"))
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"fallout4\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionAssert.AreEquivalent(new[] {
+				new CollectionPluginRelativeOrderRule("Late.esp", "Base.esp"),
+				new CollectionPluginRelativeOrderRule("Late.esp", "Framework.esm"),
+				new CollectionPluginRelativeOrderRule("Base.esp", "Framework.esm")
+			}, result.Manifest.PluginRelativeOrderRules);
+		}
+
+		/// <summary>Custom Fallout 4 groups merge with masterlist constraints without losing the default ordering.</summary>
+		[Test]
+		public void Normalize_Fallout4CustomGroupsMergeWithMasterlistOrder()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"Base.esp\",\"group\":\"default\"},{\"name\":\"Settlement.esp\",\"group\":\"Settlements\"},{\"name\":\"Late.esp\",\"group\":\"Late Loaders\"}]," +
+				"\"groups\":[{\"name\":\"Settlements\",\"after\":[\"default\"]},{\"name\":\"Low Priority Overrides\",\"after\":[\"Settlements\"]}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"fallout4\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionAssert.AreEquivalent(new[] {
+				new CollectionPluginRelativeOrderRule("Settlement.esp", "Base.esp"),
+				new CollectionPluginRelativeOrderRule("Late.esp", "Settlement.esp"),
+				new CollectionPluginRelativeOrderRule("Late.esp", "Base.esp")
+			}, result.Manifest.PluginRelativeOrderRules);
+		}
+
+		/// <summary>Fallout 4 defaults retain validation of unknown groups, cycles and other games' groups.</summary>
+		[TestCase("default", "Late Loaders", "manifest.plugin-group-cycle")]
+		[TestCase("Custom", "Unknown Group", "manifest.plugin-group-reference-external")]
+		[TestCase("Custom", "Dynamic LOD", "manifest.plugin-group-reference-external")]
+		public void Normalize_Fallout4GroupDefaultsDoNotHideInvalidCustomRules(string group, string after, string issue)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[],\"groups\":[{\"name\":\"" + group + "\",\"after\":[\"" + after + "\"]}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"fallout4\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == issue));
+		}
+
 		/// <summary>Vortex skips an empty CRC declaration and continues applying other valid diffs for that mod.</summary>
 		[TestCase(false)]
 		[TestCase(true)]
