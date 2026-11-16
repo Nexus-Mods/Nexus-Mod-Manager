@@ -31,6 +31,41 @@
 	[TestFixture]
 	public class VirtualModRemovalRegressionTests
 	{
+		/// <summary>First INI edits initialize missing containers and append without discarding existing legacy records.</summary>
+		[TestCase("missing")]
+		[TestCase("root-only")]
+		[TestCase("existing")]
+		public void LogIniEdits_InitializesContainerAndPreservesExistingRecords(string initialState)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod mod = fixture.CreateMod("NoPipBoy071");
+				string path = Path.Combine(fixture.Activator.VirtualPath, "IniEdits.xml");
+				var previous = new XElement("iniEdit", new XAttribute("modFile", "OtherMod.fomod"),
+					new XElement("iniFile", "Fallout.ini"), new XElement("iniSection", "Display"),
+					new XElement("iniKey", "OtherSetting"), new XElement("iniValue", "1"));
+				if (initialState != "missing")
+				{
+					var root = new XElement("virtualModActivator", new XAttribute("fileVersion", "0.3.0.0"));
+					if (initialState == "existing") root.Add(new XElement("iniEdits", previous));
+					new XDocument(root).Save(path);
+				}
+
+				fixture.Activator.LogIniEdits(mod, "Fallout.ini", "Pipboy", "fBlurRadiusPipboy", "0");
+				fixture.Activator.LogIniEdits(mod, "Fallout.ini", "InterfaceFX", "fPulseRate", "0");
+
+				XDocument saved = XDocument.Load(path);
+				Assert.That(saved.Root.Attribute("fileVersion").Value, Is.EqualTo("0.3.0.0"));
+				Assert.That(saved.Root.Elements("iniEdits").Count(), Is.EqualTo(1));
+				List<XElement> edits = saved.Root.Element("iniEdits").Elements("iniEdit").ToList();
+				Assert.That(edits.Count, Is.EqualTo(initialState == "existing" ? 3 : 2));
+				if (initialState == "existing") Assert.That(XNode.DeepEquals(previous, edits[0]), Is.True);
+				List<XElement> added = edits.Where(edit => edit.Attribute("modFile").Value == mod.Filename).ToList();
+				CollectionAssert.AreEqual(new[] { "fBlurRadiusPipboy", "fPulseRate" }, added.Select(edit => edit.Element("iniKey").Value));
+				Assert.That(added.All(edit => edit.Element("iniValue").Value == "0"), Is.True);
+			}
+		}
+
 		/// <summary>A Direct-only game can initialize VMA metadata and deploy without filling the user's empty Virtual folder.</summary>
 		[Test]
 		public void DirectOnlyStorage_InitializesAndInstallsWithoutConfiguredVirtualFolder()

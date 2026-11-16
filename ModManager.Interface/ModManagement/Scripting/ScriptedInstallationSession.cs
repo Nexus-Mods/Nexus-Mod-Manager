@@ -32,6 +32,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly IScriptedInstallOperationExecutor m_sioExecutor;
 		private int m_intExecutedOperationCount;
 		private bool m_booFatalDeploymentFailure;
+		private Exception m_exExecutionFailure;
 
 		#region Properties
 
@@ -129,7 +130,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			if (p_sioOperation == null)
 				throw new ArgumentNullException(nameof(p_sioOperation));
-			if (m_booFatalDeploymentFailure)
+			if (m_booFatalDeploymentFailure || m_exExecutionFailure != null)
 				return false;
 
 			Plan.Add(p_sioOperation);
@@ -152,7 +153,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> when no operation is pending or the next operation completes successfully; otherwise, <c>false</c>.</returns>
 		public bool ExecuteNext()
 		{
-			if (m_booFatalDeploymentFailure)
+			if (m_booFatalDeploymentFailure || m_exExecutionFailure != null)
 				return false;
 			if (!HasPendingOperations)
 				return true;
@@ -167,6 +168,14 @@ namespace Nexus.Client.ModManagement.Scripting
 			catch (ScriptedDeploymentException)
 			{
 				m_booFatalDeploymentFailure = true;
+				m_intExecutedOperationCount++;
+				throw;
+			}
+			catch (Exception ex)
+			{
+				// Legacy C# scripts may swallow API exceptions. Never replay an operation that may
+				// already have changed files or ownership, or let later operations hide its failure.
+				m_exExecutionFailure = ex;
 				m_intExecutedOperationCount++;
 				throw;
 			}
@@ -188,9 +197,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <summary>
 		/// Completes executor-specific installation work after the entire scripted installation succeeds.
 		/// </summary>
-		/// <exception cref="InvalidOperationException">Thrown when operations remain pending or a fatal deployment failure has occurred.</exception>
+		/// <exception cref="InvalidOperationException">Thrown when operations remain pending or an operation has failed.</exception>
 		public void CompleteExecution()
 		{
+			if (m_exExecutionFailure != null)
+				throw new InvalidOperationException("A scripted installation operation failed: " + m_exExecutionFailure.Message, m_exExecutionFailure);
 			if (HasPendingOperations)
 				throw new InvalidOperationException("Pending scripted installation operations must be executed before completion.");
 			if (m_booFatalDeploymentFailure)

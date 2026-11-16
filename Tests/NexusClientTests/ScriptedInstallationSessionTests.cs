@@ -2,6 +2,7 @@ namespace NexusClientTests
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
 
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModManagement.Scripting.Operations;
@@ -128,6 +129,45 @@ namespace NexusClientTests
             Assert.AreEqual(1, session.Plan.Count);
             Assert.IsFalse(session.Submit(second));
             Assert.AreEqual(1, session.Plan.Count);
+        }
+
+        /// <summary>Failed edits are never replayed by later calls, and completion retains the original failure.</summary>
+        [TestCase(ScriptedInstallationSessionMode.Immediate)]
+        [TestCase(ScriptedInstallationSessionMode.ImmediateCompatibility)]
+        [TestCase(ScriptedInstallationSessionMode.Deferred)]
+        public void ExecuteNext_OrdinaryExceptionStopsFurtherOperationsAndPreservesCause(ScriptedInstallationSessionMode mode)
+        {
+            var failure = new IOException("Could not persist the INI edit log after writing the value.");
+            var executed = new List<ScriptedInstallOperation>();
+            IScriptedInstallOperationExecutor executor = InterfaceStub<IScriptedInstallOperationExecutor>.Create((method, args) =>
+            {
+                executed.Add((ScriptedInstallOperation)args[0]);
+                throw failure;
+            });
+            var session = new ScriptedInstallationSession(executor, mode);
+            var first = new EditIniOperation("Fallout.ini", "Pipboy", "fBlurRadiusPipboy", "0");
+            var second = new EditIniOperation("Fallout.ini", "InterfaceFX", "fPulseRate", "0");
+            if (mode == ScriptedInstallationSessionMode.Deferred)
+            {
+                session.Submit(first);
+                session.Submit(second);
+                Assert.Throws<IOException>(() => session.ExecuteNext());
+                Assert.IsFalse(session.ExecutePendingOperations());
+            }
+            else
+            {
+                Assert.Throws<IOException>(() => session.Submit(first));
+                Assert.IsFalse(session.HasPendingOperations);
+            }
+
+            int countBeforeRetry = session.Plan.Count;
+            Assert.IsFalse(session.Submit(second));
+            Assert.AreEqual(countBeforeRetry, session.Plan.Count);
+            Assert.IsFalse(session.ExecuteNext());
+            CollectionAssert.AreEqual(new[] { first }, executed);
+            InvalidOperationException completionFailure = Assert.Throws<InvalidOperationException>(() => session.CompleteExecution());
+            Assert.AreSame(failure, completionFailure.InnerException);
+            StringAssert.Contains(failure.Message, completionFailure.Message);
         }
 
         /// <summary>

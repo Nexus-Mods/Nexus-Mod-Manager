@@ -2928,6 +2928,7 @@
 			SaveList(true);
 		}
 
+		/// <summary>Records an INI edit, initializing the container for new and legacy root-only logs.</summary>
 		public void LogIniEdits(IMod p_modMod, string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
 		{
 			XDocument docIniEdits;
@@ -2942,6 +2943,11 @@
 				docIniEdits = XDocument.Load(m_strVirtualActivatorIniEditsPath);
 
 			XElement xelIniEdits = docIniEdits.Descendants("iniEdits").FirstOrDefault();
+			if (xelIniEdits == null)
+			{
+				xelIniEdits = new XElement("iniEdits");
+				docIniEdits.Element("virtualModActivator").Add(xelIniEdits);
+			}
 			xelIniEdits.Add(new XElement("iniEdit",
 								new XAttribute("modFile", p_modMod.Filename),
 								new XElement("iniFile",
