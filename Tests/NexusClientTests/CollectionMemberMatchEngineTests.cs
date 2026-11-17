@@ -215,6 +215,79 @@ namespace NexusClientTests
 			if (!ambiguous) Assert.That(result.NativeCandidates.Single().Identity, Is.EqualTo(first.Identity));
 		}
 
+		/// <summary>Different standalone files on a Nexus page do not prevent acquiring the exact missing Collection file.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Match_MultipleStandaloneComponentsAcquireExactFileWithoutSelectingReplacement(bool archiveAvailable)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-separate-components");
+			CollectionRecipeIdentity recipe = CollectionRecipeIdentity.FromFingerprint("recipe-workshop");
+			NormalizedCollectionMember member = CreateMember(recipe, "fallout4/35004/229283");
+			CollectionNativeModState[] installed = new[] {
+				CreateNativeMod(target, "seyxz151", "35004", "337677"),
+				CreateNativeMod(target, "hcxephce", "35004", "413987"),
+				CreateNativeMod(target, "yl0aaihb", "35004", "383419")
+			};
+			CollectionNativeStateIndex state = CreateState(target, installed, null, null, CollectionNativeStateCoverage.Complete);
+			ResolvedCollectionPlan plan = CreatePlan(target, CreateRevision(), member, state.Fingerprint);
+			CollectionVerifiedArchive[] archives = archiveAvailable ? new[] { CreateVerifiedArchive(plan) } : new CollectionVerifiedArchive[0];
+
+			CollectionMemberMatchResult result = new CollectionMemberMatchEngine().Match(plan, state, archives).Members.Single();
+
+			Assert.That(result.Disposition, Is.EqualTo(archiveAvailable ? CollectionMemberMatchDisposition.ArchiveOnlyReuse : CollectionMemberMatchDisposition.AcquisitionRequired));
+			Assert.That(result.Reason, Is.EqualTo(archiveAvailable ? CollectionMemberMatchReason.VerifiedArchiveAvailable : CollectionMemberMatchReason.NoReusableInput));
+			Assert.That(result.Member.ArtifactChoice.SelectedArtifact.StableId, Is.EqualTo("fallout4/35004/229283"));
+			Assert.That(result.MatchedNativeMod, Is.Null);
+			Assert.That(result.NativeCandidates, Is.Empty);
+			Assert.That(result.ExistingBindings, Is.Empty);
+			CollectionAssert.AreEquivalent(installed, state.Mods.Values);
+		}
+
+		/// <summary>Missing metadata and duplicate installed registrations still require explicit resolution.</summary>
+		[TestCase(null)]
+		[TestCase("0")]
+		[TestCase("invalid")]
+		[TestCase("337677")]
+		public void Match_UncertainStandaloneComponentsRemainBlocked(string secondFileId)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-uncertain-components");
+			NormalizedCollectionMember member = CreateMember(CollectionRecipeIdentity.FromFingerprint("recipe-workshop"), "fallout4/35004/229283");
+			CollectionNativeStateIndex state = CreateState(target, new[] {
+				CreateNativeMod(target, "native-main", "35004", "337677"),
+				CreateNativeMod(target, "native-addon", "35004", secondFileId)
+			}, null, null, CollectionNativeStateCoverage.Complete);
+			ResolvedCollectionPlan plan = CreatePlan(target, CreateRevision(), member, state.Fingerprint);
+			CollectionMemberMatchResult result = new CollectionMemberMatchEngine().Match(plan, state,
+				new[] { CreateVerifiedArchive(plan) }).Members.Single();
+			Assert.That(result.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.Blocked));
+			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.AmbiguousInstalledCandidates));
+			Assert.That(result.NativeCandidates.Count, Is.EqualTo(2));
+		}
+
+		/// <summary>Separate acquisition does not bypass Collection binding protection or replacement-policy matching.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Match_MultipleComponentsRetainBindingAndReplacementGuards(bool replacement)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-protected-components");
+			CollectionRecipeIdentity recipe = CollectionRecipeIdentity.FromFingerprint("recipe-workshop");
+			NormalizedCollectionMember member = CreateMember(recipe, "fallout4/35004/229283");
+			CollectionNativeModState main = CreateNativeMod(target, "native-main", "35004", "337677");
+			CollectionNativeModState addon = CreateNativeMod(target, "native-addon", "35004", "413987");
+			var association = new CollectionTargetAssociation(Guid.NewGuid(), CreateOtherRevision("other", "other-revision", 1),
+				target, CollectionAssociationState.Applied);
+			var binding = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("other-member"),
+				main.Identity, recipe, CollectionMemberBindingKind.InstalledForCollection);
+			CollectionNativeStateIndex state = CreateState(target, new[] { main, addon },
+				replacement ? null : new[] { association }, replacement ? null : new[] { binding }, CollectionNativeStateCoverage.Complete);
+			ResolvedCollectionPlan plan = CreatePlan(target, CreateRevision(), member, state.Fingerprint,
+				policy: replacement ? CollectionExecutionPolicy.ReplaceCurrentManagedSetup() : CollectionExecutionPolicy.InstallIntoCurrentSetup());
+			var engine = new CollectionMemberMatchEngine();
+			CollectionMemberMatchResult result = (replacement ? engine.MatchForReplacementPlanning(plan, state) : engine.Match(plan, state)).Members.Single();
+			Assert.That(result.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.Blocked));
+			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.AmbiguousInstalledCandidates));
+		}
+
 		/// <summary>Interrupted Collections keep independently selected main/patch archives separate, including not-yet-installed siblings.</summary>
 		[TestCase(false)]
 		[TestCase(true)]

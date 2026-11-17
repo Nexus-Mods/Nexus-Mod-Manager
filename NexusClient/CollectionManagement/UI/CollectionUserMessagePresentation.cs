@@ -208,6 +208,12 @@ namespace Nexus.Client.CollectionManagement.UI
 		internal static CollectionUserMessagePresentation ForAcquisition(CollectionMemberAcquisitionDisposition disposition, string technicalDetail,
 			bool producerEndedWithoutArchive = false, CollectionMemberMatchReason matchReason = CollectionMemberMatchReason.Unknown)
 		{
+			if (disposition == CollectionMemberAcquisitionDisposition.Blocked && matchReason == CollectionMemberMatchReason.AmbiguousInstalledCandidates)
+				return Message("Collections.Messages.Acquisition.AmbiguousInstalledCandidates",
+					"Several installed mod instances could match this Collection member. NMM cannot choose an installation to reuse or replace safely.",
+					"Collections.Messages.Next.ResolveAmbiguousInstalledCandidates",
+					"Review the installed candidates and their Nexus file IDs in the technical details. Resolve duplicate registrations or missing file identity before preparing again.", technicalDetail);
+
 			if (disposition == CollectionMemberAcquisitionDisposition.Blocked && matchReason == CollectionMemberMatchReason.ConflictingVerifiedRecipe)
 				return Message("Collections.Messages.Acquisition.SharedRecipeConflict",
 					"This mod is already tracked by a Collection with different installation requirements. NMM has preserved the installed mod.",

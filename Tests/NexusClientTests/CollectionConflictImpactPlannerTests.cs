@@ -688,6 +688,36 @@ namespace NexusClientTests
 			Assert.AreEqual(unrelated.Identity.NativeModKey, result.FileImpacts.Single().CurrentOwnerKey);
 		}
 
+		/// <summary>Acquiring a separate same-page archive still reviews overwrites of installed optional components.</summary>
+		[Test]
+		public void Plan_SeparateSamePageArchiveStillRequiresExistingFileWinnerReview()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming-main", 35004, 229283, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState main = CreateNativeMod(targetIdentity, "native-main", 35004, 337677);
+			CollectionNativeModState optional = CreateNativeMod(targetIdentity, "native-optional", 35004, 413987);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "F4SE\\Plugins\\WorkshopFramework.dll");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { main, optional },
+				new[] { CreateFile(target, optional.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), fixture.Plan, incoming.IdentityResolution.Key);
+			var artifact = new CollectionsRetainedArtifact("exact-incoming-archive", CollectionContentHash.FromSha256(Sha256A), 100);
+			var reference = new CollectionsRetainedArtifactReferenceRecord("exact-incoming-reference", artifact.ArtifactId,
+				CollectionsRetainedArtifactOwnerKind.Download, request.RequestId.ToString("D"), "verified-incoming");
+			var archive = new CollectionVerifiedArchive(request, artifact, reference,
+				CollectionVerifiedArchiveSourceKind.RetainedContent, CollectionArchiveVerificationBasis.ExistingVerifiedReference);
+			CollectionMemberMatchSet matches = new CollectionMemberMatchEngine().Match(fixture.Plan, fixture.State, new[] { archive });
+			CollectionDependencyPhasePlan dependencies = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, matches);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, matches, dependencies, fixture.State, new[] { CreatePreview(incoming, target) });
+
+			Assert.That(matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ArchiveOnlyReuse));
+			Assert.That(matches.Members.Single().MatchedNativeMod, Is.Null);
+			Assert.That(result.Status, Is.EqualTo(CollectionConflictImpactStatus.ActionRequired));
+			Assert.That(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired), Is.True);
+			Assert.That(result.FileImpacts.Single().CurrentOwnerKey, Is.EqualTo(optional.Identity.NativeModKey));
+		}
+
 		[Test]
 		public void PlanForRevisionUpdateExecution_ReviewedExistingFileOwnerDoesNotRequireAdditiveDecision()
 		{

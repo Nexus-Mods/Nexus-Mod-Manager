@@ -8,6 +8,17 @@ namespace Nexus.Client.Tests
 	[TestFixture]
 	public class CollectionUserMessagePresentationTests
 	{
+		/// <summary>Installed-match ambiguity identifies the affected registrations instead of suggesting a source download failure.</summary>
+		[Test]
+		public void BlockedAcquisition_AmbiguousCandidatesExplainsInstalledMatch()
+		{
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForAcquisition(
+				CollectionMemberAcquisitionDisposition.Blocked, "candidate details", false, CollectionMemberMatchReason.AmbiguousInstalledCandidates);
+			Assert.That(presentation.MessageFallback, Does.Contain("installed mod instances"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Nexus file IDs"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo("candidate details"));
+		}
+
 		/// <summary>Shared recipe conflicts explain preservation rather than reporting a misleading source/download failure.</summary>
 		[Test]
 		public void BlockedAcquisition_SharedRecipeConflictNamesInstalledRequirements()

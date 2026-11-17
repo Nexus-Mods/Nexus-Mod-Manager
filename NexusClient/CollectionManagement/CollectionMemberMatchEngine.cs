@@ -188,8 +188,16 @@ namespace Nexus.Client.CollectionManagement
 			if (candidates.Count > 1)
 			{
 				List<CollectionMemberBinding> candidateBindings = GetBindings(nativeState, candidates.Keys);
-				return Result(member, CollectionMemberMatchDisposition.Blocked,
-					CollectionMemberMatchReason.AmbiguousInstalledCandidates, candidates.Values, candidateBindings, verifiedArchive);
+				if (context.Plan.Policy.Kind == CollectionExecutionPolicyKind.InstallIntoCurrentSetup &&
+					directBindings.Count == 0 && candidateBindings.Count == 0 && AreDistinctAlternateFiles(candidates.Values, selectedFileId))
+				{
+					// A main mod and its optional components can share a Nexus page. Acquire the exact
+					// selected file separately instead of choosing a replacement; file conflicts are reviewed later.
+					candidates.Clear();
+				}
+				else
+					return Result(member, CollectionMemberMatchDisposition.Blocked,
+						CollectionMemberMatchReason.AmbiguousInstalledCandidates, candidates.Values, candidateBindings, verifiedArchive);
 			}
 
 			if (candidates.Count == 1)
@@ -268,6 +276,19 @@ namespace Nexus.Client.CollectionManagement
 
 			return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
 				CollectionMemberMatchReason.NoReusableInput, null, null, null);
+		}
+
+		/// <summary>Checks that candidates are distinct known Nexus files and none is the selected artifact.</summary>
+		private static bool AreDistinctAlternateFiles(IEnumerable<CollectionNativeModState> candidates, long selectedFileId)
+		{
+			var fileIds = new HashSet<long>();
+			foreach (CollectionNativeModState candidate in candidates)
+			{
+				long fileId;
+				if (!TryParsePositiveId(candidate.NexusFileId, out fileId) || fileId == selectedFileId || !fileIds.Add(fileId))
+					return false;
+			}
+			return true;
 		}
 
 		private CollectionMemberMatchResult MatchBundledMember(CollectionNativeStateIndex nativeState, MatchingContext context,

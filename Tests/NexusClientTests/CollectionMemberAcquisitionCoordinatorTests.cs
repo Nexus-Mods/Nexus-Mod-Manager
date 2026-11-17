@@ -52,6 +52,46 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Same-page standalone components do not suppress acquisition of the Collection's exact missing file.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Begin_MultipleStandaloneComponentsAcquireExactMissingFile(bool premium)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, premium);
+				CollectionNativeModState[] components = new[] {
+					new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "native-main"),
+						"main.zip", "Main", "100", "201", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual),
+					new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "native-addon"),
+						"addon.zip", "Optional DLL", "100", "202", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual)
+				};
+				CollectionNativeStateIndex state = CreateState(fixture.Target, 0, components);
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(fixture.BuildPlan(state), null, CancellationToken.None);
+				CollectionMemberAcquisitionState member = batch.Members.Single();
+
+				Assert.That(batch.HasBlockedMembers, Is.False);
+				Assert.That(batch.IsAwaitingInput, Is.True);
+				Assert.That(member.Disposition, Is.EqualTo(premium ? CollectionMemberAcquisitionDisposition.PremiumQueued : CollectionMemberAcquisitionDisposition.ManualInputRequired));
+				Assert.That(member.Request.SelectedArtifact.StableId, Is.EqualTo("skyrimspecialedition/100/200"));
+				Assert.That(member.Match.MatchedNativeMod, Is.Null);
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(premium ? 1 : 0));
+				if (premium) StringAssert.Contains("/mods/100/files/200", fixture.Queue.LastUri.AbsolutePath);
+				CollectionAssert.AreEquivalent(components, state.Mods.Values);
+
+				fixture.ArchiveSource.Candidates = new[] { fixture.ExactCandidate };
+				CollectionMemberAcquisitionBatch ready = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+				Assert.That(ready.IsReady, Is.True);
+				Assert.That(ready.Members.Single().Match.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ArchiveOnlyReuse));
+				Assert.That(ready.Members.Single().Match.MatchedNativeMod, Is.Null);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		/// <summary>A blocked member must direct the UI to its issue instead of offering an invalid continuation.</summary>
 		[Test]
 		public void ResumePresentation_BlockedMemberRejectsBothPreparingAndAwaitingInput()
@@ -552,10 +592,13 @@ namespace NexusClientTests
 			public List<TestBackgroundTask> Tasks { get; } = new List<TestBackgroundTask>();
 			public TestBackgroundTask LastTask { get; private set; }
 			public CollectionOperationPhase? PhaseObservedAtQueue { get; private set; }
+			/// <summary>Gets the exact provider URI requested by acquisition.</summary>
+			public Uri LastUri { get; private set; }
 
 			public IBackgroundTask Queue(Uri sourceUri, ConfirmOverwriteCallback confirmOverwriteCallback, Guid queueOperationId)
 			{
 				CallCount++;
+				LastUri = sourceUri;
 				if (CallCount == FailOnCall) throw new IOException("Simulated individual download failure.");
 				CollectionOperation operation = _operationStore.GetIncompleteOperations().Single();
 				PhaseObservedAtQueue = operation.Phase;
