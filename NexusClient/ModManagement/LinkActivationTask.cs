@@ -2,6 +2,7 @@ namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
+    using System.ComponentModel;
     using System.IO;
     using System.Linq;
     using BackgroundTasks;
@@ -244,6 +245,14 @@ namespace Nexus.Client.ModManagement
 			{
 				TraceUtil.TraceException(error);
 				OverallMessage = LanguageManager.Format("Tasks.ModLinks.Failed", "LinkActivationTask failed: {0}", error.Message);
+				const int sharingViolation = 32;
+				const int sharingViolationHResult = unchecked((int)0x80070020);
+				if (error.HResult == sharingViolationHResult ||
+					(error.InnerException is Win32Exception nativeError && nativeError.NativeErrorCode == sharingViolation))
+				{
+					OverallMessage = LanguageManager.Format("Tasks.ModLinks.FileInUse",
+						"A file is in use by another program. Close the program using it, then retry.{0}{1}", Environment.NewLine, error.Message);
+				}
 				Status = TaskStatus.Error;
 				return null;
 			}

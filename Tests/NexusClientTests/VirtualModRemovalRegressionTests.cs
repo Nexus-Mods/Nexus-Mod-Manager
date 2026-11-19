@@ -299,6 +299,36 @@
 			}
 		}
 
+		/// <summary>A deployed plugin open without delete sharing reports a task error and can be disabled after closing the file.</summary>
+		[Test]
+		public void LinkDisable_LockedDeployedPluginReportsErrorAndAllowsRetry()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				const string plugin = "Locked.esm";
+				IMod mod = fixture.CreateMod("LockedDeployment");
+				fixture.Install(mod, plugin, "plugin contents");
+				string deployed = fixture.Deployed(plugin);
+				using (File.Open(deployed, FileMode.Open, FileAccess.Read, FileShare.Read))
+				{
+					var task = new SynchronousLinkDisableTask(mod, fixture);
+					Assert.DoesNotThrow(() => task.Execute());
+					Assert.That(task.Status, Is.EqualTo(Nexus.Client.BackgroundTasks.TaskStatus.Error));
+					Assert.That(task.OverallMessage, Does.Contain(plugin));
+					Assert.That(fixture.Activator.VirtualLinks.Single().Active, Is.True);
+					Assert.That(fixture.InstallLog.GetModKey(mod), Is.Not.Null);
+					Assert.That(fixture.RemovedPlugins, Is.Empty);
+				}
+
+				Assert.That(File.ReadAllText(deployed), Is.EqualTo("plugin contents"));
+				var retry = new SynchronousLinkDisableTask(mod, fixture);
+				retry.Execute();
+				Assert.That(retry.Status, Is.Not.EqualTo(Nexus.Client.BackgroundTasks.TaskStatus.Error));
+				Assert.That(File.Exists(deployed), Is.False);
+				Assert.That(fixture.Activator.VirtualLinks, Is.Empty);
+			}
+		}
+
 		/// <summary>Adjacent removals reuse their shifted position; an invalid hint still searches safely.</summary>
 		[Test]
 		public void LinkListRemoval_VerifiesAndReusesPositionWithoutRescanningUnrelatedLinks()

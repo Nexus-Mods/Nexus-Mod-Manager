@@ -5989,6 +5989,8 @@
 		{
 			if (InvokeRequired) { Invoke((Action<object, EventArgs<IBackgroundTask>>)VM_ActivatingMod, sender, e); return; }
 			ProgressDialog.ShowDialog(this, e.Argument);
+			if (e.Argument is LinkActivationTask task && task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Error)
+				XtraMessageBox.Show(this, task.OverallMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			RefreshActivationState();
 		}
 

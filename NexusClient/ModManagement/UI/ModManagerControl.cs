@@ -2099,11 +2099,14 @@ namespace Nexus.Client.ModManagement.UI
 				TraceUtil.TraceException(ex);
 			}
 
+			LinkActivationTask task = e.Argument as LinkActivationTask;
+			if (task != null && task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Error)
+				MessageBox.Show(this, task.OverallMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+
 			IMod modMod = sender as IMod;
-			if (modMod != null)
+			if (modMod != null && (task == null || task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Complete))
 			{
 				bool nativeRecords = (ViewModel.ModManager.GameMode as ManagedContent.IStructuredXmlRecordProvider)?.StructuredRecords != null;
-				LinkActivationTask task = e.Argument as LinkActivationTask;
 				if (task != null && !task.Disabling)
 				{
 					if (!nativeRecords && ViewModel.ModManager.GameMode.RequiresSpecialFileInstallation && ViewModel.ModManager.GameMode.IsSpecialFile(modMod.GetFileList()))

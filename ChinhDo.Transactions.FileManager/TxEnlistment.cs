@@ -187,10 +187,10 @@ namespace ChinhDo.Transactions
 				{
 					DeleteFileEntryIfPresentCore(path);
 				}
-				catch (Exception e)
+				catch
 				{
 					r.CleanUp();
-					throw new Exception(e.Message, e);
+					throw;
 				}
 				if (_tx != null)
 				{
