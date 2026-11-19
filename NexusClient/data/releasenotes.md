@@ -1,5 +1,13 @@
 # NMM Community Edition release notes
 
+## Version 0.93.15
+
+**Bug fixes**
+
+- Fixed missing Fallout 4 LOOT plugin groups that blocked Collections from preparing their load order.
+- Fixed Collection downloads being blocked when several different files from the same Nexus mod page were installed and the Collection needed a different file.
+- Fixed scripted installers repeatedly prompting for the same INI edit and failing to finish installation.
+
 ## Version 0.93.14
 
 **Bug fixes**
